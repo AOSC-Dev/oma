@@ -237,7 +237,10 @@ impl<'a> OmaRefresh<'a> {
             })?;
         }
 
-        debug!("Setting {} permission as 0755", self.download_dir.display());
+        debug!(
+            "Setting permission for {} as 0755",
+            self.download_dir.display()
+        );
 
         fs::set_permissions(&self.download_dir, Permissions::from_mode(0o755))
             .await
@@ -265,6 +268,8 @@ impl<'a> OmaRefresh<'a> {
         let (tasks, total) = self
             .collect_all_release_entry(&replacer, &mirror_sources)
             .await?;
+
+        debug!("oma will download source metadata: {tasks:#?}");
 
         if tasks.is_empty() {
             return Err(RefreshError::NoMetadataToDownload);
@@ -341,15 +346,15 @@ impl<'a> OmaRefresh<'a> {
                 Ok(output) => {
                     if !output.status.success() {
                         warn!(
-                            "Run {cmd} return non-zero code: {}",
+                            "Command {cmd} returned non-zero exit code: {}",
                             output.status.code().unwrap_or(1)
                         );
                         continue;
                     }
-                    debug!("Run {cmd} success");
+                    debug!("Command {cmd} completed successfully.");
                 }
                 Err(e) => {
-                    warn!("Run {cmd} failed: {e}");
+                    warn!("Command {cmd} exited with error: {e}");
                 }
             }
         }
@@ -380,7 +385,7 @@ impl<'a> OmaRefresh<'a> {
             )
             .await;
 
-        debug!("download_releases: results: {:?}", results);
+        debug!("download_releases returned: {:?}", results);
 
         #[cfg(feature = "aosc")]
         for result in results {
@@ -427,7 +432,7 @@ impl<'a> OmaRefresh<'a> {
         tm.refresh().await?;
         let removed_suites = tm.remove_closed_topics()?;
 
-        debug!("removed suites: {:?}", removed_suites);
+        debug!("Removed suites: {:?}", removed_suites);
 
         for url in not_found {
             let suite = url
@@ -549,9 +554,9 @@ impl<'a> OmaRefresh<'a> {
                 vec![self.arch.as_str()]
             };
 
-            for ose in &m.sources {
-                debug!("Getted oma source entry: {:#?}", ose);
+            debug!("Got source entries: {:#?}", m.sources);
 
+            for ose in &m.sources {
                 let archs = if let Some(archs) = ose.archs()
                     && !archs.is_empty()
                 {
@@ -750,7 +755,6 @@ fn collect_flat_repo_no_release(
         .file_type(CompressFile::Nothing)
         .build();
 
-    debug!("oma will download source database: {download_url}");
     tasks.push(task);
 
     Ok(())
@@ -865,7 +869,6 @@ fn collect_download_task(
         })
         .build();
 
-    debug!("oma will download source database: {download_url}");
     tasks.push(task);
 
     Ok(())

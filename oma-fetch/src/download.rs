@@ -1,4 +1,4 @@
-use crate::{CompressFile, DownloadSource, Event, checksum::ChecksumValidator};
+use crate::{CompressFile, DownloadSource, Event, checksum::ChecksumValidator, send_request};
 use std::{
     borrow::Cow,
     fs::Permissions,
@@ -23,7 +23,7 @@ use tokio::{
 };
 
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::{DownloadEntry, DownloadSourceType};
 
@@ -241,8 +241,8 @@ impl<'a> SingleDownloader<'a> {
         let file_exist = file.exists();
         let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
-        debug!("{} Exist file size is: {file_size}", file.display());
-        debug!("{} download url is: {}", file.display(), source.url);
+        trace!("{} Exist file size is: {file_size}", file.display());
+        trace!("{} download url is: {}", file.display(), source.url);
         let mut dest = None;
         let mut validator = None;
 
@@ -253,12 +253,15 @@ impl<'a> SingleDownloader<'a> {
         // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
         // 如果不存在，则继续往下走
         if file_exist && !file.is_symlink() {
-            debug!("File: {} exists", self.entry.filename);
+            trace!(
+                "File {} already exists, verifying checksum ...",
+                self.entry.filename
+            );
 
             self.set_permission_with_path(&file).await?;
 
             if let Some(hash) = &self.entry.hash {
-                debug!("Hash exist! It is: {}", hash);
+                trace!("Hash {} exists for the existing file.", hash);
 
                 let mut f = tokio::fs::OpenOptions::new()
                     .write(true)
@@ -267,22 +270,16 @@ impl<'a> SingleDownloader<'a> {
                     .await
                     .context(OpenAsWriteModeSnafu)?;
 
-                debug!(
-                    "oma opened file: {} with write and read mode",
-                    self.entry.filename
-                );
+                trace!("oma opened file {} read/write.", self.entry.filename);
 
                 let mut v = hash.get_validator();
 
-                debug!("Validator created.");
+                trace!("Validator created.");
 
                 let (read, finish) = checksum(callback, &mut f, &mut v).await;
 
                 if finish {
-                    debug!(
-                        "{} checksum success, no need to download anything.",
-                        self.entry.filename
-                    );
+                    trace!("Checksum {} matches, cache hit!", self.entry.filename);
 
                     callback(Event::ProgressDone(self.download_list_index)).await;
 
@@ -290,7 +287,7 @@ impl<'a> SingleDownloader<'a> {
                 }
 
                 debug!(
-                    "checksum fail, will download this file: {}",
+                    "Checksum mismatch, initiating re-download for file {} ...",
                     self.entry.filename
                 );
 
@@ -311,8 +308,7 @@ impl<'a> SingleDownloader<'a> {
         .await;
 
         let req = self.build_request_with_basic_auth(&source.url, Method::HEAD, auth);
-
-        let resp_head = timeout(self.timeout, req.send()).await;
+        let resp_head = timeout(self.timeout, send_request(&source.url, req)).await;
 
         callback(Event::ProgressDone(self.download_list_index)).await;
 
@@ -331,13 +327,11 @@ impl<'a> SingleDownloader<'a> {
         // 看看头是否有 ACCEPT_RANGES 这个变量
         // 如果有，而且值不为 none，则可以断点续传
         // 反之，则不能断点续传
-        let mut can_resume = match head.get(ACCEPT_RANGES) {
+        let server_can_resume = match head.get(ACCEPT_RANGES) {
             Some(x) if x == "none" => false,
             Some(_) => true,
             None => false,
         };
-
-        debug!("Can resume? {can_resume}");
 
         // 从服务器获取文件的总大小
         let total_size = {
@@ -353,26 +347,34 @@ impl<'a> SingleDownloader<'a> {
                 .unwrap_or_default()
         };
 
-        debug!("File total size is: {total_size}");
+        trace!("File total size is: {total_size}");
 
         let mut req = self.build_request_with_basic_auth(&source.url, Method::GET, auth);
 
-        if can_resume && allow_resume {
+        let mut resume = server_can_resume;
+
+        if !allow_resume {
+            resume = false;
+        }
+
+        if server_can_resume && allow_resume {
             // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
             // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
             if total_size <= file_size {
-                debug!("Exist file size is reset to 0, because total size <= exist file size");
+                trace!(
+                    "Resetting size indicator for file to 0, as the file to download is larger that the one that already exists."
+                );
                 callback(Event::GlobalProgressSub(file_size)).await;
                 file_size = 0;
-                can_resume = false;
+                resume = false;
             }
 
             // 发送 RANGE 的头，传入的是已经下载的文件的大小
-            debug!("oma will set header range as bytes={file_size}-");
+            trace!("oma will set header range as bytes={file_size}-");
             req = req.header(RANGE, format!("bytes={file_size}-"));
         }
 
-        debug!("Can resume? {can_resume}");
+        debug!("Can resume = {server_can_resume}, will resume = {resume}",);
 
         let resp = timeout(self.timeout, req.send()).await;
 
@@ -397,10 +399,10 @@ impl<'a> SingleDownloader<'a> {
         let hash = &self.entry.hash;
 
         let mut self_progress = 0;
-        let (mut dest, mut validator) = if !can_resume || !allow_resume {
+        let (mut dest, mut validator) = if !resume {
             // 如果不能 resume，则使用创建模式
-            debug!(
-                "oma will open file: {} as create mode.",
+            trace!(
+                "oma will open file {} in creation mode.",
                 self.entry.filename
             );
 
@@ -431,16 +433,16 @@ impl<'a> SingleDownloader<'a> {
             })
             .await;
 
-            debug!(
-                "oma will re use opened dest file for {}",
+            trace!(
+                "oma will re-use opened destination file for {}",
                 self.entry.filename
             );
             self_progress += file_size;
 
             (dest, Some(validator))
         } else {
-            debug!(
-                "oma will open file: {} as create mode.",
+            trace!(
+                "oma will open file {} in creation mode.",
                 self.entry.filename
             );
 
@@ -462,16 +464,16 @@ impl<'a> SingleDownloader<'a> {
             (f, hash.as_ref().map(|hash| hash.get_validator()))
         };
 
-        if can_resume && allow_resume {
+        if server_can_resume && allow_resume {
             // 把文件指针移动到末尾
-            debug!("oma will seek file: {} to end", self.entry.filename);
+            trace!("oma will seek to end-of-file for {}", self.entry.filename);
             if let Err(e) = dest.seek(SeekFrom::End(0)).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(SingleDownloadError::Seek { source: e });
             }
         }
         // 下载！
-        debug!("Start download!");
+        trace!("Starting download!");
 
         let bytes_stream = source
             .bytes_stream()
@@ -528,7 +530,7 @@ impl<'a> SingleDownloader<'a> {
         }
 
         // 下载完成，告诉运行时不再写这个文件了
-        debug!("Download complete! shutting down dest file stream ...");
+        trace!("Download complete! Shutting down destination file stream ...");
         if let Err(e) = dest.shutdown().await {
             callback(Event::ProgressDone(self.download_list_index)).await;
             return Err(SingleDownloadError::Flush { source: e });
@@ -537,15 +539,18 @@ impl<'a> SingleDownloader<'a> {
         // 最后看看 checksum 验证是否通过
         if let Some(v) = validator {
             if !v.finish() {
-                debug!("checksum fail: {}", self.entry.filename);
-                debug!("{self_progress}");
+                debug!("Checksum mismatch for file {}", self.entry.filename);
+                trace!("{self_progress}");
 
                 callback(Event::GlobalProgressSub(self_progress)).await;
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(SingleDownloadError::ChecksumMismatch);
             }
 
-            debug!("checksum success: {}", self.entry.filename);
+            trace!(
+                "Checksum verification successful for file {}",
+                self.entry.filename
+            );
         }
 
         callback(Event::ProgressDone(self.download_list_index)).await;
@@ -555,7 +560,10 @@ impl<'a> SingleDownloader<'a> {
 
     async fn set_permission(&self, f: &File) -> Result<(), SingleDownloadError> {
         if let Some(mode) = self.set_permission {
-            debug!("Setting {} permission to {:#o}", self.entry.filename, mode);
+            trace!(
+                "Setting permission for file {} to {:#o} ...",
+                self.entry.filename, mode
+            );
             f.set_permissions(Permissions::from_mode(mode))
                 .await
                 .context(SetPermissionSnafu)?;
@@ -566,7 +574,10 @@ impl<'a> SingleDownloader<'a> {
 
     async fn set_permission_with_path(&self, path: &Path) -> Result<(), SingleDownloadError> {
         if let Some(mode) = self.set_permission {
-            debug!("Setting {} permission to {:#o}", self.entry.filename, mode);
+            trace!(
+                "Setting permission for file {} to {:#o} ...",
+                self.entry.filename, mode
+            );
 
             fs::set_permissions(path, Permissions::from_mode(mode))
                 .await
@@ -585,7 +596,7 @@ impl<'a> SingleDownloader<'a> {
         let mut req = self.client.request(method, url);
 
         if let Some((user, password)) = auth {
-            debug!("auth user: {}", user);
+            trace!("Authenticating as user: {} ...", user);
             req = req.basic_auth(user, Some(password));
         }
 
@@ -643,12 +654,12 @@ impl<'a> SingleDownloader<'a> {
         })
         .await;
 
-        debug!("File path is: {}", url_path.display());
+        trace!("Path for file: {}", url_path.display());
 
         let from = File::open(&url_path).await.context(CreateSnafu)?;
         let from = tokio::io::BufReader::new(from).compat();
 
-        debug!("Success open file: {}", url_path.display());
+        trace!("Successfully opened file: {}", url_path.display());
 
         let mut to = File::create(self.entry.dir.join(&*self.entry.filename))
             .await
@@ -666,8 +677,8 @@ impl<'a> SingleDownloader<'a> {
 
         let mut reader = reader.compat();
 
-        debug!(
-            "Success create file: {}",
+        trace!(
+            "Successfully created file: {}",
             self.entry.dir.join(&*self.entry.filename).display()
         );
 
@@ -739,14 +750,14 @@ async fn checksum(
     let mut read = 0;
 
     loop {
-        let Ok(buffer) = reader.fill_buf().await else {
-            debug!("Read file get fk, so re-download it");
-            break;
+        let buffer = match reader.fill_buf().await {
+            Ok([]) => break,
+            Ok(buffer) => buffer,
+            Err(e) => {
+                debug!("Error while reading file: {e}");
+                break;
+            }
         };
-
-        if buffer.is_empty() {
-            break;
-        }
 
         v.update(buffer);
 

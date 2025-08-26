@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     fs::Permissions,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
@@ -14,6 +15,7 @@ use oma_apt_sources_lists::{
 use oma_fetch::{
     SingleDownloadError, build_request_with_basic_auth,
     reqwest::{Client, Method, Response, StatusCode},
+    send_request,
 };
 use once_cell::sync::OnceCell;
 use tokio::{
@@ -28,7 +30,7 @@ use crate::{
     util::DatabaseFilenameReplacer,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct OmaSourceEntry<'a> {
     source: SourceEntry,
     arch: &'a str,
@@ -36,6 +38,19 @@ pub struct OmaSourceEntry<'a> {
     suite: OnceCell<String>,
     dist_path: OnceCell<String>,
     from: OnceCell<OmaSourceEntryFrom>,
+}
+
+impl Debug for OmaSourceEntry<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OmaSourceEntry")
+            .field("url", &self.url)
+            .field("options", &self.source.options)
+            .field("suite", &self.suite)
+            .field("dist_path", &self.dist_path)
+            .field("from", &self.from)
+            .field("is-src", &self.source.source)
+            .finish()
+    }
 }
 
 pub(crate) async fn scan_sources_lists_paths_from_sysroot(
@@ -110,7 +125,7 @@ pub async fn scan_sources_list_from_paths<'a>(
                         .iter()
                         .any(|re| re.is_match(&file_name.to_string_lossy()).unwrap_or(false))
                     {
-                        debug!("{:?} matches ignore list", file_name);
+                        debug!("File {:?} matches ignore list.", file_name);
                         continue;
                     }
 
@@ -422,10 +437,9 @@ impl MirrorSource<'_> {
             url,
         );
 
-        request
-            .send()
-            .await
-            .and_then(|resp| resp.error_for_status())
+        let resp = send_request(url, request).await?;
+
+        Ok(resp)
     }
 
     async fn download_file(
@@ -525,13 +539,13 @@ impl MirrorSource<'_> {
 
             if p.exists() {
                 if dst.exists() {
-                    debug!("get_release_file: Removing {}", dst.display());
+                    debug!("get_release_file: Removing {} ...", dst.display());
                     fs::remove_file(&dst)
                         .await
                         .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
                 }
 
-                debug!("get_release_file: Symlink {}", dst.display());
+                debug!("get_release_file: Symlinking {} ...", dst.display());
                 fs::symlink(p, &dst)
                     .await
                     .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
