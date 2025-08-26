@@ -10,6 +10,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod args;
+mod clap_err;
 mod config;
 mod error;
 mod install_progress;
@@ -50,6 +51,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
 
+use crate::clap_err::OmaClapRichFormatter;
 use crate::config::Config;
 use crate::error::Chain;
 use crate::install_progress::osc94_progress;
@@ -231,7 +233,14 @@ fn main() {
 }
 
 fn parse_args() -> (ArgMatches, OhManagerAilurus) {
-    let matches = OhManagerAilurus::command().get_matches();
+    let matches = match OhManagerAilurus::command().try_get_matches() {
+        Ok(m) => m,
+        Err(e) => {
+            let e = e.apply::<OmaClapRichFormatter>();
+            e.exit();
+        }
+    };
+
     let oma = match OhManagerAilurus::from_arg_matches(&matches).map_err(|e| {
         let mut cmd = OhManagerAilurus::command();
         e.format(&mut cmd)
