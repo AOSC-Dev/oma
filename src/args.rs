@@ -46,6 +46,20 @@ pub(crate) trait CliExecuter {
 static HELP_HEADING: LazyLock<String> = LazyLock::new(|| fl!("clap-command"));
 static NEXT_HELP_HEADING: LazyLock<String> = LazyLock::new(|| fl!("clap-argument"));
 
+pub static HELP_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        "\
+{{before-help}}{{about-with-newline}}
+{}{}:{} {{usage}}
+
+{{all-args}}{{after-help}}\
+    ",
+        Styles::default().get_usage().render(),
+        fl!("clap-usage"),
+        Styles::default().get_usage().render_reset()
+    )
+});
+
 #[derive(Parser, Debug)]
 #[command(
     version,
@@ -67,15 +81,7 @@ static NEXT_HELP_HEADING: LazyLock<String> = LazyLock::new(|| fl!("clap-argument
         fl!("clap-argument"),
         fl!("clap-command")
     ),
-    help_template = format!("\
-{{before-help}}{{about-with-newline}}
-{}{}:{} {{usage}}
-
-{{all-args}}{{after-help}}\
-    ",
-    Styles::default().get_usage().render(),
-    fl!("clap-usage"),
-    Styles::default().get_usage().render_reset())
+    help_template = &*HELP_TEMPLATE,
 )]
 pub struct OhManagerAilurus {
     #[command(flatten)]
@@ -88,7 +94,17 @@ pub struct OhManagerAilurus {
 #[derive(Debug, Subcommand)]
 pub enum SubCmd {
     /// Install package(s) from the repository
-    #[command(visible_alias = "add", about = fl!("clap-install-help"))]
+    #[command(
+        visible_alias = "add",
+        about = fl!("clap-install-help"),
+        help_template = &*HELP_TEMPLATE,
+        override_usage = format!("{}oma install{} [{}] [{}]...",
+            Styles::default().get_literal().render(),
+            Styles::default().get_literal().render_reset(),
+            fl!("clap-argument"),
+            fl!("clap-packages-value-name")
+        )
+    )]
     Install(Install),
     /// Upgrade packages installed on the system
     #[command(visible_alias = "full-upgrade", about = fl!("clap-upgrade-help"))]

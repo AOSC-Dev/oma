@@ -354,3 +354,4 @@ clap-argument-context = 参数
 clap-error-heading = 错误
 clap-tip-heading = 小贴士
 clap-usage-heading = 用法:
+clap-packages-value-name = 软件包名

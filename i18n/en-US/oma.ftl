@@ -366,3 +366,4 @@ clap-argument-context = argument
 clap-error-heading = error
 clap-tip-heading = tip
 clap-usage-heading = Usage:
+clap-packages-value-name = PACKAGES
