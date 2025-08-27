@@ -150,9 +150,7 @@ fn main() {
 
     init_localizer();
 
-    ctrlc::set_handler(single_handler).expect(
-        "Oma could not initialize SIGINT handler. Please restart your installation environment.",
-    );
+    ctrlc::set_handler(single_handler).expect("oma could not initialize SIGINT handler.");
 
     let oma = OhManagerAilurus::parse();
 
