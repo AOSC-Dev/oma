@@ -363,3 +363,4 @@ clap-error-heading = error
 clap-tip-heading = tip
 clap-usage-heading = Usage:
 clap-packages-value-name = PACKAGES
+clap-dyn-errorkind-unexpected-arg = unexpected argument '{ $arg }' found

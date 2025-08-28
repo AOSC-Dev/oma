@@ -353,9 +353,11 @@ fn write_dynamic_context(
         ErrorKind::UnknownArgument => {
             let invalid_arg = error.get(ContextKind::InvalidArg);
             if let Some(ContextValue::String(invalid_arg)) = invalid_arg {
+                let arg = format!("{invalid}{invalid_arg}{invalid:#}");
                 let _ = write!(
                     styled,
-                    "unexpected argument '{invalid}{invalid_arg}{invalid:#}' found",
+                    "{}",
+                    fl!("clap-dyn-errorkind-unexpected-arg", arg = arg),
                 );
                 true
             } else {
