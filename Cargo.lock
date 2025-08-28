@@ -236,9 +236,9 @@ dependencies = [
 
 [[package]]
 name = "async-executor"
-version = "1.13.2"
+version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb812ffb58524bdd10860d7d974e2f01cc0950c2438a74ee5ec2e2280c6c4ffa"
+checksum = "497c00e0fd83a72a79a39fcbd8e3e2f055d6f6c7e025f3b3d91f4f8e76527fb8"
 dependencies = [
  "async-task",
  "concurrent-queue",
@@ -1005,9 +1005,9 @@ dependencies = [
 
 [[package]]
 name = "cxx"
-version = "1.0.169"
+version = "1.0.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df881e2764e20d320c9c8ddd8670018b1abaa2557e73811f03d5b2643da671d7"
+checksum = "77377ef8d2a668ad5ad5c58a1d0b172836495dffd3b10e0488a41c9b288b3a0e"
 dependencies = [
  "cc",
  "cxxbridge-cmd",
@@ -1019,9 +1019,9 @@ dependencies = [
 
 [[package]]
 name = "cxx-build"
-version = "1.0.169"
+version = "1.0.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acef58f684c0c9b7bffc111657c9f1364e4fa47af46fd7f03b71b7a4066ac372"
+checksum = "d3579771cb1e6b9cd41903887f3ea98bc2e0761f975bf55adcc0c1e62ab4521f"
 dependencies = [
  "cc",
  "codespan-reporting",
@@ -1034,9 +1034,9 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-cmd"
-version = "1.0.169"
+version = "1.0.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "669616995d33251cb7215f96820d78a810ee218573246830fb96f29961e1712a"
+checksum = "dea3ad43f199bbb9df0547f5db39896604b9554784d963d73a8c7f83fc6fecb1"
 dependencies = [
  "clap",
  "codespan-reporting",
@@ -1048,15 +1048,15 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-flags"
-version = "1.0.169"
+version = "1.0.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9aebcb754a24722d34e7f4e021376862179194cc5ec83ded2dd84b9db36be106"
+checksum = "e213bf54b95ba7bceebbbdaf923dfe32fdbd630c685fedf5c47132da64df6aa1"
 
 [[package]]
 name = "cxxbridge-macro"
-version = "1.0.169"
+version = "1.0.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ea9594efbebf2f822925b6368eea741dd2677bb411313e50c2de8ba8c3d3a62"
+checksum = "9caa03943851c364d0ff229bd11ba07f3144673cca9feb52b9ca09817c8a239e"
 dependencies = [
  "indexmap 2.11.0",
  "proc-macro2",
@@ -2439,9 +2439,9 @@ dependencies = [
 
 [[package]]
 name = "liblzma"
-version = "0.4.3"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "272b875472a046e39ff7408374a5a050b112d2142211a0f54a295c0bd1c3c757"
+checksum = "10bf66f4598dc77ff96677c8e763655494f00ff9c1cf79e2eb5bb07bc31f807d"
 dependencies = [
  "liblzma-sys",
 ]
@@ -3538,9 +3538,9 @@ checksum = "1190fd18ae6ce9e137184f207593877e70f39b015040156b1e05081cdfe3733a"
 
 [[package]]
 name = "quinn"
-version = "0.11.8"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "626214629cda6781b6dc1d316ba307189c85ba657213ce642d9c77670f8202c8"
+checksum = "b9e20a958963c291dc322d98411f541009df2ced7b5a4f2bd52337638cfccf20"
 dependencies = [
  "bytes",
  "cfg_aliases",
@@ -3549,7 +3549,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.1",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.0",
  "thiserror 2.0.16",
  "tokio",
  "tracing",
@@ -3558,9 +3558,9 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.12"
+version = "0.11.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49df843a9161c85bb8aae55f101bc0bac8bcafd637a620d9122fd7e0b2f7422e"
+checksum = "f1906b49b0c3bc04b5fe5d86a77925ae6524a19b816ae38ce1e426255f1d8a31"
 dependencies = [
  "bytes",
  "getrandom 0.3.3",
@@ -3579,16 +3579,16 @@ dependencies = [
 
 [[package]]
 name = "quinn-udp"
-version = "0.5.13"
+version = "0.5.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcebb1209ee276352ef14ff8732e24cc2b02bbac986cd74a4c81bcb2f9881970"
+checksum = "addec6a0dcad8a8d96a771f815f0eaf55f9d1805756410b39f5fa81332574cbd"
 dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.0",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
