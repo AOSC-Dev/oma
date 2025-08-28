@@ -60,7 +60,7 @@ impl ErrorFormatter for OmaClapRichFormatter {
                 styled.push_str("\n");
                 suggested = true;
             }
-            did_you_mean(&mut styled, styles, "value", valid);
+            did_you_mean(&mut styled, styles, &fl!("clap-value-context"), valid);
         }
         let suggestions = error.get(ContextKind::Suggested);
         if let Some(ContextValue::StyledStrs(suggestions)) = suggestions {
@@ -128,31 +128,26 @@ fn write_dynamic_context(
     match error.kind() {
         ErrorKind::ArgumentConflict => {
             let mut prior_arg = error.get(ContextKind::PriorArg);
+            let mut arg_conflict = false;
+            let mut subcommand_conflict = false;
+            let mut arg = "".to_string();
             if let Some(ContextValue::String(invalid_arg)) = error.get(ContextKind::InvalidArg) {
-                let arg = format!("{invalid}{invalid_arg}{invalid:#}");
+                arg = format!("{invalid}{invalid_arg}{invalid:#}");
                 if Some(&ContextValue::String(invalid_arg.clone())) == prior_arg {
                     prior_arg = None;
                     let _ = write!(
                         styled,
                         "{}",
-                        fl!("clap-dyn-errorkind-multipletimes", arg = arg),
+                        fl!("clap-dyn-errorkind-multipletimes", arg = arg.clone()),
                     );
                 } else {
-                    let _ = write!(
-                        styled,
-                        "{}",
-                        fl!("clap-dyn-errorkind-argconflict", arg = arg),
-                    );
+                    arg_conflict = true;
                 }
             } else if let Some(ContextValue::String(invalid_arg)) =
                 error.get(ContextKind::InvalidSubcommand)
             {
-                let arg = format!("{invalid}{invalid_arg}{invalid:#}");
-                let _ = write!(
-                    styled,
-                    "{}",
-                    fl!("clap-dyn-errorkind-subcmd-conflict", arg = arg),
-                );
+                arg = format!("{invalid}{invalid_arg}{invalid:#}");
+                subcommand_conflict = true;
             } else {
                 styled.push_str(&translation_errorkind(error));
             }
@@ -166,7 +161,25 @@ fn write_dynamic_context(
                         }
                     }
                     ContextValue::String(value) => {
-                        let _ = write!(styled, " '{invalid}{value}{invalid:#}'");
+                        let value = format!("{invalid}{value}{invalid:#}");
+
+                        if arg_conflict {
+                            let _ = write!(
+                                styled,
+                                "{}",
+                                fl!("clap-dyn-errorkind-argconflict", arg = arg, arg2 = value)
+                            );
+                        } else if subcommand_conflict {
+                            let _ = write!(
+                                styled,
+                                "{}",
+                                fl!(
+                                    "clap-dyn-errorkind-subcmd-conflict",
+                                    arg = arg,
+                                    subcmd = value
+                                )
+                            );
+                        }
                     }
                     _ => {
                         let _ = write!(styled, "{}", fl!("clap-dyn-errorkind-conflict-other"));
@@ -207,15 +220,20 @@ fn write_dynamic_context(
                         styled,
                         "{}",
                         fl!(
-                            "clap-dyn-errorkind-invalid-value-for-arg",
-                            value = value,
-                            arg = arg
+                            "clap-dyn-errorkind-value-validation",
+                            invalid_value = value,
+                            invalid_arg = arg
                         ),
                     );
                 }
 
                 let values = error.get(ContextKind::ValidValue);
-                write_values_list("possible values", styled, valid, values);
+                write_values_list(
+                    &fl!("clap-possible-value-context", multi = true.to_string()),
+                    styled,
+                    valid,
+                    values,
+                );
 
                 true
             } else {
@@ -258,7 +276,12 @@ fn write_dynamic_context(
                     fl!("clap-dyn-errorkind-subcmd-not-provided", sub = sub),
                 );
                 let values = error.get(ContextKind::ValidSubcommand);
-                write_values_list("subcommands", styled, valid, values);
+                write_values_list(
+                    &fl!("clap-subcommand-context", multi = true.to_string()),
+                    styled,
+                    valid,
+                    values,
+                );
 
                 true
             } else {
@@ -300,10 +323,19 @@ fn write_dynamic_context(
                 Some(ContextValue::Number(min_values)),
             ) = (invalid_arg, actual_num_values, min_values)
             {
-                let were_provided = singular_or_plural(*actual_num_values as usize);
+                let min_values = format!("{valid}{min_values}{valid:#}");
+                let invalid_arg = format!("{literal}{invalid_arg}{literal:#}");
+                let actual_num_values_str = format!("{invalid}{actual_num_values}{invalid:#}");
                 let _ = write!(
                     styled,
-                    "{valid}{min_values}{valid:#} values required by '{literal}{invalid_arg}{literal:#}'; only {invalid}{actual_num_values}{invalid:#}{were_provided}",
+                    "{}",
+                    fl!(
+                        "clap-dyn-errorkind-too-few-values",
+                        min_values = min_values,
+                        invalid_arg = invalid_arg,
+                        actual_num_values = actual_num_values_str,
+                        n = actual_num_values
+                    )
                 );
                 true
             } else {
@@ -318,9 +350,16 @@ fn write_dynamic_context(
                 Some(ContextValue::String(invalid_value)),
             ) = (invalid_arg, invalid_value)
             {
+                let invalid_value = format!("{invalid}{invalid_value}{invalid:#}");
+                let invalid_arg = format!("{literal}{invalid_arg}{literal:#}");
                 let _ = write!(
                     styled,
-                    "invalid value '{invalid}{invalid_value}{invalid:#}' for '{literal}{invalid_arg}{literal:#}'",
+                    "{}",
+                    fl!(
+                        "clap-dyn-errorkind-value-validation",
+                        invalid_value = invalid_value,
+                        invalid_arg = invalid_arg
+                    )
                 );
                 if let Some(source) = error.source() {
                     let _ = write!(styled, ": {source}");
@@ -340,10 +379,20 @@ fn write_dynamic_context(
                 Some(ContextValue::Number(num_values)),
             ) = (invalid_arg, actual_num_values, num_values)
             {
-                let were_provided = singular_or_plural(*actual_num_values as usize);
+                let num_values = format!("{valid}{num_values}{valid:#}");
+                let invalid_arg = format!("{literal}{invalid_arg}{literal:#}");
+                let actual_num_values_str = format!("{invalid}{actual_num_values}{invalid:#}");
+
                 let _ = write!(
                     styled,
-                    "{valid}{num_values}{valid:#} values required for '{literal}{invalid_arg}{literal:#}' but {invalid}{actual_num_values}{invalid:#}{were_provided}",
+                    "{}",
+                    fl!(
+                        "clap-dyn-errorkind-wrong-number-of-values",
+                        num_values = num_values,
+                        invalid_arg = invalid_arg,
+                        actual_num_values = actual_num_values_str,
+                        n = actual_num_values
+                    )
                 );
                 true
             } else {
@@ -374,7 +423,7 @@ fn write_dynamic_context(
 }
 
 fn write_values_list(
-    list_name: &'static str,
+    list_name: &str,
     styled: &mut StyledStr,
     valid: &Style,
     possible_values: Option<&ContextValue>,
@@ -393,15 +442,6 @@ fn write_values_list(
         }
 
         styled.push_str("]");
-    }
-}
-
-/// Returns the singular or plural form on the verb to be based on the argument's value.
-fn singular_or_plural(n: usize) -> &'static str {
-    if n > 1 {
-        " were provided"
-    } else {
-        " was provided"
     }
 }
 
