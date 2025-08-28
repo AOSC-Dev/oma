@@ -10,7 +10,6 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod args;
-mod clap_err;
 mod config;
 mod error;
 mod install_progress;
@@ -26,6 +25,7 @@ use args::{CliExecuter, OhManagerAilurus, print_version};
 use clap::builder::FalseyValueParser;
 use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches, arg};
 use clap_complete::CompleteEnv;
+use clap_i18n_richformatter::{ClapI18nRichFormatter, init_clap_rich_formatter_localizer};
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
@@ -51,7 +51,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
 
-use crate::clap_err::OmaClapRichFormatter;
 use crate::config::Config;
 use crate::error::Chain;
 use crate::install_progress::osc94_progress;
@@ -166,6 +165,7 @@ fn main() {
         libc::setlocale(libc::LC_ALL, s.as_ptr());
     }
 
+    init_clap_rich_formatter_localizer();
     init_localizer();
 
     ctrlc::set_handler(single_handler).expect("oma could not initialize SIGINT handler.");
@@ -236,7 +236,7 @@ fn parse_args() -> (ArgMatches, OhManagerAilurus) {
     let matches = match OhManagerAilurus::command().try_get_matches() {
         Ok(m) => m,
         Err(e) => {
-            let e = e.apply::<OmaClapRichFormatter>();
+            let e = e.apply::<ClapI18nRichFormatter>();
             e.exit();
         }
     };
