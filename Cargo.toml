@@ -51,6 +51,7 @@ termtree = "0.5.1"
 textwrap = "0.16.2"
 sysinfo = "0.37"
 once_cell = "1.21"
+clap-i18n-richformatter = "0.1.0"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
