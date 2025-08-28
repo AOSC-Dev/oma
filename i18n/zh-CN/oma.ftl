@@ -355,3 +355,4 @@ clap-error-heading = 错误
 clap-tip-heading = 小贴士
 clap-usage-heading = 用法:
 clap-packages-value-name = 软件包名
+clap-dyn-errorkind-unexpected-arg = 不支持该参数 '{ $arg }'
