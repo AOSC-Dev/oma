@@ -28,77 +28,77 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Install {
     /// Package(s) to install
-    #[arg(add = ArgValueCompleter::new(pkgnames_and_path_completions))]
+    #[arg(add = ArgValueCompleter::new(pkgnames_and_path_completions), help = fl!("clap-install-packages-help"))]
     packages: Vec<String>,
     /// Install recommended package(s)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-install-recommends-help"))]
     install_recommends: bool,
     /// Reinstall package(s)
-    #[arg(long, requires = "packages")]
+    #[arg(long, requires = "packages", help = fl!("clap-reinstall-help"))]
     reinstall: bool,
     /// Install suggested package(s)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-install-suggests-help"))]
     install_suggests: bool,
     /// Do not install recommended package(s)
-    #[arg(long, conflicts_with = "install_recommends")]
+    #[arg(long, conflicts_with = "install_recommends", help = fl!("clap-no-install-recommends-help"))]
     no_install_recommends: bool,
     /// Do not install suggested package(s)
-    #[arg(long, conflicts_with = "install_suggests")]
+    #[arg(long, conflicts_with = "install_suggests", help = fl!("clap-no-install-suggests-help"))]
     no_install_suggests: bool,
     /// Bypass confirmation prompts
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-yes-help"))]
     yes: bool,
     /// Install debug symbol package
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-install-dbg-help"))]
     install_dbg: bool,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
     /// Run oma do not check dbus
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
     no_check_dbus: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
     /// Resolve broken dependencies in the system
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-fix-broken-help"))]
     fix_broken: bool,
     /// Do not fix dpkg broken status
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-no-fix-dpkg-status-help"))]
     no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-unsafe-io-help"))]
     force_unsafe_io: bool,
     /// Do not refresh repository metadata
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-refresh-help"))]
     no_refresh: bool,
     /// Ignore repository and package dependency issues
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-yes-help"))]
     force_yes: bool,
     /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-confnew-help"))]
     force_confnew: bool,
     #[cfg(feature = "aosc")]
     /// Do not refresh topics manifest.json file
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
     no_refresh_topics: bool,
     /// Auto remove unnecessary package(s)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-autoremove-help"))]
     autoremove: bool,
     /// Remove package(s) also remove configuration file(s), like apt purge
-    #[arg(long, visible_alias = "purge")]
+    #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
     /// Setup download threads (default as 4)
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
     /// Run oma do not check battery status
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
     no_check_battery: bool,
-    /// Run oma do not check battery status
-    #[arg(from_global)]
+    /// Run oma do not take wake lock
+    #[arg(from_global, help = fl!(clap-no-take-wake-lock-help))]
     no_take_wake_lock: bool,
 }
 

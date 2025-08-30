@@ -87,85 +87,90 @@ pub struct CliMirror {
     #[command(subcommand)]
     mirror_subcmd: Option<MirrorSubCmd>,
     /// Do not refresh topics manifest.json file
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
     no_refresh_topics: bool,
     /// Do not refresh repository metadata
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-refresh-help"))]
     no_refresh: bool,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help", long_help = fl!("clap-dry-run-long-help")))]
     dry_run: bool,
     /// Setup download threads (default as 4)
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum MirrorSubCmd {
     /// Set mirror(s) to sources.list
+    #[command(about = fl!("clap-mirror-set-help"))]
     Set {
         /// Enable mirror name(s)
-        #[arg(required = true)]
+        #[arg(required = true, help = fl!("clap-mirror-set-names-help"))]
         names: Vec<String>,
         /// Set sysroot target directory
-        #[arg(from_global)]
+        #[arg(from_global, help = fl!("clap-sysroot-help"))]
         sysroot: PathBuf,
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
     /// Add mirror(s) to sources.list
+    #[command(about = fl!("clap-mirror-add-help"))]
     Add {
         /// Add mirror name(s)
-        #[arg(required = true)]
+        #[arg(required = true, help = fl!("clap-mirror-add-names-help"))]
         names: Vec<String>,
         /// Set sysroot target directory
-        #[arg(from_global)]
+        #[arg(from_global, help = fl!("clap-sysroot-help"))]
         sysroot: PathBuf,
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
     /// Remove mirror(s) from sources.list
+    #[command(about = fl!("clap-mirror-remove-help"))]
     Remove {
         /// Remove mirror name(s)
-        #[arg(required = true)]
+        #[arg(required = true, help = fl!("clap-mirror-remove-names-help"))]
         names: Vec<String>,
         /// Set sysroot target directory
-        #[arg(from_global)]
+        #[arg(from_global, help = fl!("clap-sysroot-help"))]
         sysroot: PathBuf,
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
     /// Sort mirror(s) order
+    #[command(about = fl!("clap-mirror-sort-mirrors-help"))]
     SortMirrors {
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
     /// Speedtest mirror(s)
+    #[command(about = fl!("clap-mirror-speedtest-help"))]
     Speedtest {
         /// Also set fastest as mirror
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-mirror-speedtest-set-fastest-help"))]
         set_fastest: bool,
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
 }

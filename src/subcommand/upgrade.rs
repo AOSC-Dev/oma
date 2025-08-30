@@ -32,63 +32,63 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub(crate) struct Upgrade {
     /// Do not fix apt broken status
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-fixbroken-help"))]
     no_fixbroken: bool,
     /// Do not fix dpkg broken status
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-fix-dpkg-status-help"))]
     no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-unsafe-io-help"))]
     force_unsafe_io: bool,
     /// Do not refresh repository metadata
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-refresh-help"))]
     no_refresh: bool,
     /// Ignore repository and package dependency issues
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-yes-help"))]
     force_yes: bool,
     /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-confnew-help"))]
     force_confnew: bool,
     #[cfg(feature = "aosc")]
     /// Do not refresh topics manifest.json file
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
     no_refresh_topics: bool,
     /// Auto remove unnecessary package(s)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-autoremove-help"))]
     autoremove: bool,
     /// Remove package(s) also remove configuration file(s), like apt purge
-    #[arg(long, visible_alias = "purge")]
+    #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
     /// Bypass confirmation prompts
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-yes-help"))]
     yes: bool,
     #[cfg(not(feature = "aosc"))]
     /// Do not allow removal of packages during upgrade (like `apt upgrade')
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-remove-help"))]
     no_remove: bool,
     /// Package(s) to install
-    #[arg(add = ArgValueCompleter::new(pkgnames_and_path_completions))]
+    #[arg(add = ArgValueCompleter::new(pkgnames_and_path_completions), help = fl!("clap-install-packages-help"))]
     packages: Vec<String>,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
     /// Run oma do not check dbus
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-no-check-dbus"))]
     no_check_dbus: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
     /// Setup download threads (default as 4)
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
     /// Run oma do not check battery status
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
     no_check_battery: bool,
-    /// Run oma do not check battery status
-    #[arg(from_global)]
+    /// Run oma do not take wake lock
+    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
     no_take_wake_lock: bool,
 }
 

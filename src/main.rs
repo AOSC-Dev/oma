@@ -127,29 +127,29 @@ pub struct GlobalOptions {
     )]
     no_check_dbus: bool,
     /// Run oma do not check battery status
-    #[arg(long, global = true, env = "OMA_NO_CHECK_BATTERY", value_parser = FalseyValueParser::new()
+    #[arg(long, global = true, env = "OMA_NO_CHECK_BATTERY", help = fl!("clap-no-check-battery-help"), value_parser = FalseyValueParser::new()
 )]
     no_check_battery: bool,
     /// Run oma do not take wake lock
-    #[arg(long, global = true, env = "OMA_NO_TAKE_WAKE_LOCK", value_parser = FalseyValueParser::new()
+    #[arg(long, global = true, env = "OMA_NO_TAKE_WAKE_LOCK", help = fl!("clap-no-take-wake-lock-help"), value_parser = FalseyValueParser::new()
 )]
     no_take_wake_lock: bool,
     /// Print version
     // FIXME: ArgAcrion::Version buggy
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-version-help"))]
     version: bool,
     /// Set sysroot target directory
-    #[arg(long, global = true, default_value = "/", env = "OMA_SYSROOT")]
+    #[arg(long, global = true, default_value = "/", env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(long, global = true, action = ArgAction::Append)]
+    #[arg(long, global = true, action = ArgAction::Append, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
     /// Don't ring if oma completes the transaction
-    #[arg(long, global = true, env = "OMA_NO_BELL", value_parser = FalseyValueParser::new()
+    #[arg(long, global = true, env = "OMA_NO_BELL", help = fl!("clap-no-bell-help"), value_parser = FalseyValueParser::new()
 )]
     no_bell: bool,
     /// Setup download threads (default as 4)
-    #[arg(long, short = 't', global = true, env = "OMA_DOWNLOAD_THREADS")]
+    #[arg(long, short = 't', global = true, env = "OMA_DOWNLOAD_THREADS", help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
 }
 

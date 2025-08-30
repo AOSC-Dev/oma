@@ -6,6 +6,7 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use crate::{
     config::Config,
     error::OutputError,
+    fl,
     utils::{dbus_check, root},
 };
 
@@ -15,43 +16,43 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct FixBroken {
     /// Do not fix dpkg broken status
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-no-fix-dpkg-status-help"))]
     no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-unsafe-io-help"))]
     force_unsafe_io: bool,
     /// Ignore repository and package dependency issues
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-yes-help"))]
     force_yes: bool,
     /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-confnew-help"))]
     force_confnew: bool,
     /// Auto remove unnecessary package(s)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-autoremove-help"))]
     autoremove: bool,
     /// Remove package(s) also remove configuration file(s), like apt purge
-    #[arg(long, visible_alias = "purge")]
+    #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
     /// Run oma do not check dbus
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
     no_check_dbus: bool,
     /// Run oma do not check battery status
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
     no_check_battery: bool,
-    /// Run oma do not check battery status
-    #[arg(from_global)]
+    /// Run oma do not take wake lock
+    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
     no_take_wake_lock: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
     /// Setup download threads (default as 4)
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
 }
 

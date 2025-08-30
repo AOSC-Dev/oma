@@ -18,22 +18,22 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Clean {
     /// Keep downloadable packages
-    #[arg(long, conflicts_with = "keep_downloadable_and_installed")]
+    #[arg(long, conflicts_with = "keep_downloadable_and_installed", help = fl!("clap-clean-keep-downloadable-help"))]
     keep_downloadable: bool,
     /// Keep downloadable and installed packages
-    #[arg(long, conflicts_with = "keep_downloadable")]
+    #[arg(long, conflicts_with = "keep_downloadable", help = fl!("clap-clean-keep-downloadable-and-installed-help"))]
     keep_downloadable_and_installed: bool,
     /// Keep installed packages
-    #[arg(long, conflicts_with = "keep_downloadable_and_installed")]
+    #[arg(long, conflicts_with = "keep_downloadable_and_installed", help = fl!("clap-clean-keep-installed-help"))]
     keep_installed: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
 }
 

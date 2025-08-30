@@ -38,20 +38,21 @@ pub struct Mark {
     /// Mark status for one or multiple package(s)
     #[arg(
         required = true,
-        long_help = "Mark status for one or multiple package(s), oma will resolve dependencies in accordance with the marked status(es) of the specified package(s)"
+        help = fl!("clap-mark-help"),
+        long_help = fl!("clap-mark-long-help")
     )]
     action: MarkAction,
     /// Package(s) to mark status for
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-mark-packages-help"))]
     packages: Vec<String>,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
 }
 

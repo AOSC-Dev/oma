@@ -26,35 +26,35 @@ use termtree::Tree as TermTree;
 #[derive(Debug, Args)]
 pub struct Tree {
     /// Query Package(s) name
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-tree-packages-help"))]
     packages: Vec<String>,
     /// Invert the tree direction and focus on the given package
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-tree-reverse-help"))]
     reverse: bool,
     /// Maximum display depth of the dependency tree
-    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5))]
+    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = fl!("clap-tree-depth-help"))]
     depth: u8,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Output result to stdout, not pager
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-pager-help"))]
     no_pager: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct Why {
     /// Query Package(s) name
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-why-packages-help"))]
     packages: Vec<String>,
     /// Maximum display depth of the dependency tree
-    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5))]
+    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = fl!("clap-why-depth-help"))]
     depth: u8,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Output result to stdout, not pager
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-pager-help"))]
     no_pager: bool,
 }
 

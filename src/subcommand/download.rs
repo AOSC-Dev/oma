@@ -21,16 +21,16 @@ use super::utils::{auth_config, download_message};
 #[derive(Debug, Args)]
 pub struct Download {
     /// Package(s) to download
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-download-packages-help"))]
     packages: Vec<String>,
     /// The path where package(s) should be downloaded to
-    #[arg(short, long, default_value = ".")]
+    #[arg(short, long, default_value = ".", help = fl!("clap-download-path-help"))]
     path: PathBuf,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
     /// Setup download threads (default as 4)
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
 }
 

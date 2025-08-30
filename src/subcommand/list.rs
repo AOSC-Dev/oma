@@ -19,37 +19,37 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct List {
     /// Package(s) to list
-    #[arg(add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-list-packages-help"))]
     packages: Vec<String>,
     /// List all available version(s) of (a) package(s) from all repository(ies)
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-list-all-help"))]
     all: bool,
     /// List only package(s) currently installed on the system
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-list-installed-help"))]
     installed: bool,
     /// List only package(s) with update(s) available
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-list-upgradable-help"))]
     upgradable: bool,
     /// List only package(s) with manually installed
-    #[arg(short, long)]
+    #[arg(short, long, help = fl!("clap-list-manually-installed-help"))]
     manually_installed: bool,
     /// List only package(s) with automatic installed
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-list-automatic-help"))]
     automatic: bool,
     /// List only package(s) with autoremovable
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-list-autoremovable-help"))]
     autoremovable: bool,
     /// List only package(s) with hold
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-list-hold-help"))]
     hold: bool,
     /// Set output format as JSON
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
 }
 
