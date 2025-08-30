@@ -22,16 +22,16 @@ enum CliMode {
 #[derive(Debug, Args)]
 pub struct Files {
     /// Search binary of package(s)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-contents-find-bin-help"))]
     bin: bool,
     /// Package to display a list files of
-    #[arg(add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-contents-find-package-help"))]
     package: String,
     /// Output result to stdout, not pager
-    #[arg(long, visible_alias = "println")]
+    #[arg(long, visible_alias = "println", help = fl!("clap-no-pager-help"))]
     no_pager: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
 }
 
