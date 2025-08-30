@@ -20,16 +20,16 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Depends {
     /// Package(s) to query dependency(ies) for
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions, help = fl!("clap-depends-packages-help")))]
     packages: Vec<String>,
     /// Set output format as JSON
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
 }
 
