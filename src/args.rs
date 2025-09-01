@@ -1,7 +1,8 @@
-use std::env;
+use std::{env, ffi::OsStr, path::Path};
 
-use clap::{Args, Parser, Subcommand, crate_name, crate_version};
+use clap::{Arg, Args, Command, Parser, Subcommand, crate_name, crate_version};
 use enum_dispatch::enum_dispatch;
+use itertools::Itertools;
 
 use crate::{
     GlobalOptions,
@@ -42,7 +43,15 @@ pub(crate) trait CliExecuter {
 }
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None, disable_version_flag = true, max_term_width = 80, after_help = after_help())]
+#[command(
+    version,
+    about,
+    long_about = None,
+    disable_version_flag = true,
+    max_term_width = 80,
+    after_help = after_help(),
+    subcommands = custom_subcmds()
+)]
 pub struct OhManagerAilurus {
     #[command(flatten)]
     pub global: GlobalOptions,
@@ -150,6 +159,58 @@ fn after_help() -> &'static str {
     } else {
         ""
     }
+}
+
+fn custom_subcmds() -> Vec<Command> {
+    let plugins = list_helpers();
+    if let Ok(plugins) = plugins {
+        plugins
+            .iter()
+            .map(|plugin| {
+                let name = plugin.strip_prefix("oma-").unwrap_or("???");
+                Command::new(name.to_string())
+                    .arg(
+                        Arg::new("COMMANDS")
+                            .required(false)
+                            .num_args(1..)
+                            .help("Applet specific commands"),
+                    )
+                    .about("")
+            })
+            .collect()
+    } else {
+        vec![]
+    }
+}
+
+fn list_helpers() -> Result<Vec<String>, anyhow::Error> {
+    let mut plugins_dir: Box<dyn Iterator<Item = _>> =
+        Box::new(Path::new("/usr/libexec").read_dir()?);
+
+    let plugins_local_dir = Path::new("/usr/local/libexec").read_dir();
+
+    if let Ok(plugins_local_dir) = plugins_local_dir {
+        plugins_dir = Box::new(plugins_dir.chain(plugins_local_dir));
+    }
+
+    let plugins = plugins_dir
+        .filter_map(|x| {
+            if let Ok(x) = x {
+                let path = x.path();
+                let filename = path
+                    .file_name()
+                    .unwrap_or_else(|| OsStr::new(""))
+                    .to_string_lossy();
+                if path.is_file() && filename.starts_with("oma-") {
+                    return Some(filename.to_string());
+                }
+            }
+            None
+        })
+        .unique()
+        .collect();
+
+    Ok(plugins)
 }
 
 #[test]
