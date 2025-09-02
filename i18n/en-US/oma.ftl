@@ -296,3 +296,4 @@ successfully-refresh-without-status = Successfully refreshed the package databas
 not-allow-delete-using-kernel = Not allow deletion of the Linux kernel version in use: { $ver }.
 yes-mode-conflict-ui = `--yes` mode will not be applied in UI mode.
 oma-refresh-no-metadata-to-download = No suitable package metadata available based on your repository configuration.
+delete-current-kernel-tips = { $kernel } is the kernel in use, removing it will render the system inoperable.

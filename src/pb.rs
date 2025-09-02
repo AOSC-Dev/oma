@@ -79,6 +79,12 @@ impl OmaProgressBar {
     }
 }
 
+impl Drop for OmaProgressBar {
+    fn drop(&mut self) {
+        self.inner.finish_and_clear();
+    }
+}
+
 impl Writeln for OmaProgressBar {
     fn writeln(&self, prefix: &str, msg: &str) -> std::io::Result<()> {
         let max_len = WRITER.get_max_len();
