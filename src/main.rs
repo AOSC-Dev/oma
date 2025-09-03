@@ -4,7 +4,7 @@ use std::fs::{create_dir_all, read_dir, remove_file};
 use std::io::{self, IsTerminal, stderr, stdin};
 use std::path::{Path, PathBuf};
 
-use std::process::exit;
+use std::process::{Command, exit};
 use std::sync::{LazyLock, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -23,7 +23,7 @@ mod utils;
 
 use args::{CliExecuter, OhManagerAilurus, print_version};
 use clap::builder::FalseyValueParser;
-use clap::{ArgAction, Args, ColorChoice, CommandFactory, Parser};
+use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches};
 use clap_complete::CompleteEnv;
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
@@ -152,7 +152,8 @@ fn main() {
 
     ctrlc::set_handler(single_handler).expect("oma could not initialize SIGINT handler.");
 
-    let oma = OhManagerAilurus::parse();
+    // 要适配额外的插件子命令，所以这里要保留 matches
+    let (matches, oma) = parse_args();
 
     if oma.global.version {
         print_version();
@@ -185,7 +186,7 @@ fn main() {
         }
     }
 
-    let code = match try_main(oma, &config) {
+    let code = match try_main(oma, config, matches) {
         Ok(exit_code) => {
             unlock_oma().ok();
             exit_code
@@ -206,6 +207,19 @@ fn main() {
     };
 
     exit(code);
+}
+
+fn parse_args() -> (ArgMatches, OhManagerAilurus) {
+    let matches = OhManagerAilurus::command().get_matches();
+    let oma = match OhManagerAilurus::from_arg_matches(&matches).map_err(|e| {
+        let mut cmd = OhManagerAilurus::command();
+        e.format(&mut cmd)
+    }) {
+        Ok(oma) => oma,
+        Err(e) => e.exit(),
+    };
+
+    (matches, oma)
 }
 
 fn init_localizer() {
@@ -371,15 +385,47 @@ fn enable_ansi(oma: &OhManagerAilurus) -> bool {
         || oma.global.color == ColorChoice::Always
 }
 
-fn try_main(oma: OhManagerAilurus, config: &Config) -> Result<i32, OutputError> {
-    init_color_formatter(&oma, config);
+fn try_main(
+    oma: OhManagerAilurus,
+    config: Config,
+    matches: ArgMatches,
+) -> Result<i32, OutputError> {
+    init_color_formatter(&oma, &config);
 
     let no_progress =
         oma.global.no_progress || !is_terminal() || oma.global.debug || oma.global.dry_run;
 
     let code = match oma.subcmd {
-        Some(subcmd) => subcmd.execute(config, no_progress),
-        None => Tui::from(&oma.global).execute(config, no_progress),
+        Some(subcmd) => subcmd.execute(&config, no_progress),
+        None => {
+            if let Some((subcommand, args)) = matches.subcommand() {
+                let mut plugin = Path::new("/usr/local/libexec").join(format!("oma-{subcommand}"));
+                let plugin_fallback = Path::new("/usr/libexec").join(format!("oma-{subcommand}"));
+
+                if !plugin.is_file() {
+                    plugin = plugin_fallback;
+                    if !plugin.is_file() {
+                        error!("{}", fl!("custom-command-unknown", subcmd = subcommand));
+                        return Ok(1);
+                    }
+                }
+
+                info!("{}", fl!("custom-command-applet-exec", subcmd = subcommand));
+                let mut process = &mut Command::new(plugin);
+                if let Some(args) = args.get_many::<String>("COMMANDS") {
+                    process = process.args(args);
+                }
+
+                let status = process.status().unwrap().code().unwrap();
+                if status != 0 {
+                    error!("{}", fl!("custom-command-applet-exception", s = status));
+                }
+
+                Ok(status)
+            } else {
+                Tui::from(&oma.global).execute(&config, no_progress)
+            }
+        }
     };
 
     if !oma.global.no_bell && config.bell() {

@@ -10,7 +10,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 [dependencies]
 # Cli
-clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "derive", "env"] }
+clap = { version = "4.5.19", features = ["cargo", "wrap_help", "color", "derive", "env", "string"] }
 anyhow = "1.0.89"
 ctrlc = "3.4.5"
 dialoguer = "0.12.0"
@@ -51,6 +51,7 @@ termtree = "0.5.1"
 textwrap = "0.16.2"
 sysinfo = "0.37"
 once_cell = "1.21"
+itertools = "0.14.0"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
