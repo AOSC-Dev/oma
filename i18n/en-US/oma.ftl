@@ -297,3 +297,6 @@ not-allow-delete-using-kernel = Not allow deletion of the Linux kernel version i
 yes-mode-conflict-ui = `--yes` mode will not be applied in UI mode.
 oma-refresh-no-metadata-to-download = No suitable package metadata available based on your repository configuration.
 delete-current-kernel-tips = { $kernel } is currently in use, removing it may render the system inoperable.
+custom-command-unknown = Unknown command: `{ $subcmd }'.
+custom-command-applet-exec = Executing custom command oma-{ $subcmd } ...
+custom-command-applet-exception = Custom command exited with error { $s }.

@@ -290,3 +290,6 @@ not-allow-delete-using-kernel = 不允许删除正在使用的 Linux 内核版�
 yes-mode-conflict-ui = UI 模式下将不会应用 `--yes` 模式。
 oma-refresh-no-metadata-to-download = 源配置中没有适用的软件包元数据。
 delete-current-kernel-tips = { $kernel } 为正在使用的内核，移除后可能导致系统无法工作。
+custom-command-unknown = 未知命令：`{ $subcmd }'。
+custom-command-applet-exec = 正在执行自定义命令 oma-{ $subcmd } ...
+custom-command-applet-exception = 自定义命令异常退出，错误码：{ $s }。

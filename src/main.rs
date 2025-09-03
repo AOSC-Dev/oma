@@ -405,12 +405,12 @@ fn try_main(
                 if !plugin.is_file() {
                     plugin = plugin_fallback;
                     if !plugin.is_file() {
-                        error!("Unknown command: `{}`.", subcommand);
+                        error!("{}", fl!("custom-command-unknown", subcmd = subcommand));
                         return Ok(1);
                     }
                 }
 
-                info!("Executing applet oma-{}", subcommand);
+                info!("{}", fl!("custom-command-applet-exec", subcmd = subcommand));
                 let mut process = &mut Command::new(plugin);
                 if let Some(args) = args.get_many::<String>("COMMANDS") {
                     process = process.args(args);
@@ -418,7 +418,7 @@ fn try_main(
 
                 let status = process.status().unwrap().code().unwrap();
                 if status != 0 {
-                    error!("Applet exited with error {}", status);
+                    error!("{}", fl!("custom-command-applet-exception", s = status));
                 }
 
                 Ok(status)
