@@ -531,7 +531,28 @@ impl OmaApt {
         let sort = PackageSort::default().installed();
         let pkgs = self.cache.packages(&sort);
 
+        #[cfg(feature = "aosc")]
+        let image_name = OnceCell::new();
+
+        #[cfg(feature = "aosc")]
+        let current_kernel_ver = OnceCell::new();
+
         for pkg in pkgs {
+            #[cfg(feature = "aosc")]
+            if pkg.name().starts_with("linux-kernel-") {
+                let current_kernel_ver = current_kernel_ver
+                    .get_or_init(|| sysinfo::System::kernel_version().unwrap_or_default());
+
+                if crate::utils::pkg_is_current_kernel(
+                    Path::new(&self.sysroot()),
+                    &image_name,
+                    pkg.name(),
+                    current_kernel_ver,
+                ) {
+                    continue;
+                }
+            }
+
             if pkg.is_auto_removable() && !pkg.marked_delete() {
                 pkg.mark_delete(purge);
                 pkg.protect();
@@ -557,7 +578,7 @@ impl OmaApt {
         custom_download_message: Option<CustomDownloadMessage>,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<()> {
-        let sysroot = self.config.get("Dir").unwrap_or("/".to_string());
+        let sysroot = self.sysroot();
 
         if self.dry_run {
             debug!("op: {op:?}");
@@ -575,6 +596,10 @@ impl OmaApt {
         )?;
 
         Ok(())
+    }
+
+    fn sysroot(&self) -> String {
+        self.config.get("Dir").unwrap_or_else(|| "/".to_string())
     }
 
     pub fn fix_resolver_broken(&self) {

@@ -40,6 +40,7 @@ pub use search::PackageStatus;
 mod commit;
 mod dbus;
 mod download;
+pub mod utils;
 pub use commit::CommitNetworkConfig;
 pub mod sort;
 pub use oma_apt::records::RecordField;

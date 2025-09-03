@@ -3062,6 +3062,7 @@ dependencies = [
  "once_cell",
  "serde",
  "strsim",
+ "sysinfo",
  "thiserror 2.0.16",
  "tokio",
  "tracing",

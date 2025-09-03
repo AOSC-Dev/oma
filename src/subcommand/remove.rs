@@ -243,6 +243,9 @@ impl CliExecuter for Remove {
 
         let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
 
+        #[cfg(feature = "aosc")]
+        check_is_current_kernel_deleting(config, &sysroot, &pkgs, &pb)?;
+
         let context = apt.remove(pkgs, remove_config, no_autoremove)?;
 
         if let Some(pb) = pb {
@@ -278,6 +281,50 @@ impl CliExecuter for Remove {
     }
 }
 
+#[cfg(feature = "aosc")]
+fn check_is_current_kernel_deleting(
+    config: &Config,
+    sysroot: &std::path::Path,
+    pkgs: &[oma_pm::pkginfo::OmaPackageWithoutVersion],
+    pb: &Option<crate::pb::OmaProgressBar>,
+) -> Result<(), OutputError> {
+    use anyhow::Context;
+    use once_cell::sync::OnceCell;
+
+    if let Some(pb) = pb {
+        pb.inner.finish_and_clear();
+    }
+
+    let image_name = OnceCell::new();
+    let current_kernel_ver = OnceCell::new();
+
+    for pkg in pkgs
+        .iter()
+        .filter(|pkg| pkg.raw_pkg.name().starts_with("linux-kernel-"))
+    {
+        let current_kernel_ver =
+            current_kernel_ver.get_or_try_init(|| -> anyhow::Result<String> {
+                sysinfo::System::kernel_version().context("Failed to get kernel version")
+            })?;
+
+        if oma_pm::utils::pkg_is_current_kernel(
+            sysroot,
+            &image_name,
+            pkg.raw_pkg.name(),
+            current_kernel_ver,
+        ) && (config.protect_essentials()
+            || !ask_user_delete_current_kernel(pkg.raw_pkg.name()).unwrap_or(false))
+        {
+            return Err(OutputError {
+                description: fl!("not-allow-delete-using-kernel", ver = current_kernel_ver),
+                source: None,
+            });
+        }
+    }
+
+    Ok(())
+}
+
 /// "Yes Do as I say" steps
 pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
     let theme = ColorfulTheme::default();
@@ -308,6 +355,25 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
         != "Do as I say!"
     {
         info!("{}", fl!("yes-do-as-i-say-abort"));
+        return Ok(false);
+    }
+
+    Ok(true)
+}
+
+#[cfg(feature = "aosc")]
+fn ask_user_delete_current_kernel(pkg: &str) -> anyhow::Result<bool> {
+    let theme = ColorfulTheme::default();
+
+    warn!("{}", fl!("delete-current-kernel-tips", kernel = pkg));
+
+    let delete = Confirm::with_theme(&theme)
+        .with_prompt(fl!("essential-continue"))
+        .default(false)
+        .interact()
+        .map_err(|_| anyhow!(""))?;
+
+    if !delete {
         return Ok(false);
     }
 

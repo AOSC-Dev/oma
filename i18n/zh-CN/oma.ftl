@@ -289,3 +289,4 @@ update-available-2 = oma 已检测到您的系统有以下可用更新：
 not-allow-delete-using-kernel = 不允许删除正在使用的 Linux 内核版本：{ $ver }。
 yes-mode-conflict-ui = UI 模式下将不会应用 `--yes` 模式。
 oma-refresh-no-metadata-to-download = 源配置中没有适用的软件包元数据。
+delete-current-kernel-tips = { $kernel } 为正在使用的内核，移除后可能导致系统无法工作。
