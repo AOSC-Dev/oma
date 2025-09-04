@@ -9,7 +9,7 @@ use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs, Upgrade},
     search::IndiciumSearch,
 };
-use oma_utils::dbus::take_wake_lock;
+use oma_utils::dbus::{InhibitTypeUnion, take_wake_lock};
 use tracing::info;
 use tui_inner::{Task, Tui as TuiInner};
 
@@ -268,8 +268,13 @@ impl CliExecuter for Tui {
                 } else {
                     match config.take_wake_lock() {
                         TakeWakeLockTristate::Yes => conn.map(|conn| {
-                            RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))
-                                .ok()
+                            RT.block_on(take_wake_lock(
+                                &conn,
+                                InhibitTypeUnion::all(),
+                                &fl!("changing-system"),
+                                "oma",
+                            ))
+                            .ok()
                         }),
                         TakeWakeLockTristate::Warn => {
                             no_take_wake_lock_warn();

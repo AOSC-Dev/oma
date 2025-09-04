@@ -1,7 +1,6 @@
-use logind_zbus::{
-    manager::{InhibitType, ManagerProxy},
-    session::SessionProxy,
-};
+use std::fmt::Display;
+
+use logind_zbus::session::SessionProxy;
 use tracing::debug;
 use zbus::{Result as zResult, proxy, zvariant::OwnedFd};
 
@@ -66,29 +65,100 @@ pub async fn get_another_oma_status(conn: &Connection) -> OmaDbusResult<String> 
     Ok(s)
 }
 
+#[proxy(
+    interface = "org.freedesktop.login1.Manager",
+    default_service = "org.freedesktop.login1",
+    default_path = "/org/freedesktop/login1"
+)]
+trait Login1 {
+    /// Inhibit method
+    fn inhibit(
+        &self,
+        what: &str,
+        who: &str,
+        why: &str,
+        mode: &str,
+    ) -> zResult<zbus::zvariant::OwnedFd>;
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub enum InhibitType {
+    Shutdown,
+    Sleep,
+    Idle,
+    HandlePowerKey,
+    HandleSuspendKey,
+    HandleHibernateKey,
+    HandleLidSwitch,
+}
+
+impl Display for InhibitType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                InhibitType::Shutdown => "shutdown",
+                InhibitType::Sleep => "sleep",
+                InhibitType::Idle => "idle",
+                InhibitType::HandlePowerKey => "handle-power-key",
+                InhibitType::HandleSuspendKey => "handle-suspend-key",
+                InhibitType::HandleHibernateKey => "handle-hibernate-key",
+                InhibitType::HandleLidSwitch => "handle-lid-switch",
+            }
+        )
+    }
+}
+
+pub struct InhibitTypeUnion<'a>(pub &'a [InhibitType]);
+
+impl InhibitTypeUnion<'_> {
+    pub const fn all() -> Self {
+        Self(&[
+            InhibitType::Sleep,
+            InhibitType::Shutdown,
+            InhibitType::Idle,
+            InhibitType::HandleSuspendKey,
+            InhibitType::HandlePowerKey,
+            InhibitType::HandleLidSwitch,
+            InhibitType::HandleHibernateKey,
+        ])
+    }
+}
+
+impl Display for InhibitTypeUnion<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|i| i.to_string())
+                .collect::<Vec<_>>()
+                .join(":")
+        )
+    }
+}
+
 /// Take the wake lock and prevent the system from sleeping. Drop the returned file handle to release the lock.
 pub async fn take_wake_lock(
     conn: &Connection,
+    what: InhibitTypeUnion<'_>,
     why: &str,
     binary_name: &str,
-) -> OmaDbusResult<Vec<OwnedFd>> {
-    let proxy = ManagerProxy::new(conn)
+) -> OmaDbusResult<OwnedFd> {
+    let proxy = Login1Proxy::new(conn)
         .await
         .map_err(|e| OmaDbusError::FailedCreateProxy("login1", e))?;
 
-    let mut fds = Vec::new();
-    for what in [InhibitType::Shutdown, InhibitType::Sleep] {
-        let fd = proxy
-            .inhibit(what, binary_name, why, "block")
-            .await
-            .map_err(OmaDbusError::FailedTakeWakeLock)?;
+    let fd = proxy
+        .inhibit(&what.to_string(), binary_name, why, "block")
+        .await
+        .map_err(OmaDbusError::FailedTakeWakeLock)?;
 
-        fds.push(fd);
-    }
+    debug!("take wake lock: {:?}", fd);
 
-    debug!("take wake lock: {:?}", fds);
-
-    Ok(fds)
+    Ok(fd)
 }
 
 /// Get session name
