@@ -1,7 +1,7 @@
 use std::{path::Path, result::Result};
 
 use apt_auth_config::AuthConfig;
-use oma_apt::config::Config;
+use oma_apt_config::Config;
 use oma_fetch::reqwest::ClientBuilder;
 use oma_refresh::db::{Event, OmaRefresh, RefreshError};
 use oma_utils::dpkg::dpkg_arch;

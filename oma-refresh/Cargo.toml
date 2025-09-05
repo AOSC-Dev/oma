@@ -20,7 +20,7 @@ oma-topics = { version = "^0.25.0", path = "../oma-topics", optional = true, def
 tracing ="0.1"
 oma-repo-verify = { version = "^0.9.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
-oma-apt = { version = "0.9.0", optional = true }
+oma-apt-config = { version = "0.1.0", path = "../oma-apt-config", optional = true }
 aho-corasick = "1.1.3"
 # https://github.com/bytecodealliance/rustix/pull/1077
 # rustix = { version = "0.38", features = ["fs"] }
@@ -39,7 +39,7 @@ sequoia-openssl-backend = ["oma-repo-verify/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-repo-verify/sequoia-nettle-backend"]
 rustls = ["oma-fetch/rustls", "oma-topics/rustls"]
 native-tls = ["oma-fetch/native-tls", "oma-topics/native-tls"]
-apt = ["dep:oma-apt"]
+apt = ["dep:oma-apt-config"]
 blocking = ["tokio/rt", "tokio/rt-multi-thread"]
 default = ["aosc", "sequoia-nettle-backend", "rustls", "apt"]
 
