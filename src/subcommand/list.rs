@@ -4,8 +4,8 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use oma_console::print::Action;
 use oma_pm::{
-    PkgCurrentState, PkgSelectedState,
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
+    oma_apt::{PkgCurrentState, PkgSelectedState},
 };
 use tracing::info;
 

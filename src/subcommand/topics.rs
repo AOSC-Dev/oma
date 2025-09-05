@@ -11,9 +11,9 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
 use oma_pm::{
-    PkgSelectedState,
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
+    oma_apt::PkgSelectedState,
     pkginfo::OmaPackageWithoutVersion,
     utils::pkg_is_current_kernel,
 };

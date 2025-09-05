@@ -5,9 +5,9 @@ use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
 use oma_console::indicatif::HumanBytes;
 use oma_pm::{
-    RecordField,
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
+    oma_apt::records::RecordField,
     pkginfo::{AptSource, OmaPackage},
 };
 use tracing::info;
