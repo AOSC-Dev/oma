@@ -6,6 +6,9 @@ use oma_fetch::{
 };
 use oma_pm_operation_type::InstallEntry;
 use oma_utils::url_no_escape::url_no_escape_times;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::debug;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::debug;
 
 use crate::{

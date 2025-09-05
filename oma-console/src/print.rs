@@ -1,12 +1,26 @@
-use std::{borrow::Cow, collections::BTreeMap, time::Duration};
+#[cfg(not(feature = "spdlog-rs"))]
+use std::collections::BTreeMap;
+#[cfg(feature = "spdlog-rs")]
+use std::fmt::{self, Write};
 
+use std::{borrow::Cow, time::Duration};
+
+#[cfg(feature = "spdlog-rs")]
+use chrono::{DateTime, SecondsFormat, Utc};
 use console::{Color, StyledObject, style};
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{Level, debug, formatter::Formatter};
 use termbg::Theme;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::{Level, debug, field::Field};
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing_subscriber::Layer;
 
 pub use termbg;
 
+#[cfg(feature = "spdlog-rs")]
+use crate::writer::gen_prefix;
+#[cfg(not(feature = "spdlog-rs"))]
 use crate::writer::{Writeln, Writer};
 
 #[derive(Clone)]
@@ -131,6 +145,141 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
         Action::PendingBg => style(input).bg(Color::Blue).bold(),
     }
 }
+
+#[cfg(feature = "spdlog-rs")]
+#[derive(Clone)]
+pub struct OmaFormatter {
+    with_ansi: bool,
+    with_time: bool,
+    with_file: bool,
+    prefix_len: u16,
+}
+
+#[cfg(feature = "spdlog-rs")]
+impl Default for OmaFormatter {
+    fn default() -> Self {
+        Self {
+            with_ansi: true,
+            with_file: false,
+            with_time: false,
+            prefix_len: 10,
+        }
+    }
+}
+
+#[cfg(feature = "spdlog-rs")]
+impl OmaFormatter {
+    pub fn new() -> Self {
+        OmaFormatter::default()
+    }
+
+    /// Display with ANSI colors
+    ///
+    /// Set to false to disable ANSI color sequences.
+    pub fn with_ansi(mut self, with_ansi: bool) -> Self {
+        self.with_ansi = with_ansi;
+        self
+    }
+
+    pub fn with_file(mut self, with_file: bool) -> Self {
+        self.with_file = with_file;
+        self
+    }
+
+    pub fn with_time(mut self, with_time: bool) -> Self {
+        self.with_time = with_time;
+        self
+    }
+
+    fn format_impl(
+        &self,
+        record: &spdlog::Record,
+        dest: &mut spdlog::StringBuf,
+        _: &mut spdlog::formatter::FormatterContext,
+    ) -> fmt::Result {
+        let level = record.level();
+
+        let prefix = if self.with_ansi {
+            Cow::Owned(match level {
+                Level::Debug => console::style("DEBUG").dim().to_string(),
+                Level::Info => console::style("INFO").blue().bold().to_string(),
+                Level::Warn => console::style("WARNING").yellow().bold().to_string(),
+                Level::Error => console::style("ERROR").red().bold().to_string(),
+                Level::Trace => console::style("TRACE").dim().to_string(),
+                Level::Critical => console::style("CRITICAL").red().bright().bold().to_string(),
+            })
+        } else {
+            Cow::Borrowed(match level {
+                Level::Debug => "DEBUG",
+                Level::Info => "INFO",
+                Level::Warn => "WARNING",
+                Level::Error => "ERROR",
+                Level::Trace => "TRACE",
+                Level::Critical => "CRITICAL",
+            })
+        };
+
+        if self.with_time {
+            let time = {
+                let time = DateTime::<Utc>::from(record.time())
+                    .to_rfc3339_opts(SecondsFormat::Millis, true);
+
+                if self.with_ansi {
+                    console::style(time).dim().to_string()
+                } else {
+                    time
+                }
+            };
+
+            dest.write_str(&time)?;
+            dest.write_char(' ')?;
+        };
+
+        dest.write_str(&gen_prefix(&prefix, self.prefix_len))?;
+        dest.write_char(' ')?;
+
+        if self.with_file {
+            let loc = record.source_location();
+
+            if let Some(loc) = loc {
+                let loc = format!("{}: {}:", loc.module_path(), loc.file());
+
+                let loc = if self.with_ansi {
+                    console::style(loc).dim().to_string()
+                } else {
+                    loc
+                };
+
+                dest.write_str(&loc)?;
+                dest.write_char(' ')?;
+            }
+        }
+
+        if self.with_ansi {
+            dest.write_str(record.payload())?;
+        } else {
+            dest.write_str(&console::strip_ansi_codes(record.payload()))?;
+        }
+
+        dest.write_char('\n')?;
+
+        Ok(())
+    }
+}
+
+#[cfg(feature = "spdlog-rs")]
+impl Formatter for OmaFormatter {
+    fn format(
+        &self,
+        record: &spdlog::Record,
+        dest: &mut spdlog::StringBuf,
+        ctx: &mut spdlog::formatter::FormatterContext,
+    ) -> spdlog::Result<()> {
+        self.format_impl(record, dest, ctx)
+            .map_err(|e| spdlog::Error::FormatRecord(e))
+    }
+}
+
 /// OmaLayer
 /// `OmaLayer` is used for outputting oma-style logs to `tracing`
 ///
@@ -147,6 +296,7 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
 /// info!("My name is oma!");
 /// ```
 ///
+#[cfg(not(feature = "spdlog-rs"))]
 pub struct OmaLayer {
     /// Display result with ansi
     with_ansi: bool,
@@ -154,15 +304,18 @@ pub struct OmaLayer {
     writer: Writer,
 }
 
+#[cfg(not(feature = "spdlog-rs"))]
 impl Default for OmaLayer {
     fn default() -> Self {
         Self {
             with_ansi: true,
+            #[cfg(not(feature = "spdlog-rs"))]
             writer: Writer::default(),
         }
     }
 }
 
+#[cfg(not(feature = "spdlog-rs"))]
 impl OmaLayer {
     pub fn new() -> Self {
         OmaLayer::default()
@@ -177,6 +330,7 @@ impl OmaLayer {
     }
 }
 
+#[cfg(not(feature = "spdlog-rs"))]
 impl<S> Layer<S> for OmaLayer
 where
     S: tracing::Subscriber,
@@ -236,8 +390,10 @@ where
 ///     }
 /// }
 /// ```
+#[cfg(not(feature = "spdlog-rs"))]
 struct OmaRecorder<'a>(BTreeMap<&'a str, String>);
 
+#[cfg(not(feature = "spdlog-rs"))]
 impl tracing::field::Visit for OmaRecorder<'_> {
     fn record_f64(&mut self, field: &Field, value: f64) {
         self.0.insert(field.name(), value.to_string());
