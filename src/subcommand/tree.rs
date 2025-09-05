@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fmt::Display,
     io::{Write, stdout},
     path::PathBuf,
@@ -8,11 +9,12 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
 use oma_pm::{
-    Package,
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
+    oma_apt::{Package, Version},
     pkginfo::OmaDepType,
 };
+use tracing::debug;
 
 use crate::{
     CliExecuter, config::Config, error::OutputError, fl, table::oma_display_with_normal_output,
@@ -254,8 +256,8 @@ fn reverse_dep_tree<'a>(
     depth: u8,
     limit: u8,
 ) -> TermTree<PkgWrapper<'a>> {
-    let binding = pkg.package.clone();
-    let rdep = binding.rdepends();
+    let pkg_clone = pkg.package.clone();
+    let rdep = pkg_clone.rdepends();
 
     let mut res = TermTree::new(pkg);
 
@@ -269,28 +271,71 @@ fn reverse_dep_tree<'a>(
             OmaDepType::Depends | OmaDepType::PreDepends | OmaDepType::Recommends => {
                 for deps in deps_group {
                     for dep in deps.iter() {
-                        let pkg = apt.cache.get(dep.name());
+                        let Some(pkg) = apt.cache.get(dep.name()) else {
+                            debug!(
+                                "dep {} does not exist on apt cache, will continue",
+                                dep.name()
+                            );
+                            continue;
+                        };
 
-                        if let Some(pkg) = pkg {
-                            if !pkg.is_installed() {
-                                continue;
+                        let Some(installed_version) = pkg.installed() else {
+                            debug!("pkg {} is not installed, will continue", pkg.name());
+                            continue;
+                        };
+
+                        let require_ver = Version::new(unsafe { dep.parent_ver() }, &apt.cache);
+
+                        let push = if let Some(t) = dep.comp_type() {
+                            let mut push = None;
+                            let t = match t {
+                                ">" | ">>" => vec![Ordering::Greater],
+                                "<" | "<<" => vec![Ordering::Less],
+                                ">=" => vec![Ordering::Greater, Ordering::Equal],
+                                "<=" => vec![Ordering::Less, Ordering::Equal],
+                                "=" | "==" => vec![Ordering::Equal],
+                                "!=" => {
+                                    push = Some(require_ver != installed_version);
+                                    vec![]
+                                }
+                                "" => {
+                                    push = Some(true);
+                                    vec![]
+                                }
+                                x => unreachable!("unsupported comp type {x}"),
+                            };
+
+                            debug!("{} {:?} {}", dep.name(), t, require_ver);
+
+                            let cmp = &installed_version.cmp(&require_ver);
+
+                            debug!("{} {installed_version} {cmp:?} {require_ver}", pkg.name());
+
+                            if push.is_none() && t.contains(cmp) {
+                                push = Some(true)
                             }
 
-                            res.push(reverse_dep_tree(
-                                PkgWrapper {
-                                    package: pkg,
-                                    is_recommend: t == OmaDepType::Recommends,
-                                    comp_and_version: dep.comp_type().map(|s| {
-                                        format!("{} {}", s, unsafe { dep.parent_ver() }.version())
-                                    }),
-                                },
-                                apt,
-                                depth + 1,
-                                limit,
-                            ));
+                            debug!("push = {push:?}");
+
+                            push.unwrap_or(false)
+                        } else {
+                            true
+                        };
+
+                        if !push {
+                            continue;
                         }
 
-                        break;
+                        res.push(reverse_dep_tree(
+                            PkgWrapper {
+                                package: pkg,
+                                is_recommend: t == OmaDepType::Recommends,
+                                comp_and_version: Some(installed_version.version().to_string()),
+                            },
+                            apt,
+                            depth + 1,
+                            limit,
+                        ));
                     }
                 }
             }
