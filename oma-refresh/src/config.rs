@@ -5,6 +5,9 @@ use aho_corasick::AhoCorasick;
 #[cfg(feature = "apt")]
 use oma_apt::config::{Config, ConfigTree};
 use oma_fetch::CompressFile;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::debug;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};

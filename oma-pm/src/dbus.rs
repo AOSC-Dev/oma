@@ -1,3 +1,6 @@
+#[cfg(feature = "spdlog-rs")]
+use spdlog::debug;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::debug;
 use zbus::{Connection, Result, interface, proxy};
 

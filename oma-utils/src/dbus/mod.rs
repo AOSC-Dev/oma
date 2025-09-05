@@ -2,6 +2,9 @@ use logind_zbus::{
     manager::{InhibitType, ManagerProxy},
     session::SessionProxy,
 };
+#[cfg(feature = "spdlog-rs")]
+use spdlog::debug;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::debug;
 use zbus::{Result as zResult, proxy, zvariant::OwnedFd};
 

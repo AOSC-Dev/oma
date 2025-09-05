@@ -1,6 +1,9 @@
-use crate::{error, fl};
+use crate::fl;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{error, warn};
+#[cfg(not(feature = "spdlog-rs"))]
+use tracing::{error, warn};
 
 #[cfg(feature = "aosc")]
 const DEFAULT_CONFIG: &str = include_str!("../data/config/oma.toml");

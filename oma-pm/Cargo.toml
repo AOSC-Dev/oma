@@ -14,17 +14,18 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 glob-match = "0.2"
 indicium = "0.6"
 oma-utils = { version = "^0.11.0", path = "../oma-utils", features = [
-    "dpkg",
-    "url-no-escape",
-    "human-bytes",
+  "dpkg",
+  "url-no-escape",
+  "human-bytes",
 ] }
 oma-fetch = { version = "^0.31.0", path = "../oma-fetch" }
 tokio = { version = "1.15", default-features = false, features = [
-    "fs",
-    "rt-multi-thread",
+  "fs",
+  "rt-multi-thread",
 ] }
 fs4 = "0.13"
-tracing = "0.1"
+spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "sink-decouple", optional = true }
+tracing = { version = "0.1", optional = true }
 oma-pm-operation-type = { version = "0.9", path = "../oma-pm-operation-type" }
 zbus = { version = "5.1", features = ["tokio"] }
 cxx = "1.0.121"
@@ -43,3 +44,5 @@ flume = "0.11"
 
 [features]
 aosc = ["dep:sysinfo"]
+spdlog-rs = ["dep:spdlog-rs"]
+tracing = ["dep:tracing"]

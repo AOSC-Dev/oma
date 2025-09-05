@@ -10,6 +10,9 @@ use oma_pm::{
     search::IndiciumSearch,
 };
 use oma_utils::dbus::take_wake_lock;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::info;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::info;
 use tui_inner::{Task, Tui as TuiInner};
 

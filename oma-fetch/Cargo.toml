@@ -14,12 +14,19 @@ serde = { version = "1.0", features = ["derive"] }
 faster-hex = "0.10"
 sha2 = "0.10"
 futures = "0.3"
-async-compression = { version = "0.4", features = ["gzip", "xz", "futures-io", "bzip2", "zstd"] }
+async-compression = { version = "0.4", features = [
+  "gzip",
+  "xz",
+  "futures-io",
+  "bzip2",
+  "zstd",
+] }
 # Note: Use the `uncheck_liblzma_version` feature here to force dynamic linking
 # even with older liblzma (Ubuntu 22.04 uses 5.2.x). Be mindful, however, that
 # async-compression depends on a different liblzma-rs than what is specified here.
 liblzma = { version = "0", features = ["uncheck_liblzma_version"] }
-tracing = "0.1"
+spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "sink-decouple", optional = true }
+tracing = { version = "0.1", optional = true }
 tokio-util = { version = "0.7", features = ["compat"] }
 md-5 = "0.10.6"
 bon = "3"
@@ -32,4 +39,6 @@ flume = "0.11.1"
 [features]
 rustls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
+spdlog-rs = ["dep:spdlog-rs"]
+tracing = ["dep:tracing"]
 default = ["rustls"]
