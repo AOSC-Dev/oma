@@ -48,7 +48,7 @@ pub struct Why {
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-why-packages-help"))]
     packages: Vec<String>,
     /// Maximum display depth of the dependency tree
-    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = fl!("clap-why-depth-help"))]
+    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = fl!("clap-tree-depth-help"))]
     depth: u8,
     /// Set sysroot target directory
     #[arg(from_global, help = fl!("clap-sysroot-help"))]

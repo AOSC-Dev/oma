@@ -82,7 +82,7 @@ pub struct GlobalOptions {
         long,
         global = true,
         help = fl!("clap-dry-run-help"),
-        long_help = "Run oma in \"dry-run\" mode. Useful for testing changes and operations without making changes to the system",
+        long_help = fl!("clap-dry-run-long-help"),
         env = "OMA_DRY_RUN",
         value_parser = FalseyValueParser::new()
     )]
@@ -92,7 +92,7 @@ pub struct GlobalOptions {
         long,
         global = true,
         help = fl!("clap-debug-help"),
-        long_help = "Run oma with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues",
+        long_help = fl!("clap-debug-long-help"),
         env = "OMA_DEBUG",
         value_parser = FalseyValueParser::new()
     )]

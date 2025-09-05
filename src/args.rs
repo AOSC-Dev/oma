@@ -144,7 +144,8 @@ pub enum SubCmd {
     /// Mark status for one or multiple package(s)
     #[command(about = fl!("clap-mark-help"))]
     Mark(Mark),
-    /// List package(s) available from the repository
+    /// List available package(s)
+    #[command(about = fl!("clap-list-help"))]
     List(List),
     /// Lists dependencies of one or multiple packages
     #[command(visible_alias = "dep", about = fl!("clap-depends-help"))]
