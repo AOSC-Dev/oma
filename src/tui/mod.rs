@@ -13,6 +13,9 @@ use oma_utils::{
     dbus::{InhibitTypeUnion, take_wake_lock},
     is_termux,
 };
+#[cfg(feature = "spdlog-rs")]
+use spdlog::info;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::info;
 use tui_inner::{Task, Tui as TuiInner};
 

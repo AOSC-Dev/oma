@@ -31,6 +31,9 @@ use oma_utils::{
     zbus::zvariant::OwnedFd,
 };
 use rustix::process;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{debug, info, warn};
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::{debug, info, warn};
 
 type Result<T> = std::result::Result<T, OutputError>;
@@ -249,7 +252,10 @@ macro_rules! msg {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
         let s = format!($($arg)+);
+        #[cfg(not(feature = "spdlog-rs"))]
         tracing::debug!("{s}");
+        #[cfg(feature = "spdlog-rs")]
+        spdlog::debug!("{s}");
         $crate::WRITER.writeln("", &s).ok();
     };
 }
@@ -260,7 +266,10 @@ macro_rules! success {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
         let s = format!($($arg)+);
+        #[cfg(not(feature = "spdlog-rs"))]
         tracing::debug!("{s}");
+        #[cfg(feature = "spdlog-rs")]
+        spdlog::debug!("{s}");
         $crate::WRITER.writeln(&oma_console::console::style("SUCCESS").green().bold().to_string(), &s).ok();
     };
 }
@@ -271,7 +280,10 @@ macro_rules! due_to {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
         let s = format!($($arg)+);
+        #[cfg(not(feature = "spdlog-rs"))]
         tracing::debug!("{s}");
+        #[cfg(feature = "spdlog-rs")]
+        spdlog::debug!("{s}");
         $crate::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &s).ok();
     };
 }

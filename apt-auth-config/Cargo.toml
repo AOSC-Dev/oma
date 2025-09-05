@@ -7,6 +7,11 @@ license = "MIT"
 
 [dependencies]
 thiserror = "2"
-tracing = "0.1"
+spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "sink-decouple", optional = true }
+tracing = { version = "0.1", optional = true }
 rust-netrc = "0.1"
 url = "2.5"
+
+[features]
+spdlog-rs = ["dep:spdlog-rs"]
+tracing = ["dep:tracing"]

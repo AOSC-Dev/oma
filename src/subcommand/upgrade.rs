@@ -2,7 +2,6 @@ use crate::subcommand::utils::CommitChanges;
 use crate::utils::pkgnames_and_path_completions;
 use clap_complete::ArgValueCompleter;
 use std::path::PathBuf;
-use tracing::debug;
 
 use apt_auth_config::AuthConfig;
 use clap::Args;
@@ -14,8 +13,10 @@ use oma_pm::apt::Upgrade as AptUpgrade;
 use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
 
-use tracing::info;
-use tracing::warn;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{debug, info, warn};
+#[cfg(not(feature = "spdlog-rs"))]
+use tracing::{debug, info, warn};
 
 use crate::HTTP_CLIENT;
 use crate::config::Config;

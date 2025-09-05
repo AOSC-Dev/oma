@@ -11,7 +11,10 @@ use migrations::create_and_maybe_migration_from_oma_db_v2;
 use oma_pm_operation_type::{InstallOperation, OmaOperation, RemoveTag};
 use rusqlite::{Connection, Error, Result};
 use serde::Deserialize;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::debug;
 use thiserror::Error;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::debug;
 
 pub struct HistoryEntryInner {
