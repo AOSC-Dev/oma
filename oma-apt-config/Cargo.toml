@@ -1,0 +1,9 @@
+[package]
+name = "oma-apt-config"
+version = "0.1.0"
+edition = "2024"
+description = "APT config handler library"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+oma-apt = "0.9"

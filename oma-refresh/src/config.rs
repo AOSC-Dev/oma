@@ -3,65 +3,11 @@ use std::{borrow::Cow, collections::HashMap, path::Path};
 use ahash::AHashMap;
 use aho_corasick::AhoCorasick;
 #[cfg(feature = "apt")]
-use oma_apt::config::{Config, ConfigTree};
+use oma_apt_config::Config;
 use oma_fetch::CompressFile;
 use tracing::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
-
-#[cfg(feature = "apt")]
-fn modify_result(
-    tree: ConfigTree,
-    res: &mut HashMap<String, HashMap<String, String>>,
-    root_path: String,
-) {
-    use std::collections::VecDeque;
-    let mut stack = VecDeque::new();
-    stack.push_back((tree, root_path));
-
-    let mut first = true;
-
-    while let Some((node, tree_path)) = stack.pop_back() {
-        // 跳过要遍历根节点的相邻节点
-        if !first && let Some(entry) = node.sibling() {
-            stack.push_back((entry, tree_path.clone()));
-        }
-
-        let Some(tag) = node.tag() else {
-            continue;
-        };
-
-        if let Some(entry) = node.child() {
-            stack.push_back((entry, format!("{tree_path}::{tag}")));
-        }
-
-        if let Some((k, v)) = node.tag().zip(node.value()) {
-            res.entry(tree_path).or_default().insert(k, v);
-        }
-
-        first = false;
-    }
-}
-
-#[cfg(feature = "apt")]
-pub fn get_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
-    let mut res = HashMap::new();
-    let tree = config.tree(key);
-
-    let Some(tree) = tree else {
-        return vec![];
-    };
-
-    modify_result(
-        tree,
-        &mut res,
-        key.rsplit_once("::")
-            .map(|x| x.0.to_string())
-            .unwrap_or_else(|| key.to_string()),
-    );
-
-    res.into_iter().collect::<Vec<_>>()
-}
 
 pub struct IndexTargetConfig<'a> {
     deb: Vec<HashMap<String, String>>,
@@ -243,7 +189,7 @@ fn uncompress_file_name(target: &str) -> Cow<'_, str> {
 
 #[cfg(feature = "apt")]
 fn get_index_target_tree(config: &Config, key: &str) -> Vec<HashMap<String, String>> {
-    get_tree(config, key)
+    oma_apt_config::get_tree(config, key)
         .into_iter()
         .map(|x| x.1)
         .filter(|x| {
@@ -314,6 +260,8 @@ fn test_get_matches_language() {
 #[cfg(feature = "apt")]
 #[test]
 fn test_get_tree() {
+    use oma_apt_config::get_tree;
+
     let t = get_tree(&Config::new(), "Acquire::IndexTargets::deb");
     assert!(t.iter().any(|x| x.0.contains("::deb::")));
     assert!(t.iter().all(|x| !x.0.contains("::deb-src::")))

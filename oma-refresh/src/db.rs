@@ -21,7 +21,7 @@ use nix::{
     unistd::close,
 };
 #[cfg(feature = "apt")]
-use oma_apt::config::Config;
+use oma_apt_config::Config;
 use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
     CompressFile, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,

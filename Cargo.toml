@@ -87,7 +87,7 @@ openssl-setup = ["sequoia-openssl-backend", "openssl", "oma-refresh/apt"]
 default = ["aosc", "nice-setup", "mirror"]
 
 [workspace]
-members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify", "oma-mirror", "apt-auth-config", "oma-tum"]
+members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify", "oma-mirror", "apt-auth-config", "oma-tum", "oma-apt-config"]
 
 [package.metadata.deb]
 copyright = "2025, AOSC Dev <maintainers@aosc.io>"

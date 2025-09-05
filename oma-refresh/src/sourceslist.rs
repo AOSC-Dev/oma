@@ -79,7 +79,7 @@ pub(crate) async fn scan_sources_lists_paths_from_sysroot(
 }
 
 #[cfg(feature = "apt")]
-pub fn ignores(config: &oma_apt::config::Config) -> Vec<Regex> {
+pub fn ignores(config: &oma_apt_config::Config) -> Vec<Regex> {
     use tracing::warn;
 
     config.find_vector("Dir::Ignore-Files-Silently")

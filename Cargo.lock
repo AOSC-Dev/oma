@@ -2935,6 +2935,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-apt-config"
+version = "0.1.0"
+dependencies = [
+ "oma-apt",
+]
+
+[[package]]
 name = "oma-apt-sources-lists"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3095,7 +3102,7 @@ dependencies = [
  "flume",
  "futures",
  "nix",
- "oma-apt",
+ "oma-apt-config",
  "oma-apt-sources-lists",
  "oma-fetch",
  "oma-repo-verify",
