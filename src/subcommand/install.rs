@@ -28,7 +28,11 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct Install {
     /// Package(s) to install
-    #[arg(add = ArgValueCompleter::new(pkgnames_and_path_completions), help = fl!("clap-install-packages-help"))]
+    #[arg(
+        add = ArgValueCompleter::new(pkgnames_and_path_completions),
+        help = fl!("clap-install-packages-help"),
+        value_name = fl!("clap-packages-value-name")
+    )]
     packages: Vec<String>,
     /// Install recommended package(s)
     #[arg(long, help = fl!("clap-install-recommends-help"))]

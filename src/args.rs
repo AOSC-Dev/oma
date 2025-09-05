@@ -98,12 +98,6 @@ pub enum SubCmd {
         visible_alias = "add",
         about = fl!("clap-install-help"),
         help_template = &*HELP_TEMPLATE,
-        override_usage = format!("{}oma install{} [{}] [{}]...",
-            Styles::default().get_literal().render(),
-            Styles::default().get_literal().render_reset(),
-            fl!("clap-argument"),
-            fl!("clap-packages-value-name")
-        )
     )]
     Install(Install),
     /// Upgrade packages installed on the system
