@@ -5,6 +5,8 @@ use std::io::{self, IsTerminal, stderr, stdin};
 use std::path::{Path, PathBuf};
 
 use std::process::{Command, exit};
+#[cfg(feature = "spdlog-rs")]
+use std::sync::Arc;
 use std::sync::{LazyLock, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -29,6 +31,9 @@ use clap_i18n_richformatter::{ClapI18nRichFormatter, init_clap_rich_formatter_lo
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
+#[cfg(feature = "spdlog-rs")]
+use oma_console::OmaFormatter;
+#[cfg(not(feature = "spdlog-rs"))]
 use oma_console::OmaLayer;
 use oma_console::print::{OmaColorFormat, termbg};
 use oma_console::writer::{MessageType, Writer, writeln_inner};
@@ -36,13 +41,23 @@ use oma_utils::OsRelease;
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use reqwest::Client;
 use rustix::stdio::stdout;
+// FIXME: `spdlog::error` is conflict with `mod error`
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{
+    Level, LevelFilter, Logger, debug, default_logger, error as error2, info, set_default_logger,
+    sink::{AsyncPoolSink, RotatingFileSink, RotationPolicy, StdStreamSink},
+    warn,
+};
 use subcommand::utils::{LockError, is_terminal};
 use tokio::runtime::Runtime;
-use tracing::{debug, error, info, warn};
+#[cfg(not(feature = "spdlog-rs"))]
+use tracing::{debug, error as error2, info, warn};
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, Layer, fmt};
+#[cfg(not(feature = "spdlog-rs"))]
+use tracing_subscriber::{
+    EnvFilter, Layer, fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt,
+};
 use tui::Tui;
 use utils::{is_root, is_ssh_from_loginctl};
 
@@ -282,6 +297,84 @@ macro_rules! init_logger_inner {
     ($context:ident) => {{ $context.init() }};
 }
 
+#[cfg(feature = "spdlog-rs")]
+fn init_logger(
+    oma: &OhManagerAilurus,
+    config: &Config,
+) -> (Option<Arc<Logger>>, anyhow::Result<String>) {
+    let debug = oma.global.debug;
+    let dry_run = oma.global.dry_run;
+
+    let log_dir = if is_root() {
+        PathBuf::from("/var/log/oma")
+    } else {
+        dirs::state_dir()
+            .expect("Failed to get state dir")
+            .join("oma")
+    };
+
+    let log_file = create_log_file(&log_dir);
+
+    let (level_filter, formatter) = if !debug && !dry_run {
+        let level_filter = LevelFilter::MoreSevereEqual(Level::Info);
+
+        let formatter = OmaFormatter::new().with_ansi(enable_ansi(oma));
+
+        (level_filter, formatter)
+    } else {
+        let level_filter = LevelFilter::MoreSevereEqual(Level::Debug);
+
+        let formatter = OmaFormatter::new()
+            .with_ansi(enable_ansi(oma))
+            .with_file(true)
+            .with_time(true);
+
+        (level_filter, formatter)
+    };
+
+    let rotating_sink = if let Ok(log_file) = &log_file {
+        Some(
+            AsyncPoolSink::builder()
+                .sink(Arc::new(
+                    RotatingFileSink::builder()
+                        .base_path(&log_file)
+                        .formatter(formatter.clone())
+                        .rotation_policy(RotationPolicy::Hourly)
+                        .build()
+                        .unwrap(),
+                ))
+                .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
+                .build()
+                .unwrap(),
+        )
+    } else {
+        None
+    };
+
+    let stream_sink = StdStreamSink::builder()
+        .formatter(formatter)
+        .stdout()
+        .build()
+        .unwrap();
+
+    let mut logger_builder = Logger::builder();
+
+    logger_builder
+        .level_filter(level_filter)
+        .sink(Arc::new(stream_sink));
+
+    if let Some(rotating_sink) = rotating_sink {
+        logger_builder.sink(Arc::new(rotating_sink));
+    }
+
+    let logger = logger_builder.build().unwrap();
+
+    set_default_logger(Arc::new(logger));
+
+    (Some(default_logger()), log_file)
+}
+
+#[cfg(not(feature = "spdlog-rs"))]
 fn init_logger(
     oma: &OhManagerAilurus,
     config: &Config,
@@ -436,7 +529,7 @@ fn try_main(
                 if !plugin.is_file() {
                     plugin = plugin_fallback;
                     if !plugin.is_file() {
-                        error!("{}", fl!("custom-command-unknown", subcmd = subcommand));
+                        error2!("{}", fl!("custom-command-unknown", subcmd = subcommand));
                         return Ok(1);
                     }
                 }
@@ -449,7 +542,7 @@ fn try_main(
 
                 let status = process.status().unwrap().code().unwrap();
                 if status != 0 {
-                    error!("{}", fl!("custom-command-applet-exception", s = status));
+                    error2!("{}", fl!("custom-command-applet-exception", s = status));
                 }
 
                 Ok(status)
@@ -541,7 +634,7 @@ fn color_formatter() -> &'static OmaColorFormat {
 fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
     let mut unlock = true;
     if !e.description.is_empty() {
-        error!("{e}");
+        error2!("{e}");
 
         let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
         let last_cause = cause.last();
@@ -588,7 +681,7 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
                 unlock = false;
                 if let Err(e) = find_another_oma() {
                     debug!("{e}");
-                    error!("{}", fl!("failed-to-lock-oma"));
+                    error2!("{}", fl!("failed-to-lock-oma"));
                 }
             }
         }
@@ -611,7 +704,7 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
         pkg => fl!("status-package", pkg = pkg),
     };
 
-    error!("{}", fl!("another-oma-is-running", s = status));
+    error2!("{}", fl!("another-oma-is-running", s = status));
 
     Ok(())
 }
@@ -688,3 +781,6 @@ fn single_handler() {
 
     std::process::exit(130);
 }
+
+#[cfg(all(feature = "spdlog-rs", feature = "tracing"))]
+compile_error!("feature spdlog-rs and tracing should not be enabled at the same time");

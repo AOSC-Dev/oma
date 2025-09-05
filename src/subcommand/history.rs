@@ -11,6 +11,9 @@ use oma_pm::{
     apt::{FilterMode, OmaApt},
     pkginfo::OmaPackage,
 };
+#[cfg(feature = "spdlog-rs")]
+use spdlog::warn;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::warn;
 
 use std::path::{Path, PathBuf};
@@ -308,7 +311,6 @@ impl CliExecuter for Undo {
         if code == 0 && (!opt_in.is_empty() || !opt_out.is_empty()) {
             use crate::RT;
             use crate::fl;
-            use tracing::warn;
 
             let arch = oma_utils::dpkg::dpkg_arch(&sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(

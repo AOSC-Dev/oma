@@ -2,6 +2,9 @@ use std::path::PathBuf;
 
 use clap::Args;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+#[cfg(feature = "spdlog-rs")]
+use spdlog::info;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::info;
 
 use crate::config::Config;

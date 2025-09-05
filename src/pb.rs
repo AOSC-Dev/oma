@@ -19,6 +19,9 @@ use crate::{WRITER, error::Chain, fl, install_progress::osc94_progress, msg, uti
 use crate::{color_formatter, error::OutputError};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{debug, error, info, warn};
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::{debug, error, info, warn};
 
 pub trait RenderPackagesDownloadProgress {
@@ -290,7 +293,7 @@ impl OmaMultiProgressBar {
                 self.info(&fl!("can-not-get-source-next-url"));
             }
             Event::DownloadDone { index: _, msg } => {
-                tracing::debug!("Downloaded {msg}");
+                debug!("Downloaded {msg}");
             }
             Event::AllDone => {
                 if let Some(gpb) = &self.pb_map.get(&0) {

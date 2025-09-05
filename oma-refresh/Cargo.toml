@@ -11,12 +11,17 @@ license = "GPL-3.0-or-later"
 oma-fetch = { version = "^0.32.0", path = "../oma-fetch", default-features = false }
 thiserror = "2"
 url = "2.3"
-tokio = { version = "1.28", default-features = false, features = ["fs", "process", "macros"] }
+tokio = { version = "1.28", default-features = false, features = [
+  "fs",
+  "process",
+  "macros",
+] }
 futures = "0.3"
 oma-apt-sources-lists = "0.9"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.25.0", path = "../oma-topics", optional = true, default-features = false }
-tracing ="0.1"
+tracing = { version = "0.1", optional = true }
+spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "sink-decouple", optional = true }
 oma-repo-verify = { version = "^0.9.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
 oma-apt = { version = "0.9.0", optional = true }
@@ -40,9 +45,13 @@ rustls = ["oma-fetch/rustls", "oma-topics/rustls"]
 native-tls = ["oma-fetch/native-tls", "oma-topics/native-tls"]
 apt = ["dep:oma-apt"]
 blocking = ["tokio/rt", "tokio/rt-multi-thread"]
+spdlog-rs = ["dep:spdlog-rs"]
+tracing = ["dep:tracing"]
 default = ["aosc", "sequoia-nettle-backend", "rustls", "apt"]
 
 [dev-dependencies]
-tokio = { version = "1.28", default-features = false, features = ["rt-multi-thread"] }
+tokio = { version = "1.28", default-features = false, features = [
+  "rt-multi-thread",
+] }
 flume = "0.11.1"
 oma-utils = { version = "^0.12.0", path = "../oma-utils", features = ["dpkg"] }

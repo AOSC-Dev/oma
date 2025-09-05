@@ -10,6 +10,9 @@ use oma_pm::{
     oma_apt::records::RecordField,
     pkginfo::{AptSource, OmaPackage},
 };
+#[cfg(feature = "spdlog-rs")]
+use spdlog::info;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::info;
 
 use crate::{config::Config, error::OutputError, utils::pkgnames_and_path_completions};

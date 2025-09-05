@@ -22,7 +22,10 @@ use tokio::{
     time::timeout,
 };
 
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{debug, trace};
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::{debug, trace};
 
 use crate::{DownloadEntry, DownloadSourceType};
