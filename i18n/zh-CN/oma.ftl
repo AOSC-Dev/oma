@@ -412,3 +412,4 @@ clap-tree-packages-help = 要显示依赖关系树的软件包
 clap-tree-reverse-help = 显示指定软件包的逆向依赖树
 clap-tree-depth-help = 最大依赖查询深度（默认为 5 层，**查询的内存需求随深度指数性增长！**）
 clap-why-packages-help = 要显示逆向依赖关系树的软件包
+clap-help = 显示帮助

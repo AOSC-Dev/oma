@@ -54,6 +54,9 @@ pub struct Mark {
     /// Set apt options
     #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 impl CliExecuter for Mark {
@@ -64,6 +67,7 @@ impl CliExecuter for Mark {
             dry_run,
             sysroot,
             apt_options,
+            ..
         } = self;
 
         if !dry_run {

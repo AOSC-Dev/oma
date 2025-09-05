@@ -51,6 +51,9 @@ pub struct List {
     /// Set apt options
     #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 impl CliExecuter for List {
@@ -67,6 +70,7 @@ impl CliExecuter for List {
             sysroot,
             apt_options,
             hold,
+            ..
         } = self;
 
         let oma_apt_args = OmaAptArgs::builder()

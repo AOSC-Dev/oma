@@ -72,8 +72,8 @@ pub static HELP_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
     subcommand_help_heading = &**HELP_HEADING,
     subcommand_value_name = &**HELP_HEADING,
     next_help_heading = &**NEXT_HELP_HEADING,
-    // disable_help_flag = true,
-    // disable_help_subcommand = true,
+    disable_help_flag = true,
+    disable_help_subcommand = true,
     override_usage = format!(
         "{}oma{} [{}] [{}]",
         Styles::default().get_literal().render(),
@@ -263,16 +263,4 @@ fn list_helpers() -> Result<Vec<String>, anyhow::Error> {
         .collect();
 
     Ok(plugins)
-}
-
-#[test]
-fn test() {
-    use clap::CommandFactory;
-    use std::ffi::OsString;
-
-    let v: Vec<OsString> = vec!["oma".into(), "-h".into()];
-    let app = OhManagerAilurus::parse_from(v);
-    OhManagerAilurus::command().print_help().unwrap();
-
-    dbg!(app);
 }

@@ -40,6 +40,9 @@ pub struct Tree {
     /// Output result to stdout, not pager
     #[arg(long, help = fl!("clap-no-pager-help"))]
     no_pager: bool,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 #[derive(Debug, Args)]
@@ -56,6 +59,9 @@ pub struct Why {
     /// Output result to stdout, not pager
     #[arg(long, help = fl!("clap-no-pager-help"))]
     no_pager: bool,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 impl From<Why> for Tree {
@@ -65,6 +71,7 @@ impl From<Why> for Tree {
             depth,
             sysroot,
             no_pager,
+            help,
         } = value;
 
         Self {
@@ -73,6 +80,7 @@ impl From<Why> for Tree {
             depth,
             sysroot,
             no_pager,
+            help,
         }
     }
 }
@@ -115,6 +123,7 @@ impl CliExecuter for Tree {
             depth: limit,
             sysroot,
             no_pager,
+            ..
         } = self;
 
         let apt = OmaApt::new(

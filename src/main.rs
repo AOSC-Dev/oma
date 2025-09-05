@@ -151,6 +151,9 @@ pub struct GlobalOptions {
     /// Setup download threads (default as 4)
     #[arg(long, short = 't', global = true, env = "OMA_DOWNLOAD_THREADS", help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
+    /// Print help
+    #[arg(long, short, action = ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 fn main() {

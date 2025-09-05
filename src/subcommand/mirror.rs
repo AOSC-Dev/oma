@@ -98,6 +98,9 @@ pub struct CliMirror {
     /// Setup download threads (default as 4)
     #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -117,6 +120,9 @@ pub enum MirrorSubCmd {
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
+        /// Print help
+        #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+        help: bool,
     },
     /// Add mirror(s) to sources.list
     #[command(about = fl!("clap-mirror-add-help"))]
@@ -133,6 +139,9 @@ pub enum MirrorSubCmd {
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
+        /// Print help
+        #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+        help: bool,
     },
     /// Remove mirror(s) from sources.list
     #[command(about = fl!("clap-mirror-remove-help"))]
@@ -149,6 +158,9 @@ pub enum MirrorSubCmd {
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
+        /// Print help
+        #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+        help: bool,
     },
     /// Sort mirror(s) order
     #[command(about = fl!("clap-mirror-sort-mirrors-help"))]
@@ -159,6 +171,9 @@ pub enum MirrorSubCmd {
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
+        /// Print help
+        #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+        help: bool,
     },
     /// Speedtest mirror(s)
     #[command(about = fl!("clap-mirror-speedtest-help"))]
@@ -172,6 +187,9 @@ pub enum MirrorSubCmd {
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
+        /// Print help
+        #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+        help: bool,
     },
 }
 
@@ -183,6 +201,7 @@ impl CliExecuter for CliMirror {
             no_refresh,
             dry_run,
             download_threads,
+            ..
         } = self;
 
         if dry_run {
@@ -197,6 +216,7 @@ impl CliExecuter for CliMirror {
                     sysroot,
                     no_refresh_topics,
                     no_refresh,
+                    ..
                 } => operate(
                     no_progress,
                     !no_refresh_topics && !config.no_refresh_topics(),
@@ -211,6 +231,7 @@ impl CliExecuter for CliMirror {
                     #[cfg(feature = "aosc")]
                     no_refresh_topics,
                     no_refresh,
+                    ..
                 } => speedtest(
                     no_progress,
                     set_fastest,
@@ -223,6 +244,7 @@ impl CliExecuter for CliMirror {
                     sysroot,
                     no_refresh_topics,
                     no_refresh,
+                    ..
                 } => operate(
                     no_progress,
                     !no_refresh_topics && !config.no_refresh_topics(),
@@ -237,6 +259,7 @@ impl CliExecuter for CliMirror {
                     sysroot,
                     no_refresh_topics,
                     no_refresh,
+                    ..
                 } => operate(
                     no_progress,
                     !no_refresh_topics && !config.no_refresh_topics(),
@@ -249,6 +272,7 @@ impl CliExecuter for CliMirror {
                 MirrorSubCmd::SortMirrors {
                     no_refresh_topics,
                     no_refresh,
+                    ..
                 } => set_order(
                     no_progress,
                     !no_refresh_topics && !config.no_refresh_topics(),

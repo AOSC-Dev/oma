@@ -26,11 +26,14 @@ pub struct CommandNotFound {
     /// Package to query command-not-found
     #[arg(required = true, help = fl!("clap-command-not-found-keyword-help"))]
     keyword: String,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 impl CliExecuter for CommandNotFound {
     fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
-        let CommandNotFound { keyword } = self;
+        let CommandNotFound { keyword, .. } = self;
 
         let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 

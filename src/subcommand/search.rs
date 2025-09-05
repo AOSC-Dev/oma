@@ -42,6 +42,9 @@ pub struct Search {
     /// Set apt options
     #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 pub struct SearchResultDisplay<'a>(pub &'a SearchResult);
@@ -139,6 +142,7 @@ impl CliExecuter for Search {
             json,
             sysroot,
             apt_options,
+            ..
         } = self;
 
         let no_pager = no_pager || config.search_contents_println();

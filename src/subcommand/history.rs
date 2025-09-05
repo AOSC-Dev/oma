@@ -37,11 +37,14 @@ pub struct History {
     /// Set sysroot target directory
     #[arg(from_global)]
     sysroot: PathBuf,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 impl CliExecuter for History {
     fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
-        let History { sysroot } = self;
+        let History { sysroot, .. } = self;
         let conn = connect_db(sysroot.join(DATABASE_PATH), false)?;
 
         let list = list_history(&conn)?;

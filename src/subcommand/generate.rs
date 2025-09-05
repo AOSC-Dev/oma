@@ -10,10 +10,15 @@ use crate::{
     error::OutputError,
 };
 
+use crate::fl;
+
 #[derive(Debug, Args)]
 pub struct GenerateManpages {
     #[arg(short, long, default_value = ".")]
     path: PathBuf,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 impl CliExecuter for GenerateManpages {

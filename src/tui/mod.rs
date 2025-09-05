@@ -81,6 +81,9 @@ pub struct Tui {
     /// Run oma do not check battery status
     #[arg(from_global)]
     no_take_wake_lock: bool,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 impl From<&GlobalOptions> for Tui {
@@ -102,6 +105,7 @@ impl From<&GlobalOptions> for Tui {
             download_threads: value.download_threads,
             no_check_battery: value.no_check_battery,
             no_take_wake_lock: value.no_take_wake_lock,
+            help: value.help,
         }
     }
 }
@@ -125,6 +129,7 @@ impl CliExecuter for Tui {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
+            ..
         } = self;
 
         if dry_run {

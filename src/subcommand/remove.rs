@@ -73,6 +73,9 @@ pub struct Remove {
     /// Run oma do not take wake lock
     #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
     no_take_wake_lock: bool,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 #[derive(Debug, Args)]
@@ -122,6 +125,9 @@ pub struct Purge {
     /// Run oma do not take wake lock
     #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
     no_take_wake_lock: bool,
+    /// Print help
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    help: bool,
 }
 
 impl From<Purge> for Remove {
@@ -142,6 +148,7 @@ impl From<Purge> for Remove {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
+            help,
         } = value;
 
         Self {
@@ -161,6 +168,7 @@ impl From<Purge> for Remove {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
+            help,
         }
     }
 }
@@ -191,6 +199,7 @@ impl CliExecuter for Remove {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
+            ..
         } = self;
 
         if !dry_run {

@@ -335,7 +335,7 @@ clap-why-help = Visualize why the specified package was installed
 
 # clap: generic options
 clap-apt-options-help = Specify APT option(s)
-clap-autoremove-help = Remvoe unneeded package(s) from the system
+clap-autoremove-help = Remove unneeded package(s) from the system
 clap-color-help = Specify color preferences for oma output
 clap-debug-help = Run oma with debug output
 clap-debug-long-help = Run oma with debug output, including details on program parameters and data. This is useful for developers and administrators to investigate and report issues.
@@ -420,3 +420,4 @@ clap-tree-reverse-help = Visualize the reverse dependency(ies) for the specified
 clap-tree-depth-help = Maximum query level for dependencies (default: 5, RAM REQUIREMENT INCREASES EXPONENTIALLY!)
 clap-why-packages-help = Package(s) to display a reverse-dependency tree for
 clap-why-depth-help = Maximum query level for dependencies (default: 5, RAM REQUIREMENT INCREASES EXPONENTIALLY!)
+clap-help = Print help
