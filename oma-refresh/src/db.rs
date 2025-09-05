@@ -39,11 +39,14 @@ use oma_topics::TopicManager;
 #[cfg(feature = "aosc")]
 use oma_fetch::reqwest::StatusCode;
 
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{debug, warn};
 use sysinfo::{Pid, System};
 use tokio::{
     fs::{self},
     task::spawn_blocking,
 };
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::{debug, warn};
 
 use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
@@ -352,7 +355,6 @@ impl<'a> OmaRefresh<'a> {
     #[cfg(feature = "apt")]
     async fn run_success_post_invoke(&self) {
         use tokio::process::Command;
-        use tracing::warn;
 
         let cmds = self
             .apt_config
