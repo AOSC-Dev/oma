@@ -7,6 +7,9 @@ use oma_pm::{
     PkgCurrentState, PkgSelectedState,
     apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
 };
+#[cfg(feature = "spdlog-rs")]
+use spdlog::info;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::info;
 
 use crate::{NOT_DISPLAY_ABORT, fl, utils::pkgnames_completions};

@@ -2,6 +2,9 @@ use oma_pm_operation_type::{InstallOperation, RemoveTag};
 use rusqlite::Connection;
 use serde::Deserialize;
 use serde_json::Value;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{debug, info, warn};
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::{debug, info, warn};
 
 use crate::{

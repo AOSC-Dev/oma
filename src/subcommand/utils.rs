@@ -76,12 +76,12 @@ use oma_utils::oma::lock_oma_inner;
 use oma_utils::oma::unlock_oma;
 use reqwest::Client;
 use std::fmt::Display;
-use tracing::debug;
-use tracing::error;
-use tracing::info;
-use tracing::warn;
 
 use super::remove::ask_user_do_as_i_say;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::{debug, error, info, warn};
+#[cfg(not(feature = "spdlog-rs"))]
+use tracing::{debug, error, info, warn};
 
 pub(crate) fn handle_no_result(
     sysroot: impl AsRef<Path>,

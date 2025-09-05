@@ -6,6 +6,9 @@ use clap_complete::ArgValueCompleter;
 use flume::unbounded;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
+#[cfg(feature = "spdlog-rs")]
+use spdlog::error;
+#[cfg(not(feature = "spdlog-rs"))]
 use tracing::error;
 
 use crate::config::Config;
