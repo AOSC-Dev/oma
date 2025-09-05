@@ -19,7 +19,10 @@ use clap_complete::{CompletionCandidate, engine::ValueCompleter};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use oma_pm::apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs};
 use oma_utils::{
-    dbus::{Connection, create_dbus_connection, is_using_battery, session_name, take_wake_lock},
+    dbus::{
+        Connection, InhibitTypeUnion, create_dbus_connection, is_using_battery, session_name,
+        take_wake_lock,
+    },
     oma::unlock_oma,
     zbus::zvariant::OwnedFd,
 };
@@ -87,14 +90,14 @@ pub fn dbus_check(
     dry_run: bool,
     no_take_wake_lock: bool,
     no_check_battery: bool,
-) -> Result<Vec<OwnedFd>> {
+) -> Result<Option<OwnedFd>> {
     if config.no_check_dbus() || no_check_dbus || dry_run {
         no_check_dbus_warn();
-        return Ok(vec![]);
+        return Ok(None);
     }
 
     let Some(conn) = connect_dbus_impl() else {
-        return Ok(vec![]);
+        return Ok(None);
     };
 
     if no_check_battery {
@@ -117,17 +120,20 @@ pub fn dbus_check(
     // login1 根据 fd 来判断是否关闭 inhibit
     if no_take_wake_lock {
         no_take_wake_lock_warn();
-        Ok(vec![])
+        Ok(None)
     } else {
         match config.take_wake_lock() {
-            TakeWakeLockTristate::Yes => {
-                Ok(RT.block_on(take_wake_lock(&conn, &fl!("changing-system"), "oma"))?)
-            }
+            TakeWakeLockTristate::Yes => Ok(Some(RT.block_on(take_wake_lock(
+                &conn,
+                InhibitTypeUnion::all(),
+                &fl!("changing-system"),
+                "oma",
+            ))?)),
             TakeWakeLockTristate::Warn => {
                 no_take_wake_lock_warn();
-                Ok(vec![])
+                Ok(None)
             }
-            TakeWakeLockTristate::Ignore => Ok(vec![]),
+            TakeWakeLockTristate::Ignore => Ok(None),
         }
     }
 }
