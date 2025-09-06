@@ -33,7 +33,6 @@ pub struct Install {
     #[arg(
         add = ArgValueCompleter::new(pkgnames_and_path_completions),
         help = fl!("clap-install-packages-help"),
-        value_name = fl!("clap-packages-value-name"),
         help_heading = &**crate::args::ARG_HELP_HEADING_MUST,
     )]
     packages: Vec<String>,

@@ -365,7 +365,6 @@ clap-no-refresh-help = Do not refresh repository metadata
 clap-no-refresh-topics-help = Do not refresh topics metadata
 clap-no-remove-help = Do not allow removal of packages during upgrade (like `apt upgrade')
 clap-no-take-wake-lock-help = Do not take session wake lock (no power management inhibitions)
-clap-packages-value-name = PACKAGES
 clap-reinstall-help = Reinstall the specified package(s)
 clap-remove-config-help = Remove configuration file(s) during package removal (like `apt purge')
 clap-sysroot-help = Specify the sysroot path where the operations will take place

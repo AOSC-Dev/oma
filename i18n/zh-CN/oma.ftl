@@ -358,7 +358,6 @@ clap-no-refresh-help = 不要刷新软件仓库元数据
 clap-no-refresh-topics-help = 不要刷新测试主题元数据
 clap-no-remove-help = 在更新时不允许删除软件包（类似 `apt upgrade'）
 clap-no-take-wake-lock-help = 不要占用会话唤醒锁（即不要禁用电源管理）
-clap-packages-value-name = 软件包
 clap-reinstall-help = 重装指定的软件包
 clap-remove-config-help = 在移除软件包时同时清除配置文件（类似 `apt purge'）
 clap-sysroot-help = 指定操作目标系统的根路径
