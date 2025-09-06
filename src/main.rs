@@ -21,10 +21,11 @@ mod table;
 mod tui;
 mod utils;
 
-use args::{CliExecuter, OhManagerAilurus, print_version};
+use args::{CliExecuter, OhManagerAilurus};
 use clap::builder::FalseyValueParser;
-use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches};
+use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches, arg};
 use clap_complete::CompleteEnv;
+use clap_i18n_richformatter::{ClapI18nRichFormatter, init_clap_rich_formatter_localizer};
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
@@ -80,7 +81,8 @@ pub struct GlobalOptions {
     #[arg(
         long,
         global = true,
-        long_help = "Run oma in \"dry-run\" mode. Useful for testing changes and operations without making changes to the system",
+        help = fl!("clap-dry-run-help"),
+        long_help = fl!("clap-dry-run-long-help"),
         env = "OMA_DRY_RUN",
         value_parser = FalseyValueParser::new()
     )]
@@ -89,51 +91,69 @@ pub struct GlobalOptions {
     #[arg(
         long,
         global = true,
-        long_help = "Run oma with debug output, including details on program parameters and data. Useful for developers and administrators to investigate and report bugs and issues",
+        help = fl!("clap-debug-help"),
+        long_help = fl!("clap-debug-long-help"),
         env = "OMA_DEBUG",
         value_parser = FalseyValueParser::new()
     )]
     debug: bool,
     /// Represents the color preferences for program output
-    #[arg(long, global = true, default_value = "auto")]
+    #[arg(long, global = true, default_value = "auto", help = fl!("clap-color-help"))]
     color: ColorChoice,
     /// Output result with terminal theme color
-    #[arg(long, global = true, env = "OMA_FOLLOW_TERMINAL_COLOR", value_parser = FalseyValueParser::new()
-)]
+    #[arg(
+        long,
+        global = true,
+        env = "OMA_FOLLOW_TERMINAL_COLOR",
+        value_parser = FalseyValueParser::new(),
+        help = fl!("clap-follow-terminal-color-help")
+    )]
     follow_terminal_color: bool,
     /// Do not display progress bar
-    #[arg(long, global = true, env = "OMA_NO_PROGRESS", value_parser = FalseyValueParser::new()
-)]
+    #[arg(
+        long,
+        global = true,
+        env = "OMA_NO_PROGRESS",
+        value_parser = FalseyValueParser::new(),
+        help = fl!("clap-no-progress-help")
+    )]
     no_progress: bool,
     /// Run oma do not check dbus
-    #[arg(long, global = true, env = "OMA_NO_CHECK_DBUS", value_parser = FalseyValueParser::new()
-)]
+    #[arg(
+        long,
+        global = true,
+        env = "OMA_NO_CHECK_DBUS",
+        help = fl!("clap-no-check-dbus-help"),
+        value_parser = FalseyValueParser::new()
+    )]
     no_check_dbus: bool,
     /// Run oma do not check battery status
-    #[arg(long, global = true, env = "OMA_NO_CHECK_BATTERY", value_parser = FalseyValueParser::new()
+    #[arg(long, global = true, env = "OMA_NO_CHECK_BATTERY", help = fl!("clap-no-check-battery-help"), value_parser = FalseyValueParser::new()
 )]
     no_check_battery: bool,
     /// Run oma do not take wake lock
-    #[arg(long, global = true, env = "OMA_NO_TAKE_WAKE_LOCK", value_parser = FalseyValueParser::new()
+    #[arg(long, global = true, env = "OMA_NO_TAKE_WAKE_LOCK", help = fl!("clap-no-take-wake-lock-help"), value_parser = FalseyValueParser::new()
 )]
     no_take_wake_lock: bool,
     /// Print version
-    // FIXME: ArgAcrion::Version buggy
-    #[arg(short, long)]
-    version: bool,
+    #[arg(short, long, action = ArgAction::Version, help = fl!("clap-version-help"))]
+    version: Option<bool>,
     /// Set sysroot target directory
-    #[arg(long, global = true, default_value = "/", env = "OMA_SYSROOT")]
+    #[arg(long, global = true, default_value = "/", env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(long, global = true, action = ArgAction::Append)]
+    #[arg(long, global = true, action = ArgAction::Append, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
     /// Don't ring if oma completes the transaction
-    #[arg(long, global = true, env = "OMA_NO_BELL", value_parser = FalseyValueParser::new()
+    #[arg(long, global = true, env = "OMA_NO_BELL", help = fl!("clap-no-bell-help"), value_parser = FalseyValueParser::new()
 )]
     no_bell: bool,
     /// Setup download threads (default as 4)
-    #[arg(long, short = 't', global = true, env = "OMA_DOWNLOAD_THREADS")]
+    #[arg(long, short = 't', global = true, env = "OMA_DOWNLOAD_THREADS", help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
+    /// Print help
+    #[arg(long, short, global = true, action = ArgAction::Help, help = fl!("clap-help"))]
+    help: Option<bool>,
 }
 
 fn main() {
@@ -148,17 +168,13 @@ fn main() {
         libc::setlocale(libc::LC_ALL, s.as_ptr());
     }
 
+    init_clap_rich_formatter_localizer();
     init_localizer();
 
     ctrlc::set_handler(single_handler).expect("oma could not initialize SIGINT handler.");
 
     // 要适配额外的插件子命令，所以这里要保留 matches
     let (matches, oma) = parse_args();
-
-    if oma.global.version {
-        print_version();
-        exit(0);
-    }
 
     // Init config file
     let config = Config::read();
@@ -210,7 +226,14 @@ fn main() {
 }
 
 fn parse_args() -> (ArgMatches, OhManagerAilurus) {
-    let matches = OhManagerAilurus::command().get_matches();
+    let matches = match OhManagerAilurus::command().try_get_matches() {
+        Ok(m) => m,
+        Err(e) => {
+            let e = e.apply::<ClapI18nRichFormatter>();
+            e.exit();
+        }
+    };
+
     let oma = match OhManagerAilurus::from_arg_matches(&matches).map_err(|e| {
         let mut cmd = OhManagerAilurus::command();
         e.format(&mut cmd)

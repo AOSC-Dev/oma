@@ -15,16 +15,16 @@ use crate::args::CliExecuter;
 pub struct Refresh {
     #[cfg(feature = "aosc")]
     /// Do not refresh topics manifest.json file
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
     no_refresh_topics: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
     /// Setup download threads (default as 4)
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
 }
 

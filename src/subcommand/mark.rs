@@ -24,12 +24,16 @@ use crate::fl;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum MarkAction {
     /// Lock package version(s), this will prevent the specified package(s) from being updated or downgraded
+    #[value(help = fl!("clap-mark-hold"))]
     Hold,
     /// Unlock package version(s), this will undo the “hold” status on the specified package(s)
+    #[value(help = fl!("clap-mark-unhold"))]
     Unhold,
     /// Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed
+    #[value(help = fl!("clap-mark-manual"))]
     Manual,
     /// Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed
+    #[value(help = fl!("clap-mark-auto"))]
     Auto,
 }
 
@@ -38,20 +42,23 @@ pub struct Mark {
     /// Mark status for one or multiple package(s)
     #[arg(
         required = true,
-        long_help = "Mark status for one or multiple package(s), oma will resolve dependencies in accordance with the marked status(es) of the specified package(s)"
+        help = fl!("clap-mark-help"),
+        long_help = fl!("clap-mark-long-help")
     )]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     action: MarkAction,
     /// Package(s) to mark status for
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-mark-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
 }
 

@@ -1,5 +1,4 @@
 use crate::fl;
-use crate::path_completions::PathCompleter;
 use crate::table::oma_display_with_normal_output;
 use crate::utils::pkgnames_completions;
 use crate::{config::Config, error::OutputError};
@@ -21,17 +20,21 @@ enum CliMode {
 
 #[derive(Debug, Args)]
 pub struct Files {
-    /// Search binary of package(s)
-    #[arg(long)]
-    bin: bool,
     /// Package to display a list files of
-    #[arg(add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(
+        add = ArgValueCompleter::new(pkgnames_completions),
+        help = fl!("clap-contents-find-package-help"),
+        help_heading = &**crate::args::ARG_HELP_HEADING_MUST,
+    )]
     package: String,
+    /// Search binary of package(s)
+    #[arg(long, help = fl!("clap-contents-find-bin-help"))]
+    bin: bool,
     /// Output result to stdout, not pager
-    #[arg(long, visible_alias = "println")]
+    #[arg(long, visible_alias = "println", help = fl!("clap-no-pager-help"))]
     no_pager: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
 }
 
@@ -56,17 +59,17 @@ impl CliExecuter for Files {
 
 #[derive(Debug, Args)]
 pub struct Provides {
-    /// Search binary of package(s)
-    #[arg(long)]
-    bin: bool,
-    /// Keywords, parts of a path, executable names to search
-    #[arg(add = ArgValueCompleter::new(PathCompleter::any()))]
+    /// Search for package(s) that contains the specified path or file
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST, help = fl!("clap-contents-provides-help"))]
     pattern: String,
+    /// Search binary of package(s)
+    #[arg(long, help = fl!("clap-contents-find-bin-help"))]
+    bin: bool,
     /// Output result to stdout, not pager
-    #[arg(long, visible_alias = "println")]
+    #[arg(long, visible_alias = "println", help = fl!("clap-no-pager-help"))]
     no_pager: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
 }
 

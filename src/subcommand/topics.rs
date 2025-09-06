@@ -50,66 +50,69 @@ use oma_topics::{Topic, TopicManager};
 ))]
 pub struct Topics {
     /// Enroll in one or more topic(s), delimited by space
-    #[arg(long, action = ArgAction::Append)]
+    #[arg(long, action = ArgAction::Append, help = fl!("clap-topics-opt-in-help"))]
     opt_in: Vec<String>,
     /// Withdraw from one or more topic(s) and rollback to stable versions, delimited by space
-    #[arg(long, action = ArgAction::Append)]
+    #[arg(long, action = ArgAction::Append, help = fl!("clap-topics-opt-out-help"))]
     opt_out: Vec<String>,
     /// Do not fix apt broken status
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-fixbroken-help"))]
     no_fixbroken: bool,
     /// Do not fix dpkg broken status
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-fix-dpkg-status-help"))]
     no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
-    #[arg(long)]
+    #[arg(
+        long,
+        help = &**crate::args::FORCE_UNSAGE_IO_TRANSLATE
+    )]
     force_unsafe_io: bool,
     /// Ignore repository and package dependency issues
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-yes-help"))]
     force_yes: bool,
     /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-force-confnew-help"))]
     force_confnew: bool,
     /// Auto remove unnecessary package(s)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-autoremove-help"))]
     autoremove: bool,
     /// Display all topics on list (include draft status topics)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-topics-all-help"))]
     all: bool,
     /// Remove package(s) also remove configuration file(s), like apt purge
-    #[arg(long, visible_alias = "purge")]
+    #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
     /// Run oma do not check dbus
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
     no_check_dbus: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
     /// Always write status to atm file and sources.list
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-topics-always-write-status-help"))]
     always_write_status: bool,
     /// Setup download threads (default as 4)
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
     /// Run oma do not check battery status
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
     no_check_battery: bool,
-    /// Run oma do not check battery status
-    #[arg(from_global)]
+    /// Run oma do not take wake lock
+    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
     no_take_wake_lock: bool,
     /// Only apply topics change to sources list file, not apply system change
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-topics-only-apply-sources-list-help"))]
     only_apply_sources_list: bool,
     /// Bypass confirmation prompts
     ///
     /// Note that this parameter depends on the `--opt-out` or `--opt-in` parameter, otherwise it is invalid.
-    #[arg(short, long, requires = "in_or_out")]
+    #[arg(short, long, requires = "in_or_out", help = fl!("clap-yes-help"), long_help = fl!("clap-topics-yes-long-help"))]
     yes: bool,
 }
 

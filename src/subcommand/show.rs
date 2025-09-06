@@ -22,20 +22,21 @@ use std::io::Write;
 
 #[derive(Debug, Args)]
 pub struct Show {
-    /// how information on all available version(s) of (a) package(s) from all repository(ies)
-    #[arg(short, long)]
+    /// Package(s) to show
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions), help = fl!("clap-show-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
+    packages: Vec<String>,
+    /// Show information on all available version(s) of (a) package(s) from all repository(ies)
+    #[arg(short, long, help = fl!("clap-show-all-help"))]
     all: bool,
     /// Set output format as JSON
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
-    /// Package(s) to show
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions))]
-    packages: Vec<String>,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
 }
 

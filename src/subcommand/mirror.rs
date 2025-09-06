@@ -36,6 +36,7 @@ use tracing::{error, info};
 use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;
 use crate::RT;
+use crate::args::HELP_TEMPLATE;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
@@ -87,85 +88,101 @@ pub struct CliMirror {
     #[command(subcommand)]
     mirror_subcmd: Option<MirrorSubCmd>,
     /// Do not refresh topics manifest.json file
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
     no_refresh_topics: bool,
     /// Do not refresh repository metadata
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-refresh-help"))]
     no_refresh: bool,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-dry-run-help", long_help = fl!("clap-dry-run-long-help")))]
     dry_run: bool,
     /// Setup download threads (default as 4)
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
 }
 
 #[derive(Debug, Subcommand)]
+#[command(subcommand_help_heading = &**crate::args::HELP_HEADING)]
 pub enum MirrorSubCmd {
     /// Set mirror(s) to sources.list
+    #[command(about = fl!("clap-mirror-set-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Set {
         /// Enable mirror name(s)
-        #[arg(required = true)]
+        #[arg(required = true, help = fl!("clap-mirror-set-names-help"))]
         names: Vec<String>,
         /// Set sysroot target directory
-        #[arg(from_global)]
+        #[arg(from_global, help = fl!("clap-sysroot-help"))]
         sysroot: PathBuf,
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
     /// Add mirror(s) to sources.list
+    #[command(about = fl!("clap-mirror-add-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Add {
         /// Add mirror name(s)
-        #[arg(required = true)]
+        #[arg(required = true, help = fl!("clap-mirror-add-names-help"))]
         names: Vec<String>,
         /// Set sysroot target directory
-        #[arg(from_global)]
+        #[arg(from_global, help = fl!("clap-sysroot-help"))]
         sysroot: PathBuf,
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
     /// Remove mirror(s) from sources.list
+    #[command(about = fl!("clap-mirror-remove-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Remove {
         /// Remove mirror name(s)
-        #[arg(required = true)]
+        #[arg(required = true, help = fl!("clap-mirror-remove-names-help"))]
         names: Vec<String>,
         /// Set sysroot target directory
-        #[arg(from_global)]
+        #[arg(from_global, help = fl!("clap-sysroot-help"))]
         sysroot: PathBuf,
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
     /// Sort mirror(s) order
+    #[command(about = fl!("clap-mirror-sort-mirrors-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     SortMirrors {
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
     /// Speedtest mirror(s)
+    #[command(about = fl!("clap-mirror-speedtest-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Speedtest {
         /// Also set fastest as mirror
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-mirror-speedtest-set-fastest-help"))]
         set_fastest: bool,
         /// Do not refresh topics manifest.json file
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
-        #[arg(long)]
+        #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
 }

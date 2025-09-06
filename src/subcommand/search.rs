@@ -28,19 +28,20 @@ use super::utils::create_progress_spinner;
 #[derive(Debug, Args)]
 pub struct Search {
     /// Keywords to search
-    #[arg(required = true, action = ArgAction::Append, add = ArgValueCompleter::new(pkgnames_completions))]
+    #[arg(required = true, action = ArgAction::Append, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-search-pattern-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     pattern: Vec<String>,
     /// Output result to stdout, not pager
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-no-pager-help"))]
     no_pager: bool,
     /// Set output format as JSON
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
 }
 

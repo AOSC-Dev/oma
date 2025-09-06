@@ -8,6 +8,7 @@ use crate::{
     args::{CliExecuter, OhManagerAilurus},
     config::Config,
     error::OutputError,
+    lang::SYSTEM_LANG,
 };
 
 #[derive(Debug, Args)]
@@ -28,7 +29,13 @@ fn build_man(cmd: &Command, path: PathBuf) -> Result<i32, anyhow::Error> {
     let mut buffer: Vec<u8> = Default::default();
     man.render(&mut buffer)?;
 
-    let man_dir = path.join("man");
+    let lang = if SYSTEM_LANG.starts_with(['c', 'C']) {
+        "en_US"
+    } else {
+        &*SYSTEM_LANG
+    };
+
+    let man_dir = path.join("man").join(lang);
     if !man_dir.is_dir() {
         std::fs::create_dir_all(&man_dir)?;
     }

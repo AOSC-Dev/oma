@@ -8,7 +8,7 @@ use oma_pm::{
 };
 use std::io::Write;
 
-use crate::{config::Config, error::OutputError, utils::pkgnames_and_path_completions};
+use crate::{config::Config, error::OutputError, fl, utils::pkgnames_and_path_completions};
 
 use super::utils::handle_no_result;
 
@@ -16,17 +16,18 @@ use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub struct Rdepends {
-    /// Package(s) to query dependency(ies) for
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions))]
+    /// Package(s) to query reverse dependency(ies) for
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions), help = fl!("clap-rdepends-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// Set output format as JSON
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
 }
 
