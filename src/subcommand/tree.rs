@@ -37,6 +37,7 @@ static DEPTH_HELP: LazyLock<String> = LazyLock::new(|| {
 pub struct Tree {
     /// Query Package(s) name
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-tree-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// Invert the tree direction and focus on the given package
     #[arg(short, long, help = fl!("clap-tree-reverse-help"))]
