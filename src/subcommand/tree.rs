@@ -49,6 +49,7 @@ pub struct Tree {
 pub struct Why {
     /// Query Package(s) name
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-why-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// Maximum display depth of the dependency tree
     #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = fl!("clap-tree-depth-help"))]

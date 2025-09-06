@@ -20,6 +20,7 @@ use crate::args::CliExecuter;
 pub struct List {
     /// Package(s) to list
     #[arg(add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-list-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// List all available version(s) of (a) package(s) from all repository(ies)
     #[arg(short, long, help = fl!("clap-list-all-help"))]

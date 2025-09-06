@@ -18,6 +18,7 @@ use crate::args::CliExecuter;
 pub struct Rdepends {
     /// Package(s) to query reverse dependency(ies) for
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions), help = fl!("clap-rdepends-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// Set output format as JSON
     #[arg(long, help = fl!("clap-json-help"))]

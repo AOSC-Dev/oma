@@ -24,6 +24,7 @@ use crate::args::CliExecuter;
 pub struct Pick {
     /// Package to pick specific version for
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-pick-package-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     package: String,
     /// Fix apt broken status
     #[arg(short, long, help = fl!("clap-fix-broken-help"))]

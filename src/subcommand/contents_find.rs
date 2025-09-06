@@ -20,9 +20,6 @@ enum CliMode {
 
 #[derive(Debug, Args)]
 pub struct Files {
-    /// Search binary of package(s)
-    #[arg(long, help = fl!("clap-contents-find-bin-help"))]
-    bin: bool,
     /// Package to display a list files of
     #[arg(
         add = ArgValueCompleter::new(pkgnames_completions),
@@ -30,6 +27,9 @@ pub struct Files {
         help_heading = &**crate::args::ARG_HELP_HEADING_MUST,
     )]
     package: String,
+    /// Search binary of package(s)
+    #[arg(long, help = fl!("clap-contents-find-bin-help"))]
+    bin: bool,
     /// Output result to stdout, not pager
     #[arg(long, visible_alias = "println", help = fl!("clap-no-pager-help"))]
     no_pager: bool,
@@ -63,11 +63,12 @@ impl CliExecuter for Files {
 
 #[derive(Debug, Args)]
 pub struct Provides {
+    /// Keywords, parts of a path, executable names to search
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
+    pattern: String,
     /// Search binary of package(s)
     #[arg(long)]
     bin: bool,
-    /// Keywords, parts of a path, executable names to search
-    pattern: String,
     /// Output result to stdout, not pager
     #[arg(long, visible_alias = "println")]
     no_pager: bool,

@@ -27,6 +27,7 @@ use crate::args::CliExecuter;
 pub struct Remove {
     /// Package(s) to remove
     #[arg(add = ArgValueCompleter::new(pkgnames_remove_completions), help = fl!("clap-remove-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// Bypass confirmation prompts
     #[arg(short, long, help = fl!("clap-yes-help"))]

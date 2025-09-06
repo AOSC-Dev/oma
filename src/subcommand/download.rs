@@ -22,6 +22,7 @@ use super::utils::{auth_config, download_message};
 pub struct Download {
     /// Package(s) to download
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-download-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// The path where package(s) should be downloaded to
     #[arg(short, long, default_value = ".", help = fl!("clap-download-path-help"))]

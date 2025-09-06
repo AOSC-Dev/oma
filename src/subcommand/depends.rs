@@ -21,6 +21,7 @@ use crate::args::CliExecuter;
 pub struct Depends {
     /// Package(s) to query dependency(ies) for
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_and_path_completions), help = fl!("clap-depends-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// Set output format as JSON
     #[arg(long, help = fl!("clap-json-help"))]

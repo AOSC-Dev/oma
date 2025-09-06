@@ -31,6 +31,10 @@ use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
 pub(crate) struct Upgrade {
+    /// Package(s) to install
+    #[arg(add = ArgValueCompleter::new(pkgnames_and_path_completions), help = fl!("clap-install-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
+    packages: Vec<String>,
     /// Do not fix apt broken status
     #[arg(long, help = fl!("clap-no-fixbroken-help"))]
     no_fixbroken: bool,
@@ -66,9 +70,6 @@ pub(crate) struct Upgrade {
     /// Do not allow removal of packages during upgrade (like `apt upgrade')
     #[arg(long, help = fl!("clap-no-remove-help"))]
     no_remove: bool,
-    /// Package(s) to install
-    #[arg(add = ArgValueCompleter::new(pkgnames_and_path_completions), help = fl!("clap-install-packages-help"))]
-    packages: Vec<String>,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,

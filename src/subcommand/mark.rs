@@ -45,9 +45,11 @@ pub struct Mark {
         help = fl!("clap-mark-help"),
         long_help = fl!("clap-mark-long-help")
     )]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     action: MarkAction,
     /// Package(s) to mark status for
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-mark-packages-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]

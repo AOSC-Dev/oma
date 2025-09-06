@@ -29,6 +29,7 @@ use super::utils::create_progress_spinner;
 pub struct Search {
     /// Keywords to search
     #[arg(required = true, action = ArgAction::Append, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-search-pattern-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     pattern: Vec<String>,
     /// Output result to stdout, not pager
     #[arg(long, help = fl!("clap-no-pager-help"))]

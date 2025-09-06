@@ -104,6 +104,7 @@ pub struct CliMirror {
 }
 
 #[derive(Debug, Subcommand)]
+#[command(subcommand_help_heading = &**crate::args::HELP_HEADING)]
 pub enum MirrorSubCmd {
     /// Set mirror(s) to sources.list
     #[command(about = fl!("clap-mirror-set-help"))]
