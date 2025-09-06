@@ -68,10 +68,7 @@ pub static FORCE_UNSAGE_IO_TRANSLATE: LazyLock<String> = LazyLock::new(|| {
 
 #[inline]
 pub fn dangerous_color(msg: impl Display) -> String {
-    crate::console::style(msg)
-        .red()
-        .bold()
-        .to_string()
+    crate::console::style(msg).red().bold().to_string()
 }
 
 #[derive(Parser, Debug)]
