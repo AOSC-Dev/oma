@@ -115,6 +115,7 @@ pub struct GlobalOptions {
         global = true,
         env = "OMA_NO_PROGRESS",
         value_parser = FalseyValueParser::new(),
+        help = fl!("clap-no-progress-help")
     )]
     no_progress: bool,
     /// Run oma do not check dbus

@@ -59,17 +59,17 @@ impl CliExecuter for Files {
 
 #[derive(Debug, Args)]
 pub struct Provides {
-    /// Keywords, parts of a path, executable names to search
-    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
+    /// Search for package(s) that contains the specified path or file
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST, help = fl!("clap-contents-provides-help"))]
     pattern: String,
     /// Search binary of package(s)
-    #[arg(long)]
+    #[arg(long, help = fl!("clap-contents-find-bin-help"))]
     bin: bool,
     /// Output result to stdout, not pager
-    #[arg(long, visible_alias = "println")]
+    #[arg(long, visible_alias = "println", help = fl!("clap-no-pager-help"))]
     no_pager: bool,
     /// Set sysroot target directory
-    #[arg(from_global)]
+    #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
 }
 

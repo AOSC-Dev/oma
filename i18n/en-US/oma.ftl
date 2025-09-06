@@ -377,6 +377,7 @@ clap-clean-keep-installed-help = Keep installed packages
 clap-command-not-found-keyword-help = Command to query for command-not-found (where does the command come from?)
 clap-contents-find-bin-help = Search for package(s) that contains the specified executable
 clap-contents-find-package-help = Search for content in the specified package
+clap-contents-provides-help = Search for package(s) that contains the specified path or file
 clap-depends-packages-help = Package(s) to query dependency(ies) for
 clap-download-packages-help = Package(s) to download
 clap-download-path-help = Path where package(s) should be downloaded to
