@@ -11,6 +11,7 @@ use tracing::info;
 use tracing::warn;
 
 use crate::HTTP_CLIENT;
+use crate::args::ARG_HELP_HEADING;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
@@ -26,12 +27,14 @@ use super::utils::lock_oma;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
+#[command(next_help_heading = &**ARG_HELP_HEADING)]
 pub struct Install {
     /// Package(s) to install
     #[arg(
         add = ArgValueCompleter::new(pkgnames_and_path_completions),
         help = fl!("clap-install-packages-help"),
         value_name = fl!("clap-packages-value-name"),
+        help_heading = &**crate::args::ARG_HELP_HEADING_MUST,
     )]
     packages: Vec<String>,
     /// Install recommended package(s)

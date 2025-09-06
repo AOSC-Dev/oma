@@ -24,7 +24,7 @@ type IndexSet<T> = indexmap::IndexSet<T, ahash::RandomState>;
 #[derive(Debug, Args)]
 pub struct CommandNotFound {
     /// Package to query command-not-found
-    #[arg(required = true, help = fl!("clap-command-not-found-keyword-help"))]
+    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     keyword: String,
     /// Print help
     #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]

@@ -43,9 +43,9 @@ pub(crate) trait CliExecuter {
     fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError>;
 }
 
-static HELP_HEADING: LazyLock<String> = LazyLock::new(|| fl!("clap-command"));
-static NEXT_HELP_HEADING: LazyLock<String> = LazyLock::new(|| fl!("clap-argument"));
-
+pub static HELP_HEADING: LazyLock<String> = LazyLock::new(|| fl!("clap-command"));
+pub static ARG_HELP_HEADING: LazyLock<String> = LazyLock::new(|| fl!("clap-options"));
+pub static ARG_HELP_HEADING_MUST: LazyLock<String> = LazyLock::new(|| fl!("clap-argument"));
 pub static HELP_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
     format!(
         "\
@@ -71,7 +71,7 @@ pub static HELP_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
     subcommands = custom_subcmds(),
     subcommand_help_heading = &**HELP_HEADING,
     subcommand_value_name = &**HELP_HEADING,
-    next_help_heading = &**NEXT_HELP_HEADING,
+    next_help_heading = &**ARG_HELP_HEADING,
     disable_help_flag = true,
     disable_help_subcommand = true,
     override_usage = format!(
@@ -99,12 +99,15 @@ pub enum SubCmd {
         about = fl!("clap-install-help"),
         help_template = &*HELP_TEMPLATE,
     )]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Install(Install),
     /// Upgrade packages installed on the system
-    #[command(visible_alias = "full-upgrade", about = fl!("clap-upgrade-help"))]
+    #[command(visible_alias = "full-upgrade", about = fl!("clap-upgrade-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Upgrade(Upgrade),
     /// Download package(s) from the repository
-    #[command(about = fl!("clap-download-help"))]
+    #[command(about = fl!("clap-download-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Download(Download),
     /// Remove the specified package(s)
     #[command(
@@ -112,81 +115,112 @@ pub enum SubCmd {
         visible_alias = "rm",
         visible_alias = "autoremove",
         about = fl!("clap-remove-help"),
+        help_template = &*HELP_TEMPLATE,
     )]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Remove(Remove),
     /// Refresh repository metadata/catalog
-    #[command(about = fl!("clap-refresh-help"))]
+    #[command(about = fl!("clap-refresh-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Refresh(Refresh),
     /// Show information on the specified package(s)
-    #[command(visible_alias = "info", about = fl!("clap-show-help"))]
+    #[command(visible_alias = "info", about = fl!("clap-show-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Show(Show),
     /// Search for package(s) available from the repository
-    #[command(about = fl!("clap-search-help"))]
+    #[command(about = fl!("clap-search-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Search(Search),
     /// List files in the specified package
-    #[command(about = fl!("clap-files-help"))]
+    #[command(about = fl!("clap-files-help"), help_template = &*HELP_TEMPLATE, help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Files(Files),
     /// Search for package(s) that provide(s) certain patterns in a path
-    #[command(about = fl!("clap-provides-help"))]
+    #[command(about = fl!("clap-provides-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Provides(Provides),
     /// Resolve broken dependencies in the system
-    #[command(about = fl!("clap-fixbroken-help"))]
+    #[command(about = fl!("clap-fixbroken-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     FixBroken(FixBroken),
     /// Install specific version of a package
-    #[command(about = fl!("clap-pick-help"))]
+    #[command(about = fl!("clap-pick-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Pick(Pick),
     /// Mark status for one or multiple package(s)
-    #[command(about = fl!("clap-mark-help"))]
+    #[command(about = fl!("clap-mark-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Mark(Mark),
     /// List available package(s)
-    #[command(about = fl!("clap-list-help"))]
+    #[command(about = fl!("clap-list-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     List(List),
     /// Lists dependencies of one or multiple packages
-    #[command(visible_alias = "dep", about = fl!("clap-depends-help"))]
+    #[command(visible_alias = "dep", about = fl!("clap-depends-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Depends(Depends),
     /// List reverse dependency(ies) for the specified package(s)
-    #[command(visible_alias = "rdep", about = fl!("clap-rdepends-help"))]
+    #[command(visible_alias = "rdep", about = fl!("clap-rdepends-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Rdepends(Rdepends),
     /// Clear downloaded package cache
-    #[command(about = fl!("clap-clean-help"))]
+    #[command(about = fl!("clap-clean-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Clean(Clean),
     /// Show a history/log of package changes in the system
-    #[command(visible_alias = "log", about = fl!("clap-history-help"))]
+    #[command(visible_alias = "log", about = fl!("clap-history-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     History(History),
     /// Undo system changes operation
-    #[command(about = fl!("clap-undo-help"))]
+    #[command(about = fl!("clap-undo-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Undo(Undo),
     /// oma tui interface
-    #[command(about = fl!("clap-tui-help"))]
+    #[command(about = fl!("clap-tui-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Tui(Tui),
     /// Print version
-    #[command(about = fl!("clap-version-help"))]
+    #[command(about = fl!("clap-version-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Version(Version),
     #[cfg(feature = "aosc")]
     /// Manage testing topics enrollment
-    #[command(visible_alias = "topic", about = fl!("clap-topics-help"))]
+    #[command(visible_alias = "topic", about = fl!("clap-topics-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Topics(Topics),
     #[cfg(feature = "mirror")]
     /// Manage Mirrors enrollment
-    #[command(visible_alias = "mirrors", about = fl!("clap-mirror-help"))]
+    #[command(visible_alias = "mirrors", about = fl!("clap-mirror-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Mirror(crate::mirror::CliMirror),
     /// purge (like apt purge) the specified package(s)
-    #[command(hide = true)]
+    #[command(hide = true, help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Purge(Purge),
     /// command-not-found
-    #[command(hide = true)]
+    #[command(hide = true, help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     CommandNotFound(CommandNotFound),
-    #[command(hide = true)]
+    #[command(hide = true, help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     /// Generate manpages
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     GenerateManpages(GenerateManpages),
     /// Packages size analyzer
     #[command(about = fl!("clap-size-analyzer-help"))]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
+    #[command(help_template = &*HELP_TEMPLATE)]
     SizeAnalyzer(SizeAnalyzer),
     /// Display a tree visualization of a dependency graph
     #[command(about = fl!("clap-tree-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Tree(Tree),
     /// Why package is installed
     #[command(about = fl!("clap-why-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Why(Why),
 }
 

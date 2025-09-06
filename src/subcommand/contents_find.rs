@@ -1,5 +1,4 @@
 use crate::fl;
-use crate::path_completions::PathCompleter;
 use crate::table::oma_display_with_normal_output;
 use crate::utils::pkgnames_completions;
 use crate::{config::Config, error::OutputError};
@@ -25,7 +24,11 @@ pub struct Files {
     #[arg(long, help = fl!("clap-contents-find-bin-help"))]
     bin: bool,
     /// Package to display a list files of
-    #[arg(add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-contents-find-package-help"))]
+    #[arg(
+        add = ArgValueCompleter::new(pkgnames_completions),
+        help = fl!("clap-contents-find-package-help"),
+        help_heading = &**crate::args::ARG_HELP_HEADING_MUST,
+    )]
     package: String,
     /// Output result to stdout, not pager
     #[arg(long, visible_alias = "println", help = fl!("clap-no-pager-help"))]
@@ -64,7 +67,6 @@ pub struct Provides {
     #[arg(long)]
     bin: bool,
     /// Keywords, parts of a path, executable names to search
-    #[arg(add = ArgValueCompleter::new(PathCompleter::any()))]
     pattern: String,
     /// Output result to stdout, not pager
     #[arg(long, visible_alias = "println")]
