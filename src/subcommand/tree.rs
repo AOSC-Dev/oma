@@ -2,6 +2,7 @@ use std::{
     fmt::Display,
     io::{Write, stdout},
     path::PathBuf,
+    sync::LazyLock,
 };
 
 use clap::Args;
@@ -23,6 +24,13 @@ use super::utils::{create_progress_spinner, handle_no_result};
 
 use termtree::Tree as TermTree;
 
+static DEPTH_HELP: LazyLock<String> = LazyLock::new(|| {
+    fl!(
+        "clap-tree-depth-help",
+        memory_warn = crate::args::dangerous_color(fl!("clap-memory-warn"))
+    )
+});
+
 #[derive(Debug, Args)]
 pub struct Tree {
     /// Query Package(s) name
@@ -32,7 +40,7 @@ pub struct Tree {
     #[arg(short, long, help = fl!("clap-tree-reverse-help"))]
     reverse: bool,
     /// Maximum display depth of the dependency tree
-    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = fl!("clap-tree-depth-help"))]
+    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = &**DEPTH_HELP)]
     depth: u8,
     /// Set sysroot target directory
     #[arg(from_global, help = fl!("clap-sysroot-help"))]
@@ -45,11 +53,11 @@ pub struct Tree {
 #[derive(Debug, Args)]
 pub struct Why {
     /// Query Package(s) name
-    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-why-packages-help"))]
+    #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-tree-packages-help"))]
     #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
     /// Maximum display depth of the dependency tree
-    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = fl!("clap-tree-depth-help"))]
+    #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = &**DEPTH_HELP)]
     depth: u8,
     /// Set sysroot target directory
     #[arg(from_global, help = fl!("clap-sysroot-help"))]

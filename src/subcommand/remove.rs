@@ -51,7 +51,9 @@ pub struct Remove {
     #[arg(short, long, help = fl!("clap-no-fix-dpkg-status-help"))]
     no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
-    #[arg(long, help = fl!("clap-force-unsafe-io-help"))]
+    #[arg(
+        long,
+        help = fl!("clap-force-unsafe-io-help", dangerous = crate::console::style(format!("{}", fl!("clap-dangerous"))).red().to_string()))]
     force_unsafe_io: bool,
     /// Ignore repository and package dependency issues
     #[arg(long, help = fl!("clap-force-yes-help"))]
@@ -103,7 +105,10 @@ pub struct Purge {
     #[arg(short, long, help = fl!("clap-no-fix-dpkg-status-help"))]
     no_fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
-    #[arg(long, help = fl!("clap-force-unsafe-io-help"))]
+    #[arg(
+        long,
+        help = &**crate::args::FORCE_UNSAGE_IO_TRANSLATE
+    )]
     force_unsafe_io: bool,
     /// Ignore repository and package dependency issues
     #[arg(long, help = fl!("clap-force-yes-help"))]

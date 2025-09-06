@@ -1,4 +1,4 @@
-use std::{env, ffi::OsStr, path::Path, sync::LazyLock};
+use std::{env, ffi::OsStr, fmt::Display, path::Path, sync::LazyLock};
 
 use clap::{Arg, Args, Command, Parser, Subcommand, builder::Styles, crate_name, crate_version};
 use enum_dispatch::enum_dispatch;
@@ -59,6 +59,20 @@ pub static HELP_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
         Styles::default().get_usage().render_reset()
     )
 });
+pub static FORCE_UNSAGE_IO_TRANSLATE: LazyLock<String> = LazyLock::new(|| {
+    fl!(
+        "clap-force-unsafe-io-help",
+        dangerous = dangerous_color(fl!("clap-dangerous"))
+    )
+});
+
+#[inline]
+pub fn dangerous_color(msg: impl Display) -> String {
+    crate::console::style(msg)
+        .red()
+        .bold()
+        .to_string()
+}
 
 #[derive(Parser, Debug)]
 #[command(
