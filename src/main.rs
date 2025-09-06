@@ -21,7 +21,7 @@ mod table;
 mod tui;
 mod utils;
 
-use args::{CliExecuter, OhManagerAilurus, print_version};
+use args::{CliExecuter, OhManagerAilurus};
 use clap::builder::FalseyValueParser;
 use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches, arg};
 use clap_complete::CompleteEnv;
@@ -135,9 +135,8 @@ pub struct GlobalOptions {
 )]
     no_take_wake_lock: bool,
     /// Print version
-    // FIXME: ArgAcrion::Version buggy
-    #[arg(short, long, help = fl!("clap-version-help"))]
-    version: bool,
+    #[arg(short, long, action = ArgAction::Version, help = fl!("clap-version-help"))]
+    version: Option<bool>,
     /// Set sysroot target directory
     #[arg(long, global = true, default_value = "/", env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
@@ -175,11 +174,6 @@ fn main() {
 
     // 要适配额外的插件子命令，所以这里要保留 matches
     let (matches, oma) = parse_args();
-
-    if oma.global.version {
-        print_version();
-        exit(0);
-    }
 
     // Init config file
     let config = Config::read();
