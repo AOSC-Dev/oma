@@ -34,7 +34,6 @@ mod state;
 mod tui_inner;
 
 #[derive(Debug, Args)]
-#[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
 pub struct Tui {
     /// Fix apt broken status
     #[arg(short, long)]
@@ -126,7 +125,6 @@ impl CliExecuter for Tui {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
-            ..
         } = self;
 
         if dry_run {
