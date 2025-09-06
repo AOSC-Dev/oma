@@ -36,6 +36,7 @@ use tracing::{error, info};
 use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;
 use crate::RT;
+use crate::args::HELP_TEMPLATE;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
@@ -105,6 +106,8 @@ pub struct CliMirror {
 pub enum MirrorSubCmd {
     /// Set mirror(s) to sources.list
     #[command(about = fl!("clap-mirror-set-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Set {
         /// Enable mirror name(s)
         #[arg(required = true, help = fl!("clap-mirror-set-names-help"))]
@@ -121,6 +124,8 @@ pub enum MirrorSubCmd {
     },
     /// Add mirror(s) to sources.list
     #[command(about = fl!("clap-mirror-add-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Add {
         /// Add mirror name(s)
         #[arg(required = true, help = fl!("clap-mirror-add-names-help"))]
@@ -137,6 +142,8 @@ pub enum MirrorSubCmd {
     },
     /// Remove mirror(s) from sources.list
     #[command(about = fl!("clap-mirror-remove-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Remove {
         /// Remove mirror name(s)
         #[arg(required = true, help = fl!("clap-mirror-remove-names-help"))]
@@ -153,6 +160,8 @@ pub enum MirrorSubCmd {
     },
     /// Sort mirror(s) order
     #[command(about = fl!("clap-mirror-sort-mirrors-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     SortMirrors {
         /// Do not refresh topics manifest.json file
         #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
@@ -163,6 +172,8 @@ pub enum MirrorSubCmd {
     },
     /// Speedtest mirror(s)
     #[command(about = fl!("clap-mirror-speedtest-help"))]
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Speedtest {
         /// Also set fastest as mirror
         #[arg(long, help = fl!("clap-mirror-speedtest-set-fastest-help"))]
