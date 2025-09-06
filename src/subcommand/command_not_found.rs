@@ -26,9 +26,6 @@ pub struct CommandNotFound {
     /// Package to query command-not-found
     #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     keyword: String,
-    /// Print help
-    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
-    help: bool,
 }
 
 impl CliExecuter for CommandNotFound {

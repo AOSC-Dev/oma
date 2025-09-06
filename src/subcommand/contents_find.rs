@@ -36,9 +36,6 @@ pub struct Files {
     /// Set sysroot target directory
     #[arg(from_global, help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
-    /// Print help
-    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
-    help: bool,
 }
 
 impl CliExecuter for Files {
@@ -75,9 +72,6 @@ pub struct Provides {
     /// Set sysroot target directory
     #[arg(from_global)]
     sysroot: PathBuf,
-    /// Print help
-    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
-    help: bool,
 }
 
 impl CliExecuter for Provides {

@@ -37,9 +37,6 @@ pub struct History {
     /// Set sysroot target directory
     #[arg(from_global)]
     sysroot: PathBuf,
-    /// Print help
-    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
-    help: bool,
 }
 
 impl CliExecuter for History {

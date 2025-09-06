@@ -111,9 +111,6 @@ pub struct Topics {
     /// Note that this parameter depends on the `--opt-out` or `--opt-in` parameter, otherwise it is invalid.
     #[arg(short, long, requires = "in_or_out", help = fl!("clap-yes-help"), long_help = fl!("clap-topics-yes-long-help"))]
     yes: bool,
-    /// Print help
-    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
-    help: bool,
 }
 
 struct TopicChanged {

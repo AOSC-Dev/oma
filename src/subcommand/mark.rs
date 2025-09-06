@@ -61,7 +61,7 @@ pub struct Mark {
     #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
     /// Print help
-    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
+    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"), required = false)]
     help: bool,
 }
 

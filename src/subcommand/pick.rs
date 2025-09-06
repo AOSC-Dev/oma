@@ -75,9 +75,6 @@ pub struct Pick {
     /// Run oma do not take wake lock
     #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
     no_take_wake_lock: bool,
-    /// Print help
-    #[arg(long, short, action = clap::ArgAction::HelpLong, help = fl!("clap-help"))]
-    help: bool,
 }
 
 impl CliExecuter for Pick {
