@@ -421,3 +421,7 @@ clap-tree-depth-help = Maximum query level for dependencies (default: 5, RAM REQ
 clap-why-packages-help = Package(s) to display a reverse-dependency tree for
 clap-why-depth-help = Maximum query level for dependencies (default: 5, RAM REQUIREMENT INCREASES EXPONENTIALLY!)
 clap-help = Print help
+clap-mark-hold = Lock package version(s), this will prevent the specified package(s) from being updated or downgraded
+clap-mark-unhold = Unlock package version(s), this will undo the “hold” status on the specified package(s)
+clap-mark-manual = Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed
+clap-mark-auto = Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed

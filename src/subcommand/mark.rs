@@ -24,12 +24,16 @@ use crate::fl;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 pub enum MarkAction {
     /// Lock package version(s), this will prevent the specified package(s) from being updated or downgraded
+    #[value(help = fl!("clap-mark-hold"))]
     Hold,
     /// Unlock package version(s), this will undo the “hold” status on the specified package(s)
+    #[value(help = fl!("clap-mark-unhold"))]
     Unhold,
     /// Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed
+    #[value(help = fl!("clap-mark-manual"))]
     Manual,
     /// Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed
+    #[value(help = fl!("clap-mark-auto"))]
     Auto,
 }
 

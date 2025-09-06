@@ -413,3 +413,7 @@ clap-tree-reverse-help = 显示指定软件包的逆向依赖树
 clap-tree-depth-help = 最大依赖查询深度（默认为 5 层，**查询的内存需求随深度指数性增长！**）
 clap-why-packages-help = 要显示逆向依赖关系树的软件包
 clap-help = 显示帮助
+clap-mark-hold = 锁定软件包版本，这将防止指定软件包被更新或降级
+clap-mark-unhold = 解锁软件包版本，这将撤销指定软件包的“保留”状态
+clap-mark-manual = 将软件包标记为手动安装、 这将防止指定软件包在所有反向依赖关系被移除后被移除
+clap-mark-auto = 将软件包标记为自动安装，这将标记指定软件包在所有反向依赖关系被移除后被移除
