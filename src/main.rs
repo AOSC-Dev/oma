@@ -151,7 +151,7 @@ pub struct GlobalOptions {
     #[arg(long, short = 't', global = true, env = "OMA_DOWNLOAD_THREADS", help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
     /// Print help
-    #[arg(long, short, global = true, action = ArgAction::HelpLong, help = fl!("clap-help"))]
+    #[arg(long, short, global = true, action = ArgAction::Help, help = fl!("clap-help"))]
     help: Option<bool>,
 }
 
