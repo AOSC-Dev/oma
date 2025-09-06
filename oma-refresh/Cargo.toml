@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.48.6"
+version = "0.49.0"
 edition = "2024"
 description = "APT repository refresh handler library"
 license = "GPL-3.0-or-later"
@@ -46,4 +46,4 @@ default = ["aosc", "sequoia-nettle-backend", "rustls", "apt"]
 [dev-dependencies]
 tokio = { version = "1.28", default-features = false, features = ["rt-multi-thread"] }
 flume = "0.11.1"
-oma-utils = { version = "^0.11.0", path = "../oma-utils", features = ["dpkg"] }
+oma-utils = { version = "^0.12.0", path = "../oma-utils", features = ["dpkg"] }

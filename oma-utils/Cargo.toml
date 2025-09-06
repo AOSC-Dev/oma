@@ -1,6 +1,6 @@
 [package]
 name = "oma-utils"
-version = "0.11.3"
+version = "0.12.0"
 edition = "2024"
 description = "General system API and utilities used by oma"
 license = "MIT"

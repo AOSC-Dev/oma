@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.55.0"
+version = "0.56.0"
 edition = "2024"
 description = "APT package manager API abstraction library"
 license = "GPL-3.0-or-later"
@@ -13,7 +13,7 @@ thiserror = "2"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 glob-match = "0.2"
 indicium = "0.6"
-oma-utils = { version = "^0.11.0", path = "../oma-utils", features = [
+oma-utils = { version = "^0.12.0", path = "../oma-utils", features = [
     "dpkg",
     "url-no-escape",
     "human-bytes",
