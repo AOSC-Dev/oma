@@ -181,11 +181,6 @@ fn main() {
         exit(0);
     }
 
-    // if oma.global.help {
-    //     OhManagerAilurus::command().print_long_help().unwrap();
-    //     exit(0);
-    // }
-
     // Init config file
     let config = Config::read();
 
