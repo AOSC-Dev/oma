@@ -42,7 +42,6 @@ impl CliExecuter for Download {
             path,
             dry_run,
             download_threads,
-            ..
         } = self;
 
         let path = path.canonicalize().map_err(|e| OutputError {

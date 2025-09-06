@@ -38,7 +38,6 @@ impl CliExecuter for Rdepends {
             json,
             sysroot,
             apt_options,
-            ..
         } = self;
 
         let local_debs = packages

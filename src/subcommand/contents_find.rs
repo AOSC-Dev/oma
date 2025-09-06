@@ -45,7 +45,6 @@ impl CliExecuter for Files {
             package,
             no_pager,
             sysroot,
-            ..
         } = self;
         execute(
             CliMode::Files,
@@ -81,7 +80,6 @@ impl CliExecuter for Provides {
             pattern,
             no_pager,
             sysroot,
-            ..
         } = self;
         execute(
             CliMode::Provides,

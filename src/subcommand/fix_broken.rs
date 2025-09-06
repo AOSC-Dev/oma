@@ -75,7 +75,6 @@ impl CliExecuter for FixBroken {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
-            ..
         } = self;
 
         let mut _fds = dbus_check(

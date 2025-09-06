@@ -192,7 +192,6 @@ impl CliExecuter for Remove {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
-            ..
         } = self;
 
         if !dry_run {

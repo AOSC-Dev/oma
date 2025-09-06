@@ -68,7 +68,6 @@ impl CliExecuter for List {
             sysroot,
             apt_options,
             hold,
-            ..
         } = self;
 
         let oma_apt_args = OmaAptArgs::builder()

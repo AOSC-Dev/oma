@@ -66,7 +66,6 @@ impl CliExecuter for Show {
             packages,
             sysroot,
             apt_options,
-            ..
         } = self;
 
         let oma_apt_args = OmaAptArgs::builder()

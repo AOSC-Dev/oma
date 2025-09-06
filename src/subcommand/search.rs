@@ -140,7 +140,6 @@ impl CliExecuter for Search {
             json,
             sysroot,
             apt_options,
-            ..
         } = self;
 
         let no_pager = no_pager || config.search_contents_println();

@@ -46,7 +46,6 @@ impl CliExecuter for Clean {
             keep_downloadable,
             keep_downloadable_and_installed,
             keep_installed,
-            ..
         } = self;
 
         if dry_run {

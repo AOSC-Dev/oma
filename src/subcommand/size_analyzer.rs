@@ -110,7 +110,6 @@ impl CliExecuter for SizeAnalyzer {
             details,
             no_check_battery,
             no_take_wake_lock,
-            ..
         } = self;
 
         let detail = if !is_root() { false } else { !details };

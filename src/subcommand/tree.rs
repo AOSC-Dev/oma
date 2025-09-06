@@ -116,7 +116,6 @@ impl CliExecuter for Tree {
             depth: limit,
             sysroot,
             no_pager,
-            ..
         } = self;
 
         let apt = OmaApt::new(

@@ -36,7 +36,6 @@ impl CliExecuter for Refresh {
             sysroot,
             dry_run,
             download_threads,
-            ..
         } = self;
 
         if dry_run {

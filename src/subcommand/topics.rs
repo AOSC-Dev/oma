@@ -164,7 +164,6 @@ impl CliExecuter for Topics {
             no_take_wake_lock,
             only_apply_sources_list,
             yes,
-            ..
         } = self;
 
         if !dry_run {

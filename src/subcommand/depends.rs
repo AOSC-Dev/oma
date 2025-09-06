@@ -41,7 +41,6 @@ impl CliExecuter for Depends {
             json,
             sysroot,
             apt_options,
-            ..
         } = self;
 
         let local_debs = packages

@@ -30,7 +30,7 @@ pub struct CommandNotFound {
 
 impl CliExecuter for CommandNotFound {
     fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
-        let CommandNotFound { keyword, .. } = self;
+        let CommandNotFound { keyword } = self;
 
         let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
