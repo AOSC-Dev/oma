@@ -72,8 +72,8 @@ pub static HELP_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
     subcommand_help_heading = &**HELP_HEADING,
     subcommand_value_name = &**HELP_HEADING,
     next_help_heading = &**ARG_HELP_HEADING,
-    // disable_help_flag = true,
-    // disable_help_subcommand = true,
+    disable_help_flag = true,
+    disable_help_subcommand = true,
     override_usage = format!(
         "{}oma{} [{}] [{}]",
         Styles::default().get_literal().render(),
