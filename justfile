@@ -4,5 +4,5 @@ deb:
     COMPLETE=bash ./target/release/oma > completions/oma.bash
     COMPLETE=zsh ./target/release/oma > completions/_oma
     COMPLETE=fish ./target/release/oma > completions/oma.fish
-    ./target/release/oma generate-manpages
+    LANG=C ./target/release/oma generate-manpages
     cargo deb -Z xz

@@ -108,7 +108,7 @@ assets = [
     ["completions/oma.bash", "usr/share/bash-completion/completions/oma.bash", "644"],
     ["completions/oma.fish", "usr/share/fish/vendor_completions.d/oma.fish", "644"],
     ["completions/_oma", "usr/share/zsh/functions/Completion/Linux/_oma", "644"],
-    ["man/*.1", "usr/share/man/man1/", "644"]
+    ["man/en_US/*.1", "usr/share/man/man1/", "644"],
 ]
 features = ["nice-setup"]
 default-features = false
