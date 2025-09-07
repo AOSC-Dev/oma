@@ -292,7 +292,6 @@ delete-current-kernel-tips = { $kernel } 为正在使用的内核，移除后可
 custom-command-unknown = 未知命令：`{ $subcmd }'。
 custom-command-applet-exec = 正在执行自定义命令 oma-{ $subcmd } ...
 custom-command-applet-exception = 自定义命令异常退出，错误码：{ $s }。
-
 # clap: top-tier parameters
 clap-command = 命令
 clap-argument = 参数
@@ -324,7 +323,6 @@ clap-mirror-help = 开启或关闭镜像源
 clap-size-analyzer-help = 软件包磁盘占用分析器
 clap-tree-help = 显示指定软件包的依赖关系树
 clap-why-help = 通过树形可视化呈现指定软件包被安装的原因
-
 # clap: generic options
 clap-apt-options-help = 指定 APT 选项
 clap-autoremove-help = 从系统删除不再需要的软件包
@@ -362,7 +360,6 @@ clap-reinstall-help = 重装指定的软件包
 clap-remove-config-help = 在移除软件包时同时清除配置文件（类似 `apt purge'）
 clap-sysroot-help = 指定操作目标系统的根路径
 clap-yes-help = 跳过确认提示符
-
 # clap: command-specific options
 clap-clean-keep-downloadable-help = 保留依然可下载的软件包
 clap-clean-keep-downloadable-and-installed-help = 保留依然可下载及已安装的软件包
@@ -411,10 +408,11 @@ clap-topics-yes-long-help = 注意：该参数依赖 `--opt-out' 或 `--opt-in' 
 clap-tree-packages-help = 要显示依赖关系树的软件包
 clap-tree-reverse-help = 显示指定软件包的逆向依赖树
 clap-tree-depth-help = 最大依赖查询深度（默认为 5 层，{ $memory_warn }）
-clap-memory-warn = 查询的内存需求随深度指数性增长
+clap-memory-warn = 查询的内存需求随深度指数性增长！
 clap-why-packages-help = 要显示逆向依赖关系树的软件包
-clap-help = 显示帮助
+clap-help = 显示帮助信息
 clap-mark-hold = 锁定软件包版本，这将防止指定软件包被更新或降级
 clap-mark-unhold = 解锁软件包版本，这将撤销指定软件包的 "保留" 状态
 clap-mark-manual = 将软件包标记为手动安装、 这将防止指定软件包在所有逆向依赖关系被移除后被移除
 clap-mark-auto = 将软件包标记为自动安装，这将标记指定软件包在所有逆向依赖关系被移除后被移除
+yes-mode-conflict-ui = 在 UI 模式下 `--yes` 模式将不启用。
