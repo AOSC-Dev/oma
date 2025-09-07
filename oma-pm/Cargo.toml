@@ -18,7 +18,7 @@ oma-utils = { version = "^0.12.0", path = "../oma-utils", features = [
     "url-no-escape",
     "human-bytes",
 ] }
-oma-fetch = { version = "^0.31.0", path = "../oma-fetch" }
+oma-fetch = { version = "^0.32.0", path = "../oma-fetch" }
 tokio = { version = "1.15", default-features = false, features = [
     "fs",
     "rt-multi-thread",
