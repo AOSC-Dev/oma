@@ -11,7 +11,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
 use oma_pm::{
-    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
+    apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
     oma_apt::PkgSelectedState,
     pkginfo::OmaPackageWithoutVersion,
@@ -258,11 +258,7 @@ impl CliExecuter for Topics {
             let kernel_ver = OnceCell::new();
 
             for pkg in downgrade_pkgs {
-                let mut f = apt
-                    .filter_pkgs(&[FilterMode::Default])?
-                    .filter(|x| x.name() == pkg);
-
-                let Some(pkg) = f.next() else {
+                let Some(pkg) = apt.cache.get(&pkg) else {
                     continue;
                 };
 
@@ -314,11 +310,7 @@ impl CliExecuter for Topics {
             }
 
             for pkg in enabled_pkgs {
-                let mut f = apt
-                    .filter_pkgs(&[FilterMode::Default])?
-                    .filter(|x| x.name() == pkg);
-
-                let Some(pkg) = f.next() else {
+                let Some(pkg) = apt.cache.get(&pkg) else {
                     continue;
                 };
 
