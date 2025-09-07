@@ -3057,7 +3057,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.56.0"
+version = "0.56.1"
 dependencies = [
  "ahash",
  "apt-auth-config",
