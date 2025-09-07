@@ -1047,7 +1047,7 @@ impl OmaApt {
 
         let disk_size_delta = match disk_size {
             DiskSpace::Require(n) => n as i64,
-            DiskSpace::Free(n) => (0 - n) as i64,
+            DiskSpace::Free(n) => 0 - n as i64,
         };
 
         let total_download_size = self.cache.depcache().download_size();
