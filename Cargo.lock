@@ -2862,7 +2862,7 @@ dependencies = [
 
 [[package]]
 name = "oma"
-version = "1.21.0-rc.6"
+version = "1.22.0-alpha.0"
 dependencies = [
  "ahash",
  "ansi-to-tui",
