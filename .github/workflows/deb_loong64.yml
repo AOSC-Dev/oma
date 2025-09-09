@@ -43,7 +43,7 @@ jobs:
         run: |
           export ZSTD_SYS_USE_PKG_CONFIG=1
           localedef -i zh_CN -f UTF-8 zh_CN.UTF-8
-          localedef -i zh_TW -f UTF-8 zh_CN.UTF-8
+          localedef -i zh_TW -f UTF-8 zh_TW.UTF-8
           cargo build --release --no-default-features --features nice-setup
           mkdir -pv completions
           COMPLETE=bash ./target/release/oma > completions/oma.bash
