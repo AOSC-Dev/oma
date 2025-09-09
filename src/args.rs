@@ -143,7 +143,7 @@ pub enum SubCmd {
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Search(Search),
     /// List files in the specified package
-    #[command(about = fl!("clap-files-help"), help_template = &*HELP_TEMPLATE, help_template = &*HELP_TEMPLATE)]
+    #[command(about = fl!("clap-files-help"), help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Files(Files),
     /// Search for package(s) that provide(s) certain patterns in a path
@@ -212,9 +212,8 @@ pub enum SubCmd {
     #[command(hide = true, help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     CommandNotFound(CommandNotFound),
-    #[command(hide = true, help_template = &*HELP_TEMPLATE)]
-    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     /// Generate manpages
+    #[command(hide = true)]
     #[command(help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     GenerateManpages(GenerateManpages),
