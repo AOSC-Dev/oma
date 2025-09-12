@@ -784,7 +784,7 @@ fn print_tum(
                     ..
                 } => {
                     let name = name
-                        .get(lang.as_ref())
+                        .get(lang)
                         .unwrap_or_else(|| name.get("default").unwrap());
 
                     let name = if *security {
@@ -793,10 +793,8 @@ fn print_tum(
                         name.to_string()
                     };
 
-                    let caution = caution.map(|c| {
-                        c.get(lang.as_ref())
-                            .unwrap_or_else(|| c.get("default").unwrap())
-                    });
+                    let caution =
+                        caution.map(|c| c.get(lang).unwrap_or_else(|| c.get("default").unwrap()));
 
                     tum_display.push(TumDisplay {
                         name,
@@ -811,7 +809,7 @@ fn print_tum(
                     ..
                 } => {
                     let name = name
-                        .get(lang.as_ref())
+                        .get(lang)
                         .unwrap_or_else(|| name.get("default").unwrap());
 
                     let name = if *security {
@@ -820,10 +818,8 @@ fn print_tum(
                         name.to_string()
                     };
 
-                    let caution = caution.map(|c| {
-                        c.get(lang.as_ref())
-                            .unwrap_or_else(|| c.get("default").unwrap())
-                    });
+                    let caution =
+                        caution.map(|c| c.get(lang).unwrap_or_else(|| c.get("default").unwrap()));
 
                     tum_display.push(TumDisplay {
                         name,

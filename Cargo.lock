@@ -2911,7 +2911,6 @@ dependencies = [
  "sha2",
  "smallvec",
  "strsim",
- "sys-locale",
  "sysinfo",
  "tabled",
  "termtree",
