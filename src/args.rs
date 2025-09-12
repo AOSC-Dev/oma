@@ -74,6 +74,7 @@ pub fn dangerous_color(msg: impl Display) -> String {
 #[derive(Parser, Debug)]
 #[command(
     version,
+    long_version = long_version(),
     about = fl!("clap-about"),
     long_about = None,
     disable_version_flag = true,
@@ -232,6 +233,40 @@ pub enum SubCmd {
     #[command(help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Why(Why),
+}
+
+fn long_version() -> String {
+    let mut ver = crate_version!().to_string();
+
+    if env!("VERGEN_GIT_DESCRIBE").is_empty() && env!("VERGEN_GIT_SHA").is_empty() {
+        ver.push_str("-unknown");
+    }
+
+    if env!("VERGEN_GIT_DESCRIBE")
+        .strip_prefix('v')
+        .is_none_or(|describe_suffix| describe_suffix != ver)
+    {
+        ver.push('-');
+        if env!("VERGEN_GIT_SHA").is_empty() {
+            ver.push_str("unknown");
+        } else {
+            ver.push_str(env!("VERGEN_GIT_SHA"));
+        }
+    }
+
+    if env!("VERGEN_GIT_DIRTY") == "true" {
+        ver.push_str("-dirty");
+    }
+
+    if env!("VERGEN_CARGO_DEBUG") == "true" {
+        ver.push_str("-debug");
+    }
+
+    let features = env!("VERGEN_CARGO_FEATURES");
+    ver.push_str(" with features: ");
+    ver.push_str(features);
+
+    ver
 }
 
 #[derive(Debug, Args)]

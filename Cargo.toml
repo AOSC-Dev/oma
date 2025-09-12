@@ -75,6 +75,10 @@ rust-embed = "8.5.0"
 unic-langid = "0.9.5"
 sys-locale = "0.3"
 
+[build-dependencies]
+vergen-git2 = { version = "1.0.7", features = ["cargo"] }
+vergen = "9.0.1"
+
 [features]
 aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "dep:oma-mirror", "reqwest/blocking", "dep:oma-tum"]
 mirror = []
