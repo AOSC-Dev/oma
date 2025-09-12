@@ -791,7 +791,7 @@ pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
     for (index, f) in features.iter().enumerate() {
         if let Some(v) = features_data.get(f) {
             let text = v
-                .get(lang.as_ref())
+                .get(lang.as_str())
                 .unwrap_or_else(|| v.get(DEFAULT_LANGUAGE).unwrap());
 
             res.push_str(&format!("  * {text}"));

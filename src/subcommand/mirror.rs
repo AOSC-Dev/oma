@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::io::stdout;
@@ -40,6 +39,7 @@ use crate::args::HELP_TEMPLATE;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
+use crate::lang::SYSTEM_LANG;
 use crate::pb::OmaProgressBar;
 use crate::pb::Print;
 use crate::subcommand::utils::multiselect;
@@ -61,16 +61,11 @@ struct MirrorDisplay((Box<str>, MirrorConfig));
 
 impl Display for MirrorDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let lang = sys_locale::get_locale()
-            .map(|s| s.replace("-", "_"))
-            .map(Cow::Owned)
-            .unwrap_or("default".into());
-
         let desc = self
             .0
             .1
             .description
-            .get(lang.as_ref())
+            .get(&*SYSTEM_LANG)
             .unwrap_or_else(|| self.0.1.description.get("default").unwrap());
 
         write!(
