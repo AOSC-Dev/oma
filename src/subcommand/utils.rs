@@ -34,6 +34,7 @@ use crate::pb::OmaMultiProgressBar;
 use crate::pb::OmaProgressBar;
 use crate::pb::RenderPackagesDownloadProgress;
 use crate::pb::RenderRefreshProgress;
+use crate::subcommand::clean::clean_download_packages_cache;
 use crate::success;
 use crate::table::table_for_install_pending;
 use ahash::HashSet;
@@ -488,6 +489,14 @@ impl CommitChanges<'_> {
 
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
+
+                let download_dir = apt.get_archive_dir();
+                if let Err(e) =
+                    clean_download_packages_cache(false, false, false, &apt, download_dir)
+                {
+                    warn!("Failed to clean download packages cache: {}", e);
+                }
+
                 space_tips(&apt, sysroot);
 
                 Ok(0)
