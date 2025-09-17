@@ -47,7 +47,6 @@ use tokio::{
 };
 use tracing::{debug, warn};
 
-use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
 use crate::{
     config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
@@ -56,6 +55,10 @@ use crate::{
     },
     sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, scan_sources_lists_paths_from_sysroot},
     util::DatabaseFilenameReplacer,
+};
+use crate::{
+    sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths},
+    util::concat_url,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -813,11 +816,9 @@ fn collect_download_task(
 
         let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
 
-        format!("{}/{}", dist_url, path.display())
-    } else if dist_url.ends_with('/') {
-        format!("{}{}", dist_url, c.item.name)
+        concat_url(dist_url, path.display().to_string())
     } else {
-        format!("{}/{}", dist_url, c.item.name)
+        concat_url(dist_url, &c.item.name)
     };
 
     let sources = vec![DownloadSource {
@@ -827,14 +828,12 @@ fn collect_download_task(
 
     let file_path = if c.keep_compress {
         if release.acquire_by_hash() {
-            Cow::Owned(format!("{dist_url}/{}", c.item.name))
+            Cow::Owned(concat_url(dist_url, &c.item.name))
         } else {
             Cow::Borrowed(&download_url)
         }
-    } else if dist_url.ends_with('/') {
-        Cow::Owned(format!("{dist_url}{not_compress_filename_before}"))
     } else {
-        Cow::Owned(format!("{dist_url}/{not_compress_filename_before}"))
+        Cow::Owned(concat_url(dist_url, not_compress_filename_before.as_ref()))
     };
 
     let file_name = replacer.replace(&file_path)?;
