@@ -53,3 +53,12 @@ impl DatabaseFilenameReplacer {
         Ok(String::from_utf8_lossy(&wtr).to_string())
     }
 }
+
+#[inline]
+pub(crate) fn concat_url(url: &str, path: impl AsRef<str>) -> String {
+    format!(
+        "{}/{}",
+        url.trim_end_matches('/'),
+        path.as_ref().trim_start_matches('/')
+    )
+}

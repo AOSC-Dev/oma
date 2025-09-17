@@ -27,7 +27,7 @@ use url::Url;
 
 use crate::{
     db::{Event, RefreshError, content_length},
-    util::DatabaseFilenameReplacer,
+    util::{DatabaseFilenameReplacer, concat_url},
 };
 
 #[derive(Clone)]
@@ -354,13 +354,13 @@ impl MirrorSource<'_> {
         }))
         .await;
 
-        let mut url = format!("{dist_path}/InRelease");
+        let mut url = concat_url(dist_path, "InRelease");
         let mut is_release = false;
 
         let resp = match self.send_request(client, &url, Method::GET).await {
             Ok(resp) => resp,
             Err(e) if e.status().is_some_and(|e| e == StatusCode::NOT_FOUND) => {
-                url = format!("{dist_path}/Release");
+                url = concat_url(dist_path, "Release");
                 let resp = self.send_request(client, &url, Method::GET).await;
 
                 if resp.is_err() && self.is_flat() {
@@ -394,7 +394,7 @@ impl MirrorSource<'_> {
         self.set_release_file_name(file_name);
 
         if is_release && !self.trusted() {
-            let url = format!("{}/{}", dist_path, "Release.gpg");
+            let url = concat_url(dist_path, "Release.gpg");
 
             let request = build_request_with_basic_auth(
                 client,
@@ -527,11 +527,7 @@ impl MirrorSource<'_> {
         for (index, entry) in ["InRelease", "Release"].iter().enumerate() {
             let p = dist_path.join(entry);
 
-            let dst = if dist_path_with_protocol.ends_with('/') {
-                format!("{dist_path_with_protocol}{entry}")
-            } else {
-                format!("{dist_path_with_protocol}/{entry}")
-            };
+            let dst = concat_url(dist_path_with_protocol, entry);
 
             let file_name = replacer.replace(&dst)?;
 
@@ -568,11 +564,7 @@ impl MirrorSource<'_> {
             let p = dist_path.join("Release.gpg");
             let entry = "Release.gpg";
 
-            let dst = if dist_path_with_protocol.ends_with('/') {
-                format!("{dist_path_with_protocol}{entry}")
-            } else {
-                format!("{dist_path_with_protocol}/{entry}")
-            };
+            let dst = concat_url(dist_path_with_protocol, entry);
 
             let file_name = replacer.replace(&dst)?;
 
