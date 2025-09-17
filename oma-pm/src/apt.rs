@@ -154,6 +154,12 @@ pub enum OmaAptError {
     ChecksumError(#[from] ChecksumError),
     #[error("Blocking installation due to features markers.")]
     Features,
+    #[error("Unable to find package {0} on dpkg status file")]
+    DpkgStatusGetPkg(String),
+    #[error("Wrong dpkg status: {0}, package is not installed?")]
+    WrongDpkgStatus(String),
+    #[error("Package {0} status field is missing, dpkg status is broken.")]
+    DpkgStatusBroken(String),
 }
 
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
@@ -818,7 +824,12 @@ impl OmaApt {
             }
         }
 
-        let res = oma_utils::dpkg::mark_version_status(pkgs, hold, dry_run, self.sysroot())?;
+        let res = crate::dpkg::mark_status(
+            pkgs.iter().map(|s| s.as_str()),
+            self.sysroot(),
+            hold,
+            dry_run,
+        )?;
 
         Ok(res)
     }

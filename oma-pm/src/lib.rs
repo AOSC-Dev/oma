@@ -43,6 +43,7 @@ pub use commit::CommitNetworkConfig;
 pub mod sort;
 pub use commit::CustomDownloadMessage;
 pub use oma_apt;
+mod dpkg;
 
 #[cfg(test)]
 mod test {
