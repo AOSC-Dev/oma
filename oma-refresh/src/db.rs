@@ -47,6 +47,7 @@ use tokio::{
 };
 use tracing::{debug, warn};
 
+use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
 use crate::{
     config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
@@ -55,10 +56,6 @@ use crate::{
     },
     sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, scan_sources_lists_paths_from_sysroot},
     util::DatabaseFilenameReplacer,
-};
-use crate::{
-    sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths},
-    util::concat_url,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -775,8 +772,6 @@ fn collect_download_task(
 
     let msg = mirror_source.get_human_download_message(Some(file_type))?;
 
-    let dist_url = &mirror_source.dist_path();
-
     let from = match mirror_source.from()? {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http {
             auth: mirror_source
@@ -816,27 +811,21 @@ fn collect_download_task(
 
         let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
 
-        concat_url(dist_url, path.display().to_string())
+        mirror_source.get_download_url(&path.display().to_string())
     } else {
-        concat_url(dist_url, &c.item.name)
+        mirror_source.get_download_url(&c.item.name)
     };
 
     let sources = vec![DownloadSource {
-        url: download_url.clone(),
+        url: download_url.to_string(),
         source_type: from,
     }];
 
-    let file_path = if c.keep_compress {
-        if release.acquire_by_hash() {
-            Cow::Owned(concat_url(dist_url, &c.item.name))
-        } else {
-            Cow::Borrowed(&download_url)
-        }
+    let file_name = if c.keep_compress {
+        mirror_source.get_download_file_name(Some(&c.item.name), replacer)?
     } else {
-        Cow::Owned(concat_url(dist_url, not_compress_filename_before.as_ref()))
+        mirror_source.get_download_file_name(Some(&not_compress_filename_before), replacer)?
     };
-
-    let file_name = replacer.replace(&file_path)?;
 
     let task = DownloadEntry::builder()
         .source(sources)
