@@ -32,6 +32,7 @@ use crate::{
     msg,
     pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress},
     subcommand::{
+        clean::clean_download_packages_cache,
         remove::ask_user_do_as_i_say,
         utils::{create_progress_spinner, download_message},
     },
@@ -263,6 +264,19 @@ impl CommitChanges<'_> {
 
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
+
+                let download_dir = apt.get_archive_dir();
+                if let Err(e) = clean_download_packages_cache(
+                    false,
+                    false,
+                    false,
+                    &apt,
+                    download_dir,
+                    config.no_progress(),
+                ) {
+                    warn!("Failed to clean download packages cache: {}", e);
+                }
+
                 space_tips(&apt, &config.sysroot);
 
                 Ok(ExitHandle::default().ring(true))
