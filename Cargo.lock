@@ -2938,9 +2938,9 @@ dependencies = [
 
 [[package]]
 name = "oma-apt-sources-lists"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dc26a722e715d57d11207b3f17bba066238a4e7896decce7ad24c1469f62ae2"
+checksum = "47b848b324c28b26801cf35981fa6525d66f46042ad82c382eae920f402f2b5e"
 dependencies = [
  "deb822-fast",
  "thiserror 2.0.16",
@@ -4081,7 +4081,7 @@ dependencies = [
  "regex",
  "regex-syntax",
  "sha1collisiondetection",
- "thiserror 2.0.16",
+ "thiserror 1.0.69",
  "xxhash-rust",
 ]
 
