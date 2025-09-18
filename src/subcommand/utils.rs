@@ -460,12 +460,12 @@ impl CommitChanges<'_> {
 
                 let apt = OmaApt::new(
                     vec![],
-                    OmaAptArgs::builder().build(),
+                    OmaAptArgs::builder().sysroot(sysroot.clone()).build(),
                     false,
                     AptConfig::new(),
                 )?;
 
-                write_oma_installed_status(&apt)?;
+                write_oma_installed_status(&apt, &sysroot)?;
 
                 autoremovable_tips(ar_count, ar_size);
 
@@ -807,9 +807,9 @@ pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
     Ok(res)
 }
 
-pub fn write_oma_installed_status(apt: &OmaApt) -> anyhow::Result<()> {
-    let status_file = Path::new("/var/lib/oma/installed");
-    let status_file_manual = Path::new("/var/lib/oma/installed-manual");
+pub fn write_oma_installed_status(apt: &OmaApt, sysroot: impl AsRef<Path>) -> anyhow::Result<()> {
+    let status_file = sysroot.as_ref().join("var/lib/oma/installed");
+    let status_file_manual = sysroot.as_ref().join("var/lib/oma/installed-manual");
     let parent = status_file.parent().unwrap();
 
     if !parent.is_dir() {
@@ -827,11 +827,11 @@ pub fn write_oma_installed_status(apt: &OmaApt) -> anyhow::Result<()> {
         .collect::<Vec<_>>();
 
     if status_file.exists() {
-        fs::copy(status_file, parent.join("installed-old"))?;
+        fs::copy(&status_file, parent.join("installed-old"))?;
     }
 
     if status_file_manual.exists() {
-        fs::copy(status_file, parent.join("installed-manual-old"))?;
+        fs::copy(&status_file, parent.join("installed-manual-old"))?;
     }
 
     fs::write(status_file, pkgs.join("\n"))?;

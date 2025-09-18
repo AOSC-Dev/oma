@@ -43,6 +43,7 @@ use crate::{
     pkginfo::{OmaDependency, OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::InstallProgressManager,
     sort::SummarySort,
+    utils::is_termux,
 };
 
 pub enum InstallProgressOpt {
@@ -92,6 +93,7 @@ pub struct OmaApt {
     archive_dir: OnceCell<PathBuf>,
     pub(crate) tokio: OnceCell<Runtime>,
     pub(crate) conn: OnceCell<Connection>,
+    sysroot: PathBuf,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -199,6 +201,7 @@ impl OmaApt {
             }
         }
 
+        let sysroot = args.sysroot.clone();
         let config = Self::init_config(config, args)?;
 
         Ok(Self {
@@ -211,6 +214,7 @@ impl OmaApt {
             archive_dir: OnceCell::new(),
             tokio: OnceCell::new(),
             conn: OnceCell::new(),
+            sysroot: sysroot.into(),
         })
     }
 
@@ -229,16 +233,19 @@ impl OmaApt {
             another_apt_options,
         } = args;
 
-        let sysroot = Path::new(&sysroot);
-        let sysroot = sysroot
-            .canonicalize()
-            .map_err(|e| OmaAptError::FailedGetCanonicalize(sysroot.display().to_string(), e))?;
+        // Termux 的 apt 会默认的设置根，所以无需变动
+        if !is_termux() {
+            let sysroot = Path::new(&sysroot);
+            let sysroot = sysroot.canonicalize().map_err(|e| {
+                OmaAptError::FailedGetCanonicalize(sysroot.display().to_string(), e)
+            })?;
 
-        config.set("Dir", &sysroot.display().to_string());
-        config.set(
-            "Dir::State::status",
-            &sysroot.join("var/lib/dpkg/status").display().to_string(),
-        );
+            config.set("Dir", &sysroot.display().to_string());
+            config.set(
+                "Dir::State::status",
+                &sysroot.join("var/lib/dpkg/status").display().to_string(),
+            );
+        }
 
         debug!("Dir is: {:?}", config.get("Dir"));
         debug!(
@@ -305,11 +312,15 @@ impl OmaApt {
             unsafe { std::env::set_var("DEBIAN_FRONTEND", "noninteractive") };
         }
 
-        let dir = config.get("Dir").unwrap_or("/".to_owned());
+        let dir = config.get("Dir").unwrap_or_else(|| "/".to_owned());
         let root_arg = format!("--root={dir}");
-        dpkg_args.push(&root_arg);
+
+        if !is_termux() {
+            dpkg_args.push(&root_arg);
+        }
 
         config.set_vector("Dpkg::Options::", &dpkg_args);
+        debug!("dpkg args: {dpkg_args:?}");
 
         for kv in another_apt_options {
             let (k, v) = kv.split_once('=').unwrap_or((&kv, ""));
@@ -599,7 +610,11 @@ impl OmaApt {
     }
 
     fn sysroot(&self) -> String {
-        self.config.get("Dir").unwrap_or_else(|| "/".to_string())
+        if is_termux() {
+            self.sysroot.display().to_string()
+        } else {
+            self.config.get("Dir").unwrap_or_else(|| "/".to_string())
+        }
     }
 
     pub fn fix_resolver_broken(&self) {
@@ -632,9 +647,7 @@ impl OmaApt {
         let pkgs = self.cache.packages(&sort);
         let mut need_reconfigure = false;
         let mut need_retriggers = false;
-        let dpkg_update_path =
-            Path::new(&self.config.get("Dir").unwrap_or_else(|| "/".to_string()))
-                .join("var/lib/dpkg/updates");
+        let dpkg_update_path = Path::new(&self.sysroot()).join("var/lib/dpkg/updates");
 
         if dpkg_update_path
             .read_dir()
@@ -719,7 +732,7 @@ impl OmaApt {
 
         let cmd = Command::new("dpkg")
             .arg("--root")
-            .arg(self.config.get("Dir").unwrap_or_else(|| "/".to_owned()))
+            .arg(self.sysroot())
             .arg("--configure")
             .arg("-a")
             .spawn()
@@ -733,7 +746,7 @@ impl OmaApt {
 
         let cmd = Command::new("dpkg")
             .arg("--root")
-            .arg(self.config.get("Dir").unwrap_or_else(|| "/".to_owned()))
+            .arg(self.sysroot())
             .arg("--triggers-only")
             .arg("-a")
             .spawn()
@@ -745,17 +758,21 @@ impl OmaApt {
     /// Get apt archive dir
     pub fn get_archive_dir(&self) -> &Path {
         self.archive_dir.get_or_init(|| {
+            if is_termux() {
+                return PathBuf::from("/data/data/com.termux/cache/apt/archives/");
+            }
+
             let archives_dir = self
                 .config
                 .get("Dir::Cache::Archives")
-                .unwrap_or("archives/".to_string());
+                .unwrap_or_else(|| "archives/".to_string());
 
             let cache = self
                 .config
                 .get("Dir::Cache")
-                .unwrap_or("var/cache/apt".to_string());
+                .unwrap_or_else(|| "var/cache/apt".to_string());
 
-            let dir = self.config.get("Dir").unwrap_or("/".to_string());
+            let dir = self.config.get("Dir").unwrap_or_else(|| "/".to_string());
 
             let archive_dir_p = PathBuf::from(archives_dir);
             if archive_dir_p.is_absolute() {
@@ -801,12 +818,7 @@ impl OmaApt {
             }
         }
 
-        let res = oma_utils::dpkg::mark_version_status(
-            pkgs,
-            hold,
-            dry_run,
-            self.config.get("Dir").unwrap_or("/".to_string()),
-        )?;
+        let res = oma_utils::dpkg::mark_version_status(pkgs, hold, dry_run, self.sysroot())?;
 
         Ok(res)
     }
@@ -1110,9 +1122,9 @@ impl OmaApt {
 
         let need_space = download_size + op.disk_size_delta;
 
-        let available_disk_size =
-            fs4::available_space(self.config.get("Dir").unwrap_or("/".to_string()))
-                .map_err(OmaAptError::FailedGetAvailableSpace)? as i64;
+        let available_disk_size = fs4::available_space(self.sysroot())
+            .map_err(OmaAptError::FailedGetAvailableSpace)?
+            as i64;
 
         if available_disk_size < need_space {
             return Err(OmaAptError::DiskSpaceInsufficient(
