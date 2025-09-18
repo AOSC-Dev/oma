@@ -2916,8 +2916,6 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
- "unic-langid",
- "which",
 ]
 
 [[package]]
@@ -2962,7 +2960,6 @@ dependencies = [
 name = "oma-contents"
 version = "0.17.1"
 dependencies = [
- "chrono",
  "flate2",
  "lzzzz",
  "memchr",
@@ -3000,7 +2997,6 @@ name = "oma-history"
 version = "0.8.0"
 dependencies = [
  "chrono",
- "num_enum",
  "oma-pm-operation-type",
  "rusqlite",
  "serde",
@@ -3084,7 +3080,6 @@ version = "0.49.2"
 dependencies = [
  "ahash",
  "aho-corasick",
- "anyhow",
  "apt-auth-config",
  "bon",
  "chrono",
