@@ -55,7 +55,7 @@ itertools = "0.14.0"
 clap-i18n-richformatter = "0.1.0"
 
 # oma crates
-oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes", "oma"] }
+oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes"] }
 oma-console = { path = "./oma-console" }
 oma-pm = { path = "./oma-pm" }
 oma-refresh = { path = "./oma-refresh", default-features = false }

@@ -3159,7 +3159,6 @@ version = "0.12.0"
 dependencies = [
  "logind-zbus",
  "number_prefix",
- "oma-console",
  "os-release",
  "thiserror 2.0.16",
  "tracing",

@@ -28,6 +28,7 @@ use crate::install_progress::OmaInstallProgressManager;
 use crate::install_progress::osc94_progress;
 use crate::lang::DEFAULT_LANGUAGE;
 use crate::lang::SYSTEM_LANG;
+use crate::lock_oma_inner;
 use crate::msg;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
@@ -36,6 +37,7 @@ use crate::pb::RenderPackagesDownloadProgress;
 use crate::pb::RenderRefreshProgress;
 use crate::success;
 use crate::table::table_for_install_pending;
+use crate::unlock_oma;
 use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::Builder;
@@ -72,8 +74,6 @@ use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_pm::sort::SummarySort;
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg::dpkg_arch;
-use oma_utils::oma::lock_oma_inner;
-use oma_utils::oma::unlock_oma;
 use reqwest::Client;
 use std::fmt::Display;
 use tracing::debug;
@@ -177,8 +177,8 @@ impl Error for LockError {
     }
 }
 
-pub(crate) fn lock_oma() -> Result<(), LockError> {
-    lock_oma_inner().map_err(|e| LockError { source: e })?;
+pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<(), LockError> {
+    lock_oma_inner(sysroot.as_ref()).map_err(|e| LockError { source: e })?;
     let hook = std::panic::take_hook();
 
     panic::set_hook(Box::new(move |info| {
@@ -460,12 +460,12 @@ impl CommitChanges<'_> {
 
                 let apt = OmaApt::new(
                     vec![],
-                    OmaAptArgs::builder().build(),
+                    OmaAptArgs::builder().sysroot(sysroot.clone()).build(),
                     false,
                     AptConfig::new(),
                 )?;
 
-                write_oma_installed_status(&apt)?;
+                write_oma_installed_status(&apt, &sysroot)?;
 
                 autoremovable_tips(ar_count, ar_size);
 
@@ -807,9 +807,9 @@ pub fn format_features(features: &HashSet<Box<str>>) -> anyhow::Result<String> {
     Ok(res)
 }
 
-pub fn write_oma_installed_status(apt: &OmaApt) -> anyhow::Result<()> {
-    let status_file = Path::new("/var/lib/oma/installed");
-    let status_file_manual = Path::new("/var/lib/oma/installed-manual");
+pub fn write_oma_installed_status(apt: &OmaApt, sysroot: impl AsRef<Path>) -> anyhow::Result<()> {
+    let status_file = sysroot.as_ref().join("var/lib/oma/installed");
+    let status_file_manual = sysroot.as_ref().join("var/lib/oma/installed-manual");
     let parent = status_file.parent().unwrap();
 
     if !parent.is_dir() {
@@ -827,11 +827,11 @@ pub fn write_oma_installed_status(apt: &OmaApt) -> anyhow::Result<()> {
         .collect::<Vec<_>>();
 
     if status_file.exists() {
-        fs::copy(status_file, parent.join("installed-old"))?;
+        fs::copy(&status_file, parent.join("installed-old"))?;
     }
 
     if status_file_manual.exists() {
-        fs::copy(status_file, parent.join("installed-manual-old"))?;
+        fs::copy(&status_file, parent.join("installed-manual-old"))?;
     }
 
     fs::write(status_file, pkgs.join("\n"))?;

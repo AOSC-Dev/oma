@@ -34,7 +34,6 @@ use oma_console::print::{OmaColorFormat, termbg};
 use oma_console::writer::{MessageType, Writer, writeln_inner};
 use oma_utils::OsRelease;
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
-use oma_utils::oma::{terminal_ring, unlock_oma};
 use reqwest::Client;
 use rustix::stdio::stdout;
 use subcommand::utils::{LockError, is_terminal};
@@ -55,6 +54,7 @@ use crate::config::Config;
 use crate::error::Chain;
 use crate::install_progress::osc94_progress;
 use crate::subcommand::*;
+use crate::utils::is_termux;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -74,6 +74,7 @@ static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
         .unwrap()
 });
 static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
+static LOCK: OnceLock<PathBuf> = OnceLock::new();
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {
@@ -139,7 +140,7 @@ pub struct GlobalOptions {
     #[arg(short, long, action = ArgAction::Version, help = fl!("clap-version-help"))]
     version: Option<bool>,
     /// Set sysroot target directory
-    #[arg(long, global = true, default_value = "/", env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
+    #[arg(long, global = true, default_value = sysroot_default_value(), env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
     #[arg(long, global = true, action = ArgAction::Append, help = fl!("clap-apt-options-help"))]
@@ -191,7 +192,14 @@ fn main() {
         std::process::id()
     );
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
+
     debug!("OS: {:?}", OsRelease::new());
+    if oma.global.sysroot.to_string_lossy() != "/" {
+        debug!(
+            "--sysroot OS: {:?}",
+            OsRelease::new_from(oma.global.sysroot.join("etc/os-release"))
+        );
+    }
 
     match file {
         Ok(file) => {
@@ -606,6 +614,53 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
     error!("{}", fl!("another-oma-is-running", s = status));
 
     Ok(())
+}
+
+#[inline]
+pub fn get_lock(sysroot: &Path) -> &Path {
+    LOCK.get_or_init(|| sysroot.join("run/lock/oma.lock"))
+}
+
+/// lock oma
+pub fn lock_oma_inner(sysroot: &Path) -> io::Result<()> {
+    let lock = get_lock(sysroot);
+
+    if !lock.is_file() {
+        std::fs::create_dir_all(
+            lock.parent()
+                .ok_or_else(|| io::Error::other(format!("Path {} is root", lock.display())))?,
+        )?;
+        std::fs::File::create(lock)?;
+        return Ok(());
+    }
+
+    Err(io::Error::other(""))
+}
+
+/// Unlock oma
+pub fn unlock_oma() -> io::Result<()> {
+    if let Some(lock) = LOCK.get() {
+        std::fs::remove_file(lock)?;
+    }
+
+    Ok(())
+}
+
+/// terminal bell character
+pub fn terminal_ring() {
+    if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
+        return;
+    }
+
+    eprint!("\x07"); // bell character
+}
+
+pub fn sysroot_default_value() -> &'static str {
+    if is_termux() {
+        "/data/data/com.termux/files/usr/"
+    } else {
+        "/"
+    }
 }
 
 fn single_handler() {

@@ -11,6 +11,7 @@ use crate::{
     error::OutputError,
     path_completions::PathCompleter,
     subcommand::utils::no_check_dbus_warn,
+    unlock_oma,
 };
 use crate::{RT, fl};
 
@@ -23,7 +24,6 @@ use oma_utils::{
         Connection, InhibitTypeUnion, create_dbus_connection, is_using_battery, session_name,
         take_wake_lock,
     },
-    oma::unlock_oma,
     zbus::zvariant::OwnedFd,
 };
 use rustix::process;
@@ -32,6 +32,10 @@ use tracing::{debug, info, warn};
 type Result<T> = std::result::Result<T, OutputError>;
 
 pub fn root() -> Result<()> {
+    if is_termux() {
+        return Ok(());
+    }
+
     if is_root() {
         return Ok(());
     }
@@ -67,6 +71,11 @@ pub fn root() -> Result<()> {
 }
 
 #[inline]
+pub fn is_termux() -> bool {
+    env::var("TERMUX__PREFIX").is_ok_and(|v| !v.is_empty())
+}
+
+#[inline]
 pub fn is_root() -> bool {
     process::geteuid().is_root()
 }
@@ -91,7 +100,7 @@ pub fn dbus_check(
     no_take_wake_lock: bool,
     no_check_battery: bool,
 ) -> Result<Option<OwnedFd>> {
-    if config.no_check_dbus() || no_check_dbus || dry_run {
+    if config.no_check_dbus() || no_check_dbus || dry_run || is_termux() {
         no_check_dbus_warn();
         return Ok(None);
     }

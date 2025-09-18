@@ -9,7 +9,5 @@ pub use zbus;
 pub mod dpkg;
 #[cfg(feature = "human-bytes")]
 pub mod human_bytes;
-#[cfg(feature = "oma")]
-pub mod oma;
 #[cfg(feature = "url-no-escape")]
 pub mod url_no_escape;
