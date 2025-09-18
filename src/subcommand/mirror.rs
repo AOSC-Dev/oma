@@ -179,6 +179,9 @@ pub enum MirrorSubCmd {
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
+        /// Network timeout in seconds (default: 120)
+        #[arg(long, default_value = "120", help = fl!("clap-mirror-speedtest-timeout-help"))]
+        timeout: u64,
     },
 }
 
@@ -215,16 +218,25 @@ impl CliExecuter for CliMirror {
                 ),
                 MirrorSubCmd::Speedtest {
                     set_fastest,
-                    #[cfg(feature = "aosc")]
                     no_refresh_topics,
                     no_refresh,
-                } => speedtest(
-                    no_progress,
-                    set_fastest,
-                    !no_refresh_topics && !config.no_refresh_topics(),
-                    download_threads.unwrap_or_else(|| config.network_thread()),
-                    no_refresh,
-                ),
+                    timeout,
+                } => {
+                    let refresh_topic = {
+                        #[cfg(feature = "aosc")]
+                        { !no_refresh_topics && !config.no_refresh_topics() }
+                        #[cfg(not(feature = "aosc"))]
+                        { !no_refresh_topics }
+                    };
+                    speedtest(
+                        no_progress,
+                        set_fastest,
+                        refresh_topic,
+                        download_threads.unwrap_or_else(|| config.network_thread()),
+                        no_refresh,
+                        timeout,
+                    )
+                },
                 MirrorSubCmd::Add {
                     names,
                     sysroot,
@@ -446,6 +458,7 @@ pub fn speedtest(
     refresh_topic: bool,
     network_threads: usize,
     no_refresh: bool,
+    timeout: u64,
 ) -> Result<i32, OutputError> {
     if set_fastest {
         root()?;
@@ -471,7 +484,7 @@ pub fn speedtest(
 
     let client = blocking::ClientBuilder::new()
         .user_agent(APP_USER_AGENT)
-        .timeout(Duration::from_secs(120))
+        .timeout(Duration::from_secs(timeout))
         .build()?;
 
     let mut score_map = HashMap::with_hasher(ahash::RandomState::new());
