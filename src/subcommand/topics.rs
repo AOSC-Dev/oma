@@ -171,7 +171,7 @@ impl CliExecuter for Topics {
 
         if !dry_run {
             root()?;
-            lock_oma()?;
+            lock_oma(&sysroot)?;
         }
 
         let _fds = dbus_check(

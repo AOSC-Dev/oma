@@ -62,7 +62,6 @@ pub struct FixBroken {
 impl CliExecuter for FixBroken {
     fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
         root()?;
-        lock_oma()?;
 
         let FixBroken {
             force_unsafe_io,
@@ -79,6 +78,8 @@ impl CliExecuter for FixBroken {
             no_check_battery,
             no_take_wake_lock,
         } = self;
+
+        lock_oma(&sysroot)?;
 
         let mut _fds = dbus_check(
             false,

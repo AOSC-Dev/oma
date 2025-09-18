@@ -10,7 +10,7 @@ use crate::{
     config::{BatteryTristate, Config, TakeWakeLockTristate},
     error::OutputError,
     path_completions::PathCompleter,
-    subcommand::utils::no_check_dbus_warn,
+    subcommand::utils::no_check_dbus_warn, unlock_oma,
 };
 use crate::{RT, fl};
 
@@ -23,7 +23,6 @@ use oma_utils::{
         Connection, InhibitTypeUnion, create_dbus_connection, is_using_battery, session_name,
         take_wake_lock,
     },
-    oma::unlock_oma,
     zbus::zvariant::OwnedFd,
 };
 use rustix::process;

@@ -34,7 +34,6 @@ use oma_console::print::{OmaColorFormat, termbg};
 use oma_console::writer::{MessageType, Writer, writeln_inner};
 use oma_utils::OsRelease;
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
-use oma_utils::oma::{terminal_ring, unlock_oma};
 use reqwest::Client;
 use rustix::stdio::stdout;
 use subcommand::utils::{LockError, is_terminal};
@@ -74,6 +73,7 @@ static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
         .unwrap()
 });
 static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
+static LOCK: OnceLock<PathBuf> = OnceLock::new();
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {
@@ -606,6 +606,45 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
     error!("{}", fl!("another-oma-is-running", s = status));
 
     Ok(())
+}
+
+#[inline]
+pub fn get_lock(sysroot: &Path) -> &Path {
+    LOCK.get_or_init(|| sysroot.join("run/lock/oma.lock"))
+}
+
+/// lock oma
+pub fn lock_oma_inner(sysroot: &Path) -> io::Result<()> {
+    let lock = get_lock(sysroot);
+
+    if !lock.is_file() {
+        std::fs::create_dir_all(
+            lock.parent()
+                .ok_or_else(|| io::Error::other(format!("Path {} is root", lock.display())))?,
+        )?;
+        std::fs::File::create(lock)?;
+        return Ok(());
+    }
+
+    Err(io::Error::other(""))
+}
+
+/// Unlock oma
+pub fn unlock_oma() -> io::Result<()> {
+    if let Some(lock) = LOCK.get() {
+        std::fs::remove_file(lock)?;
+    }
+
+    Ok(())
+}
+
+/// terminal bell character
+pub fn terminal_ring() {
+    if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
+        return;
+    }
+
+    eprint!("\x07"); // bell character
 }
 
 fn single_handler() {
