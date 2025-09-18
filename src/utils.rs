@@ -32,7 +32,7 @@ use tracing::{debug, info, warn};
 type Result<T> = std::result::Result<T, OutputError>;
 
 pub fn root() -> Result<()> {
-    if env::var("TERMUX__PREFIX").is_ok_and(|v| !v.is_empty()) {
+    if is_termux() {
         return Ok(());
     }
 
@@ -68,6 +68,11 @@ pub fn root() -> Result<()> {
         description: fl!("please-run-me-as-root"),
         source: None,
     })
+}
+
+#[inline]
+pub fn is_termux() -> bool {
+    env::var("TERMUX__PREFIX").is_ok_and(|v| !v.is_empty())
 }
 
 #[inline]

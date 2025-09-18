@@ -54,6 +54,7 @@ use crate::config::Config;
 use crate::error::Chain;
 use crate::install_progress::osc94_progress;
 use crate::subcommand::*;
+use crate::utils::is_termux;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -139,7 +140,7 @@ pub struct GlobalOptions {
     #[arg(short, long, action = ArgAction::Version, help = fl!("clap-version-help"))]
     version: Option<bool>,
     /// Set sysroot target directory
-    #[arg(long, global = true, default_value = "/", env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
+    #[arg(long, global = true, default_value = sysroot_default_value(), env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
     #[arg(long, global = true, action = ArgAction::Append, help = fl!("clap-apt-options-help"))]
@@ -645,6 +646,14 @@ pub fn terminal_ring() {
     }
 
     eprint!("\x07"); // bell character
+}
+
+pub fn sysroot_default_value() -> &'static str {
+    if is_termux() {
+        "/data/data/com.termux/files/usr/"
+    } else {
+        "/"
+    }
 }
 
 fn single_handler() {
