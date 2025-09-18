@@ -10,7 +10,8 @@ use crate::{
     config::{BatteryTristate, Config, TakeWakeLockTristate},
     error::OutputError,
     path_completions::PathCompleter,
-    subcommand::utils::no_check_dbus_warn, unlock_oma,
+    subcommand::utils::no_check_dbus_warn,
+    unlock_oma,
 };
 use crate::{RT, fl};
 
@@ -31,6 +32,10 @@ use tracing::{debug, info, warn};
 type Result<T> = std::result::Result<T, OutputError>;
 
 pub fn root() -> Result<()> {
+    if env::var("TERMUX__PREFIX").is_ok_and(|v| !v.is_empty()) {
+        return Ok(());
+    }
+
     if is_root() {
         return Ok(());
     }
