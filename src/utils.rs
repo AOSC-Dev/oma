@@ -100,7 +100,7 @@ pub fn dbus_check(
     no_take_wake_lock: bool,
     no_check_battery: bool,
 ) -> Result<Option<OwnedFd>> {
-    if config.no_check_dbus() || no_check_dbus || dry_run {
+    if config.no_check_dbus() || no_check_dbus || dry_run || is_termux() {
         no_check_dbus_warn();
         return Ok(None);
     }
