@@ -75,6 +75,7 @@ impl<'a> DoInstall<'a> {
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<Summary> {
         let path = self.apt.get_archive_dir();
+        
         create_dir_all(path)
             .map_err(|e| OmaAptError::FailedOperateDirOrFile(path.display().to_string(), e))?;
 

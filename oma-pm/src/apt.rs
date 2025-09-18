@@ -749,6 +749,7 @@ impl OmaApt {
                 .config
                 .get("Dir::Cache::Archives")
                 .unwrap_or("archives/".to_string());
+
             let cache = self
                 .config
                 .get("Dir::Cache")
@@ -761,14 +762,24 @@ impl OmaApt {
                 return archive_dir_p;
             }
 
+            debug!("archive_dir_p is: {}", archive_dir_p.display());
+
             let cache_dir_p = PathBuf::from(cache);
             if cache_dir_p.is_absolute() {
                 return cache_dir_p.join(archive_dir_p);
             }
 
+            debug!("cache_dir_p is: {}", cache_dir_p.display());
+
             let dir_p = PathBuf::from(dir);
 
-            dir_p.join(cache_dir_p).join(archive_dir_p)
+            debug!("dir_p is: {}", dir_p.display());
+
+            let res = dir_p.join(cache_dir_p).join(archive_dir_p);
+
+            debug!("get_archive_dir is: {}", res.display());
+
+            res
         })
     }
 
