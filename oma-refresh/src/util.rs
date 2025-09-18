@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt::Display};
 
 use aho_corasick::AhoCorasick;
 use url::Url;
@@ -51,5 +51,23 @@ impl DatabaseFilenameReplacer {
             .map_err(RefreshError::ReplaceAll)?;
 
         Ok(String::from_utf8_lossy(&wtr).to_string())
+    }
+}
+
+#[inline]
+pub(crate) fn concat_url(url: &str, path: &str) -> String {
+    format!(
+        "{}/{}",
+        url.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    )
+}
+
+#[inline]
+pub(crate) fn concat_url_only_check_once_slash(url: &str, path: impl Display) -> String {
+    if url.ends_with('/') {
+        format!("{url}{path}")
+    } else {
+        format!("{url}/{path}")
     }
 }

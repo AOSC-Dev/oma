@@ -772,8 +772,6 @@ fn collect_download_task(
 
     let msg = mirror_source.get_human_download_message(Some(file_type))?;
 
-    let dist_url = &mirror_source.dist_path();
-
     let from = match mirror_source.from()? {
         OmaSourceEntryFrom::Http => DownloadSourceType::Http {
             auth: mirror_source
@@ -813,31 +811,21 @@ fn collect_download_task(
 
         let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
 
-        format!("{}/{}", dist_url, path.display())
-    } else if dist_url.ends_with('/') {
-        format!("{}{}", dist_url, c.item.name)
+        mirror_source.get_download_url(&path.display().to_string())
     } else {
-        format!("{}/{}", dist_url, c.item.name)
+        mirror_source.get_download_url(&c.item.name)
     };
 
     let sources = vec![DownloadSource {
-        url: download_url.clone(),
+        url: download_url.to_string(),
         source_type: from,
     }];
 
-    let file_path = if c.keep_compress {
-        if release.acquire_by_hash() {
-            Cow::Owned(format!("{dist_url}/{}", c.item.name))
-        } else {
-            Cow::Borrowed(&download_url)
-        }
-    } else if dist_url.ends_with('/') {
-        Cow::Owned(format!("{dist_url}{not_compress_filename_before}"))
+    let file_name = if c.keep_compress {
+        mirror_source.get_download_file_name(Some(&c.item.name), replacer)?
     } else {
-        Cow::Owned(format!("{dist_url}/{not_compress_filename_before}"))
+        mirror_source.get_download_file_name(Some(&not_compress_filename_before), replacer)?
     };
-
-    let file_name = replacer.replace(&file_path)?;
 
     let task = DownloadEntry::builder()
         .source(sources)

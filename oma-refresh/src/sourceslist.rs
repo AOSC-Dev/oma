@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::Debug,
     fs::Permissions,
     os::unix::fs::PermissionsExt,
@@ -27,7 +28,7 @@ use url::Url;
 
 use crate::{
     db::{Event, RefreshError, content_length},
-    util::DatabaseFilenameReplacer,
+    util::{DatabaseFilenameReplacer, concat_url, concat_url_only_check_once_slash},
 };
 
 #[derive(Clone)]
@@ -216,15 +217,35 @@ impl<'a> OmaSourceEntry<'a> {
                     } else {
                         url.to_string()
                     }
-                } else if url.ends_with('/') {
-                    format!("{url}{suite}")
                 } else {
-                    format!("{url}/{suite}")
+                    concat_url_only_check_once_slash(url, suite)
                 }
             } else {
                 self.source.dist_path()
             }
         })
+    }
+
+    pub fn get_download_file_name(
+        &self,
+        file_name: Option<&str>,
+        replacer: &DatabaseFilenameReplacer,
+    ) -> Result<String, RefreshError> {
+        let url = if let Some(file_name) = file_name {
+            Cow::Owned(concat_url_only_check_once_slash(
+                self.dist_path(),
+                file_name,
+            ))
+        } else {
+            self.dist_path().into()
+        };
+
+        replacer.replace(&url)
+    }
+
+    #[inline]
+    pub fn get_download_url(&self, file_name: &str) -> String {
+        concat_url(self.dist_path(), file_name)
     }
 
     pub fn get_human_download_url(&self, file_name: Option<&str>) -> Result<String, RefreshError> {
@@ -276,10 +297,12 @@ impl MirrorSource<'_> {
         self.sources.first().unwrap().suite()
     }
 
+    #[inline]
     pub fn from(&self) -> Result<&OmaSourceEntryFrom, RefreshError> {
         self.sources.first().unwrap().from()
     }
 
+    #[inline]
     pub fn get_human_download_message(
         &self,
         file_name: Option<&str>,
@@ -288,6 +311,23 @@ impl MirrorSource<'_> {
             .first()
             .unwrap()
             .get_human_download_url(file_name)
+    }
+
+    #[inline]
+    pub fn get_download_file_name(
+        &self,
+        file_name: Option<&str>,
+        replacer: &DatabaseFilenameReplacer,
+    ) -> Result<String, RefreshError> {
+        self.sources
+            .first()
+            .unwrap()
+            .get_download_file_name(file_name, replacer)
+    }
+
+    #[inline]
+    pub fn get_download_url(&self, file_name: &str) -> String {
+        self.sources.first().unwrap().get_download_url(file_name)
     }
 
     pub fn signed_by(&self) -> Option<&Signature> {
@@ -344,8 +384,6 @@ impl MirrorSource<'_> {
         download_dir: &Path,
         callback: impl AsyncFn(Event),
     ) -> Result<(), RefreshError> {
-        let dist_path = self.dist_path();
-
         let msg = self.get_human_download_message(None)?;
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
@@ -354,13 +392,13 @@ impl MirrorSource<'_> {
         }))
         .await;
 
-        let mut url = format!("{dist_path}/InRelease");
+        let mut url = self.get_download_url("InRelease");
         let mut is_release = false;
 
         let resp = match self.send_request(client, &url, Method::GET).await {
             Ok(resp) => resp,
             Err(e) if e.status().is_some_and(|e| e == StatusCode::NOT_FOUND) => {
-                url = format!("{dist_path}/Release");
+                url = self.get_download_url("Release");
                 let resp = self.send_request(client, &url, Method::GET).await;
 
                 if resp.is_err() && self.is_flat() {
@@ -385,7 +423,11 @@ impl MirrorSource<'_> {
 
         callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
-        let file_name = replacer.replace(&url)?;
+        let file_name = if is_release {
+            self.get_download_file_name(Some("Release"), replacer)?
+        } else {
+            self.get_download_file_name(Some("InRelease"), replacer)?
+        };
 
         self.download_file(&file_name, resp, index, total, download_dir, &callback)
             .await
@@ -394,7 +436,7 @@ impl MirrorSource<'_> {
         self.set_release_file_name(file_name);
 
         if is_release && !self.trusted() {
-            let url = format!("{}/{}", dist_path, "Release.gpg");
+            let url = self.get_download_url("Release.gpg");
 
             let request = build_request_with_basic_auth(
                 client,
@@ -412,7 +454,7 @@ impl MirrorSource<'_> {
                 .map_err(|e| SingleDownloadError::ReqwestError { source: e })
                 .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
-            let file_name = replacer.replace(&url)?;
+            let file_name = self.get_download_file_name(Some("Release.gpg"), replacer)?;
 
             self.download_file(&file_name, resp, index, total, download_dir, &callback)
                 .await
@@ -526,15 +568,7 @@ impl MirrorSource<'_> {
 
         for (index, entry) in ["InRelease", "Release"].iter().enumerate() {
             let p = dist_path.join(entry);
-
-            let dst = if dist_path_with_protocol.ends_with('/') {
-                format!("{dist_path_with_protocol}{entry}")
-            } else {
-                format!("{dist_path_with_protocol}/{entry}")
-            };
-
-            let file_name = replacer.replace(&dst)?;
-
+            let file_name = self.get_download_file_name(Some(entry), replacer)?;
             let dst = download_dir.join(&file_name);
 
             if p.exists() {
@@ -566,16 +600,7 @@ impl MirrorSource<'_> {
 
         if is_release {
             let p = dist_path.join("Release.gpg");
-            let entry = "Release.gpg";
-
-            let dst = if dist_path_with_protocol.ends_with('/') {
-                format!("{dist_path_with_protocol}{entry}")
-            } else {
-                format!("{dist_path_with_protocol}/{entry}")
-            };
-
-            let file_name = replacer.replace(&dst)?;
-
+            let file_name = self.get_download_file_name(Some("Release.gpg"), replacer)?;
             let dst = download_dir.join(&file_name);
 
             if p.exists() {
@@ -614,10 +639,9 @@ impl<'a> MirrorSources<'a> {
         }
 
         for source in sourcelist {
-            let dist_path = source.dist_path();
-            let name = replacer.replace(dist_path)?;
-
-            map.entry(name).or_default().push(source);
+            map.entry(source.get_download_file_name(None, replacer)?)
+                .or_default()
+                .push(source);
         }
 
         let mut res = vec![];
@@ -849,65 +873,234 @@ fn test_ose() {
     assert_eq!(ose.dist_path(), "file:/usr/../debs/./");
 }
 
+// Encode + as %252b.
 #[test]
-fn test_database_filename() {
-    use crate::util::DatabaseFilenameReplacer;
+fn test_url_encode_plus() {
     let replacer = DatabaseFilenameReplacer::new().unwrap();
 
-    // Encode + as %252b.
-    let s = "https://repo.aosc.io/debs/dists/x264-0+git20240305/InRelease";
-    let res = replacer.replace(s).unwrap();
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "https://repo.aosc.io/debs/".to_string(),
+        suite: "x264-0+git20240305".to_string(),
+        components: vec!["main".to_string()],
+        is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
+    };
+
+    let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
+    let ose = OmaSourceEntry::new(entry, &arch);
+    let file_name = ose
+        .get_download_file_name(Some("InRelease"), &replacer)
+        .unwrap();
+
     assert_eq!(
-        res,
+        file_name,
         "repo.aosc.io_debs_dists_x264-0%252bgit20240305_InRelease"
     );
+}
 
-    // Encode : as %3A.
-    let s = "https://ci.deepin.com/repo/obs/deepin%3A/CI%3A/TestingIntegration%3A/test-integration-pr-1537/testing/./Packages";
-    let res = replacer.replace(s).unwrap();
+#[test]
+fn test_dot() {
+    let replacer = DatabaseFilenameReplacer::new().unwrap();
+
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "https://ci.deepin.com/repo/obs/deepin:/CI:/TestingIntegration:/test-integration-pr-1537/testing".to_string(),
+        suite: "./".to_string(),
+        components: vec![],
+        is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
+    };
+
+    let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
+    let ose = OmaSourceEntry::new(entry, &arch);
+    let file_name = ose
+        .get_download_file_name(Some("Packages"), &replacer)
+        .unwrap();
+
     assert_eq!(
-        res,
+        file_name,
         "ci.deepin.com_repo_obs_deepin:_CI:_TestingIntegration:_test-integration-pr-1537_testing_._Packages"
     );
+}
 
-    // Encode _ as %5f
-    let s = "https://repo.aosc.io/debs/dists/xorg-server-21.1.13-hyperv_drm-fix";
-    let res = replacer.replace(s).unwrap();
+// Encode _ as %5f
+#[test]
+fn test_encode_underline() {
+    let replacer = DatabaseFilenameReplacer::new().unwrap();
+
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "https://repo.aosc.io/debs/".to_string(),
+        suite: "xorg-server-21.1.13-hyperv_drm-fix".to_string(),
+        components: vec!["main".to_string()],
+        is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
+    };
+
+    let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
+    let ose = OmaSourceEntry::new(entry, &arch);
+
+    let file_name = ose
+        .get_download_file_name(Some("InRelease"), &replacer)
+        .unwrap();
+
     assert_eq!(
-        res,
-        "repo.aosc.io_debs_dists_xorg-server-21.1.13-hyperv%5fdrm-fix"
+        file_name,
+        "repo.aosc.io_debs_dists_xorg-server-21.1.13-hyperv%5fdrm-fix_InRelease"
     );
+}
 
-    // file:/// should be transliterated as file:/.
+// file:/// should be transliterated as file:/
+#[test]
+fn test_file_protocol_translate() {
+    let replacer = DatabaseFilenameReplacer::new().unwrap();
+
     let s1 = "file:/debs";
     let s2 = "file:///debs";
     let res1 = replacer.replace(s1).unwrap();
     let res2 = replacer.replace(s2).unwrap();
     assert_eq!(res1, "_debs");
     assert_eq!(res1, res2);
+}
 
-    // Dots (.) in flat repo URLs should be preserved in resolved database name.
-    let s = "file:///././debs/./Packages";
-    let res = replacer.replace(s).unwrap();
-    assert_eq!(res, "_._._debs_._Packages");
+// Dots (.) in flat repo URLs should be preserved in resolved database name.
+#[test]
+fn test_flat_repo_file_name_1() {
+    let replacer = DatabaseFilenameReplacer::new().unwrap();
 
-    // Slash (/) in flat repo "suite" names should be transliterated as _.
-    let s = "file:///debs/Packages";
-    let res = replacer.replace(s).unwrap();
-    assert_eq!(res, "_debs_Packages");
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:///././debs/".to_string(),
+        suite: "./".to_string(),
+        components: vec![],
+        is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
+    };
 
-    // Dots (.) in flat repo "suite" names should be preserved in resolved database name.
-    let s = "file:///debs/./Packages";
-    let res = replacer.replace(s).unwrap();
-    assert_eq!(res, "_debs_._Packages");
+    let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
+    let ose = OmaSourceEntry::new(entry, &arch);
 
-    // Slashes in URL and in flat repo "suite" names should be preserved in original number (1).
-    let s = "file:///debs///./Packages";
-    let res = replacer.replace(s).unwrap();
+    let file_name = ose
+        .get_download_file_name(Some("Packages"), &replacer)
+        .unwrap();
+
+    assert_eq!(file_name, "_._._debs_._Packages");
+}
+
+// Slash (/) in flat repo "suite" names should be transliterated as _.
+#[test]
+fn test_flat_repo_file_name_2() {
+    let replacer = DatabaseFilenameReplacer::new().unwrap();
+
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:///debs".to_string(),
+        suite: "/".to_string(),
+        components: vec![],
+        is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
+    };
+
+    let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
+    let ose = OmaSourceEntry::new(entry, &arch);
+
+    let file_name = ose
+        .get_download_file_name(Some("Packages"), &replacer)
+        .unwrap();
+
+    assert_eq!(file_name, "_debs_Packages");
+}
+
+// Dots (.) in flat repo "suite" names should be preserved in resolved database name
+#[test]
+fn test_flat_repo_file_name_3() {
+    let replacer = DatabaseFilenameReplacer::new().unwrap();
+
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:///debs/".to_string(),
+        suite: "./".to_string(),
+        components: vec![],
+        is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
+    };
+
+    let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
+    let ose = OmaSourceEntry::new(entry, &arch);
+
+    let file_name = ose
+        .get_download_file_name(Some("Packages"), &replacer)
+        .unwrap();
+
+    assert_eq!(file_name, "_debs_._Packages");
+}
+
+// Slashes in URL and in flat repo "suite" names should be preserved in original number
+#[test]
+fn test_flat_repo_file_name_4() {
+    let replacer = DatabaseFilenameReplacer::new().unwrap();
+
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:///debs///".to_string(),
+        suite: "./".to_string(),
+        components: vec![],
+        is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
+    };
+
+    let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
+    let ose = OmaSourceEntry::new(entry, &arch);
+    let res = ose
+        .get_download_file_name(Some("Packages"), &replacer)
+        .unwrap();
     assert_eq!(res, "_debs___._Packages");
 
-    // Slashes in URL and in flat repo "suite" names should be preserved in original number (2).
-    let s = "file:///debs///.///Packages";
-    let res = replacer.replace(s).unwrap();
+    let entry = SourceEntry {
+        enabled: true,
+        source: false,
+        options: vec![],
+        url: "file:///debs///".to_string(),
+        suite: ".///".to_string(),
+        components: vec![],
+        is_deb822: false,
+        archs: None,
+        signed_by: None,
+        trusted: false,
+    };
+
+    let ose = OmaSourceEntry::new(entry, &arch);
+    let res = ose
+        .get_download_file_name(Some("Packages"), &replacer)
+        .unwrap();
     assert_eq!(res, "_debs___.___Packages");
 }
