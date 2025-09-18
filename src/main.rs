@@ -192,7 +192,14 @@ fn main() {
         std::process::id()
     );
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
+
     debug!("OS: {:?}", OsRelease::new());
+    if oma.global.sysroot.to_string_lossy() != "/" {
+        debug!(
+            "--sysroot OS: {:?}",
+            OsRelease::new_from(oma.global.sysroot.join("etc/os-release"))
+        );
+    }
 
     match file {
         Ok(file) => {
