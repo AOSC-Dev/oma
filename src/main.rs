@@ -1,6 +1,5 @@
 use std::env::{self, args};
 use std::ffi::CString;
-use std::fs::create_dir_all;
 use std::io::{self, IsTerminal, stderr, stdin};
 use std::path::{Path, PathBuf};
 
@@ -8,7 +7,7 @@ use std::process::{Command, exit};
 
 use std::sync::Arc;
 use std::sync::{LazyLock, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 mod args;
 mod config;
@@ -271,20 +270,21 @@ fn init_localizer() {
 
 fn init_logger(
     oma: &OhManagerAilurus,
-    _config: &Config,
+    config: &Config,
 ) -> (Option<Arc<Logger>>, anyhow::Result<String>) {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
 
-    let log_dir = if is_root() {
+    let log_file = (if is_root() {
         PathBuf::from("/var/log/oma")
     } else {
         dirs::state_dir()
             .expect("Failed to get state dir")
             .join("oma")
-    };
-
-    let log_file = create_log_file(&log_dir);
+    })
+    .join("oma.log")
+    .to_string_lossy()
+    .to_string();
 
     let (level_filter, formatter) = if !debug && !dry_run {
         let level_filter = LevelFilter::MoreSevereEqual(Level::Info);
@@ -303,24 +303,20 @@ fn init_logger(
         (level_filter, formatter)
     };
 
-    let rotating_sink = if let Ok(log_file) = &log_file {
-        Some(
-            AsyncPoolSink::builder()
-                .sink(Arc::new(
-                    RotatingFileSink::builder()
-                        .base_path(&log_file)
-                        .formatter(formatter.clone())
-                        .rotation_policy(RotationPolicy::Hourly)
-                        .build()
-                        .unwrap(),
-                ))
-                .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
+    let rotating_sink = AsyncPoolSink::builder()
+        .sink(Arc::new(
+            RotatingFileSink::builder()
+                .base_path(&log_file)
+                .formatter(formatter.clone())
+                // 10 MB
+                .rotation_policy(RotationPolicy::FileSize(10 * 1024 * 1024))
+                .max_files(config.save_log_count())
                 .build()
                 .unwrap(),
-        )
-    } else {
-        None
-    };
+        ))
+        .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
+        .build()
+        .unwrap();
 
     let stream_sink = StdStreamSink::builder()
         .formatter(formatter)
@@ -332,33 +328,14 @@ fn init_logger(
 
     logger_builder
         .level_filter(level_filter)
-        .sink(Arc::new(stream_sink));
-
-    if let Some(rotating_sink) = rotating_sink {
-        logger_builder.sink(Arc::new(rotating_sink));
-    }
+        .sink(Arc::new(stream_sink))
+        .sink(Arc::new(rotating_sink));
 
     let logger = logger_builder.build().unwrap();
 
     set_default_logger(Arc::new(logger));
 
-    (Some(default_logger()), log_file)
-}
-
-fn create_log_file(log_dir: &Path) -> anyhow::Result<String> {
-    create_dir_all(log_dir)?;
-
-    let log_file = format!(
-        "oma.log.{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-    );
-
-    let log_file = log_dir.join(log_file).to_string_lossy().to_string();
-
-    Ok(log_file)
+    (Some(default_logger()), Ok(log_file))
 }
 
 #[inline]
