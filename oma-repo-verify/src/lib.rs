@@ -18,10 +18,7 @@ use sequoia_openpgp::{
     policy::StandardPolicy,
 };
 use sequoia_policy_config::ConfiguredStandardPolicy;
-#[cfg(feature = "spdlog-rs")]
 use spdlog::debug;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::debug;
 
 #[derive(Debug)]
 pub struct InReleaseVerifier {

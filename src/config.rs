@@ -1,9 +1,7 @@
 use crate::fl;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "spdlog-rs")]
+
 use spdlog::{error, warn};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{error, warn};
 
 #[cfg(feature = "aosc")]
 const DEFAULT_CONFIG: &str = include_str!("../data/config/oma.toml");
@@ -208,6 +206,7 @@ impl Config {
             .unwrap_or_else(GeneralConfig::default_bell)
     }
 
+    #[allow(dead_code)]
     pub fn save_log_count(&self) -> usize {
         self.general
             .as_ref()

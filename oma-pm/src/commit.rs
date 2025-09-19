@@ -9,11 +9,8 @@ use oma_apt::{
 };
 use oma_fetch::{Event, Summary, reqwest::Client};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
-#[cfg(feature = "spdlog-rs")]
 use spdlog::debug;
 use std::io::Write;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::debug;
 
 use crate::{
     apt::{DownloadConfig, InstallProgressOpt, OmaApt, OmaAptError, OmaAptResult},

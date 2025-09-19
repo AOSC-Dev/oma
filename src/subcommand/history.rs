@@ -11,10 +11,7 @@ use oma_pm::{
     apt::{FilterMode, OmaApt},
     pkginfo::OmaPackage,
 };
-#[cfg(feature = "spdlog-rs")]
 use spdlog::warn;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::warn;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;

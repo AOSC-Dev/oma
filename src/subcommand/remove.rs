@@ -8,10 +8,7 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{info, warn};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{info, warn};
 
 use crate::config::Config;
 use crate::fl;

@@ -19,10 +19,7 @@ use crate::{WRITER, error::Chain, fl, install_progress::osc94_progress, msg, uti
 use crate::{color_formatter, error::OutputError};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{debug, error, info, warn};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, error, info, warn};
 
 pub trait RenderPackagesDownloadProgress {
     fn render_progress(&mut self, rx: &flume::Receiver<Event>, download_only: bool);

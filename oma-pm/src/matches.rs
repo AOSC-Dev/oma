@@ -14,10 +14,7 @@ use oma_utils::{
     url_no_escape::url_no_escape,
 };
 use once_cell::sync::OnceCell;
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{debug, info};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, info};
 
 use crate::pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone};
 

@@ -7,10 +7,8 @@ use oma_console::print::Action;
 use oma_contents::OmaContentsError;
 use oma_contents::searcher::{Mode, search};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-#[cfg(feature = "spdlog-rs")]
+
 use spdlog::error;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::error;
 
 use crate::config::Config;
 use crate::error::OutputError;

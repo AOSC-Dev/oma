@@ -1,14 +1,13 @@
 use std::env::{self, args};
 use std::ffi::CString;
-use std::fs::{create_dir_all, read_dir, remove_file};
+use std::fs::create_dir_all;
 use std::io::{self, IsTerminal, stderr, stdin};
 use std::path::{Path, PathBuf};
 
 use std::process::{Command, exit};
-#[cfg(feature = "spdlog-rs")]
+
 use std::sync::Arc;
 use std::sync::{LazyLock, OnceLock};
-use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod args;
@@ -31,10 +30,7 @@ use clap_i18n_richformatter::{ClapI18nRichFormatter, init_clap_rich_formatter_lo
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
-#[cfg(feature = "spdlog-rs")]
 use oma_console::OmaFormatter;
-#[cfg(not(feature = "spdlog-rs"))]
-use oma_console::OmaLayer;
 use oma_console::print::{OmaColorFormat, termbg};
 use oma_console::writer::{MessageType, Writer, writeln_inner};
 use oma_utils::OsRelease;
@@ -42,7 +38,6 @@ use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use reqwest::Client;
 use rustix::stdio::stdout;
 // FIXME: `spdlog::error` is conflict with `mod error`
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{
     Level, LevelFilter, Logger, debug, default_logger, error as error2, info, set_default_logger,
     sink::{AsyncPoolSink, RotatingFileSink, RotationPolicy, StdStreamSink},
@@ -50,14 +45,6 @@ use spdlog::{
 };
 use subcommand::utils::{LockError, is_terminal};
 use tokio::runtime::Runtime;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, error as error2, info, warn};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing_appender::non_blocking::WorkerGuard;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing_subscriber::{
-    EnvFilter, Layer, fmt, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt,
-};
 use tui::Tui;
 use utils::{is_root, is_ssh_from_loginctl};
 
@@ -282,25 +269,9 @@ fn init_localizer() {
     LANGUAGE_LOADER.set_use_isolating(false);
 }
 
-macro_rules! init_logger_inner {
-    ($context:ident, $non_blocking:ident) => {{
-        let debug_filter: EnvFilter = "hyper=off,rustls=off,debug".parse().unwrap();
-        $context
-            .with(
-                fmt::layer()
-                    .with_file(true)
-                    .with_writer($non_blocking)
-                    .with_filter(debug_filter),
-            )
-            .init()
-    }};
-    ($context:ident) => {{ $context.init() }};
-}
-
-#[cfg(feature = "spdlog-rs")]
 fn init_logger(
     oma: &OhManagerAilurus,
-    config: &Config,
+    _config: &Config,
 ) -> (Option<Arc<Logger>>, anyhow::Result<String>) {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
@@ -372,119 +343,6 @@ fn init_logger(
     set_default_logger(Arc::new(logger));
 
     (Some(default_logger()), log_file)
-}
-
-#[cfg(not(feature = "spdlog-rs"))]
-fn init_logger(
-    oma: &OhManagerAilurus,
-    config: &Config,
-) -> (Option<WorkerGuard>, anyhow::Result<String>) {
-    let debug = oma.global.debug;
-    let dry_run = oma.global.dry_run;
-
-    let log_dir = if is_root() {
-        PathBuf::from("/var/log/oma")
-    } else {
-        dirs::state_dir()
-            .expect("Failed to get state dir")
-            .join("oma")
-    };
-
-    let log_file = create_log_file(&log_dir);
-    let mut log_guard = None;
-
-    if !debug && !dry_run {
-        let no_i18n_embd: EnvFilter = "i18n_embed=off,info".parse().unwrap();
-
-        let context = tracing_subscriber::registry().with(
-            OmaLayer::new()
-                .with_ansi(enable_ansi(oma))
-                .with_filter(no_i18n_embd),
-        );
-
-        if let Ok(log_file) = &log_file {
-            let file_appender = tracing_appender::rolling::never(&log_dir, log_file);
-            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-            init_logger_inner!(context, non_blocking);
-            log_guard = Some(guard);
-        } else {
-            init_logger_inner!(context);
-        }
-    } else {
-        let filter = EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| "hyper=off,rustls=off,debug".parse().unwrap());
-
-        let context = tracing_subscriber::registry().with(
-            fmt::layer()
-                .event_format(
-                    tracing_subscriber::fmt::format()
-                        .with_file(true)
-                        .with_line_number(true)
-                        .with_ansi(enable_ansi(oma)),
-                )
-                .with_filter(filter),
-        );
-
-        if let Ok(log_file) = &log_file {
-            let file_appender = tracing_appender::rolling::never(&log_dir, log_file);
-            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-            init_logger_inner!(context, non_blocking);
-            log_guard = Some(guard);
-        } else {
-            init_logger_inner!(context);
-        }
-    }
-
-    // 日志文件创建成功再去遍历文件
-    if log_file.is_ok() {
-        thread::scope(|s| {
-            s.spawn(|| {
-                let mut v = vec![];
-                let dirs = read_dir(&log_dir)
-                    .expect("Failed to read log dir")
-                    .collect::<Vec<_>>();
-
-                for p in &dirs {
-                    let Ok(p) = p else {
-                        continue;
-                    };
-
-                    let file_name = p.file_name();
-                    let file_name = file_name.to_string_lossy();
-                    let Some((prefix, timestamp)) = file_name.rsplit_once('.') else {
-                        continue;
-                    };
-
-                    if prefix != "oma.log" {
-                        continue;
-                    }
-
-                    let Ok(timestamp) = timestamp.parse::<usize>() else {
-                        continue;
-                    };
-
-                    v.push(timestamp);
-                }
-
-                if v.len() > config.save_log_count() {
-                    v.sort_unstable_by(|a, b| b.cmp(a));
-
-                    for _ in 1..=(v.len() - config.save_log_count()) {
-                        let Some(pop) = v.pop() else {
-                            break;
-                        };
-
-                        let log_path = log_dir.join(format!("oma.log.{pop}"));
-                        if let Err(e) = remove_file(&log_path) {
-                            debug!("Failed to remove file {}: {}", log_path.display(), e);
-                        }
-                    }
-                }
-            });
-        });
-    }
-
-    (log_guard, log_file)
 }
 
 fn create_log_file(log_dir: &Path) -> anyhow::Result<String> {
@@ -781,6 +639,3 @@ fn single_handler() {
 
     std::process::exit(130);
 }
-
-#[cfg(all(feature = "spdlog-rs", feature = "tracing"))]
-compile_error!("feature spdlog-rs and tracing should not be enabled at the same time");
