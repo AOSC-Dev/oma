@@ -14,13 +14,10 @@ winnow = "0.7"
 flate2 = "1.0"
 rayon = "1.8"
 lzzzz = "2.0"
-tracing = { version = "0.1", optional = true }
-spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "sink-decouple", optional = true }
+spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "main-dev" }
 which = "8"
 zstd = "0.13"
 memchr = "2"
 
 [features]
 aosc = []
-spdlog-rs = ["dep:spdlog-rs"]
-tracing = ["dep:tracing"]

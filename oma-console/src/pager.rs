@@ -22,11 +22,8 @@ use ratatui::{
     },
     widgets::Borders,
 };
-#[cfg(feature = "spdlog-rs")]
 use spdlog::debug;
 use termbg::Theme;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::debug;
 
 use crate::{print::OmaColorFormat, writer::Writer};
 

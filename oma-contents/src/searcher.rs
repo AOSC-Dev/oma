@@ -14,10 +14,7 @@ use flate2::bufread::GzDecoder;
 use lzzzz::lz4f::BufReadDecompressor;
 use memchr::memmem;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-#[cfg(feature = "spdlog-rs")]
 use spdlog::debug;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::debug;
 use zstd::Decoder;
 
 use crate::{OmaContentsError, parser::parse_contents_single_line};

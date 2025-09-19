@@ -1,27 +1,14 @@
-#[cfg(not(feature = "spdlog-rs"))]
-use std::collections::BTreeMap;
-#[cfg(feature = "spdlog-rs")]
 use std::fmt::{self, Write};
-
 use std::{borrow::Cow, time::Duration};
 
-#[cfg(feature = "spdlog-rs")]
 use chrono::{DateTime, SecondsFormat, Utc};
 use console::{Color, StyledObject, style};
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{Level, debug, formatter::Formatter};
 use termbg::Theme;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{Level, debug, field::Field};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing_subscriber::Layer;
 
 pub use termbg;
 
-#[cfg(feature = "spdlog-rs")]
 use crate::writer::gen_prefix;
-#[cfg(not(feature = "spdlog-rs"))]
-use crate::writer::{Writeln, Writer};
 
 #[derive(Clone)]
 enum StyleFollow {
@@ -146,7 +133,25 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
     }
 }
 
-#[cfg(feature = "spdlog-rs")]
+/// OmaFormatter
+/// `OmaFormatter` is used for outputting oma-style logs to `spdlog-rs`
+///
+/// # Example:
+/// ```
+/// use spdlog::{info, sink::StdStreamSink, Logger};
+/// use oma_console::OmaLayer;
+///
+/// let mut logger_builder = Logger::builder();
+///
+/// let logger = logger_builder.sink(Arc::new(
+///     StdStreamSink::builder().formatter(Box::new(OmaLayer::default())).build().unwrap()
+/// )).build().unwrap();
+///
+/// spdlog::set_default_logger(Arc::new(logger));
+///
+/// info!("My name is oma!");
+/// ```
+///
 #[derive(Clone)]
 pub struct OmaFormatter {
     with_ansi: bool,
@@ -155,7 +160,6 @@ pub struct OmaFormatter {
     prefix_len: u16,
 }
 
-#[cfg(feature = "spdlog-rs")]
 impl Default for OmaFormatter {
     fn default() -> Self {
         Self {
@@ -167,7 +171,6 @@ impl Default for OmaFormatter {
     }
 }
 
-#[cfg(feature = "spdlog-rs")]
 impl OmaFormatter {
     pub fn new() -> Self {
         OmaFormatter::default()
@@ -267,7 +270,6 @@ impl OmaFormatter {
     }
 }
 
-#[cfg(feature = "spdlog-rs")]
 impl Formatter for OmaFormatter {
     fn format(
         &self,
@@ -277,149 +279,5 @@ impl Formatter for OmaFormatter {
     ) -> spdlog::Result<()> {
         self.format_impl(record, dest, ctx)
             .map_err(|e| spdlog::Error::FormatRecord(e))
-    }
-}
-
-/// OmaLayer
-/// `OmaLayer` is used for outputting oma-style logs to `tracing`
-///
-/// # Example:
-/// ```
-/// use tracing_subscriber::prelude::*;
-/// use oma_console::OmaLayer;
-/// use tracing::info;
-///
-/// tracing_subscriber::registry()
-///     .with(OmaLayer::new())
-///     .init();
-///
-/// info!("My name is oma!");
-/// ```
-///
-#[cfg(not(feature = "spdlog-rs"))]
-pub struct OmaLayer {
-    /// Display result with ansi
-    with_ansi: bool,
-    /// A Terminal writer to print oma-style message
-    writer: Writer,
-}
-
-#[cfg(not(feature = "spdlog-rs"))]
-impl Default for OmaLayer {
-    fn default() -> Self {
-        Self {
-            with_ansi: true,
-            #[cfg(not(feature = "spdlog-rs"))]
-            writer: Writer::default(),
-        }
-    }
-}
-
-#[cfg(not(feature = "spdlog-rs"))]
-impl OmaLayer {
-    pub fn new() -> Self {
-        OmaLayer::default()
-    }
-
-    /// Display with ANSI colors
-    ///
-    /// Set to false to disable ANSI color sequences.
-    pub fn with_ansi(mut self, with_ansi: bool) -> Self {
-        self.with_ansi = with_ansi;
-        self
-    }
-}
-
-#[cfg(not(feature = "spdlog-rs"))]
-impl<S> Layer<S> for OmaLayer
-where
-    S: tracing::Subscriber,
-    S: for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>,
-{
-    fn on_event(
-        &self,
-        event: &tracing::Event<'_>,
-        _ctx: tracing_subscriber::layer::Context<'_, S>,
-    ) {
-        let level = *event.metadata().level();
-
-        let prefix = if self.with_ansi {
-            Cow::Owned(match level {
-                Level::DEBUG => console::style("DEBUG").dim().to_string(),
-                Level::INFO => console::style("INFO").blue().bold().to_string(),
-                Level::WARN => console::style("WARNING").yellow().bold().to_string(),
-                Level::ERROR => console::style("ERROR").red().bold().to_string(),
-                Level::TRACE => console::style("TRACE").dim().to_string(),
-            })
-        } else {
-            Cow::Borrowed(match level {
-                Level::DEBUG => "DEBUG",
-                Level::INFO => "INFO",
-                Level::WARN => "WARNING",
-                Level::ERROR => "ERROR",
-                Level::TRACE => "TRACE",
-            })
-        };
-
-        let mut visitor = OmaRecorder(BTreeMap::new());
-        event.record(&mut visitor);
-
-        for (k, v) in visitor.0 {
-            if k == "message" {
-                if self.with_ansi {
-                    self.writer.writeln(&prefix, &v).ok();
-                } else {
-                    self.writer
-                        .writeln(&prefix, &console::strip_ansi_codes(&v))
-                        .ok();
-                }
-            }
-        }
-    }
-}
-/// OmaRecorder
-/// `OmaRecorder` is used for recording oma-style logs.
-///
-/// # Example:
-/// ```ignore
-/// let mut visitor = OmaRecorder(BTreeMap::new());
-/// event.record(&mut visitor);
-/// for (k, v) in visitor.0 {
-///     if k == "message" {
-///         self.writer.writeln(&prefix, &v).ok();
-///     }
-/// }
-/// ```
-#[cfg(not(feature = "spdlog-rs"))]
-struct OmaRecorder<'a>(BTreeMap<&'a str, String>);
-
-#[cfg(not(feature = "spdlog-rs"))]
-impl tracing::field::Visit for OmaRecorder<'_> {
-    fn record_f64(&mut self, field: &Field, value: f64) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_i64(&mut self, field: &Field, value: i64) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_u64(&mut self, field: &Field, value: u64) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_bool(&mut self, field: &Field, value: bool) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_str(&mut self, field: &Field, value: &str) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_error(&mut self, field: &Field, value: &(dyn std::error::Error + 'static)) {
-        self.0.insert(field.name(), format!("{value:#?}"));
-    }
-
-    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        self.0.insert(field.name(), format!("{value:#?}"));
     }
 }

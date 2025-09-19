@@ -17,14 +17,11 @@ use oma_fetch::{
     send_request,
 };
 use once_cell::sync::OnceCell;
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{debug, warn};
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
 };
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, warn};
 use url::Url;
 
 use crate::{

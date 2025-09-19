@@ -9,14 +9,11 @@ license = "MIT"
 anyhow = "1"
 thiserror = "2"
 sequoia-openpgp = { version = "2", default-features = false }
-spdlog-rs = { git = 'https://github.com/SpriteOvO/spdlog-rs.git', branch = "sink-decouple", optional = true }
-tracing = { version = "0.1", optional = true }
+spdlog-rs = { git = 'https://github.com/SpriteOvO/spdlog-rs.git', branch = "main-dev" }
 oma-apt-sources-lists = "0.9"
 sequoia-policy-config = "0.8"
 
 [features]
-spdlog-rs = ["dep:spdlog-rs"]
-tracing = ["dep:tracing"]
 sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]
 sequoia-nettle-backend = ["sequoia-openpgp/crypto-nettle"]
 default = ["sequoia-nettle-backend"]

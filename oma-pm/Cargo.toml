@@ -24,8 +24,7 @@ tokio = { version = "1.15", default-features = false, features = [
   "rt-multi-thread",
 ] }
 fs4 = "0.13"
-spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "sink-decouple", optional = true }
-tracing = { version = "0.1", optional = true }
+spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "main-dev" }
 oma-pm-operation-type = { version = "0.9", path = "../oma-pm-operation-type" }
 zbus = { version = "5.1", features = ["tokio"] }
 cxx = "1.0.121"
@@ -45,5 +44,3 @@ flume = "0.11"
 
 [features]
 aosc = ["dep:sysinfo"]
-spdlog-rs = ["dep:spdlog-rs"]
-tracing = ["dep:tracing"]
