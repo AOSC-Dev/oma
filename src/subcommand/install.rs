@@ -7,10 +7,7 @@ use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{info, warn};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{info, warn};
 
 use crate::HTTP_CLIENT;
 use crate::args::ARG_HELP_HEADING;

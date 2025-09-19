@@ -6,10 +6,7 @@ use clap_complete::{CompletionCandidate, engine::ValueCompleter};
 use clap_lex::OsStrExt;
 use dirs::home_dir;
 use rustix::path::Arg;
-#[cfg(feature = "spdlog-rs")]
 use spdlog::debug;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::debug;
 
 /// Complete a value as a [`std::path::Path`]
 ///

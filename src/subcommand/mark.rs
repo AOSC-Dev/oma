@@ -7,10 +7,7 @@ use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
-#[cfg(feature = "spdlog-rs")]
 use spdlog::info;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::info;
 
 use crate::{
     color_formatter,

@@ -4,12 +4,8 @@ use bon::{Builder, builder};
 use checksum::Checksum;
 use download::{BuilderError, SingleDownloader, SuccessSummary};
 use futures::StreamExt;
-
 use reqwest::{Client, Method, RequestBuilder, Response};
-#[cfg(feature = "spdlog-rs")]
 use spdlog::debug;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::debug;
 
 pub mod checksum;
 pub mod download;

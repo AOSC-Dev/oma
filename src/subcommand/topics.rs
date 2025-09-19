@@ -19,12 +19,9 @@ use oma_pm::{
 };
 use oma_utils::dpkg::dpkg_arch;
 use once_cell::sync::OnceCell;
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{debug, error, info, warn};
 use sysinfo::System;
 use tokio::task::spawn_blocking;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, error, info, warn};
 
 use crate::{
     HTTP_CLIENT, NOT_ALLOW_CTRLC, RT,

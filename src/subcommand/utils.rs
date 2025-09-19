@@ -79,10 +79,7 @@ use reqwest::Client;
 use std::fmt::Display;
 
 use super::remove::ask_user_do_as_i_say;
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{debug, error, info, warn};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, error, info, warn};
 
 pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Result<(), OutputError> {
     if no_result.is_empty() {

@@ -1,8 +1,5 @@
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{debug, warn};
 use std::{fs, io, path::Path};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, warn};
 
 #[cfg(feature = "aosc")]
 pub fn pkg_is_current_kernel(
