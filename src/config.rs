@@ -206,7 +206,6 @@ impl Config {
             .unwrap_or_else(GeneralConfig::default_bell)
     }
 
-    #[allow(dead_code)]
     pub fn save_log_count(&self) -> usize {
         self.general
             .as_ref()
