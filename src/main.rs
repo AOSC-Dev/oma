@@ -143,7 +143,7 @@ pub struct GlobalOptions {
     #[arg(long, global = true, default_value = sysroot_default_value(), env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
-    #[arg(long, global = true, action = ArgAction::Append, help = fl!("clap-apt-options-help"))]
+    #[arg(long, short = 'o', global = true, action = ArgAction::Append, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
     /// Don't ring if oma completes the transaction
     #[arg(long, global = true, env = "OMA_NO_BELL", help = fl!("clap-no-bell-help"), value_parser = FalseyValueParser::new()
