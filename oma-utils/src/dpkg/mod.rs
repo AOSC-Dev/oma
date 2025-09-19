@@ -4,10 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-#[cfg(feature = "spdlog-rs")]
 use spdlog::debug;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::debug;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DpkgError {

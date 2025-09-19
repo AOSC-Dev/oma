@@ -14,17 +14,13 @@ use reqwest::{
     header::{ACCEPT_RANGES, CONTENT_LENGTH, HeaderValue, RANGE},
 };
 use snafu::{ResultExt, Snafu};
+use spdlog::{debug, trace};
 use tokio::{
     fs::{self, File},
     io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
     time::timeout,
 };
-
-#[cfg(feature = "spdlog-rs")]
-use spdlog::{debug, trace};
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, trace};
 
 use crate::{DownloadEntry, DownloadSourceType};
 

@@ -9,10 +9,7 @@ use clap::Args;
 use fs_extra::dir::get_size;
 use oma_console::indicatif::HumanBytes;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{debug, error, info};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, error, info};
 
 use crate::{error::OutputError, utils::root};
 

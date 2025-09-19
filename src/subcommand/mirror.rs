@@ -28,11 +28,8 @@ use oma_utils::dpkg::dpkg_arch;
 use reqwest::blocking;
 use sha2::Digest;
 use sha2::Sha256;
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{error, info, warn};
 use tabled::Tabled;
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{error, info, warn};
 
 use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;

@@ -29,10 +29,7 @@ pub mod writer;
 #[cfg(feature = "print")]
 pub mod print;
 
-#[cfg(not(all(feature = "print", feature = "spdlog-rs")))]
-pub use print::OmaLayer;
-
-#[cfg(all(feature = "print", feature = "spdlog-rs"))]
+#[cfg(feature = "print")]
 pub use print::OmaFormatter;
 
 #[cfg(feature = "print")]

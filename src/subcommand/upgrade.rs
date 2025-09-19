@@ -12,11 +12,7 @@ use oma_pm::apt::Upgrade as AptUpgrade;
 
 use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
-
-#[cfg(feature = "spdlog-rs")]
 use spdlog::{debug, info, warn};
-#[cfg(not(feature = "spdlog-rs"))]
-use tracing::{debug, info, warn};
 
 use crate::HTTP_CLIENT;
 use crate::config::Config;
