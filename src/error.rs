@@ -866,6 +866,9 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("path-not-exist", path = path),
             source: None,
         },
+        OmaAptError::DpkgStatusGetPkg(_) => anyhow::anyhow!("{err}").into(),
+        OmaAptError::WrongDpkgStatus(_) => anyhow::anyhow!("{err}").into(),
+        OmaAptError::DpkgStatusBroken(_) => anyhow::anyhow!("{err}").into(),
     }
 }
 
