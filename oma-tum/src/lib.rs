@@ -186,7 +186,7 @@ pub fn get_matches_tum<'a>(
         .map(|x| (x.name_without_arch(), (x.old_version(), x.new_version())))
         .collect::<HashMap<_, _>>();
 
-    let remove_map = &op.remove.iter().map(|x| (x.name())).collect::<HashSet<_>>();
+    let remove_map = &op.remove.iter().map(|x| x.name()).collect::<HashSet<_>>();
 
     for i in tum {
         'a: for (name, entry) in &i.entries {

@@ -22,12 +22,6 @@ struct Status {
     mirror: IndexMap<Box<str>, Box<str>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Branch {
-    desc: Box<str>,
-    suites: Vec<Box<str>>,
-}
-
 impl Default for Status {
     fn default() -> Self {
         Self {
