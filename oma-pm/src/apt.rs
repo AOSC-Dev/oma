@@ -27,10 +27,9 @@ use oma_fetch::{Event, Summary, checksum::ChecksumError, reqwest::Client};
 use oma_utils::{dpkg::DpkgError, human_bytes::HumanBytes};
 
 pub use oma_apt::config::Config as AptConfig;
-use tracing::{debug, error};
-
 #[cfg(feature = "aosc")]
-use tracing::warn;
+use spdlog::warn;
+use spdlog::{debug, error};
 
 pub use oma_pm_operation_type::*;
 use zbus::Connection;

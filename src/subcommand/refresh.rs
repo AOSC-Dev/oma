@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-use tracing::info;
+use spdlog::info;
 
 use crate::config::Config;
 use crate::{HTTP_CLIENT, fl, success};
