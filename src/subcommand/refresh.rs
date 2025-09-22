@@ -26,6 +26,9 @@ pub struct Refresh {
     /// Setup download threads (default as 4)
     #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
+    /// Set apt options
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
+    apt_options: Vec<String>,
 }
 
 impl CliExecuter for Refresh {
@@ -36,6 +39,7 @@ impl CliExecuter for Refresh {
             sysroot,
             dry_run,
             download_threads,
+            apt_options,
         } = self;
 
         if dry_run {
@@ -57,6 +61,7 @@ impl CliExecuter for Refresh {
             .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
             .sysroot(&sysroot_str)
             .config(&apt_config)
+            .apt_options(apt_options)
             .maybe_auth_config(auth_config);
 
         #[cfg(feature = "aosc")]

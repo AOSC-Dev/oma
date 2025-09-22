@@ -227,6 +227,7 @@ impl CliExecuter for Topics {
                 &sysroot,
                 &apt_config,
                 auth_config,
+                apt_options.clone(),
             )?;
 
             if only_apply_sources_list {
@@ -235,7 +236,7 @@ impl CliExecuter for Topics {
 
             let oma_apt_args = OmaAptArgs::builder()
                 .sysroot(sysroot.to_string_lossy().to_string())
-                .another_apt_options(apt_options)
+                .another_apt_options(apt_options.clone())
                 .dpkg_force_unsafe_io(force_unsafe_io)
                 .dpkg_force_confnew(force_confnew)
                 .force_yes(force_yes)
@@ -373,6 +374,7 @@ impl CliExecuter for Topics {
                         &sysroot,
                         &AptConfig::new(),
                         auth_config,
+                        apt_options,
                     )?;
                 }
             }
@@ -397,6 +399,7 @@ fn refresh<'a>(
     sysroot: &'a Path,
     apt_config: &'a AptConfig,
     auth_config: Option<&'a apt_auth_config::AuthConfig>,
+    apt_options: Vec<String>,
 ) -> Result<(), OutputError> {
     Refresh::builder()
         .client(&HTTP_CLIENT)
@@ -407,6 +410,7 @@ fn refresh<'a>(
         .refresh_topics(true)
         .config(apt_config)
         .maybe_auth_config(auth_config)
+        .apt_options(apt_options)
         .build()
         .run()
 }

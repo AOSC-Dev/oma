@@ -27,6 +27,7 @@ async fn main() -> Result<(), RefreshError> {
         .topic_msg("test")
         .refresh_topics(false)
         .auth_config(&auth)
+        .another_apt_options(vec![])
         .build();
 
     tokio::spawn(async move {

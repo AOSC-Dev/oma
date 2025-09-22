@@ -128,6 +128,8 @@ pub struct OmaRefresh<'a> {
     topic_msg: &'a str,
     auth_config: Option<&'a AuthConfig>,
     sources_lists_paths: Option<Vec<PathBuf>>,
+    #[builder(default)]
+    another_apt_options: Vec<String>,
 }
 
 /// Create `apt update` file lock
@@ -216,7 +218,34 @@ impl<'a> OmaRefresh<'a> {
         let paths = if let Some(ref paths) = self.sources_lists_paths {
             paths.to_vec()
         } else {
-            scan_sources_lists_paths_from_sysroot(&self.source)
+            #[cfg(feature = "apt")]
+            self.apt_config.set("Dir", &self.source.to_string_lossy());
+
+            #[cfg(feature = "apt")]
+            for i in &self.another_apt_options {
+                let (k, v) = i.split_once('=').unwrap_or((i.as_str(), ""));
+                debug!("Setting apt opt: {k}={v}");
+                self.apt_config.set(k, v);
+            }
+
+            #[cfg(feature = "apt")]
+            let list_file = self.apt_config.file("Dir::Etc::sourcelist", "sources.list");
+
+            #[cfg(feature = "apt")]
+            let list_dir = self
+                .apt_config
+                .dir("Dir::Etc::sourceparts", "sources.list.d");
+
+            #[cfg(not(feature = "apt"))]
+            let list_file = self.source.join("etc/apt/sources.list");
+
+            #[cfg(not(feature = "apt"))]
+            let list_dir = self.source.join("etc/apt/sources.list.d");
+
+            debug!("sources.list is: {list_file}");
+            debug!("sources.list.d is: {list_dir}");
+
+            scan_sources_lists_paths_from_sysroot(list_file, list_dir)
                 .await
                 .map_err(RefreshError::ScanSourceError)?
         };
