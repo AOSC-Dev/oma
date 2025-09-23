@@ -264,7 +264,7 @@ impl CliExecuter for Remove {
             }
         }
 
-        handle_no_result(&sysroot, no_result, no_progress)?;
+        handle_no_result(no_result, no_progress)?;
 
         let auth_config = auth_config(&sysroot);
         let auth_config = auth_config.as_ref();

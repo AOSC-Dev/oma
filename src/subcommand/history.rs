@@ -256,7 +256,7 @@ impl CliExecuter for Undo {
             }
         }
 
-        handle_no_result(&sysroot, no_result, no_progress)?;
+        handle_no_result(no_result, no_progress)?;
 
         apt.remove(delete, false, true)?;
 

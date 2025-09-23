@@ -219,7 +219,7 @@ impl CliExecuter for Install {
 
         let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse)?;
 
-        handle_no_result(&sysroot, no_result, no_progress)?;
+        handle_no_result(no_result, no_progress)?;
 
         let no_marked_install = apt.install(&pkgs, reinstall)?;
 

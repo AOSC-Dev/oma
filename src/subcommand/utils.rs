@@ -38,6 +38,7 @@ use crate::pb::RenderRefreshProgress;
 use crate::success;
 use crate::table::table_for_install_pending;
 use crate::unlock_oma;
+use crate::utils::get_lists_dir;
 use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::Builder;
@@ -84,7 +85,6 @@ use tracing::warn;
 use super::remove::ask_user_do_as_i_say;
 
 pub(crate) fn handle_no_result(
-    sysroot: impl AsRef<Path>,
     no_result: Vec<&str>,
     no_progress: bool,
 ) -> Result<(), OutputError> {
@@ -119,7 +119,7 @@ pub(crate) fn handle_no_result(
             }
 
             search(
-                sysroot.as_ref().join("var/lib/apt/lists"),
+                get_lists_dir(&AptConfig::new()),
                 Mode::BinProvides,
                 word,
                 |(pkg, file)| {
@@ -237,7 +237,7 @@ impl Refresh<'_> {
         let arch = dpkg_arch(&sysroot)?;
 
         let refresh = OmaRefresh::builder()
-            .download_dir(sysroot.join("var/lib/apt/lists"))
+            .download_dir(get_lists_dir(config))
             .source(sysroot)
             .threads(network_thread)
             .arch(arch)
