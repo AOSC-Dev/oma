@@ -94,6 +94,9 @@ pub struct CliMirror {
     /// Setup download threads (default as 4)
     #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
+    /// Set apt options
+    #[arg(from_global, help = fl!("clap-apt-options-help"))]
+    apt_options: Vec<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -190,6 +193,7 @@ impl CliExecuter for CliMirror {
             no_refresh,
             dry_run,
             download_threads,
+            apt_options,
         } = self;
 
         if dry_run {
@@ -212,6 +216,7 @@ impl CliExecuter for CliMirror {
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
                     sysroot,
                     Operate::Set,
+                    apt_options,
                 ),
                 MirrorSubCmd::Speedtest {
                     set_fastest,
@@ -224,6 +229,7 @@ impl CliExecuter for CliMirror {
                     !no_refresh_topics && !config.no_refresh_topics(),
                     download_threads.unwrap_or_else(|| config.network_thread()),
                     no_refresh,
+                    apt_options,
                 ),
                 MirrorSubCmd::Add {
                     names,
@@ -238,6 +244,7 @@ impl CliExecuter for CliMirror {
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
                     sysroot,
                     Operate::Add,
+                    apt_options,
                 ),
                 MirrorSubCmd::Remove {
                     names,
@@ -252,6 +259,7 @@ impl CliExecuter for CliMirror {
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
                     sysroot,
                     Operate::Remove,
+                    apt_options,
                 ),
                 MirrorSubCmd::SortMirrors {
                     no_refresh_topics,
@@ -261,6 +269,7 @@ impl CliExecuter for CliMirror {
                     !no_refresh_topics && !config.no_refresh_topics(),
                     download_threads.unwrap_or_else(|| config.network_thread()),
                     no_refresh,
+                    apt_options,
                 ),
             }
         } else {
@@ -269,6 +278,7 @@ impl CliExecuter for CliMirror {
                 !no_refresh_topics && !config.no_refresh_topics(),
                 download_threads.unwrap_or_else(|| config.network_thread()),
                 no_refresh,
+                apt_options,
             )
         }
     }
@@ -279,6 +289,7 @@ pub fn tui(
     refresh_topic: bool,
     network_threads: usize,
     no_refresh: bool,
+    apt_options: Vec<String>,
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -347,19 +358,20 @@ pub fn tui(
 
     if !no_refresh {
         refresh_enabled_topics_sources_list(no_progress)?;
-        refresh(no_progress, network_threads, refresh_topic)?;
+        refresh(no_progress, network_threads, refresh_topic, apt_options)?;
     }
 
     Ok(0)
 }
 
-pub enum Operate {
+enum Operate {
     Set,
     Add,
     Remove,
 }
 
-pub fn operate(
+#[allow(clippy::too_many_arguments)]
+fn operate(
     no_progress: bool,
     refresh_topic: bool,
     network_threads: usize,
@@ -367,6 +379,7 @@ pub fn operate(
     args: Vec<&str>,
     sysroot: PathBuf,
     subcmd: Operate,
+    apt_options: Vec<String>,
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -392,7 +405,7 @@ pub fn operate(
 
     if !no_refresh {
         refresh_enabled_topics_sources_list(no_progress)?;
-        refresh(no_progress, network_threads, refresh_topic)?;
+        refresh(no_progress, network_threads, refresh_topic, apt_options)?;
     }
 
     Ok(0)
@@ -403,6 +416,7 @@ pub fn set_order(
     refresh_topic: bool,
     network_threads: usize,
     no_refresh: bool,
+    apt_options: Vec<String>,
 ) -> Result<i32, OutputError> {
     root()?;
 
@@ -428,7 +442,7 @@ pub fn set_order(
 
     if !no_refresh {
         refresh_enabled_topics_sources_list(no_progress)?;
-        refresh(no_progress, network_threads, refresh_topic)?;
+        refresh(no_progress, network_threads, refresh_topic, apt_options)?;
     }
 
     Ok(0)
@@ -446,6 +460,7 @@ pub fn speedtest(
     refresh_topic: bool,
     network_threads: usize,
     no_refresh: bool,
+    apt_options: Vec<String>,
 ) -> Result<i32, OutputError> {
     if set_fastest {
         root()?;
@@ -570,7 +585,7 @@ pub fn speedtest(
 
         if !no_refresh {
             refresh_enabled_topics_sources_list(no_progress)?;
-            refresh(no_progress, network_threads, refresh_topic)?;
+            refresh(no_progress, network_threads, refresh_topic, apt_options)?;
         }
     }
 
@@ -581,6 +596,7 @@ fn refresh(
     no_progress: bool,
     network_threads: usize,
     refresh_topic: bool,
+    apt_options: Vec<String>,
 ) -> Result<(), OutputError> {
     let auth_config = auth_config("/");
     let auth_config = auth_config.as_ref();
@@ -593,6 +609,7 @@ fn refresh(
         .refresh_topics(refresh_topic)
         .config(&AptConfig::new())
         .maybe_auth_config(auth_config)
+        .apt_options(apt_options.clone())
         .build()
         .run()?;
 

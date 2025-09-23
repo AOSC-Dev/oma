@@ -206,6 +206,7 @@ pub struct Refresh<'a> {
     refresh_topics: bool,
     config: &'a AptConfig,
     auth_config: Option<&'a AuthConfig>,
+    apt_options: Vec<String>,
 }
 
 impl Refresh<'_> {
@@ -219,6 +220,7 @@ impl Refresh<'_> {
             refresh_topics,
             config,
             auth_config,
+            apt_options,
         } = self;
 
         #[cfg(not(feature = "aosc"))]
@@ -241,6 +243,7 @@ impl Refresh<'_> {
             .arch(arch)
             .apt_config(config)
             .client(client)
+            .another_apt_options(apt_options)
             .maybe_auth_config(auth_config);
 
         #[cfg(feature = "aosc")]

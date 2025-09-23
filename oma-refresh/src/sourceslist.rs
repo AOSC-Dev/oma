@@ -55,24 +55,26 @@ impl Debug for OmaSourceEntry<'_> {
 }
 
 pub(crate) async fn scan_sources_lists_paths_from_sysroot(
-    sysroot: impl AsRef<Path>,
+    list_file: impl AsRef<str>,
+    list_dir: impl AsRef<str>,
 ) -> Result<Vec<PathBuf>, SourcesListError> {
     let mut paths = vec![];
-    let default = sysroot.as_ref().join("etc/apt/sources.list");
+    let default = Path::new(list_file.as_ref());
+    let list_dir_path = Path::new(list_dir.as_ref());
 
     if default.exists() {
-        paths.push(default);
+        paths.push(default.to_path_buf());
     }
 
-    if sysroot.as_ref().join("etc/apt/sources.list.d/").exists() {
-        let mut dir = tokio::fs::read_dir(sysroot.as_ref().join("etc/apt/sources.list.d/")).await?;
+    if list_dir_path.exists() {
+        let mut dir = tokio::fs::read_dir(list_dir_path).await?;
         while let Some(entry) = dir.next_entry().await? {
             let path = entry.path();
             if !path.is_file() {
                 continue;
             }
 
-            paths.push(path);
+            paths.push(path.to_path_buf());
         }
     }
 

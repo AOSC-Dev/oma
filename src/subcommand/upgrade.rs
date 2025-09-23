@@ -149,6 +149,7 @@ impl CliExecuter for Upgrade {
                 .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
                 .sysroot(&sysroot)
                 .config(&apt_config)
+                .apt_options(apt_options.clone())
                 .auth_config(&auth_config);
 
             #[cfg(feature = "aosc")]
