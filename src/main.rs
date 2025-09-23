@@ -32,6 +32,7 @@ use lang::LANGUAGE_LOADER;
 use oma_console::OmaLayer;
 use oma_console::print::{OmaColorFormat, termbg};
 use oma_console::writer::{MessageType, Writer, writeln_inner};
+use oma_pm::apt::AptConfig;
 use oma_utils::OsRelease;
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use reqwest::Client;
@@ -210,6 +211,8 @@ fn main() {
         }
     }
 
+    init_apt_config(&oma);
+
     let code = match try_main(oma, config, matches) {
         Ok(exit_code) => {
             unlock_oma().ok();
@@ -231,6 +234,17 @@ fn main() {
     };
 
     exit(code);
+}
+
+fn init_apt_config(oma: &OhManagerAilurus) {
+    let apt_config = AptConfig::new();
+    apt_config.set("Dir", &oma.global.sysroot.to_string_lossy());
+
+    for kv in &oma.global.apt_options {
+        let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
+        debug!("Set apt option: {k}={v}");
+        apt_config.set(k, v);
+    }
 }
 
 fn parse_args() -> (ArgMatches, OhManagerAilurus) {
