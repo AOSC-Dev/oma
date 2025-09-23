@@ -391,6 +391,7 @@ clap-mirror-remove-names-help = 要禁用（移除）的镜像源
 clap-mirror-sort-mirrors-help = 重新排序已启用的镜像源
 clap-mirror-speedtest-help = 测试镜像源性能
 clap-mirror-speedtest-set-fastest-help = 将测得最快的镜像源作为默认
+clap-mirror-speedtest-timeout-help = 设置测速网络超时时间（秒，默认：120）
 clap-pick-package-help = 要选择并安装特定版本的软件包
 clap-rdepends-packages-help = 要查询逆向依赖关系的软件包
 clap-remove-packages-help = 要移除的软件包
