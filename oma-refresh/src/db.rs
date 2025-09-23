@@ -326,7 +326,7 @@ impl<'a> OmaRefresh<'a> {
     #[cfg(feature = "apt")]
     fn init_apt_options(&self) {
         self.apt_config.set("Dir", &self.source.to_string_lossy());
-    
+
         for i in &self.another_apt_options {
             let (k, v) = i.split_once('=').unwrap_or((i.as_str(), ""));
             debug!("Setting apt opt: {k}={v}");
