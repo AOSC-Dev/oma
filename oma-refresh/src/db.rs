@@ -311,7 +311,6 @@ impl<'a> OmaRefresh<'a> {
             .client(self.client)
             .download_list(tasks)
             .threads(self.threads)
-            .set_permission(0o644)
             .total_size(total)
             .build();
 
