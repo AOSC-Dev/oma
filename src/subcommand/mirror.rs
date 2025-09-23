@@ -364,13 +364,14 @@ pub fn tui(
     Ok(0)
 }
 
-pub enum Operate {
+enum Operate {
     Set,
     Add,
     Remove,
 }
 
-pub fn operate(
+#[allow(clippy::too_many_arguments)]
+fn operate(
     no_progress: bool,
     refresh_topic: bool,
     network_threads: usize,
