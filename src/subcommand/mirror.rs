@@ -94,6 +94,9 @@ pub struct CliMirror {
     /// Setup download threads (default as 4)
     #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
+    /// Network timeout in seconds (default: 120)
+    #[arg(long, default_value = "120", help = fl!("clap-mirror-speedtest-timeout-help"))]
+    timeout: f64,
     /// Set apt options
     #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
@@ -184,7 +187,7 @@ pub enum MirrorSubCmd {
         no_refresh: bool,
         /// Network timeout in seconds (default: 120)
         #[arg(long, default_value = "120", help = fl!("clap-mirror-speedtest-timeout-help"))]
-        timeout: u64,
+        timeout: f64,
     },
 }
 
@@ -196,6 +199,7 @@ impl CliExecuter for CliMirror {
             no_refresh,
             dry_run,
             download_threads,
+            timeout: _,
             apt_options,
         } = self;
 
@@ -223,8 +227,10 @@ impl CliExecuter for CliMirror {
                 ),
                 MirrorSubCmd::Speedtest {
                     set_fastest,
+                    #[cfg(feature = "aosc")]
                     no_refresh_topics,
                     no_refresh,
+                    timeout,
                 } => speedtest(
                     no_progress,
                     set_fastest,
@@ -232,6 +238,7 @@ impl CliExecuter for CliMirror {
                     download_threads.unwrap_or_else(|| config.network_thread()),
                     no_refresh,
                     apt_options,
+                    timeout,
                 ),
                 MirrorSubCmd::Add {
                     names,
@@ -463,6 +470,7 @@ pub fn speedtest(
     network_threads: usize,
     no_refresh: bool,
     apt_options: Vec<String>,
+    timeout: f64,
 ) -> Result<i32, OutputError> {
     if set_fastest {
         root()?;
@@ -485,10 +493,9 @@ pub fn speedtest(
     } else {
         None
     };
-
     let client = blocking::ClientBuilder::new()
         .user_agent(APP_USER_AGENT)
-        .timeout(Duration::from_secs(timeout))
+        .timeout(Duration::from_secs_f64(timeout))
         .build()?;
 
     let mut score_map = HashMap::with_hasher(ahash::RandomState::new());
