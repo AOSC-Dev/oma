@@ -84,10 +84,7 @@ use tracing::warn;
 
 use super::remove::ask_user_do_as_i_say;
 
-pub(crate) fn handle_no_result(
-    no_result: Vec<&str>,
-    no_progress: bool,
-) -> Result<(), OutputError> {
+pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Result<(), OutputError> {
     if no_result.is_empty() {
         return Ok(());
     }
