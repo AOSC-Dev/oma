@@ -8,7 +8,7 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
-use tracing::{info, warn};
+use spdlog::{info, warn};
 
 use crate::config::Config;
 use crate::fl;

@@ -30,7 +30,7 @@ pub mod writer;
 pub mod print;
 
 #[cfg(feature = "print")]
-pub use print::OmaLayer;
+pub use print::OmaFormatter;
 
 #[cfg(feature = "print")]
 pub use console;

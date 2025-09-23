@@ -10,7 +10,7 @@ use oma_pm::{
     search::IndiciumSearch,
 };
 use oma_utils::dbus::{InhibitTypeUnion, take_wake_lock};
-use tracing::info;
+use spdlog::info;
 use tui_inner::{Task, Tui as TuiInner};
 
 use crate::{
