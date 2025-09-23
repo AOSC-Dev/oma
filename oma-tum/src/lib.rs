@@ -140,10 +140,10 @@ pub enum TumError {
     ReadFile { path: PathBuf, source: io::Error },
 }
 
-pub fn get_tum(sysroot: &Path) -> Result<Vec<TopicUpdateManifest>, TumError> {
+pub fn get_tum(list_dir: impl AsRef<Path>) -> Result<Vec<TopicUpdateManifest>, TumError> {
     let mut entries = vec![];
 
-    for i in read_dir(sysroot.join("var/lib/apt/lists")).context(ReadAptListDirSnafu)? {
+    for i in read_dir(list_dir).context(ReadAptListDirSnafu)? {
         let i = i.context(ReadDirEntrySnafu)?;
 
         if i.path()
