@@ -154,6 +154,12 @@ pub enum OmaAptError {
     ChecksumError(#[from] ChecksumError),
     #[error("Blocking installation due to features markers.")]
     Features,
+    #[error("Unable to find package {0} on dpkg status file")]
+    DpkgStatusGetPkg(String),
+    #[error("Wrong dpkg status: {0}, package is not installed?")]
+    WrongDpkgStatus(String),
+    #[error("Package {0} status field is missing, dpkg status is broken.")]
+    DpkgStatusBroken(String),
 }
 
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
@@ -241,10 +247,6 @@ impl OmaApt {
             })?;
 
             config.set("Dir", &sysroot.display().to_string());
-            config.set(
-                "Dir::State::status",
-                &sysroot.join("var/lib/dpkg/status").display().to_string(),
-            );
         }
 
         debug!("Dir is: {:?}", config.get("Dir"));
@@ -762,41 +764,7 @@ impl OmaApt {
                 return PathBuf::from("/data/data/com.termux/cache/apt/archives/");
             }
 
-            let archives_dir = self
-                .config
-                .get("Dir::Cache::Archives")
-                .unwrap_or_else(|| "archives/".to_string());
-
-            let cache = self
-                .config
-                .get("Dir::Cache")
-                .unwrap_or_else(|| "var/cache/apt".to_string());
-
-            let dir = self.config.get("Dir").unwrap_or_else(|| "/".to_string());
-
-            let archive_dir_p = PathBuf::from(archives_dir);
-            if archive_dir_p.is_absolute() {
-                return archive_dir_p;
-            }
-
-            debug!("archive_dir_p is: {}", archive_dir_p.display());
-
-            let cache_dir_p = PathBuf::from(cache);
-            if cache_dir_p.is_absolute() {
-                return cache_dir_p.join(archive_dir_p);
-            }
-
-            debug!("cache_dir_p is: {}", cache_dir_p.display());
-
-            let dir_p = PathBuf::from(dir);
-
-            debug!("dir_p is: {}", dir_p.display());
-
-            let res = dir_p.join(cache_dir_p).join(archive_dir_p);
-
-            debug!("get_archive_dir is: {}", res.display());
-
-            res
+            PathBuf::from(&self.config.dir("Dir::Cache::Archives", "archives/"))
         })
     }
 
@@ -818,7 +786,12 @@ impl OmaApt {
             }
         }
 
-        let res = oma_utils::dpkg::mark_version_status(pkgs, hold, dry_run, self.sysroot())?;
+        let res = crate::dpkg::mark_status(
+            pkgs.iter().map(|s| s.as_str()),
+            self.sysroot(),
+            hold,
+            dry_run,
+        )?;
 
         Ok(res)
     }

@@ -194,7 +194,8 @@ impl CliExecuter for Undo {
                 .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
                 .sysroot(&sysroot)
                 .config(&apt_config)
-                .maybe_auth_config(auth_config.as_ref());
+                .maybe_auth_config(auth_config.as_ref())
+                .apt_options(apt_options.clone());
 
             #[cfg(feature = "aosc")]
             let refresh = builder

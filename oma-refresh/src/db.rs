@@ -128,6 +128,8 @@ pub struct OmaRefresh<'a> {
     topic_msg: &'a str,
     auth_config: Option<&'a AuthConfig>,
     sources_lists_paths: Option<Vec<PathBuf>>,
+    #[builder(default)]
+    another_apt_options: Vec<String>,
 }
 
 /// Create `apt update` file lock
@@ -213,10 +215,30 @@ impl<'a> OmaRefresh<'a> {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
 
+        #[cfg(feature = "apt")]
+        self.init_apt_options();
+
         let paths = if let Some(ref paths) = self.sources_lists_paths {
             paths.to_vec()
         } else {
-            scan_sources_lists_paths_from_sysroot(&self.source)
+            #[cfg(feature = "apt")]
+            let list_file = self.apt_config.file("Dir::Etc::sourcelist", "sources.list");
+
+            #[cfg(feature = "apt")]
+            let list_dir = self
+                .apt_config
+                .dir("Dir::Etc::sourceparts", "sources.list.d");
+
+            #[cfg(not(feature = "apt"))]
+            let list_file = self.source.join("etc/apt/sources.list");
+
+            #[cfg(not(feature = "apt"))]
+            let list_dir = self.source.join("etc/apt/sources.list.d");
+
+            debug!("sources.list is: {list_file}");
+            debug!("sources.list.d is: {list_dir}");
+
+            scan_sources_lists_paths_from_sysroot(list_file, list_dir)
                 .await
                 .map_err(RefreshError::ScanSourceError)?
         };
@@ -299,6 +321,17 @@ impl<'a> OmaRefresh<'a> {
         callback(Event::Done).await;
 
         Ok(res.success)
+    }
+
+    #[cfg(feature = "apt")]
+    fn init_apt_options(&self) {
+        self.apt_config.set("Dir", &self.source.to_string_lossy());
+
+        for i in &self.another_apt_options {
+            let (k, v) = i.split_once('=').unwrap_or((i.as_str(), ""));
+            debug!("Setting apt opt: {k}={v}");
+            self.apt_config.set(k, v);
+        }
     }
 
     async fn download_release_data(
