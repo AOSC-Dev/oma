@@ -41,8 +41,11 @@ mod download;
 pub mod utils;
 pub use commit::CommitNetworkConfig;
 pub mod sort;
+pub use apt_auth_config;
 pub use commit::CustomDownloadMessage;
 pub use oma_apt;
+pub use oma_fetch::Event as PackageDownloadEvent;
+pub use oma_fetch::SingleDownloadError as PackageDownloadError;
 mod dpkg;
 
 #[cfg(test)]
