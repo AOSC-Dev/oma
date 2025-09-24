@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
-    fs::Permissions,
-    os::{fd::OwnedFd, unix::fs::PermissionsExt},
+    os::fd::OwnedFd,
     path::{Path, PathBuf},
 };
 
@@ -259,17 +258,6 @@ impl<'a> OmaRefresh<'a> {
             })?;
         }
 
-        debug!(
-            "Setting permission for {} as 0755",
-            self.download_dir.display()
-        );
-
-        fs::set_permissions(&self.download_dir, Permissions::from_mode(0o755))
-            .await
-            .map_err(|e| {
-                RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
-            })?;
-
         let download_dir: Box<Path> = Box::from(self.download_dir.as_path());
 
         let _fd = spawn_blocking(move || get_apt_update_lock(&download_dir))
@@ -344,7 +332,6 @@ impl<'a> OmaRefresh<'a> {
             .client(self.client)
             .download_list(tasks)
             .threads(self.threads)
-            .set_permission(0o644)
             .total_size(total)
             .build();
 

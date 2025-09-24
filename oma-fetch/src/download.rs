@@ -1,9 +1,7 @@
 use crate::{CompressFile, DownloadSource, Event, checksum::ChecksumValidator, send_request};
 use std::{
     borrow::Cow,
-    fs::Permissions,
     io::{self, SeekFrom},
-    os::unix::fs::PermissionsExt,
     path::Path,
     time::Duration,
 };
@@ -46,7 +44,6 @@ pub(crate) struct SingleDownloader<'a> {
     msg: Option<Cow<'static, str>>,
     download_list_index: usize,
     file_type: CompressFile,
-    set_permission: Option<u32>,
     timeout: Duration,
 }
 
@@ -106,7 +103,6 @@ impl<'a> SingleDownloader<'a> {
         msg: Option<Cow<'static, str>>,
         download_list_index: usize,
         file_type: CompressFile,
-        set_permission: Option<u32>,
         timeout: Duration,
     ) -> Result<SingleDownloader<'a>, BuilderError> {
         if entry.source.is_empty() {
@@ -123,7 +119,6 @@ impl<'a> SingleDownloader<'a> {
             msg,
             download_list_index,
             file_type,
-            set_permission,
             timeout,
         })
     }
@@ -257,8 +252,6 @@ impl<'a> SingleDownloader<'a> {
                 "File {} already exists, verifying checksum ...",
                 self.entry.filename
             );
-
-            self.set_permission_with_path(&file).await?;
 
             if let Some(hash) = &self.entry.hash {
                 trace!("Hash {} exists for the existing file.", hash);
@@ -423,8 +416,6 @@ impl<'a> SingleDownloader<'a> {
                 return Err(SingleDownloadError::Create { source: e });
             }
 
-            self.set_permission(&f).await?;
-
             (f, hash.as_ref().map(|hash| hash.get_validator()))
         } else if let Some((dest, validator)) = dest.zip(validator) {
             callback(Event::ProgressInc {
@@ -458,8 +449,6 @@ impl<'a> SingleDownloader<'a> {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(SingleDownloadError::Create { source: e });
             }
-
-            self.set_permission(&f).await?;
 
             (f, hash.as_ref().map(|hash| hash.get_validator()))
         };
@@ -558,35 +547,6 @@ impl<'a> SingleDownloader<'a> {
         Ok(true)
     }
 
-    async fn set_permission(&self, f: &File) -> Result<(), SingleDownloadError> {
-        if let Some(mode) = self.set_permission {
-            trace!(
-                "Setting permission for file {} to {:#o} ...",
-                self.entry.filename, mode
-            );
-            f.set_permissions(Permissions::from_mode(mode))
-                .await
-                .context(SetPermissionSnafu)?;
-        }
-
-        Ok(())
-    }
-
-    async fn set_permission_with_path(&self, path: &Path) -> Result<(), SingleDownloadError> {
-        if let Some(mode) = self.set_permission {
-            trace!(
-                "Setting permission for file {} to {:#o} ...",
-                self.entry.filename, mode
-            );
-
-            fs::set_permissions(path, Permissions::from_mode(mode))
-                .await
-                .context(SetPermissionSnafu)?;
-        }
-
-        Ok(())
-    }
-
     fn build_request_with_basic_auth(
         &self,
         url: &str,
@@ -664,8 +624,6 @@ impl<'a> SingleDownloader<'a> {
         let mut to = File::create(self.entry.dir.join(&*self.entry.filename))
             .await
             .context(CreateSnafu)?;
-
-        self.set_permission(&to).await?;
 
         let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
             CompressFile::Xz => &mut XzDecoder::new(BufReader::new(from)),

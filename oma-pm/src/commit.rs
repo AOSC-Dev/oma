@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::create_dir_all, os::unix::fs::PermissionsExt, path::Path};
+use std::{borrow::Cow, fs::create_dir_all, path::Path};
 
 use apt_auth_config::AuthConfig;
 use chrono::Local;
@@ -77,9 +77,6 @@ impl<'a> DoInstall<'a> {
         let path = self.apt.get_archive_dir();
 
         create_dir_all(path)
-            .map_err(|e| OmaAptError::FailedOperateDirOrFile(path.display().to_string(), e))?;
-
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
             .map_err(|e| OmaAptError::FailedOperateDirOrFile(path.display().to_string(), e))?;
 
         self.apt.get_or_init_async_runtime()?.block_on(async {

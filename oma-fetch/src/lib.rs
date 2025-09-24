@@ -194,7 +194,6 @@ pub struct DownloadManager<'a> {
     retry_times: usize,
     #[builder(default)]
     total_size: u64,
-    set_permission: Option<u32>,
     #[builder(default = Duration::from_secs(15))]
     timeout: Duration,
 }
@@ -239,7 +238,6 @@ impl DownloadManager<'_> {
                 .progress((i + 1, self.download_list.len()))
                 .retry_times(self.retry_times)
                 .file_type(c.file_type)
-                .maybe_set_permission(self.set_permission)
                 .timeout(self.timeout)
                 .build()?;
 

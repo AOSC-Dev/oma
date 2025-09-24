@@ -1,8 +1,6 @@
 use std::{
     borrow::Cow,
     fmt::Debug,
-    fs::Permissions,
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
 
@@ -512,10 +510,6 @@ impl MirrorSource<'_> {
         let mut f = File::create(download_dir.join(file_name))
             .await
             .map_err(|e| SingleDownloadError::Create { source: e })?;
-
-        f.set_permissions(Permissions::from_mode(0o644))
-            .await
-            .map_err(|e| SingleDownloadError::SetPermission { source: e })?;
 
         while let Some(chunk) = resp
             .chunk()
