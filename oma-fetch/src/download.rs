@@ -240,14 +240,17 @@ impl<'a> SingleDownloader<'a> {
         trace!("{} download url is: {}", file.display(), source.url);
         let mut dest = None;
         let mut validator = None;
+        let is_symlink = file.is_symlink();
 
-        if file.is_symlink() {
+        debug!("file {} is symlink = {}", file.display(), is_symlink);
+
+        if is_symlink {
             tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
         }
 
         // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
         // 如果不存在，则继续往下走
-        if file_exist && !file.is_symlink() {
+        if file_exist && !is_symlink {
             trace!(
                 "File {} already exists, verifying checksum ...",
                 self.entry.filename
