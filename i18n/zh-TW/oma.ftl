@@ -373,6 +373,7 @@ clap-mirror-remove-names-help = 要禁用（移除）的鏡像源
 clap-mirror-sort-mirrors-help = 重新排序已啟用的鏡像源
 clap-mirror-speedtest-help = 測試鏡像源效能
 clap-mirror-speedtest-set-fastest-help = 將測得最快的鏡像源設為預設
+clap-mirror-speedtest-timeout-help = 設定測速時的網路超時時間（秒，預設：120）
 clap-mirror-set-help = 設定預設鏡像源
 clap-pick-package-help = 要選擇並安裝指定版本的軟體套件
 clap-rdepends-packages-help = 要查詢逆向依賴關係的軟體套件
