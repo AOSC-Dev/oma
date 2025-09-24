@@ -223,7 +223,6 @@ impl CliExecuter for CliMirror {
                 ),
                 MirrorSubCmd::Speedtest {
                     set_fastest,
-                    #[cfg(feature = "aosc")]
                     no_refresh_topics,
                     no_refresh,
                     timeout,

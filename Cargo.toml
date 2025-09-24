@@ -74,7 +74,6 @@ rust-embed = "8.5.0"
 
 [features]
 aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "dep:oma-mirror", "reqwest/blocking", "dep:oma-tum"]
-mirror = []
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
 tokio-console = ["dep:console-subscriber"]
@@ -82,7 +81,7 @@ rustls = ["reqwest/rustls-tls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-t
 openssl = ["reqwest/native-tls", "oma-fetch/native-tls", "oma-refresh/native-tls", "oma-topics/native-tls"]
 nice-setup = ["sequoia-nettle-backend", "rustls", "oma-refresh/apt"]
 openssl-setup = ["sequoia-openssl-backend", "openssl", "oma-refresh/apt"]
-default = ["aosc", "nice-setup", "mirror"]
+default = ["aosc", "nice-setup"]
 
 [workspace]
 members = ["oma-contents", "oma-console", "oma-topics", "oma-fetch", "oma-refresh", "oma-utils", "oma-pm", "oma-history", "oma-pm-operation-type", "oma-repo-verify", "oma-mirror", "apt-auth-config", "oma-tum"]

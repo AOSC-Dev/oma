@@ -199,7 +199,7 @@ pub enum SubCmd {
     #[command(visible_alias = "topic", about = fl!("clap-topics-help"), help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Topics(Topics),
-    #[cfg(feature = "mirror")]
+    #[cfg(feature = "aosc")]
     /// Manage Mirrors enrollment
     #[command(visible_alias = "mirrors", about = fl!("clap-mirror-help"), help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
