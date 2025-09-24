@@ -94,9 +94,6 @@ pub struct CliMirror {
     /// Setup download threads (default as 4)
     #[arg(from_global, help = fl!("clap-download-threads-help"))]
     download_threads: Option<usize>,
-    /// Network timeout in seconds (default: 120)
-    #[arg(long, default_value = "120", help = fl!("clap-mirror-speedtest-timeout-help"))]
-    timeout: f64,
     /// Set apt options
     #[arg(from_global, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
@@ -179,15 +176,15 @@ pub enum MirrorSubCmd {
         /// Also set fastest as mirror
         #[arg(long, help = fl!("clap-mirror-speedtest-set-fastest-help"))]
         set_fastest: bool,
+        /// Network timeout in seconds (default: 120)
+        #[arg(long, default_value = "120", help = fl!("clap-mirror-speedtest-timeout-help"))]
+        timeout: f64,
         /// Do not refresh topics manifest.json file
         #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
         no_refresh_topics: bool,
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
-        /// Network timeout in seconds (default: 120)
-        #[arg(long, default_value = "120", help = fl!("clap-mirror-speedtest-timeout-help"))]
-        timeout: f64,
     },
 }
 
@@ -199,7 +196,6 @@ impl CliExecuter for CliMirror {
             no_refresh,
             dry_run,
             download_threads,
-            timeout: _,
             apt_options,
         } = self;
 
