@@ -262,7 +262,14 @@ impl From<OmaDbusError> for OutputError {
 #[cfg(feature = "aosc")]
 impl From<TumError> for OutputError {
     fn from(value: TumError) -> Self {
-        let p1 = "/var/lib/apt/lists".to_string();
+        use oma_pm::apt::AptConfig;
+
+        use crate::utils::get_lists_dir;
+
+        let p1 = get_lists_dir(&AptConfig::new())
+            .to_string_lossy()
+            .to_string();
+
         match value {
             TumError::ReadAptListDir { source } => Self {
                 description: fl!("failed-to-operate-path", p = p1),

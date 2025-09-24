@@ -144,7 +144,7 @@ impl CliExecuter for Tree {
         let (pkgs, no_result) =
             matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
 
-        handle_no_result(&sysroot, no_result, no_progress)?;
+        handle_no_result(no_result, no_progress)?;
 
         let mut res = vec![];
 

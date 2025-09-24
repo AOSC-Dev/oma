@@ -12,12 +12,12 @@ use tracing::error;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::table::PagerPrinter;
+use crate::utils::get_lists_dir;
 use crate::{color_formatter, due_to, fl};
 
 use crate::args::CliExecuter;
 
 const FILTER_JARO_NUM: u8 = 204;
-const APT_LIST_PATH: &str = "/var/lib/apt/lists";
 
 type IndexSet<T> = indexmap::IndexSet<T, ahash::RandomState>;
 
@@ -40,7 +40,12 @@ impl CliExecuter for CommandNotFound {
             }
         };
 
-        let search_res = search(APT_LIST_PATH, Mode::BinProvides, &keyword, cb);
+        let search_res = search(
+            get_lists_dir(&AptConfig::new()),
+            Mode::BinProvides,
+            &keyword,
+            cb,
+        );
 
         match search_res {
             Ok(()) if res.is_empty() => {

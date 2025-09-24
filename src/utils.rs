@@ -1,6 +1,6 @@
 use std::{
     env,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, exit},
     sync::atomic::Ordering,
 };
@@ -90,6 +90,11 @@ fn file_path_canonicalize(args: &mut Vec<String>) {
         let path = path.canonicalize().unwrap_or(path.to_path_buf());
         *arg = path.display().to_string();
     }
+}
+
+#[inline]
+pub fn get_lists_dir(config: &AptConfig) -> PathBuf {
+    PathBuf::from(config.dir("Dir::State::lists", "lists/"))
 }
 
 pub fn dbus_check(
