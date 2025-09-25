@@ -1,5 +1,6 @@
 use std::{
     cmp::Ordering,
+    collections::HashSet,
     fmt::Display,
     io::{Write, stdout},
     path::PathBuf,
@@ -289,6 +290,7 @@ fn reverse_dep_tree<'a>(
         let t = t.into();
         match t {
             OmaDepType::Depends | OmaDepType::PreDepends | OmaDepType::Recommends => {
+                let mut added = HashSet::new();
                 for deps in deps_group {
                     for dep in deps.iter() {
                         let Some(dep_pkg) = apt.cache.get(dep.name()) else {
@@ -303,6 +305,12 @@ fn reverse_dep_tree<'a>(
                             trace!("pkg {} is not installed, will continue", dep_pkg.name());
                             continue;
                         };
+
+                        let key = format!("{dep_pkg}-{}", installed_version.version());
+
+                        if added.contains(&key) {
+                            continue;
+                        }
 
                         let pkg_rev_dep = installed_version
                             .depends_map()
@@ -324,6 +332,8 @@ fn reverse_dep_tree<'a>(
                         if !push {
                             continue;
                         }
+
+                        added.insert(key);
 
                         res.push(reverse_dep_tree(
                             PkgWrapper {
@@ -351,10 +361,15 @@ fn is_result<'a>(
     is_rev: bool,
 ) -> bool {
     let required_ver = if is_rev {
-        unsafe { dep.parent_ver() }.version().to_string()
+        let ver = unsafe { dep.parent_ver() }.version().to_string();
+        debug!("require dep {} ver {}", dep.name(), ver);
+        ver
     } else {
         match dep.target_ver() {
-            Ok(ver) => ver.to_string(),
+            Ok(ver) => {
+                debug!("require dep {} ver {}", dep.name(), ver);
+                ver.to_string()
+            }
             Err(_) => return true,
         }
     };
