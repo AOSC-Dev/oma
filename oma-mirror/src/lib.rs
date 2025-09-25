@@ -295,7 +295,7 @@ pub fn write_sources_inner(
 
         result.push_str(&format!("[{}] ", opts_str.join(" ")));
         result.push_str(&url);
-        result.push_str("debs");
+        result.push_str(config.url_suffix.as_deref().unwrap_or("debs"));
         result.push(' ');
         result.push_str(branch);
         result.push(' ');
@@ -303,7 +303,8 @@ pub fn write_sources_inner(
         result.push('\n');
     } else {
         result.push_str(&format!(
-            "Types: deb\nURIs: {url}debs\nSuites: {branch}\nComponents: {}\n",
+            "Types: deb\nURIs: {url}{}\nSuites: {branch}\nComponents: {}\n",
+            config.url_suffix.as_deref().unwrap_or("debs"),
             config.components.join(" ")
         ));
 
