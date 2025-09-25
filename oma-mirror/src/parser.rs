@@ -23,6 +23,8 @@ pub struct MirrorConfigTemplate {
     pub always_trusted: bool,
     #[serde(default = "MirrorsConfigTemplate::default_enabled")]
     pub enabled: bool,
+    #[serde(rename = "url-suffix")]
+    pub url_suffix: Option<String>,
 }
 
 #[derive(Debug, Snafu)]
