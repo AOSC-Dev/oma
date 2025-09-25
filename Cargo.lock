@@ -2901,6 +2901,7 @@ dependencies = [
  "clap_mangen",
  "console-subscriber",
  "ctrlc",
+ "debversion",
  "dialoguer",
  "dirs",
  "enum_dispatch",

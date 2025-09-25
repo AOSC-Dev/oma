@@ -15,7 +15,7 @@ use oma_pm::{
     oma_apt::{Package, Version},
     pkginfo::OmaDepType,
 };
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::{
     CliExecuter, config::Config, error::OutputError, fl, table::oma_display_with_normal_output,
@@ -138,8 +138,14 @@ impl CliExecuter for Tree {
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
-            .build();
+            .native_arch(GetArchMethod::SpecifySysroot(&sysroot));
+
+        let matcher = if invert {
+            let matcher = matcher.filter_candidate(false);
+            matcher.build()
+        } else {
+            matcher.build()
+        };
 
         let (pkgs, no_result) =
             matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
@@ -164,6 +170,9 @@ impl CliExecuter for Tree {
                     limit,
                 )
             } else {
+                if !p.version_raw.is_installed() {
+                    continue;
+                }
                 reverse_dep_tree(
                     PkgWrapper {
                         package: Package::new(&apt.cache, p.raw_pkg),
@@ -267,6 +276,7 @@ fn reverse_dep_tree<'a>(
     limit: u8,
 ) -> TermTree<PkgWrapper<'a>> {
     let pkg_clone = pkg.package.clone();
+    let pkg_installed = pkg_clone.installed().unwrap();
     let rdep = pkg_clone.rdepends();
 
     let mut res = TermTree::new(pkg);
@@ -281,56 +291,35 @@ fn reverse_dep_tree<'a>(
             OmaDepType::Depends | OmaDepType::PreDepends | OmaDepType::Recommends => {
                 for deps in deps_group {
                     for dep in deps.iter() {
-                        let Some(pkg) = apt.cache.get(dep.name()) else {
-                            debug!(
+                        let Some(dep_pkg) = apt.cache.get(dep.name()) else {
+                            trace!(
                                 "dep {} does not exist on apt cache, will continue",
                                 dep.name()
                             );
                             continue;
                         };
 
-                        let Some(installed_version) = pkg.installed() else {
-                            debug!("pkg {} is not installed, will continue", pkg.name());
+                        let Some(installed_version) = dep_pkg.installed() else {
+                            trace!("pkg {} is not installed, will continue", dep_pkg.name());
                             continue;
                         };
 
-                        let require_ver = Version::new(unsafe { dep.parent_ver() }, &apt.cache);
+                        let pkg_rev_dep = installed_version
+                            .depends_map()
+                            .values()
+                            .flatten()
+                            .flat_map(|x| x.iter())
+                            .find(|dep| dep.name() == pkg_clone.name());
 
-                        let push = if let Some(t) = dep.comp_type() {
-                            let mut push = None;
-                            let t = match t {
-                                ">" | ">>" => vec![Ordering::Greater],
-                                "<" | "<<" => vec![Ordering::Less],
-                                ">=" => vec![Ordering::Greater, Ordering::Equal],
-                                "<=" => vec![Ordering::Less, Ordering::Equal],
-                                "=" | "==" => vec![Ordering::Equal],
-                                "!=" => {
-                                    push = Some(require_ver != installed_version);
-                                    vec![]
-                                }
-                                "" => {
-                                    push = Some(true);
-                                    vec![]
-                                }
-                                x => unreachable!("unsupported comp type {x}"),
-                            };
-
-                            debug!("{} {:?} {}", dep.name(), t, require_ver);
-
-                            let cmp = &installed_version.cmp(&require_ver);
-
-                            debug!("{} {installed_version} {cmp:?} {require_ver}", pkg.name());
-
-                            if push.is_none() && t.contains(cmp) {
-                                push = Some(true)
+                        match pkg_rev_dep {
+                            Some(pkg_rev_dep) if !is_result(&pkg_installed, pkg_rev_dep, false) => {
+                                continue;
                             }
-
-                            debug!("push = {push:?}");
-
-                            push.unwrap_or(false)
-                        } else {
-                            true
+                            None => continue,
+                            _ => {}
                         };
+
+                        let push = is_result(&installed_version, dep, true);
 
                         if !push {
                             continue;
@@ -338,7 +327,7 @@ fn reverse_dep_tree<'a>(
 
                         res.push(reverse_dep_tree(
                             PkgWrapper {
-                                package: pkg,
+                                package: dep_pkg,
                                 is_recommend: t == OmaDepType::Recommends,
                                 comp_and_version: Some(installed_version.version().to_string()),
                             },
@@ -354,4 +343,60 @@ fn reverse_dep_tree<'a>(
     }
 
     res
+}
+
+fn is_result<'a>(
+    pkg_installed: &Version<'a>,
+    dep: &oma_pm::oma_apt::BaseDep<'_>,
+    is_rev: bool,
+) -> bool {
+    let required_ver = if is_rev {
+        unsafe { dep.parent_ver() }.version().to_string()
+    } else {
+        match dep.target_ver() {
+            Ok(ver) => ver.to_string(),
+            Err(_) => return true,
+        }
+    };
+
+    let Ok(required_ver) = required_ver.parse::<debversion::Version>() else {
+        return false;
+    };
+
+    let Ok(installed) = pkg_installed.version().parse::<debversion::Version>() else {
+        return false;
+    };
+
+    let mut push = None;
+
+    if let Some(t) = dep.comp_type() {
+        let t = match t {
+            ">" | ">>" => vec![Ordering::Greater],
+            "<" | "<<" => vec![Ordering::Less],
+            ">=" => vec![Ordering::Greater, Ordering::Equal],
+            "<=" => vec![Ordering::Less, Ordering::Equal],
+            "=" | "==" => vec![Ordering::Equal],
+            "!=" => {
+                push = Some(required_ver != installed);
+                vec![]
+            }
+            "" => {
+                push = Some(true);
+                vec![]
+            }
+            x => unreachable!("unsupported comp type {x}"),
+        };
+
+        debug!("{} {:?} {}", dep.name(), t, required_ver);
+
+        let cmp = installed.cmp(&required_ver);
+
+        debug!("{} {pkg_installed} {cmp:?} {required_ver}", dep.name());
+
+        if !t.contains(&cmp) || push.is_some_and(|x| !x) {
+            return false;
+        }
+    }
+
+    true
 }
