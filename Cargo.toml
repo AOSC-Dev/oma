@@ -66,6 +66,7 @@ oma-repo-verify = { path = "./oma-repo-verify", default-features = false }
 oma-mirror = { path = "./oma-mirror", optional = true }
 apt-auth-config = { path = "./apt-auth-config" }
 oma-tum = { path = "./oma-tum", optional = true }
+debversion = "0.4"
 
 # i18n
 i18n-embed = { version = "0.16.0", features = ["fluent-system", "desktop-requester"]}
