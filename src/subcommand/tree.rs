@@ -1,5 +1,6 @@
 use std::{
     cmp::Ordering,
+    collections::HashSet,
     fmt::Display,
     io::{Write, stdout},
     path::PathBuf,
@@ -12,10 +13,10 @@ use dialoguer::console::style;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
-    oma_apt::{Package, Version},
+    oma_apt::{BaseDep, Package, Version},
     pkginfo::OmaDepType,
 };
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::{
     CliExecuter, config::Config, error::OutputError, fl, table::oma_display_with_normal_output,
@@ -138,8 +139,14 @@ impl CliExecuter for Tree {
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
-            .build();
+            .native_arch(GetArchMethod::SpecifySysroot(&sysroot));
+
+        let matcher = if invert {
+            let matcher = matcher.filter_candidate(false);
+            matcher.build()
+        } else {
+            matcher.build()
+        };
 
         let (pkgs, no_result) =
             matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
@@ -164,6 +171,9 @@ impl CliExecuter for Tree {
                     limit,
                 )
             } else {
+                if !p.version_raw.is_installed() {
+                    continue;
+                }
                 reverse_dep_tree(
                     PkgWrapper {
                         package: Package::new(&apt.cache, p.raw_pkg),
@@ -267,6 +277,7 @@ fn reverse_dep_tree<'a>(
     limit: u8,
 ) -> TermTree<PkgWrapper<'a>> {
     let pkg_clone = pkg.package.clone();
+    let pkg_installed = pkg_clone.installed().unwrap();
     let rdep = pkg_clone.rdepends();
 
     let mut res = TermTree::new(pkg);
@@ -279,68 +290,54 @@ fn reverse_dep_tree<'a>(
         let t = t.into();
         match t {
             OmaDepType::Depends | OmaDepType::PreDepends | OmaDepType::Recommends => {
+                let mut added = HashSet::new();
                 for deps in deps_group {
                     for dep in deps.iter() {
-                        let Some(pkg) = apt.cache.get(dep.name()) else {
-                            debug!(
+                        let Some(dep_pkg) = apt.cache.get(dep.name()) else {
+                            trace!(
                                 "dep {} does not exist on apt cache, will continue",
                                 dep.name()
                             );
                             continue;
                         };
 
-                        let Some(installed_version) = pkg.installed() else {
-                            debug!("pkg {} is not installed, will continue", pkg.name());
+                        let Some(dep_installed) = dep_pkg.installed() else {
+                            trace!("pkg {} is not installed, will continue", dep_pkg.name());
                             continue;
                         };
 
-                        let require_ver = Version::new(unsafe { dep.parent_ver() }, &apt.cache);
+                        let key = format!("{dep_pkg}-{}", dep_installed.version());
 
-                        let push = if let Some(t) = dep.comp_type() {
-                            let mut push = None;
-                            let t = match t {
-                                ">" | ">>" => vec![Ordering::Greater],
-                                "<" | "<<" => vec![Ordering::Less],
-                                ">=" => vec![Ordering::Greater, Ordering::Equal],
-                                "<=" => vec![Ordering::Less, Ordering::Equal],
-                                "=" | "==" => vec![Ordering::Equal],
-                                "!=" => {
-                                    push = Some(require_ver != installed_version);
-                                    vec![]
-                                }
-                                "" => {
-                                    push = Some(true);
-                                    vec![]
-                                }
-                                x => unreachable!("unsupported comp type {x}"),
-                            };
+                        if added.contains(&key) {
+                            continue;
+                        }
 
-                            debug!("{} {:?} {}", dep.name(), t, require_ver);
+                        let pkg_rev_dep = dep_installed
+                            .depends_map()
+                            .values()
+                            .flatten()
+                            .flat_map(|x| x.iter())
+                            .find(|dep| dep.name() == pkg_clone.name());
 
-                            let cmp = &installed_version.cmp(&require_ver);
+                        if pkg_rev_dep
+                            .is_none_or(|pkg_rev_dep| !is_result(&pkg_installed, pkg_rev_dep))
+                        {
+                            continue;
+                        }
 
-                            debug!("{} {installed_version} {cmp:?} {require_ver}", pkg.name());
-
-                            if push.is_none() && t.contains(cmp) {
-                                push = Some(true)
-                            }
-
-                            debug!("push = {push:?}");
-
-                            push.unwrap_or(false)
-                        } else {
-                            true
-                        };
+                        let push = is_result(&dep_installed, dep);
 
                         if !push {
                             continue;
                         }
 
+                        added.insert(key);
+
                         res.push(reverse_dep_tree(
                             PkgWrapper {
-                                package: pkg,
+                                package: dep_pkg,
                                 is_recommend: t == OmaDepType::Recommends,
-                                comp_and_version: Some(installed_version.version().to_string()),
+                                comp_and_version: Some(dep_installed.version().to_string()),
                             },
                             apt,
                             depth + 1,
@@ -354,4 +351,46 @@ fn reverse_dep_tree<'a>(
     }
 
     res
+}
+
+fn is_result<'a>(pkg_installed: &Version<'a>, dep: &BaseDep<'_>) -> bool {
+    debug!("{dep:#?}");
+
+    let Some(required_ver) = dep.version() else {
+        // 没有版本要求，说明要求总是符合
+        return true;
+    };
+
+    let Ok(required_ver) = required_ver.parse::<debversion::Version>() else {
+        return false;
+    };
+
+    let Ok(installed) = pkg_installed.version().parse::<debversion::Version>() else {
+        return false;
+    };
+
+    if let Some(t) = dep.comp_type() {
+        let confirm = match t {
+            ">" | ">>" => |cmp| cmp == Ordering::Greater,
+            "<" | "<<" => |cmp| cmp == Ordering::Less,
+            ">=" => |cmp| [Ordering::Greater, Ordering::Equal].contains(&cmp),
+            "<=" => |cmp| [Ordering::Less, Ordering::Equal].contains(&cmp),
+            "=" | "==" => |cmp| Ordering::Equal == cmp,
+            "!=" => |cmp| Ordering::Equal != cmp,
+            "" => |_cmp| true,
+            x => unreachable!("unsupported comp type {x}"),
+        };
+
+        debug!("{} {t} {required_ver}", dep.name());
+
+        let cmp = installed.cmp(&required_ver);
+
+        debug!("{} {pkg_installed} {cmp:?} {required_ver}", dep.name());
+
+        if !confirm(cmp) {
+            return false;
+        }
+    }
+
+    true
 }
