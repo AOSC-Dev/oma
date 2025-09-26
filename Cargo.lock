@@ -2950,18 +2950,6 @@ dependencies = [
 
 [[package]]
 name = "oma-apt"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee9abefd114738183a82a1daf266f3c334f4d1e44b4c45a0a9b90bab3c6d79a1"
-dependencies = [
- "cxx",
- "cxx-build",
- "paste",
- "terminal_size",
-]
-
-[[package]]
-name = "oma-apt"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfc76ceaf56b67bca408961c6f02a2e06b58fd9810228b439025d0e45992c774"
@@ -3094,7 +3082,7 @@ dependencies = [
  "indexmap 2.11.4",
  "indicium",
  "memchr",
- "oma-apt 0.10.0",
+ "oma-apt",
  "oma-fetch",
  "oma-pm-operation-type",
  "oma-utils",
@@ -3132,7 +3120,7 @@ dependencies = [
  "flume",
  "futures",
  "nix",
- "oma-apt 0.9.0",
+ "oma-apt",
  "oma-apt-sources-lists",
  "oma-fetch",
  "oma-repo-verify",

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, path::Path};
+use std::{borrow::Cow, cmp::Ordering, path::Path};
 
 use bon::{Builder, builder};
 use cxx::UniquePtr;
@@ -309,7 +309,9 @@ impl<'a> PackagesMatcher<'a> {
             }
         }
 
-        sort.sort_by(|x, y| oma_apt::util::cmp_versions(x.version(), y.version()));
+        sort.sort_by(|x, y| {
+            oma_apt::util::cmp_versions(x.version(), y.version()).unwrap_or(Ordering::Equal)
+        });
 
         if self.filter_candidate {
             let version = sort.last();
