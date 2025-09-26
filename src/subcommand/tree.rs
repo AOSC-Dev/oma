@@ -370,27 +370,23 @@ fn is_result<'a>(pkg_installed: &Version<'a>, dep: &BaseDep<'_>) -> bool {
     };
 
     if let Some(t) = dep.comp_type() {
-        let confirm = match t {
-            ">" | ">>" => |cmp| cmp == Ordering::Greater,
-            "<" | "<<" => |cmp| cmp == Ordering::Less,
-            ">=" => |cmp| [Ordering::Greater, Ordering::Equal].contains(&cmp),
-            "<=" => |cmp| [Ordering::Less, Ordering::Equal].contains(&cmp),
-            "=" | "==" => |cmp| Ordering::Equal == cmp,
-            "!=" => |cmp| Ordering::Equal != cmp,
-            "" => |_cmp| true,
-            x => unreachable!("unsupported comp type {x}"),
-        };
-
-        debug!("{} {t} {required_ver}", dep.name());
-
         let cmp = installed.cmp(&required_ver);
-
         debug!("{} {pkg_installed} {cmp:?} {required_ver}", dep.name());
-
-        if !confirm(cmp) {
-            return false;
-        }
+        return is_match_compare(t, cmp);
     }
 
     true
+}
+
+fn is_match_compare(t: &str, cmp: Ordering) -> bool {
+    match t {
+        ">" | ">>" => cmp == Ordering::Greater,
+        "<" | "<<" => cmp == Ordering::Less,
+        ">=" => [Ordering::Greater, Ordering::Equal].contains(&cmp),
+        "<=" => [Ordering::Less, Ordering::Equal].contains(&cmp),
+        "=" | "==" => Ordering::Equal == cmp,
+        "!=" => Ordering::Equal != cmp,
+        "" => true,
+        x => unreachable!("unsupported comp type {x}"),
+    }
 }
