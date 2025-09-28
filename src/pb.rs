@@ -259,21 +259,26 @@ impl OmaMultiProgressBar {
                     pb.finish_and_clear();
                 }
             }
-            Event::NewProgressSpinner { index, msg } => {
+            Event::NewProgressSpinner { index, total, msg } => {
                 let (sty, inv) = spinner_style();
                 let pb = self
                     .mb
                     .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
-                pb.set_message(msg);
+                pb.set_message(format!("({}/{total}) {msg}", index + 1));
                 pb.enable_steady_tick(inv);
                 self.pb_map.insert(index + 1, pb);
             }
-            Event::NewProgressBar { index, msg, size } => {
+            Event::NewProgressBar {
+                index,
+                total,
+                msg,
+                size,
+            } => {
                 let sty = progress_bar_style(&WRITER);
                 let pb = self
                     .mb
                     .insert(index + 1, ProgressBar::new(size).with_style(sty));
-                pb.set_message(msg);
+                pb.set_message(format!("({}/{total}) {msg}", index + 1));
                 self.pb_map.insert(index + 1, pb);
             }
             Event::ProgressInc { index, size } => {

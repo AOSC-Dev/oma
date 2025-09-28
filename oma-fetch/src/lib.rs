@@ -156,10 +156,12 @@ pub enum Event {
     ProgressDone(usize),
     NewProgressSpinner {
         index: usize,
+        total: usize,
         msg: String,
     },
     NewProgressBar {
         index: usize,
+        total: usize,
         msg: String,
         size: u64,
     },
@@ -235,7 +237,7 @@ impl DownloadManager<'_> {
                 .maybe_msg(msg)
                 .download_list_index(i)
                 .entry(c)
-                .progress((i + 1, self.download_list.len()))
+                .total(self.download_list.len())
                 .retry_times(self.retry_times)
                 .file_type(c.file_type)
                 .timeout(self.timeout)

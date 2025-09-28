@@ -39,7 +39,7 @@ pub enum BuilderError {
 pub(crate) struct SingleDownloader<'a> {
     client: &'a Client,
     pub entry: &'a DownloadEntry,
-    progress: (usize, usize),
+    total: usize,
     retry_times: usize,
     msg: Option<Cow<'static, str>>,
     download_list_index: usize,
@@ -98,7 +98,7 @@ impl<'a> SingleDownloader<'a> {
     pub(crate) fn new(
         client: &'a Client,
         entry: &'a DownloadEntry,
-        progress: (usize, usize),
+        total: usize,
         retry_times: usize,
         msg: Option<Cow<'static, str>>,
         download_list_index: usize,
@@ -114,7 +114,7 @@ impl<'a> SingleDownloader<'a> {
         Ok(Self {
             client,
             entry,
-            progress,
+            total,
             retry_times,
             msg,
             download_list_index,
@@ -296,10 +296,10 @@ impl<'a> SingleDownloader<'a> {
             }
         }
 
-        let msg = self.progress_msg();
         callback(Event::NewProgressSpinner {
             index: self.download_list_index,
-            msg: msg.clone(),
+            msg: self.download_message(),
+            total: self.total,
         })
         .await;
 
@@ -385,7 +385,8 @@ impl<'a> SingleDownloader<'a> {
 
         callback(Event::NewProgressBar {
             index: self.download_list_index,
-            msg,
+            msg: self.download_message(),
+            total: self.total,
             size: total_size,
         })
         .await;
@@ -566,14 +567,6 @@ impl<'a> SingleDownloader<'a> {
         req
     }
 
-    fn progress_msg(&self) -> String {
-        let (count, len) = &self.progress;
-        let msg = self.msg.as_deref().unwrap_or(&self.entry.filename);
-        let msg = format!("({count}/{len}) {msg}");
-
-        msg
-    }
-
     /// Download local source file
     async fn download_local(
         &self,
@@ -582,7 +575,6 @@ impl<'a> SingleDownloader<'a> {
         callback: &impl AsyncFn(Event),
     ) -> Result<bool, SingleDownloadError> {
         debug!("{:?}", self.entry);
-        let msg = self.progress_msg();
 
         let url = source.url.strip_prefix("file:").unwrap();
 
@@ -612,7 +604,8 @@ impl<'a> SingleDownloader<'a> {
 
         callback(Event::NewProgressBar {
             index: self.download_list_index,
-            msg,
+            total: self.total,
+            msg: self.download_message(),
             size: total_size,
         })
         .await;
@@ -698,6 +691,13 @@ impl<'a> SingleDownloader<'a> {
         }
 
         Ok(())
+    }
+
+    fn download_message(&self) -> String {
+        self.msg
+            .as_deref()
+            .unwrap_or(&self.entry.filename)
+            .to_string()
     }
 }
 
