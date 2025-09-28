@@ -1,8 +1,8 @@
-use std::{io::stdout, path::PathBuf};
+use std::{borrow::Cow, io::stdout, path::PathBuf};
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
-use dialoguer::console::style;
+use dialoguer::console::{StyledObject, style};
 use oma_console::indicatif::HumanBytes;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
@@ -169,9 +169,9 @@ fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt)
         }
 
         let i = if *i == RecordField::Size {
-            style("Download-Size:").bold().to_string()
+            key_style(Cow::Borrowed("Download-Size:"))
         } else {
-            style(format!("{i}:")).bold().to_string()
+            key_style(format!("{i}:").into())
         };
 
         writeln!(stdout, "{i} {v}").ok();
@@ -182,7 +182,7 @@ fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt)
         .map(AptSource::from)
         .collect::<Vec<_>>();
 
-    write!(stdout, "{}", style("APT-Sources:").bold()).ok();
+    write!(stdout, "{}", key_style("APT-Sources:".into())).ok();
     let apt_sources_without_dpkg = apt_sources
         .iter()
         .filter(|x| x.index_type.as_deref() != Some("Debian dpkg status file"))
@@ -204,11 +204,16 @@ fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt)
     }
 
     if version.is_installed() {
-        write!(stdout, "{}", style("APT-Manual-Installed: ").bold()).ok();
+        write!(stdout, "{}", key_style("APT-Manual-Installed: ".into())).ok();
         if version.parent().is_auto_installed() {
             writeln!(stdout, "no").ok();
         } else {
             writeln!(stdout, "yes").ok();
         }
     }
+}
+
+#[inline]
+fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
+    style(key).bold()
 }
