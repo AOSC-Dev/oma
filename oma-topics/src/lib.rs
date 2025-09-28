@@ -207,7 +207,7 @@ impl<'a> TopicManager<'a> {
     }
 
     /// Enable select topic
-    pub fn add(&mut self, topic: &str) -> Result<()> {
+    pub fn add(&mut self, topic: &str) -> Result<Topic> {
         debug!("oma will opt_in: {}", topic);
 
         let index = self
@@ -220,11 +220,13 @@ impl<'a> TopicManager<'a> {
         debug!("Enabled: {enabled_names:?}");
 
         if let Some(index) = index {
+            let ic = index.clone();
+            let icc = index.clone();
             if !enabled_names.contains(&&index.name) {
-                self.enabled.push(index.clone());
+                self.enabled.push(ic);
             }
 
-            return Ok(());
+            return Ok(icc);
         }
 
         debug!("index: {index:?} does not exist");
