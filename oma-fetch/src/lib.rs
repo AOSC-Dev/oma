@@ -46,57 +46,10 @@ pub enum CompressFile {
     Gzip,
     Xz,
     Zstd,
+    Lzma,
+    Lz4,
     #[default]
     Nothing,
-}
-
-// 压缩文件下载顺序：Zstd -> XZ -> Gzip -> Bz2 -> 未压缩
-impl Ord for CompressFile {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self {
-            CompressFile::Bz2 => match other {
-                CompressFile::Bz2 => Ordering::Equal,
-                CompressFile::Gzip => Ordering::Less,
-                CompressFile::Xz => Ordering::Less,
-                CompressFile::Zstd => Ordering::Less,
-                CompressFile::Nothing => Ordering::Greater,
-            },
-            CompressFile::Gzip => match other {
-                CompressFile::Bz2 => Ordering::Greater,
-                CompressFile::Gzip => Ordering::Less,
-                CompressFile::Xz => Ordering::Less,
-                CompressFile::Zstd => Ordering::Less,
-                CompressFile::Nothing => Ordering::Greater,
-            },
-            CompressFile::Xz => match other {
-                CompressFile::Bz2 => Ordering::Greater,
-                CompressFile::Gzip => Ordering::Greater,
-                CompressFile::Xz => Ordering::Equal,
-                CompressFile::Zstd => Ordering::Less,
-                CompressFile::Nothing => Ordering::Greater,
-            },
-            CompressFile::Zstd => match other {
-                CompressFile::Bz2 => Ordering::Greater,
-                CompressFile::Gzip => Ordering::Greater,
-                CompressFile::Xz => Ordering::Greater,
-                CompressFile::Zstd => Ordering::Equal,
-                CompressFile::Nothing => Ordering::Greater,
-            },
-            CompressFile::Nothing => match other {
-                CompressFile::Bz2 => Ordering::Less,
-                CompressFile::Gzip => Ordering::Less,
-                CompressFile::Xz => Ordering::Less,
-                CompressFile::Zstd => Ordering::Less,
-                CompressFile::Nothing => Ordering::Equal,
-            },
-        }
-    }
-}
-
-impl PartialOrd for CompressFile {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 impl From<&str> for CompressFile {
