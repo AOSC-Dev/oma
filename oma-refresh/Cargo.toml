@@ -46,3 +46,7 @@ default = ["aosc", "sequoia-nettle-backend", "rustls", "apt"]
 tokio = { version = "1.28", default-features = false, features = ["rt-multi-thread"] }
 flume = "0.11.1"
 oma-utils = { version = "^0.12.0", path = "../oma-utils", features = ["dpkg"] }
+
+[[example]]
+name = "update"
+required-features = ["apt"]

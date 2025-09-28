@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, path::Path};
+use std::{borrow::Cow, cmp::Ordering, collections::HashMap, path::Path};
 
 use ahash::AHashMap;
 use aho_corasick::AhoCorasick;
@@ -8,6 +8,88 @@ use oma_fetch::CompressFile;
 use tracing::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
+
+#[derive(Debug, Eq, PartialEq)]
+struct CompressFileWrapper {
+    compress_file: CompressFile,
+}
+
+impl From<&str> for CompressFileWrapper {
+    fn from(value: &str) -> Self {
+        match value {
+            "xz" => CompressFileWrapper {
+                compress_file: CompressFile::Xz,
+            },
+            "bz2" => CompressFileWrapper {
+                compress_file: CompressFile::Bz2,
+            },
+            "lzma" => CompressFileWrapper {
+                compress_file: CompressFile::Lzma,
+            },
+            "gz" => CompressFileWrapper {
+                compress_file: CompressFile::Gzip,
+            },
+            "lz4" => CompressFileWrapper {
+                compress_file: CompressFile::Lz4,
+            },
+            "zst" => CompressFileWrapper {
+                compress_file: CompressFile::Zstd,
+            },
+            x => {
+                debug!("{x} format is not compress format");
+                CompressFileWrapper {
+                    compress_file: CompressFile::Nothing,
+                }
+            }
+        }
+    }
+}
+
+impl PartialOrd for CompressFileWrapper {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[cfg(feature = "apt")]
+impl Ord for CompressFileWrapper {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let config = Config::new();
+        let t = config
+            .get_compression_types()
+            .iter()
+            .map(|t| CompressFileWrapper::from(t.as_str()))
+            .collect::<Vec<_>>();
+
+        let self_pos = t.iter().position(|x| x == self).unwrap();
+        let other_pos = t.iter().position(|x| x == other).unwrap();
+
+        other_pos.cmp(&self_pos)
+    }
+}
+
+#[cfg(not(feature = "apt"))]
+impl Ord for CompressFileWrapper {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let t = vec!["zst", "xz", "bz2", "lzma", "gz", "lz4"]
+            .into_iter()
+            .map(CompressFileWrapper::from)
+            .collect::<Vec<_>>();
+
+        let self_pos = t.iter().position(|x| x == self).unwrap();
+        let other_pos = t.iter().position(|x| x == other).unwrap();
+
+        other_pos.cmp(&self_pos)
+    }
+}
+
+impl From<CompressFile> for CompressFileWrapper {
+    fn from(value: CompressFile) -> Self {
+        Self {
+            compress_file: value,
+        }
+    }
+}
 
 #[cfg(feature = "apt")]
 fn modify_result(
@@ -232,7 +314,7 @@ fn flat_repo_template_match(
 }
 
 fn uncompress_file_name(target: &str) -> Cow<'_, str> {
-    if compress_file(target) == CompressFile::Nothing {
+    if compress_file(target) == CompressFile::Nothing.into() {
         Cow::Borrowed(target)
     } else {
         let compress_target_without_ext = Path::new(target).with_extension("");
@@ -287,15 +369,31 @@ fn get_matches_language(locales: impl IntoIterator<Item = String>) -> Vec<String
     langs
 }
 
-fn compress_file(name: &str) -> CompressFile {
-    CompressFile::from(
-        Path::new(name)
-            .extension()
-            .map(|x| x.to_string_lossy())
-            .unwrap_or_default()
-            .to_string()
-            .as_str(),
-    )
+fn compress_file(name: &str) -> CompressFileWrapper {
+    CompressFileWrapper {
+        compress_file: CompressFile::from(
+            Path::new(name)
+                .extension()
+                .map(|x| x.to_string_lossy())
+                .unwrap_or_default()
+                .to_string()
+                .as_str(),
+        ),
+    }
+}
+
+#[cfg(feature = "apt")]
+#[test]
+fn test_compression_order() {
+    let mut t = Config::new()
+        .get_compression_types()
+        .iter()
+        .map(|t| CompressFileWrapper::from(t.as_str()))
+        .collect::<Vec<_>>();
+
+    t.sort();
+
+    dbg!(t);
 }
 
 #[test]

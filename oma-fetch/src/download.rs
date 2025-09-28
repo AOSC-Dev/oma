@@ -479,6 +479,8 @@ impl<'a> SingleDownloader<'a> {
             CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(bytes_stream)),
             CompressFile::Nothing => &mut BufReader::new(bytes_stream),
             CompressFile::Zstd => &mut ZstdDecoder::new(BufReader::new(bytes_stream)),
+            CompressFile::Lzma => unimplemented!(),
+            CompressFile::Lz4 => unimplemented!(),
         };
 
         let mut reader = reader.compat();
@@ -627,6 +629,8 @@ impl<'a> SingleDownloader<'a> {
             CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(from)),
             CompressFile::Nothing => &mut BufReader::new(from),
             CompressFile::Zstd => &mut ZstdDecoder::new(BufReader::new(from)),
+            CompressFile::Lzma => unimplemented!(),
+            CompressFile::Lz4 => unimplemented!(),
         };
 
         let mut reader = reader.compat();
