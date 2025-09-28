@@ -2935,7 +2935,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "smallvec",
  "strsim",
  "sysinfo",
  "tabled",
@@ -2950,9 +2949,9 @@ dependencies = [
 
 [[package]]
 name = "oma-apt"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfc76ceaf56b67bca408961c6f02a2e06b58fd9810228b439025d0e45992c774"
+checksum = "6eaee6416cd742aea75ac3d5474699a2c15223a9bc6b71f3a512f90d86c5ee51"
 dependencies = [
  "cxx",
  "cxx-build",

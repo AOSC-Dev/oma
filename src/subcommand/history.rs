@@ -6,11 +6,9 @@ use dialoguer::{Select, theme::ColorfulTheme};
 use oma_history::{DATABASE_PATH, HistoryEntry, connect_db, find_history_by_id, list_history};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
+use oma_pm::oma_apt::PackageSort;
 use oma_pm::pkginfo::PtrIsNone;
-use oma_pm::{
-    apt::{FilterMode, OmaApt},
-    pkginfo::OmaPackage,
-};
+use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
 use tracing::warn;
 
 use std::path::{Path, PathBuf};
@@ -260,7 +258,10 @@ impl CliExecuter for Undo {
 
         apt.remove(delete, false, true)?;
 
-        let pkgs = apt.filter_pkgs(&[FilterMode::Default])?.collect::<Vec<_>>();
+        let pkgs = apt
+            .cache
+            .packages(&PackageSort::default())
+            .collect::<Vec<_>>();
 
         let install = install
             .iter()

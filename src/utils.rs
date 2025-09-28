@@ -18,7 +18,10 @@ use crate::{RT, fl};
 use anyhow::anyhow;
 use clap_complete::{CompletionCandidate, engine::ValueCompleter};
 use dialoguer::{Confirm, theme::ColorfulTheme};
-use oma_pm::apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs};
+use oma_pm::{
+    apt::{AptConfig, OmaApt, OmaAptArgs},
+    oma_apt::PackageSort,
+};
 use oma_utils::{
     dbus::{
         Connection, InhibitTypeUnion, create_dbus_connection, is_using_battery, session_name,
@@ -276,7 +279,7 @@ pub fn pkgnames_and_path_completions(current: &std::ffi::OsStr) -> Vec<Completio
 
     let mut completions = vec![];
     let current = &current.to_string_lossy();
-    pkgnames_complete_impl(&mut completions, current, &[FilterMode::Names]);
+    pkgnames_complete_impl(&mut completions, current, PackageSort::default().names());
 
     completions.extend(path_completions);
 
@@ -286,7 +289,7 @@ pub fn pkgnames_and_path_completions(current: &std::ffi::OsStr) -> Vec<Completio
 pub fn pkgnames_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     let mut completions = vec![];
     let current = &current.to_string_lossy();
-    pkgnames_complete_impl(&mut completions, current, &[FilterMode::Names]);
+    pkgnames_complete_impl(&mut completions, current, PackageSort::default().names());
 
     completions
 }
@@ -294,7 +297,7 @@ pub fn pkgnames_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidat
 fn pkgnames_complete_impl(
     completions: &mut Vec<CompletionCandidate>,
     current: &str,
-    filter_mode: &[FilterMode],
+    sort: PackageSort,
 ) {
     let Ok(apt) = OmaApt::new(
         vec![],
@@ -305,9 +308,7 @@ fn pkgnames_complete_impl(
         return;
     };
 
-    let Ok(pkgs) = apt.filter_pkgs(filter_mode) else {
-        return;
-    };
+    let pkgs = apt.cache.packages(&sort);
 
     if current.is_empty() {
         for pkg in pkgs {
@@ -331,7 +332,7 @@ pub fn pkgnames_remove_completions(current: &std::ffi::OsStr) -> Vec<CompletionC
     pkgnames_complete_impl(
         &mut completions,
         &current,
-        &[FilterMode::Names, FilterMode::Installed],
+        PackageSort::default().names().installed(),
     );
 
     completions

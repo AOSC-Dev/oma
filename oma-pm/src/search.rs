@@ -346,9 +346,8 @@ pub struct StrSimSearch<'a> {
 
 impl OmaSearch for StrSimSearch<'_> {
     fn search(&self, query: &str) -> Result<Vec<SearchResult>, OmaSearchError> {
-        let pkgs = self
-            .cache
-            .packages(&PackageSort::default().include_virtual());
+        let sort = PackageSort::default().include_virtual();
+        let pkgs = self.cache.packages(&sort);
 
         let mut res = AHashMap::new();
 
@@ -492,7 +491,9 @@ impl<'a> TextSearch<'a> {
 impl OmaSearch for TextSearch<'_> {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let mut res = vec![];
-        let pkgs = self.cache.packages(&PackageSort::default());
+
+        let sort = PackageSort::default();
+        let pkgs = self.cache.packages(&sort);
 
         for pkg in pkgs {
             let name = pkg.fullname(true);
