@@ -159,11 +159,6 @@ pub struct GlobalOptions {
 }
 
 fn main() {
-    // 补全
-    CompleteEnv::with_factory(OhManagerAilurus::command)
-        .completer("oma")
-        .complete();
-
     // 使系统错误使用系统 locale 语言输出
     unsafe {
         let s = CString::new("").unwrap();
@@ -172,6 +167,11 @@ fn main() {
 
     init_clap_rich_formatter_localizer();
     init_localizer();
+
+    // 补全
+    CompleteEnv::with_factory(OhManagerAilurus::command)
+        .completer("oma")
+        .complete();
 
     ctrlc::set_handler(single_handler).expect("oma could not initialize SIGINT handler.");
 
