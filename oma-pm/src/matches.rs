@@ -136,7 +136,7 @@ impl<'a> PackagesMatcher<'a> {
                 for ver in &versions {
                     let info = OmaPackage::new(ver, &pkg);
 
-                    let has = ver.uris().any(|x| url_no_escape(&x) == path);
+                    let has = ver.uris().iter().any(|x| url_no_escape(x) == path);
                     if has {
                         res.push(info);
                     }

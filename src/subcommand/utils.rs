@@ -66,12 +66,12 @@ use oma_history::write_history_entry;
 use oma_pm::CommitNetworkConfig;
 use oma_pm::CustomDownloadMessage;
 use oma_pm::apt::AptConfig;
-use oma_pm::apt::FilterMode;
 use oma_pm::apt::InstallProgressOpt;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::OmaAptError;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
+use oma_pm::oma_apt::PackageSort;
 use oma_pm::sort::SummarySort;
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg::dpkg_arch;
@@ -817,12 +817,14 @@ pub fn write_oma_installed_status(apt: &OmaApt, sysroot: impl AsRef<Path>) -> an
     }
 
     let pkgs = apt
-        .filter_pkgs(&[FilterMode::Installed])?
+        .cache
+        .packages(&PackageSort::default().installed())
         .map(|x| x.fullname(false))
         .collect::<Vec<_>>();
 
     let manual_pkgs = apt
-        .filter_pkgs(&[FilterMode::Installed, FilterMode::Manual])?
+        .cache
+        .packages(&PackageSort::default().manually_installed())
         .map(|x| x.fullname(false))
         .collect::<Vec<_>>();
 

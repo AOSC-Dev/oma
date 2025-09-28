@@ -180,11 +180,11 @@ impl CliExecuter for Pick {
 
         let mut version_str_display = versions_str.clone();
         for (a, b) in v {
-            if let Some(uri) = versions[a].uris().next() {
+            if let Some(uri) = versions[a].uris().first() {
                 version_str_display[a] = format!("{} (from: {uri})", versions_str[a]);
             }
 
-            if let Some(uri) = versions[b].uris().next() {
+            if let Some(uri) = versions[b].uris().first() {
                 version_str_display[b] = format!("{} (from: {uri})", versions_str[b]);
             }
         }

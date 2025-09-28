@@ -4,15 +4,14 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use oma_console::print::Action;
 use oma_pm::{
-    apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs},
-    oma_apt::{PkgCurrentState, PkgSelectedState},
+    apt::{AptConfig, OmaApt, OmaAptArgs},
+    oma_apt::{PackageSort, PkgCurrentState, PkgSelectedState},
 };
 use tracing::info;
 
 use crate::{NOT_DISPLAY_ABORT, fl, utils::pkgnames_completions};
 use crate::{color_formatter, config::Config, error::OutputError, table::PagerPrinter};
 use anyhow::anyhow;
-use smallvec::{SmallVec, smallvec};
 
 use crate::args::CliExecuter;
 
@@ -77,33 +76,33 @@ impl CliExecuter for List {
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-        let mut filter_mode: SmallVec<[_; 5]> = smallvec![FilterMode::Names];
+        let mut sort = PackageSort::default();
 
         if installed {
-            filter_mode.push(FilterMode::Installed);
+            sort = sort.installed();
         }
 
         if upgradable {
-            filter_mode.push(FilterMode::Upgradable)
+            sort = sort.upgradable();
         }
 
         if automatic {
-            filter_mode.push(FilterMode::Automatic);
+            sort = sort.auto_installed();
         }
 
         if manually_installed {
-            filter_mode.push(FilterMode::Manual);
+            sort = sort.manually_installed();
         }
 
         if autoremovable {
-            filter_mode.push(FilterMode::AutoRemovable);
+            sort = sort.auto_removable();
         }
 
         if hold {
-            filter_mode.push(FilterMode::Hold);
+            sort = sort.hold_installed();
         }
 
-        let filter_pkgs = apt.filter_pkgs(&filter_mode)?;
+        let filter_pkgs = apt.cache.packages(&sort);
         let filter_pkgs: Box<dyn Iterator<Item = _>> = if packages.is_empty() {
             Box::new(filter_pkgs)
         } else {

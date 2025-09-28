@@ -164,19 +164,6 @@ pub enum OmaAptError {
 
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
 
-/// Modes of the result filter.
-#[derive(Debug)]
-pub enum FilterMode {
-    Default,
-    Installed,
-    Upgradable,
-    Automatic,
-    Manual,
-    Names,
-    AutoRemovable,
-    Hold,
-}
-
 pub struct DownloadConfig<'a> {
     /// The number of threads to be used for downloads.
     pub network_thread: Option<usize>,
@@ -1026,7 +1013,10 @@ impl OmaApt {
             }
         }
 
-        for pkg in self.filter_pkgs(&[FilterMode::AutoRemovable])? {
+        for pkg in self
+            .cache
+            .packages(&PackageSort::default().auto_removable())
+        {
             if !pkg.marked_delete() {
                 let ver = pkg.installed().unwrap_or_else(|| {
                     // 有可能存在操作之后立即是孤包的情况
@@ -1109,33 +1099,6 @@ impl OmaApt {
         debug!("available_disk_size is: {available_disk_size}, need: {need_space}");
 
         Ok(())
-    }
-
-    /// Filters pkgs
-    pub fn filter_pkgs(
-        &self,
-        query_mode: &[FilterMode],
-    ) -> OmaAptResult<impl Iterator<Item = Package<'_>>> {
-        let mut sort = PackageSort::default();
-
-        debug!("Filter Mode: {query_mode:?}");
-
-        for i in query_mode {
-            sort = match i {
-                FilterMode::Installed => sort.installed(),
-                FilterMode::Upgradable => sort.upgradable(),
-                FilterMode::Automatic => sort.auto_installed(),
-                FilterMode::Names => sort.names(),
-                FilterMode::Manual => sort.manually_installed(),
-                FilterMode::AutoRemovable => sort.auto_removable(),
-                FilterMode::Hold => sort.hold_installed(),
-                _ => sort,
-            };
-        }
-
-        let pkgs = self.cache.packages(&sort);
-
-        Ok(pkgs)
     }
 }
 
@@ -1310,7 +1273,7 @@ fn get_package_checksums(
     new_pkg: &Package<'_>,
     cand: &Version<'_>,
 ) -> Result<PkgChecksums, OmaAptError> {
-    let not_local_source = cand.uris().all(|x| !x.starts_with("file:"));
+    let not_local_source = cand.uris().iter().all(|x| !x.starts_with("file:"));
 
     let sha256 = cand.get_record(RecordField::SHA256);
     let md5 = cand.get_record(RecordField::MD5sum);

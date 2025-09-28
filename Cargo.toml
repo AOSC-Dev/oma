@@ -26,7 +26,6 @@ libc = "0.2.159"
 reqwest = { version = "0.12.8", default-features = false }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-smallvec = "1.13.2"
 console-subscriber = { version = "0.4.0", optional = true }
 ratatui = "0.29.0"
 ansi-to-tui = "7.0.0"

@@ -8,8 +8,8 @@ use clap::Args;
 use dialoguer::console::{self, style};
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{exit_tui, prepare_create_tui};
-use oma_pm::apt::{AptConfig, FilterMode, OmaApt, OmaAptArgs};
-use oma_pm::oma_apt::Package;
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::oma_apt::{Package, PackageSort};
 use oma_pm::pkginfo::OmaPackageWithoutVersion;
 use ratatui::crossterm::event::{self, KeyCode, KeyModifiers};
 use ratatui::layout::{Flex, Rect};
@@ -225,7 +225,8 @@ impl CliExecuter for SizeAnalyzer {
 
 fn installed_packages(apt: &OmaApt, small_to_big: bool) -> Result<Vec<Package<'_>>, OutputError> {
     let mut installed_packages = apt
-        .filter_pkgs(&[FilterMode::Installed])?
+        .cache
+        .packages(&PackageSort::default().installed())
         .collect::<Vec<_>>();
 
     if small_to_big {
@@ -456,20 +457,15 @@ impl<'a> PkgSizeAnalyzer<'a> {
                 }
 
                 if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('a') {
-                    match self.apt.filter_pkgs(&[FilterMode::AutoRemovable]) {
-                        Ok(pkgs) => {
-                            let pkgs = pkgs.collect::<Vec<_>>();
+                    let sort = PackageSort::default().auto_removable();
+                    let pkgs = self.apt.cache.packages(&sort);
+                    let pkgs = pkgs.collect::<Vec<_>>();
 
-                            if pkgs.is_empty() {
-                                self.popup = Some(fl!("tui-no-package-clean-up"));
-                            } else {
-                                for p in pkgs {
-                                    self.remove_package.items.push(PkgWrapper { pkg: p });
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            self.popup = Some(e.to_string());
+                    if pkgs.is_empty() {
+                        self.popup = Some(fl!("tui-no-package-clean-up"));
+                    } else {
+                        for p in pkgs {
+                            self.remove_package.items.push(PkgWrapper { pkg: p });
                         }
                     }
                 }
