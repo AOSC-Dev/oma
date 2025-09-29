@@ -388,7 +388,8 @@ impl MirrorSource<'_> {
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
             index,
-            msg: format!("({index}/{total}) {msg}"),
+            total,
+            msg,
         }))
         .await;
 
@@ -497,12 +498,8 @@ impl MirrorSource<'_> {
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
             index,
-            msg: format!(
-                "({}/{}) {}",
-                index,
-                total,
-                self.get_human_download_message(Some(file_name)).unwrap(),
-            ),
+            total,
+            msg: self.get_human_download_message(Some(file_name)).unwrap(),
             size: total_size,
         }))
         .await;
@@ -556,7 +553,8 @@ impl MirrorSource<'_> {
 
         callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
             index,
-            msg: format!("({index}/{total}) {msg}"),
+            total,
+            msg,
         }))
         .await;
 
