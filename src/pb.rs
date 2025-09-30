@@ -264,7 +264,8 @@ impl OmaMultiProgressBar {
                 let pb = self
                     .mb
                     .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
-                pb.set_message(format!("({}/{total}) {msg}", index + 1));
+                let total_width = total_width(total);
+                pb.set_message(format!("({:>total_width$}/{total}) {msg}", index + 1));
                 pb.enable_steady_tick(inv);
                 self.pb_map.insert(index + 1, pb);
             }
@@ -278,7 +279,8 @@ impl OmaMultiProgressBar {
                 let pb = self
                     .mb
                     .insert(index + 1, ProgressBar::new(size).with_style(sty));
-                pb.set_message(format!("({}/{total}) {msg}", index + 1));
+                let total_width = total_width(total);
+                pb.set_message(format!("({:>total_width$}/{total}) {msg}", index + 1));
                 self.pb_map.insert(index + 1, pb);
             }
             Event::ProgressInc { index, size } => {
@@ -376,6 +378,11 @@ impl OmaMultiProgressBar {
 
         debug!("{:#?}", errs);
     }
+}
+
+#[inline]
+fn total_width(total: usize) -> usize {
+    total.to_string().len()
 }
 
 fn osc94(is_refresh: bool, download_only: bool, pos: u64, gpb: &ProgressBar) {
