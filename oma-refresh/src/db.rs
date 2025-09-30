@@ -236,10 +236,18 @@ impl<'a> OmaRefresh<'a> {
             }
 
             #[cfg(not(feature = "apt"))]
-            let list_file = self.source.join("etc/apt/sources.list").to_string_lossy().to_string();
+            let list_file = self
+                .source
+                .join("etc/apt/sources.list")
+                .to_string_lossy()
+                .to_string();
 
             #[cfg(not(feature = "apt"))]
-            let list_dir = self.source.join("etc/apt/sources.list.d").to_string_lossy().to_string();
+            let list_dir = self
+                .source
+                .join("etc/apt/sources.list.d")
+                .to_string_lossy()
+                .to_string();
 
             scan_sources_lists_paths_from_sysroot(list_file, list_dir)
                 .await
@@ -878,6 +886,8 @@ fn collect_download_task(
                     Some("xz") => CompressFile::Xz,
                     Some("bz2") => CompressFile::Bz2,
                     Some("zst") => CompressFile::Zstd,
+                    Some("lzma") => CompressFile::Lzma,
+                    Some("lz4") => CompressFile::Lz4,
                     _ => CompressFile::Nothing,
                 }
             }
