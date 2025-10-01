@@ -311,10 +311,18 @@ impl OmaApt {
         config.set_vector("Dpkg::Options::", &dpkg_args);
         debug!("dpkg args: {dpkg_args:?}");
 
-        for kv in another_apt_options {
-            let (k, v) = kv.split_once('=').unwrap_or((&kv, ""));
+        for kv in &another_apt_options {
+            let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
             config.set(k, v);
             debug!("{k}={v} is set");
+        }
+
+        #[cfg(feature = "aosc")]
+        if another_apt_options
+            .iter()
+            .all(|kv| !kv.starts_with("APT::Solver"))
+        {
+            config.set("APT::Solver", "3.0");
         }
 
         Ok(config)
