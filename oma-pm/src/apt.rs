@@ -113,7 +113,11 @@ pub enum OmaAptError {
     #[error("Failed to mark package for reinstallation: {0}")]
     MarkReinstallError(String, String),
     #[error("Dependencies unmet")]
-    DependencyIssue(Vec<Vec<BrokenPackage>>),
+    DependencyIssue {
+        broken_depndencies: Vec<Vec<BrokenPackage>>,
+        is_solver3: bool,
+        apt_errors: AptErrors,
+    },
     #[error("Package: {0} is essential.")]
     PkgIsEssential(String),
     #[error("Package: {0} has no available candidate.")]
@@ -718,7 +722,11 @@ impl OmaApt {
                     self.unmet.extend(res);
                 }
             }
-            return Err(OmaAptError::DependencyIssue(self.unmet.to_vec()));
+            return Err(OmaAptError::DependencyIssue {
+                broken_depndencies: self.unmet.to_vec(),
+                is_solver3: self.config.get("APT::Solver").is_some_and(|v| v == "3.0"),
+                apt_errors: e,
+            });
         }
 
         Ok(())

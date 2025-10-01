@@ -661,10 +661,34 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             description: fl!("can-not-mark-reinstall", name = pkg, version = version),
             source: None,
         },
-        OmaAptError::DependencyIssue(ref broken_deps) => {
+        OmaAptError::DependencyIssue {
+            broken_depndencies: broken_deps,
+            is_solver3,
+            apt_errors,
+        } => {
             error!("{}", fl!("dep-issue-1"));
+            debug!("{:#?}", broken_deps);
 
-            if !broken_deps.is_empty() {
+            if is_solver3 {
+                let mut errs = vec![];
+
+                for err in apt_errors.iter() {
+                    if !errs.contains(&err.msg) {
+                        errs.push(err.msg.to_string());
+                    }
+                }
+
+                #[cfg(feature = "aosc")]
+                if !errs.is_empty() {
+                    info!("{}", fl!("dep-issue-2"));
+                }
+
+                eprintln!();
+
+                for err in errs {
+                    msg!("{err}");
+                }
+            } else if !broken_deps.is_empty() {
                 let name_len_max = broken_deps
                     .iter()
                     .filter(|dep| !dep.is_empty())
@@ -683,7 +707,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
 
                     let mut last_name = "";
 
-                    for dep in broken_deps {
+                    for dep in &broken_deps {
                         let mut prefix = String::new();
                         if last_name != dep[0].name {
                             prefix = format!("{}:", dep[0].name);
