@@ -113,7 +113,11 @@ pub enum OmaAptError {
     #[error("Failed to mark package for reinstallation: {0}")]
     MarkReinstallError(String, String),
     #[error("Dependencies unmet")]
-    DependencyIssue(Vec<Vec<BrokenPackage>>),
+    DependencyIssue {
+        broken_depndencies: Vec<Vec<BrokenPackage>>,
+        is_solver3: bool,
+        apt_errors: AptErrors,
+    },
     #[error("Package: {0} is essential.")]
     PkgIsEssential(String),
     #[error("Package: {0} has no available candidate.")]
@@ -311,10 +315,18 @@ impl OmaApt {
         config.set_vector("Dpkg::Options::", &dpkg_args);
         debug!("dpkg args: {dpkg_args:?}");
 
-        for kv in another_apt_options {
-            let (k, v) = kv.split_once('=').unwrap_or((&kv, ""));
+        for kv in &another_apt_options {
+            let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
             config.set(k, v);
             debug!("{k}={v} is set");
+        }
+
+        #[cfg(feature = "aosc")]
+        if another_apt_options
+            .iter()
+            .all(|kv| !kv.starts_with("APT::Solver"))
+        {
+            config.set("APT::Solver", "3.0");
         }
 
         Ok(config)
@@ -710,7 +722,11 @@ impl OmaApt {
                     self.unmet.extend(res);
                 }
             }
-            return Err(OmaAptError::DependencyIssue(self.unmet.to_vec()));
+            return Err(OmaAptError::DependencyIssue {
+                broken_depndencies: self.unmet.to_vec(),
+                is_solver3: self.config.get("APT::Solver").is_some_and(|v| v == "3.0"),
+                apt_errors: e,
+            });
         }
 
         Ok(())
