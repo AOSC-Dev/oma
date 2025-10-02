@@ -2343,7 +2343,7 @@ checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
 dependencies = [
  "hermit-abi",
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2855,15 +2855,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu-ansi-term"
-version = "0.50.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
-dependencies = [
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3006,8 +2997,6 @@ dependencies = [
  "textwrap",
  "tokio",
  "toml 0.9.8",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -4443,7 +4432,8 @@ dependencies = [
 [[package]]
 name = "spdlog-internal"
 version = "0.2.0"
-source = "git+https://github.com/SpriteOvO/spdlog-rs.git?branch=main-dev#eda51be20516ac54c78e87d27a040ec53fffc3a0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7c4ffbdbc9f2d819ffb53ef00a253f524ba7bfd7a3aa8dcd50789b9b27be550"
 dependencies = [
  "nom 8.0.0",
  "strum 0.27.2",
@@ -4454,7 +4444,8 @@ dependencies = [
 [[package]]
 name = "spdlog-macros"
 version = "0.3.0"
-source = "git+https://github.com/SpriteOvO/spdlog-rs.git?branch=main-dev#eda51be20516ac54c78e87d27a040ec53fffc3a0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b87a8a157696b61e2a87ed9753da2afb2a27c1e7490786fddf3e71d7e0c3b69e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4464,8 +4455,9 @@ dependencies = [
 
 [[package]]
 name = "spdlog-rs"
-version = "0.5.1"
-source = "git+https://github.com/SpriteOvO/spdlog-rs.git?branch=main-dev#eda51be20516ac54c78e87d27a040ec53fffc3a0"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d36fd7a0cb4b3f8fa5316a96d89bb68956a3db82427d2d96b9a93657caa0dcf"
 dependencies = [
  "arc-swap",
  "atomic",
@@ -4474,6 +4466,7 @@ dependencies = [
  "dyn-clone",
  "is-terminal",
  "libc",
+ "log",
  "once_cell",
  "parking_lot",
  "rustc_version",
@@ -5166,32 +5159,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-log"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
-dependencies = [
- "log",
- "once_cell",
- "tracing-core",
-]
-
-[[package]]
 name = "tracing-subscriber"
 version = "0.3.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2054a14f5307d601f88daf0553e1cbf472acc4f2c51afab632431cdcd72124d5"
 dependencies = [
  "matchers",
- "nu-ansi-term",
  "once_cell",
  "regex-automata",
  "sharded-slab",
- "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
- "tracing-log",
 ]
 
 [[package]]
