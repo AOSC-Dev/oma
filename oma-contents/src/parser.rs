@@ -3,7 +3,7 @@ use winnow::{ModalResult, Parser, combinator::separated, token::take_till};
 use crate::OmaContentsError;
 
 /// Parse Contents file from input
-pub fn parse_contetns(input: &str) -> Result<Vec<(&str, Vec<&str>)>, OmaContentsError> {
+pub fn parse_contents(input: &str) -> Result<Vec<(&str, Vec<&str>)>, OmaContentsError> {
     input
         .lines()
         .enumerate()
