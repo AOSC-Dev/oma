@@ -11,7 +11,7 @@ license = "MIT"
 chrono = { version = "0.4.38", optional = true }
 console = { version = "0.16", optional = true }
 indicatif = { version = "0.18", optional = true }
-spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "main-dev" }
+spdlog-rs = "0.5.0"
 ratatui = { version = "0.29", optional = true }
 # https://github.com/async-rs/async-std/issues/1055
 # https://github.com/tokio-rs/tokio/issues/5535

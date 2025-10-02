@@ -14,7 +14,7 @@ winnow = "0.7"
 flate2 = "1.0"
 rayon = "1.8"
 lzzzz = "2.0"
-spdlog-rs = { git = "https://github.com/SpriteOvO/spdlog-rs.git", branch = "main-dev" }
+spdlog-rs = "0.5.0"
 which = "8"
 zstd = "0.13"
 memchr = "2"
