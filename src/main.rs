@@ -39,8 +39,8 @@ use reqwest::Client;
 use rustix::stdio::stdout;
 // FIXME: `spdlog::error` is conflict with `mod error`
 use spdlog::{
-    Level, LevelFilter, Logger, debug, default_logger, info, init_log_crate_proxy,
-    prelude::error,
+    Level, LevelFilter, Logger, debug, info, init_log_crate_proxy,
+    prelude::error as error2,
     set_default_logger,
     sink::{AsyncPoolSink, RotatingFileSink, RotationPolicy, StdStreamSink},
     warn,
@@ -187,7 +187,7 @@ fn main() {
     console_subscriber::init();
 
     #[cfg(not(feature = "tokio-console"))]
-    let (_guard, file) = init_logger(&oma, &config);
+    let file = init_logger(&oma, &config);
 
     debug!(
         "Run oma with args: {} (pid: {})",
@@ -286,10 +286,7 @@ fn init_localizer() {
     LANGUAGE_LOADER.set_use_isolating(false);
 }
 
-fn init_logger(
-    oma: &OhManagerAilurus,
-    config: &Config,
-) -> (Option<Arc<Logger>>, anyhow::Result<String>) {
+fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String> {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
 
@@ -352,9 +349,9 @@ fn init_logger(
     let logger = logger_builder.build().unwrap();
 
     set_default_logger(Arc::new(logger));
-    init_log_crate_proxy()?;
+    init_log_crate_proxy().unwrap();
 
-    (Some(default_logger()), Ok(log_file))
+    Ok(log_file.to_string_lossy().to_string())
 }
 
 #[inline]
