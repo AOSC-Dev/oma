@@ -39,7 +39,9 @@ use reqwest::Client;
 use rustix::stdio::stdout;
 // FIXME: `spdlog::error` is conflict with `mod error`
 use spdlog::{
-    Level, LevelFilter, Logger, debug, default_logger, error as error2, info, set_default_logger,
+    Level, LevelFilter, Logger, debug, default_logger, info, init_log_crate_proxy,
+    prelude::error,
+    set_default_logger,
     sink::{AsyncPoolSink, RotatingFileSink, RotationPolicy, StdStreamSink},
     warn,
 };
@@ -298,9 +300,9 @@ fn init_logger(
             .expect("Failed to get state dir")
             .join("oma")
     })
-    .join("oma.log")
-    .to_string_lossy()
-    .to_string();
+    .join("oma.log");
+
+    // TODO: We need `spdlog-rs` implements `EnvFilter` first
 
     let (level_filter, formatter) = if !debug && !dry_run {
         let level_filter = LevelFilter::MoreSevereEqual(Level::Info);
@@ -350,6 +352,7 @@ fn init_logger(
     let logger = logger_builder.build().unwrap();
 
     set_default_logger(Arc::new(logger));
+    init_log_crate_proxy()?;
 
     (Some(default_logger()), Ok(log_file))
 }
