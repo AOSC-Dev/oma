@@ -138,18 +138,20 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
 ///
 /// # Example:
 /// ```
-/// use spdlog::{info, sink::StdStreamSink, Logger};
+/// use spdlog::{info, sink::StdStreamSink, Logger, Result};
 /// use oma_console::OmaLayer;
 ///
-/// let mut logger_builder = Logger::builder();
+/// fn main() -> Result<()> {
+///   let mut logger_builder = Logger::builder();
 ///
-/// let logger = logger_builder.sink(Arc::new(
-///     StdStreamSink::builder().formatter(Box::new(OmaLayer::default())).build().unwrap()
-/// )).build().unwrap();
+///   let logger = logger_builder.sink(Arc::new(
+///       StdStreamSink::builder().formatter(Box::new(OmaLayer::default())).build()?
+///   )).build()?;
 ///
-/// spdlog::set_default_logger(Arc::new(logger));
+///   spdlog::set_default_logger(Arc::new(logger));
 ///
-/// info!("My name is oma!");
+///   info!("My name is oma!");
+/// }
 /// ```
 ///
 #[derive(Clone)]
@@ -157,6 +159,8 @@ pub struct OmaFormatter {
     with_ansi: bool,
     with_time: bool,
     with_file: bool,
+    #[allow(unused)]
+    with_kv: bool,
     prefix_len: u16,
 }
 
@@ -166,6 +170,7 @@ impl Default for OmaFormatter {
             with_ansi: true,
             with_file: false,
             with_time: false,
+            with_kv: false,
             prefix_len: 10,
         }
     }
@@ -191,6 +196,12 @@ impl OmaFormatter {
 
     pub fn with_time(mut self, with_time: bool) -> Self {
         self.with_time = with_time;
+        self
+    }
+
+    #[allow(unused)]
+    pub fn with_kv(mut self, with_kv: bool) -> Self {
+        self.with_kv = with_kv;
         self
     }
 
