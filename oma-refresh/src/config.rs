@@ -1,13 +1,105 @@
-use std::{borrow::Cow, collections::HashMap, path::Path};
+use std::{borrow::Cow, cmp::Ordering, collections::HashMap, path::Path};
 
 use ahash::AHashMap;
 use aho_corasick::AhoCorasick;
 #[cfg(feature = "apt")]
 use oma_apt::config::{Config, ConfigTree};
 use oma_fetch::CompressFile;
+use once_cell::sync::OnceCell;
 use tracing::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
+
+static COMPRESSION_ORDER: OnceCell<Vec<CompressFileWrapper>> = OnceCell::new();
+
+#[derive(Debug, Eq, PartialEq)]
+struct CompressFileWrapper {
+    compress_file: CompressFile,
+}
+
+impl From<&str> for CompressFileWrapper {
+    fn from(value: &str) -> Self {
+        match value {
+            "xz" => CompressFileWrapper {
+                compress_file: CompressFile::Xz,
+            },
+            "bz2" => CompressFileWrapper {
+                compress_file: CompressFile::Bz2,
+            },
+            "lzma" => CompressFileWrapper {
+                compress_file: CompressFile::Lzma,
+            },
+            "gz" => CompressFileWrapper {
+                compress_file: CompressFile::Gzip,
+            },
+            "lz4" => CompressFileWrapper {
+                compress_file: CompressFile::Lz4,
+            },
+            "zst" => CompressFileWrapper {
+                compress_file: CompressFile::Zstd,
+            },
+            x => {
+                if !x.is_ascii() {
+                    debug!("{x} format is not compress format");
+                }
+
+                CompressFileWrapper {
+                    compress_file: CompressFile::Nothing,
+                }
+            }
+        }
+    }
+}
+
+impl PartialOrd for CompressFileWrapper {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[cfg(feature = "apt")]
+impl Ord for CompressFileWrapper {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let config = Config::new();
+        let t = COMPRESSION_ORDER.get_or_init(|| {
+            config
+                .get_compression_types()
+                .iter()
+                .map(|t| CompressFileWrapper::from(t.as_str()))
+                .collect::<Vec<_>>()
+        });
+
+        let self_pos = t.iter().position(|x| x == self).unwrap();
+        let other_pos = t.iter().position(|x| x == other).unwrap();
+
+        other_pos.cmp(&self_pos)
+    }
+}
+
+#[cfg(not(feature = "apt"))]
+impl Ord for CompressFileWrapper {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let t = COMPRESSION_ORDER.get_or_init(|| {
+            vec!["zst", "xz", "bz2", "lzma", "gz", "lz4", "uncompressed"]
+                .into_iter()
+                .map(CompressFileWrapper::from)
+                .collect::<Vec<_>>()
+        });
+
+        let self_pos = t.iter().position(|x| x == self).unwrap();
+        let other_pos = t.iter().position(|x| x == other).unwrap();
+
+        other_pos.cmp(&self_pos)
+    }
+}
+
+impl From<CompressFile> for CompressFileWrapper {
+    fn from(value: CompressFile) -> Self {
+        Self {
+            compress_file: value,
+        }
+    }
+}
 
 #[cfg(feature = "apt")]
 fn modify_result(
@@ -232,7 +324,7 @@ fn flat_repo_template_match(
 }
 
 fn uncompress_file_name(target: &str) -> Cow<'_, str> {
-    if compress_file(target) == CompressFile::Nothing {
+    if compress_file(target) == CompressFile::Nothing.into() {
         Cow::Borrowed(target)
     } else {
         let compress_target_without_ext = Path::new(target).with_extension("");
@@ -287,15 +379,53 @@ fn get_matches_language(locales: impl IntoIterator<Item = String>) -> Vec<String
     langs
 }
 
-fn compress_file(name: &str) -> CompressFile {
-    CompressFile::from(
-        Path::new(name)
-            .extension()
-            .map(|x| x.to_string_lossy())
-            .unwrap_or_default()
-            .to_string()
-            .as_str(),
-    )
+fn compress_file(name: &str) -> CompressFileWrapper {
+    CompressFileWrapper {
+        compress_file: CompressFile::from(
+            Path::new(name)
+                .extension()
+                .map(|x| x.to_string_lossy())
+                .unwrap_or_default()
+                .to_string()
+                .as_str(),
+        ),
+    }
+}
+
+#[cfg(feature = "apt")]
+#[test]
+fn test_compression_order() {
+    let config = Config::new();
+
+    config.set_vector(
+        "Acquire::CompressionTypes::Order",
+        &vec!["zst", "xz", "bz2", "lzma", "gz", "lz4"],
+    );
+
+    let mut types = config
+        .get_compression_types()
+        .iter()
+        .map(|t| CompressFileWrapper::from(t.as_str()))
+        .collect::<Vec<_>>();
+
+    types.sort_unstable();
+    types.reverse();
+
+    assert_eq!(
+        types,
+        vec![
+            CompressFile::Zstd,
+            CompressFile::Xz,
+            CompressFile::Bz2,
+            CompressFile::Lzma,
+            CompressFile::Gzip,
+            CompressFile::Lz4,
+            CompressFile::Nothing
+        ]
+        .into_iter()
+        .map(|x| x.into())
+        .collect::<Vec<CompressFileWrapper>>()
+    );
 }
 
 #[test]
