@@ -139,18 +139,25 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
 /// # Example:
 /// ```
 /// use spdlog::{info, sink::StdStreamSink, Logger, Result};
-/// use oma_console::OmaLayer;
+/// use oma_console::OmaFormatter;
+///
+/// use std::sync::Arc;
 ///
 /// fn main() -> Result<()> {
 ///   let mut logger_builder = Logger::builder();
 ///
-///   let logger = logger_builder.sink(Arc::new(
-///       StdStreamSink::builder().formatter(Box::new(OmaLayer::default())).build()?
-///   )).build()?;
+///   let stream_sink = StdStreamSink::builder()
+///     .formatter(OmaFormatter::default())
+///     .stdout()
+///     .build()?;
+///
+///   let logger = logger_builder.sink(Arc::new(stream_sink)).build()?;
 ///
 ///   spdlog::set_default_logger(Arc::new(logger));
 ///
 ///   info!("My name is oma!");
+///
+///   Ok(())
 /// }
 /// ```
 ///
