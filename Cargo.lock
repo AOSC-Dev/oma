@@ -149,7 +149,6 @@ dependencies = [
  "rust-netrc",
  "spdlog-rs",
  "thiserror 2.0.17",
- "tracing",
  "url",
 ]
 
@@ -1194,15 +1193,6 @@ dependencies = [
  "chrono",
  "lazy-regex",
  "num-bigint",
-]
-
-[[package]]
-name = "deranged"
-version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a41953f86f8a05768a6cda24def994fd2f424b04ec5c719cf89989779f199071"
-dependencies = [
- "powerfmt",
 ]
 
 [[package]]
@@ -2854,12 +2844,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-conv"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
-
-[[package]]
 name = "num-integer"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3031,8 +3015,6 @@ dependencies = [
  "spdlog-rs",
  "termbg-with-async-stdin",
  "textwrap",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -3046,7 +3028,6 @@ dependencies = [
  "regex",
  "spdlog-rs",
  "thiserror 2.0.17",
- "tracing",
  "which",
  "winnow",
  "zstd",
@@ -3070,7 +3051,6 @@ dependencies = [
  "spdlog-rs",
  "tokio",
  "tokio-util",
- "tracing",
 ]
 
 [[package]]
@@ -3084,7 +3064,6 @@ dependencies = [
  "serde_json",
  "spdlog-rs",
  "thiserror 2.0.17",
- "tracing",
 ]
 
 [[package]]
@@ -3115,7 +3094,6 @@ dependencies = [
  "snafu",
  "spdlog-rs",
  "toml 0.9.7",
- "tracing",
 ]
 
 [[package]]
@@ -3145,7 +3123,6 @@ dependencies = [
  "sysinfo",
  "thiserror 2.0.17",
  "tokio",
- "tracing",
  "zbus",
 ]
 
@@ -3185,7 +3162,6 @@ dependencies = [
  "sysinfo",
  "thiserror 2.0.17",
  "tokio",
- "tracing",
  "url",
 ]
 
@@ -3199,7 +3175,6 @@ dependencies = [
  "sequoia-policy-config",
  "spdlog-rs",
  "thiserror 2.0.17",
- "tracing",
 ]
 
 [[package]]
@@ -3217,7 +3192,6 @@ dependencies = [
  "spdlog-rs",
  "thiserror 2.0.17",
  "tokio",
- "tracing",
  "url",
 ]
 
@@ -3233,8 +3207,6 @@ dependencies = [
  "serde_json",
  "snafu",
  "spdlog-rs",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -3246,7 +3218,6 @@ dependencies = [
  "os-release",
  "spdlog-rs",
  "thiserror 2.0.17",
- "tracing",
  "url-escape",
  "zbus",
 ]
@@ -3502,12 +3473,6 @@ checksum = "84df19adbe5b5a0782edcab45899906947ab039ccf4573713735ee7de1e6b08a"
 dependencies = [
  "zerovec",
 ]
-
-[[package]]
-name = "powerfmt"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "ppv-lite86"
@@ -4446,7 +4411,7 @@ dependencies = [
  "nom 8.0.0",
  "strum 0.27.2",
  "strum_macros 0.27.2",
- "thiserror 2.0.16",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -4479,7 +4444,7 @@ dependencies = [
  "parking_lot",
  "rustc_version",
  "spdlog-macros",
- "thiserror 2.0.16",
+ "thiserror 2.0.17",
  "value-bag",
  "winapi",
 ]
@@ -4870,37 +4835,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "time"
-version = "0.3.44"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91e7d9e3bb61134e77bde20dd4825b97c010155709965fedf0f49bb138e52a9d"
-dependencies = [
- "deranged",
- "itoa",
- "num-conv",
- "powerfmt",
- "serde",
- "time-core",
- "time-macros",
-]
-
-[[package]]
-name = "time-core"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40868e7c1d2f0b8d73e4a8c7f0ff63af4f6d19be117e90bd73eb1d62cf831c6b"
-
-[[package]]
-name = "time-macros"
-version = "0.2.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30cfb0125f12d9c277f35663a0a33f8c30190f4e4574868a330595412d34ebf3"
-dependencies = [
- "num-conv",
- "time-core",
-]
-
-[[package]]
 name = "tiny-keccak"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5174,18 +5108,6 @@ dependencies = [
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
-]
-
-[[package]]
-name = "tracing-appender"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3566e8ce28cc0a3fe42519fc80e6b4c943cc4c8cef275620eb8dac2d3d4e06cf"
-dependencies = [
- "crossbeam-channel",
- "thiserror 1.0.69",
- "time",
- "tracing-subscriber",
 ]
 
 [[package]]
