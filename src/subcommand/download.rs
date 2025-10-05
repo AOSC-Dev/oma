@@ -6,7 +6,7 @@ use clap_complete::ArgValueCompleter;
 use flume::unbounded;
 use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
-use tracing::error;
+use spdlog::error;
 
 use crate::config::Config;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress};

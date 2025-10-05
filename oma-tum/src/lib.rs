@@ -10,7 +10,7 @@ use debversion::Version;
 use oma_pm_operation_type::{InstallOperation, OmaOperation};
 use serde::Deserialize;
 use snafu::{ResultExt, Snafu, Whatever};
-use tracing::warn;
+use spdlog::warn;
 
 use crate::parser::{VersionToken, parse_version_expr};
 

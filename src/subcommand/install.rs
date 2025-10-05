@@ -7,8 +7,7 @@ use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
-use tracing::info;
-use tracing::warn;
+use spdlog::{info, warn};
 
 use crate::HTTP_CLIENT;
 use crate::args::ARG_HELP_HEADING;

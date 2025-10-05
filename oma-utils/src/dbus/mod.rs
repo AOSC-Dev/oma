@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use logind_zbus::session::SessionProxy;
-use tracing::debug;
+use spdlog::debug;
 use zbus::{Result as zResult, proxy, zvariant::OwnedFd};
 
 pub use zbus::Connection;

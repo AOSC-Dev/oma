@@ -16,7 +16,7 @@ use oma_pm::{
     oma_apt::{BaseDep, Package, Version},
     pkginfo::OmaDepType,
 };
-use tracing::{debug, trace};
+use spdlog::{debug, trace};
 
 use crate::{
     CliExecuter, config::Config, error::OutputError, fl, table::oma_display_with_normal_output,

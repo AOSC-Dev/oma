@@ -5,7 +5,7 @@ use aho_corasick::AhoCorasick;
 #[cfg(feature = "apt")]
 use oma_apt::config::{Config, ConfigTree};
 use oma_fetch::CompressFile;
-use tracing::debug;
+use spdlog::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
 

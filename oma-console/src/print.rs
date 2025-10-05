@@ -1,13 +1,14 @@
-use std::{borrow::Cow, collections::BTreeMap, time::Duration};
+use std::fmt::{self, Write};
+use std::{borrow::Cow, time::Duration};
 
+use chrono::{DateTime, SecondsFormat, Utc};
 use console::{Color, StyledObject, style};
+use spdlog::{Level, debug, formatter::Formatter};
 use termbg::Theme;
-use tracing::{Level, debug, field::Field};
-use tracing_subscriber::Layer;
 
 pub use termbg;
 
-use crate::writer::{Writeln, Writer};
+use crate::writer::gen_prefix;
 
 #[derive(Clone)]
 enum StyleFollow {
@@ -131,41 +132,60 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
         Action::PendingBg => style(input).bg(Color::Blue).bold(),
     }
 }
-/// OmaLayer
-/// `OmaLayer` is used for outputting oma-style logs to `tracing`
+
+/// OmaFormatter
+/// `OmaFormatter` is used for outputting oma-style logs to `spdlog-rs`
 ///
 /// # Example:
 /// ```
-/// use tracing_subscriber::prelude::*;
-/// use oma_console::OmaLayer;
-/// use tracing::info;
+/// use spdlog::{info, sink::StdStreamSink, Logger, Result};
+/// use oma_console::OmaFormatter;
 ///
-/// tracing_subscriber::registry()
-///     .with(OmaLayer::new())
-///     .init();
+/// use std::sync::Arc;
 ///
-/// info!("My name is oma!");
+/// fn main() -> Result<()> {
+///   let mut logger_builder = Logger::builder();
+///
+///   let stream_sink = StdStreamSink::builder()
+///     .formatter(OmaFormatter::default())
+///     .stdout()
+///     .build()?;
+///
+///   let logger = logger_builder.sink(Arc::new(stream_sink)).build()?;
+///
+///   spdlog::set_default_logger(Arc::new(logger));
+///
+///   info!("My name is oma!");
+///
+///   Ok(())
+/// }
 /// ```
 ///
-pub struct OmaLayer {
-    /// Display result with ansi
+#[derive(Clone)]
+pub struct OmaFormatter {
     with_ansi: bool,
-    /// A Terminal writer to print oma-style message
-    writer: Writer,
+    with_time: bool,
+    with_file: bool,
+    #[allow(unused)]
+    with_kv: bool,
+    prefix_len: u16,
 }
 
-impl Default for OmaLayer {
+impl Default for OmaFormatter {
     fn default() -> Self {
         Self {
             with_ansi: true,
-            writer: Writer::default(),
+            with_file: false,
+            with_time: false,
+            with_kv: false,
+            prefix_len: 10,
         }
     }
 }
 
-impl OmaLayer {
+impl OmaFormatter {
     pub fn new() -> Self {
-        OmaLayer::default()
+        OmaFormatter::default()
     }
 
     /// Display with ANSI colors
@@ -175,95 +195,107 @@ impl OmaLayer {
         self.with_ansi = with_ansi;
         self
     }
-}
 
-impl<S> Layer<S> for OmaLayer
-where
-    S: tracing::Subscriber,
-    S: for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>,
-{
-    fn on_event(
+    pub fn with_file(mut self, with_file: bool) -> Self {
+        self.with_file = with_file;
+        self
+    }
+
+    pub fn with_time(mut self, with_time: bool) -> Self {
+        self.with_time = with_time;
+        self
+    }
+
+    #[allow(unused)]
+    pub fn with_kv(mut self, with_kv: bool) -> Self {
+        self.with_kv = with_kv;
+        self
+    }
+
+    fn format_impl(
         &self,
-        event: &tracing::Event<'_>,
-        _ctx: tracing_subscriber::layer::Context<'_, S>,
-    ) {
-        let level = *event.metadata().level();
+        record: &spdlog::Record,
+        dest: &mut spdlog::StringBuf,
+        _: &mut spdlog::formatter::FormatterContext,
+    ) -> fmt::Result {
+        let level = record.level();
 
         let prefix = if self.with_ansi {
             Cow::Owned(match level {
-                Level::DEBUG => console::style("DEBUG").dim().to_string(),
-                Level::INFO => console::style("INFO").blue().bold().to_string(),
-                Level::WARN => console::style("WARNING").yellow().bold().to_string(),
-                Level::ERROR => console::style("ERROR").red().bold().to_string(),
-                Level::TRACE => console::style("TRACE").dim().to_string(),
+                Level::Debug => console::style("DEBUG").dim().to_string(),
+                Level::Info => console::style("INFO").blue().bold().to_string(),
+                Level::Warn => console::style("WARNING").yellow().bold().to_string(),
+                Level::Error => console::style("ERROR").red().bold().to_string(),
+                Level::Trace => console::style("TRACE").dim().to_string(),
+                Level::Critical => console::style("CRITICAL").red().bright().bold().to_string(),
             })
         } else {
             Cow::Borrowed(match level {
-                Level::DEBUG => "DEBUG",
-                Level::INFO => "INFO",
-                Level::WARN => "WARNING",
-                Level::ERROR => "ERROR",
-                Level::TRACE => "TRACE",
+                Level::Debug => "DEBUG",
+                Level::Info => "INFO",
+                Level::Warn => "WARNING",
+                Level::Error => "ERROR",
+                Level::Trace => "TRACE",
+                Level::Critical => "CRITICAL",
             })
         };
 
-        let mut visitor = OmaRecorder(BTreeMap::new());
-        event.record(&mut visitor);
+        if self.with_time {
+            let time = {
+                let time = DateTime::<Utc>::from(record.time())
+                    .to_rfc3339_opts(SecondsFormat::Millis, true);
 
-        for (k, v) in visitor.0 {
-            if k == "message" {
                 if self.with_ansi {
-                    self.writer.writeln(&prefix, &v).ok();
+                    console::style(time).dim().to_string()
                 } else {
-                    self.writer
-                        .writeln(&prefix, &console::strip_ansi_codes(&v))
-                        .ok();
+                    time
                 }
+            };
+
+            dest.write_str(&time)?;
+            dest.write_char(' ')?;
+        };
+
+        dest.write_str(&gen_prefix(&prefix, self.prefix_len))?;
+        dest.write_char(' ')?;
+
+        if self.with_file {
+            let loc = record.source_location();
+
+            if let Some(loc) = loc {
+                let loc = format!("{}: {}:", loc.module_path(), loc.file());
+
+                let loc = if self.with_ansi {
+                    console::style(loc).dim().to_string()
+                } else {
+                    loc
+                };
+
+                dest.write_str(&loc)?;
+                dest.write_char(' ')?;
             }
         }
+
+        if self.with_ansi {
+            dest.write_str(record.payload())?;
+        } else {
+            dest.write_str(&console::strip_ansi_codes(record.payload()))?;
+        }
+
+        dest.write_char('\n')?;
+
+        Ok(())
     }
 }
-/// OmaRecorder
-/// `OmaRecorder` is used for recording oma-style logs.
-///
-/// # Example:
-/// ```ignore
-/// let mut visitor = OmaRecorder(BTreeMap::new());
-/// event.record(&mut visitor);
-/// for (k, v) in visitor.0 {
-///     if k == "message" {
-///         self.writer.writeln(&prefix, &v).ok();
-///     }
-/// }
-/// ```
-struct OmaRecorder<'a>(BTreeMap<&'a str, String>);
 
-impl tracing::field::Visit for OmaRecorder<'_> {
-    fn record_f64(&mut self, field: &Field, value: f64) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_i64(&mut self, field: &Field, value: i64) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_u64(&mut self, field: &Field, value: u64) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_bool(&mut self, field: &Field, value: bool) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_str(&mut self, field: &Field, value: &str) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_error(&mut self, field: &Field, value: &(dyn std::error::Error + 'static)) {
-        self.0.insert(field.name(), format!("{value:#?}"));
-    }
-
-    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        self.0.insert(field.name(), format!("{value:#?}"));
+impl Formatter for OmaFormatter {
+    fn format(
+        &self,
+        record: &spdlog::Record,
+        dest: &mut spdlog::StringBuf,
+        ctx: &mut spdlog::formatter::FormatterContext,
+    ) -> spdlog::Result<()> {
+        self.format_impl(record, dest, ctx)
+            .map_err(|e| spdlog::Error::FormatRecord(e))
     }
 }
