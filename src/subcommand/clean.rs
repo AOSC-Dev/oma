@@ -63,66 +63,16 @@ impl CliExecuter for Clean {
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
         let download_dir = apt.get_archive_dir();
-        let dir = fs::read_dir(download_dir).map_err(|e| OutputError {
-            description: format!("Failed to read dir: {}", download_dir.display()),
-            source: Some(Box::new(e)),
-        })?;
 
         let pb = create_progress_spinner(no_progress, fl!("cleaning"));
 
-        let mut total_clean_size = 0;
-
-        remove(&download_dir.join("partial"), &mut total_clean_size);
-
-        for i in dir
-            .flatten()
-            .filter(|x| x.path().extension().is_some_and(|name| name == "deb"))
-        {
-            if !keep_downloadable && !keep_downloadable_and_installed && !keep_installed {
-                remove(&i.path(), &mut total_clean_size);
-                continue;
-            }
-
-            let file_name = i.file_name();
-            let file_name = file_name.to_string_lossy();
-            let mut file_name = file_name.splitn(3, '_');
-
-            let Some((pkg, version)) = Some(()).and_then(|_| {
-                let package = file_name.next()?;
-                let version = file_name.next()?;
-
-                Some((package, version))
-            }) else {
-                debug!(
-                    "Failed to get package name or version: {}, will delete this file",
-                    i.path().display()
-                );
-                remove(&i.path(), &mut total_clean_size);
-                continue;
-            };
-
-            let version = version.replace("%3a", ":");
-
-            let Some(version) = apt.cache.get(pkg).and_then(|pkg| pkg.get_version(&version)) else {
-                remove(&i.path(), &mut total_clean_size);
-                continue;
-            };
-
-            if !version.is_installed()
-                && !version.is_downloadable()
-                && keep_downloadable_and_installed
-            {
-                remove(&i.path(), &mut total_clean_size);
-                continue;
-            }
-
-            if (!version.is_downloadable() && keep_downloadable)
-                || (!version.is_installed() && keep_installed)
-            {
-                remove(&i.path(), &mut total_clean_size);
-                continue;
-            }
-        }
+        let total_clean_size = clean_download_packages_cache(
+            keep_downloadable,
+            keep_downloadable_and_installed,
+            keep_installed,
+            &apt,
+            download_dir,
+        )?;
 
         if let Some(pb) = pb {
             pb.inner.finish_and_clear();
@@ -137,6 +87,73 @@ impl CliExecuter for Clean {
 
         Ok(0)
     }
+}
+
+pub fn clean_download_packages_cache(
+    keep_downloadable: bool,
+    keep_downloadable_and_installed: bool,
+    keep_installed: bool,
+    apt: &OmaApt,
+    download_dir: &Path,
+) -> Result<u64, OutputError> {
+    let mut total_clean_size = 0;
+
+    remove(&download_dir.join("partial"), &mut total_clean_size);
+
+    let dir = fs::read_dir(download_dir).map_err(|e| OutputError {
+        description: format!("Failed to read dir: {}", download_dir.display()),
+        source: Some(Box::new(e)),
+    })?;
+
+    for i in dir
+        .flatten()
+        .filter(|x| x.path().extension().is_some_and(|name| name == "deb"))
+    {
+        if !keep_downloadable && !keep_downloadable_and_installed && !keep_installed {
+            remove(&i.path(), &mut total_clean_size);
+            continue;
+        }
+
+        let file_name = i.file_name();
+        let file_name = file_name.to_string_lossy();
+        let mut file_name = file_name.splitn(3, '_');
+
+        let Some((pkg, version)) = Some(()).and_then(|_| {
+            let package = file_name.next()?;
+            let version = file_name.next()?;
+
+            Some((package, version))
+        }) else {
+            debug!(
+                "Failed to get package name or version: {}, will delete this file",
+                i.path().display()
+            );
+            remove(&i.path(), &mut total_clean_size);
+            continue;
+        };
+
+        let version = version.replace("%3a", ":");
+
+        let Some(version) = apt.cache.get(pkg).and_then(|pkg| pkg.get_version(&version)) else {
+            remove(&i.path(), &mut total_clean_size);
+            continue;
+        };
+
+        if !version.is_installed() && !version.is_downloadable() && keep_downloadable_and_installed
+        {
+            remove(&i.path(), &mut total_clean_size);
+            continue;
+        }
+
+        if (!version.is_downloadable() && keep_downloadable)
+            || (!version.is_installed() && keep_installed)
+        {
+            remove(&i.path(), &mut total_clean_size);
+            continue;
+        }
+    }
+
+    Ok(total_clean_size)
 }
 
 fn remove(i: &Path, total_size: &mut u64) {
