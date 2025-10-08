@@ -877,6 +877,8 @@ impl OmaApt {
         let mut suggest = HashSet::with_hasher(ahash::RandomState::new());
         let mut recommend = HashSet::with_hasher(ahash::RandomState::new());
 
+        let mut max_old_installed_size = 0;
+
         for pkg in changes {
             if pkg.marked_new_install() {
                 let cand = pkg
@@ -917,6 +919,8 @@ impl OmaApt {
             }
 
             if pkg.marked_upgrade() {
+                swap_max_old_instaalled_size(&mut max_old_installed_size, &pkg);
+
                 let install_entry = pkg_delta(
                     &pkg,
                     InstallOperation::Upgrade,
@@ -983,6 +987,8 @@ impl OmaApt {
             }
 
             if pkg.marked_reinstall() {
+                swap_max_old_instaalled_size(&mut max_old_installed_size, &pkg);
+
                 // 如果一个包被标记为重装，则肯定已经安装
                 // 所以请求已安装版本应该直接 unwrap
                 let version = pkg.installed().unwrap();
@@ -1017,6 +1023,8 @@ impl OmaApt {
             }
 
             if pkg.marked_downgrade() {
+                swap_max_old_instaalled_size(&mut max_old_installed_size, &pkg);
+
                 let install_entry = pkg_delta(
                     &pkg,
                     InstallOperation::Downgrade,
@@ -1092,6 +1100,7 @@ impl OmaApt {
             autoremovable,
             suggest: suggest.into_iter().collect(),
             recommend: recommend.into_iter().collect(),
+            max_old_installed_size,
         })
     }
 
@@ -1099,7 +1108,9 @@ impl OmaApt {
     pub fn check_disk_size(&self, op: &OmaOperation) -> OmaAptResult<()> {
         let download_size = op.total_download_size as i64;
 
-        let need_space = download_size + op.disk_size_delta;
+        // dpkg 需要先解压新版本的文件，在删除老版本的文件
+        // 所以要加上被卸载掉的包的 最大的包的安装大小
+        let need_space = download_size + op.disk_size_delta + op.max_old_installed_size as i64;
 
         let available_disk_size = fs4::available_space(self.sysroot())
             .map_err(OmaAptError::FailedGetAvailableSpace)?
@@ -1115,6 +1126,14 @@ impl OmaApt {
         debug!("available_disk_size is: {available_disk_size}, need: {need_space}");
 
         Ok(())
+    }
+}
+
+fn swap_max_old_instaalled_size(max_old_installed_size: &mut u64, pkg: &Package<'_>) {
+    let installed_size = pkg.installed().unwrap().installed_size();
+
+    if installed_size > *max_old_installed_size {
+        *max_old_installed_size = installed_size;
     }
 }
 
