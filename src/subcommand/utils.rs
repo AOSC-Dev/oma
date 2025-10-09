@@ -63,7 +63,7 @@ use oma_history::HistoryInfo;
 use oma_history::connect_db;
 use oma_history::create_db_file;
 use oma_history::write_history_entry;
-use oma_pm::CommitNetworkConfig;
+use oma_pm::CommitConfig;
 use oma_pm::CustomDownloadMessage;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::InstallProgressOpt;
@@ -320,6 +320,8 @@ pub(crate) struct CommitChanges<'a> {
     topics_enabled: Vec<String>,
     #[builder(default)]
     topics_disabled: Vec<String>,
+    #[builder(default)]
+    download_only: bool,
 }
 
 impl CommitChanges<'_> {
@@ -342,6 +344,7 @@ impl CommitChanges<'_> {
             check_tum,
             topics_enabled,
             topics_disabled,
+            download_only,
         } = self;
 
         fix_broken(
@@ -440,9 +443,10 @@ impl CommitChanges<'_> {
             }),
             &op,
             &HTTP_CLIENT,
-            CommitNetworkConfig {
+            CommitConfig {
                 network_thread: Some(network_thread),
                 auth_config,
+                download_only,
             },
             download_message(),
             async |event| {
@@ -464,6 +468,20 @@ impl CommitChanges<'_> {
                     false,
                     AptConfig::new(),
                 )?;
+
+                if download_only {
+                    space_tips(&apt, sysroot);
+
+                    let len = op.install.len();
+                    let path = apt.get_archive_dir().to_string_lossy();
+
+                    success!(
+                        "{}",
+                        fl!("successfully-download-to-path", len = len, path = path)
+                    );
+
+                    return Ok(0);
+                }
 
                 write_oma_installed_status(&apt, &sysroot)?;
 
@@ -488,12 +506,17 @@ impl CommitChanges<'_> {
 
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
+
                 space_tips(&apt, sysroot);
 
                 Ok(0)
             }
             Err(e) => {
                 if let OmaAptError::FailedToDownload(_) = e {
+                    return Err(e.into());
+                }
+
+                if download_only {
                     return Err(e.into());
                 }
 

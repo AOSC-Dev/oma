@@ -5,7 +5,7 @@ use flume::unbounded;
 use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
 use oma_fetch::{Event, reqwest::ClientBuilder};
 use oma_pm::{
-    CommitNetworkConfig,
+    CommitConfig,
     apt::{AptConfig, InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError},
     matches::PackagesMatcher,
     progress::InstallProgressManager,
@@ -124,9 +124,10 @@ fn main() -> Result<(), OmaAptError> {
         InstallProgressOpt::TermLike(Box::new(MyInstallProgressManager)),
         &op,
         &client,
-        CommitNetworkConfig {
+        CommitConfig {
             network_thread: None,
             auth_config: Some(&AuthConfig::system("/").unwrap()),
+            download_only: false,
         },
         None,
         async |event| {

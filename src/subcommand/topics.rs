@@ -82,6 +82,9 @@ pub struct Topics {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
+    /// Only download dependencies, not install
+    #[arg(long, short, help = fl!("clap-download-only-help"))]
+    download_only: bool,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
@@ -167,6 +170,7 @@ impl CliExecuter for Topics {
             no_take_wake_lock,
             only_apply_sources_list,
             yes,
+            download_only,
         } = self;
 
         if !dry_run {
@@ -348,6 +352,7 @@ impl CliExecuter for Topics {
                 .check_tum(true)
                 .topics_enabled(opt_in)
                 .topics_disabled(opt_out)
+                .download_only(download_only)
                 .build()
                 .run()?;
 
@@ -379,7 +384,7 @@ impl CliExecuter for Topics {
                 }
             }
             Err(e) => {
-                if !always_write_status {
+                if !always_write_status && !download_only {
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
                     RT.block_on(tm.write_enabled(true))?;

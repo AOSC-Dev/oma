@@ -36,7 +36,7 @@ pub use oma_pm_operation_type::*;
 use zbus::Connection;
 
 use crate::{
-    commit::{CommitNetworkConfig, CustomDownloadMessage, DoInstall},
+    commit::{CommitConfig, CustomDownloadMessage, DoInstall},
     dbus::create_session,
     download::download_pkgs,
     matches::MatcherError,
@@ -586,7 +586,7 @@ impl OmaApt {
         install_progress_manager: InstallProgressOpt,
         op: &OmaOperation,
         client: &Client,
-        config: CommitNetworkConfig,
+        config: CommitConfig,
         custom_download_message: Option<CustomDownloadMessage>,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<()> {
