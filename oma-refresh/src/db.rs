@@ -127,6 +127,7 @@ pub struct OmaRefresh<'a> {
     topic_msg: &'a str,
     auth_config: Option<&'a AuthConfig>,
     sources_lists_paths: Option<Vec<PathBuf>>,
+    #[cfg(feature = "apt")]
     #[builder(default)]
     another_apt_options: Vec<String>,
 }
@@ -228,14 +229,25 @@ impl<'a> OmaRefresh<'a> {
                 .apt_config
                 .dir("Dir::Etc::sourceparts", "sources.list.d");
 
-            #[cfg(not(feature = "apt"))]
-            let list_file = self.source.join("etc/apt/sources.list");
+            #[cfg(feature = "apt")]
+            {
+                debug!("sources.list is: {list_file}");
+                debug!("sources.list.d is: {list_dir}");
+            }
 
             #[cfg(not(feature = "apt"))]
-            let list_dir = self.source.join("etc/apt/sources.list.d");
+            let list_file = self
+                .source
+                .join("etc/apt/sources.list")
+                .to_string_lossy()
+                .to_string();
 
-            debug!("sources.list is: {list_file}");
-            debug!("sources.list.d is: {list_dir}");
+            #[cfg(not(feature = "apt"))]
+            let list_dir = self
+                .source
+                .join("etc/apt/sources.list.d")
+                .to_string_lossy()
+                .to_string();
 
             scan_sources_lists_paths_from_sysroot(list_file, list_dir)
                 .await
@@ -319,6 +331,18 @@ impl<'a> OmaRefresh<'a> {
             let (k, v) = i.split_once('=').unwrap_or((i.as_str(), ""));
             debug!("Setting apt opt: {k}={v}");
             self.apt_config.set(k, v);
+        }
+
+        // default compression order
+        if self
+            .apt_config
+            .find_vector("Acquire::CompressionTypes::Order")
+            .is_empty()
+        {
+            self.apt_config.set_vector(
+                "Acquire::CompressionTypes::Order",
+                &vec!["zst", "xz", "bz2", "lzma", "gz", "lz4"],
+            );
         }
     }
 
@@ -862,6 +886,8 @@ fn collect_download_task(
                     Some("xz") => CompressFile::Xz,
                     Some("bz2") => CompressFile::Bz2,
                     Some("zst") => CompressFile::Zstd,
+                    Some("lzma") => CompressFile::Lzma,
+                    Some("lz4") => CompressFile::Lz4,
                     _ => CompressFile::Nothing,
                 }
             }

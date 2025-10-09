@@ -6,7 +6,9 @@ use std::{
     time::Duration,
 };
 
-use async_compression::futures::bufread::{BzDecoder, GzipDecoder, XzDecoder, ZstdDecoder};
+use async_compression::futures::bufread::{
+    BzDecoder, GzipDecoder, Lz4Decoder, LzmaDecoder, XzDecoder, ZstdDecoder,
+};
 use bon::bon;
 use futures::{AsyncRead, TryStreamExt, io::BufReader};
 use reqwest::{
@@ -477,8 +479,10 @@ impl<'a> SingleDownloader<'a> {
             CompressFile::Xz => &mut XzDecoder::new(BufReader::new(bytes_stream)),
             CompressFile::Gzip => &mut GzipDecoder::new(BufReader::new(bytes_stream)),
             CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Nothing => &mut BufReader::new(bytes_stream),
             CompressFile::Zstd => &mut ZstdDecoder::new(BufReader::new(bytes_stream)),
+            CompressFile::Lzma => &mut LzmaDecoder::new(BufReader::new(bytes_stream)),
+            CompressFile::Lz4 => &mut Lz4Decoder::new(BufReader::new(bytes_stream)),
+            CompressFile::Nothing => &mut BufReader::new(bytes_stream),
         };
 
         let mut reader = reader.compat();
@@ -625,8 +629,10 @@ impl<'a> SingleDownloader<'a> {
             CompressFile::Xz => &mut XzDecoder::new(BufReader::new(from)),
             CompressFile::Gzip => &mut GzipDecoder::new(BufReader::new(from)),
             CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(from)),
-            CompressFile::Nothing => &mut BufReader::new(from),
             CompressFile::Zstd => &mut ZstdDecoder::new(BufReader::new(from)),
+            CompressFile::Lzma => &mut LzmaDecoder::new(BufReader::new(from)),
+            CompressFile::Lz4 => &mut Lz4Decoder::new(BufReader::new(from)),
+            CompressFile::Nothing => &mut BufReader::new(from),
         };
 
         let mut reader = reader.compat();
