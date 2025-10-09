@@ -417,3 +417,4 @@ clap-mark-unhold = 解锁软件包版本，这将撤销指定软件包的 "保�
 clap-mark-manual = 将软件包标记为手动安装、 这将防止指定软件包在所有逆向依赖关系被移除后被移除
 clap-mark-auto = 将软件包标记为自动安装，这将标记指定软件包在所有逆向依赖关系被移除后被移除
 yes-mode-conflict-ui = 在 UI 模式下 `--yes` 模式将不启用。
+clap-download-only-help = 只下载软件包和其依赖项，不安装

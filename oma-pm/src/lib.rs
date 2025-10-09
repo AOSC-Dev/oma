@@ -39,7 +39,7 @@ mod commit;
 mod dbus;
 mod download;
 pub mod utils;
-pub use commit::CommitNetworkConfig;
+pub use commit::CommitConfig;
 pub mod sort;
 pub use apt_auth_config;
 pub use commit::CustomDownloadMessage;

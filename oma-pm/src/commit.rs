@@ -21,16 +21,17 @@ use crate::{
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
-pub struct CommitNetworkConfig<'a> {
+pub struct CommitConfig<'a> {
     pub network_thread: Option<usize>,
     pub auth_config: Option<&'a AuthConfig>,
+    pub download_only: bool,
 }
 
 pub struct DoInstall<'a> {
     apt: OmaApt,
     client: &'a Client,
     sysroot: &'a str,
-    config: CommitNetworkConfig<'a>,
+    config: CommitConfig<'a>,
 }
 
 pub type CustomDownloadMessage = Box<dyn Fn(&InstallEntry) -> Cow<'static, str>>;
@@ -40,7 +41,7 @@ impl<'a> DoInstall<'a> {
         apt: OmaApt,
         client: &'a Client,
         sysroot: &'a str,
-        config: CommitNetworkConfig<'a>,
+        config: CommitConfig<'a>,
     ) -> Result<Self, OmaAptError> {
         Ok(Self {
             apt,
@@ -63,7 +64,9 @@ impl<'a> DoInstall<'a> {
             return Err(OmaAptError::FailedToDownload(summary.failed.len()));
         }
 
-        self.do_install(install_progress_manager, op)?;
+        if !self.config.download_only {
+            self.do_install(install_progress_manager, op)?;
+        }
 
         Ok(())
     }

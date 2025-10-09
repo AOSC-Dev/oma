@@ -97,6 +97,9 @@ pub struct Install {
     /// Auto remove unnecessary package(s)
     #[arg(long, help = fl!("clap-autoremove-help"))]
     autoremove: bool,
+    /// Only download dependencies, not install
+    #[arg(long, short, help = fl!("clap-download-only-help"))]
+    download_only: bool,
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
@@ -139,6 +142,7 @@ impl CliExecuter for Install {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
+            download_only,
         } = self;
 
         if !dry_run {
@@ -245,6 +249,7 @@ impl CliExecuter for Install {
             .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
             .maybe_auth_config(auth_config)
             .fix_dpkg_status(!no_fix_dpkg_status)
+            .download_only(download_only)
             .build()
             .run()
     }

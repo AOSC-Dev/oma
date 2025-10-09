@@ -57,6 +57,9 @@ pub struct Pick {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
+    /// Only download dependencies, not install
+    #[arg(long, short, help = fl!("clap-download-only-help"))]
+    download_only: bool,
     /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
     #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
     dry_run: bool,
@@ -101,6 +104,7 @@ impl CliExecuter for Pick {
             download_threads,
             no_check_battery,
             no_take_wake_lock,
+            download_only,
         } = self;
 
         if !dry_run {
@@ -231,6 +235,7 @@ impl CliExecuter for Pick {
             .autoremove(autoremove)
             .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
             .maybe_auth_config(auth_config)
+            .download_only(download_only)
             .build()
             .run()
     }
