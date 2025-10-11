@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.49.3"
+version = "0.50.0"
 edition = "2024"
 description = "APT repository refresh handler library"
 license = "GPL-3.0-or-later"
@@ -8,7 +8,7 @@ license = "GPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-oma-fetch = { version = "^0.33.0", path = "../oma-fetch", default-features = false }
+oma-fetch = { version = "^0.34.0", path = "../oma-fetch", default-features = false }
 thiserror = "2"
 url = "2.3"
 tokio = { version = "1.28", default-features = false, features = ["fs", "process", "macros"] }
