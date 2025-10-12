@@ -237,7 +237,10 @@ fn main() {
 
 fn init_apt_config(oma: &OhManagerAilurus) {
     let apt_config = AptConfig::new();
-    apt_config.set("Dir", &oma.global.sysroot.to_string_lossy());
+
+    if !is_termux() {
+        apt_config.set("Dir", &oma.global.sysroot.to_string_lossy());
+    }
 
     for kv in &oma.global.apt_options {
         let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
@@ -668,7 +671,7 @@ pub fn terminal_ring() {
     eprint!("\x07"); // bell character
 }
 
-pub fn sysroot_default_value() -> &'static str {
+fn sysroot_default_value() -> &'static str {
     if is_termux() {
         "/data/data/com.termux/files/usr/"
     } else {
