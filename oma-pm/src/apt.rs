@@ -651,11 +651,7 @@ impl OmaApt {
 
         if dpkg_update_path
             .read_dir()
-            .map_err(|e| {
-                OmaAptError::FailedOperateDirOrFile(dpkg_update_path.display().to_string(), e)
-            })?
-            .count()
-            != 0
+            .is_ok_and(|dir| dir.count() != 0)
         {
             need_reconfigure = true;
             need_retriggers = true;

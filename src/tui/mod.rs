@@ -9,7 +9,10 @@ use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs, Upgrade},
     search::IndiciumSearch,
 };
-use oma_utils::dbus::{InhibitTypeUnion, take_wake_lock};
+use oma_utils::{
+    dbus::{InhibitTypeUnion, take_wake_lock},
+    is_termux,
+};
 use tracing::info;
 use tui_inner::{Task, Tui as TuiInner};
 
@@ -153,7 +156,7 @@ impl CliExecuter for Tui {
 
             if no_check_battery {
                 check_battery_disabled_warn();
-            } else {
+            } else if !is_termux() {
                 match config.check_battery() {
                     BatteryTristate::Ask => {
                         if let Some(conn) = conn.as_ref() {
@@ -262,7 +265,7 @@ impl CliExecuter for Tui {
         let mut code = 0;
 
         if execute_apt {
-            let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run {
+            let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run && !is_termux() {
                 if no_take_wake_lock {
                     no_take_wake_lock_warn();
                     None
@@ -285,7 +288,9 @@ impl CliExecuter for Tui {
                     }
                 }
             } else {
-                no_check_dbus_warn();
+                if !is_termux() {
+                    no_check_dbus_warn();
+                }
                 None
             };
 
