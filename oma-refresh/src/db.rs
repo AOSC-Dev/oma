@@ -39,6 +39,7 @@ use oma_topics::TopicManager;
 #[cfg(feature = "aosc")]
 use oma_fetch::reqwest::StatusCode;
 
+use oma_utils::is_termux;
 use sysinfo::{Pid, System};
 use tokio::{
     fs::{self},
@@ -222,12 +223,19 @@ impl<'a> OmaRefresh<'a> {
             paths.to_vec()
         } else {
             #[cfg(feature = "apt")]
-            let list_file = self.apt_config.file("Dir::Etc::sourcelist", "sources.list");
+            let list_file = if is_termux() {
+                "/data/data/com.termux/files/usr/etc/apt/sources.list".to_string()
+            } else {
+                self.apt_config.file("Dir::Etc::sourcelist", "sources.list")
+            };
 
             #[cfg(feature = "apt")]
-            let list_dir = self
-                .apt_config
-                .dir("Dir::Etc::sourceparts", "sources.list.d");
+            let list_dir = if is_termux() {
+                "/data/data/com.termux/files/usr/etc/apt/sources.list.d".to_string()
+            } else {
+                self.apt_config
+                    .dir("Dir::Etc::sourceparts", "sources.list.d")
+            };
 
             #[cfg(feature = "apt")]
             {
@@ -236,18 +244,24 @@ impl<'a> OmaRefresh<'a> {
             }
 
             #[cfg(not(feature = "apt"))]
-            let list_file = self
-                .source
-                .join("etc/apt/sources.list")
-                .to_string_lossy()
-                .to_string();
+            let list_file = if is_termux() {
+                "/data/data/com.termux/files/usr/etc/apt/sources.list".to_string()
+            } else {
+                self.source
+                    .join("etc/apt/sources.list")
+                    .to_string_lossy()
+                    .to_string()
+            };
 
             #[cfg(not(feature = "apt"))]
-            let list_dir = self
-                .source
-                .join("etc/apt/sources.list.d")
-                .to_string_lossy()
-                .to_string();
+            let list_dir = if is_termux() {
+                "/data/data/com.termux/files/usr/etc/apt/sources.list.d".to_string()
+            } else {
+                self.source
+                    .join("etc/apt/sources.list.d")
+                    .to_string_lossy()
+                    .to_string()
+            };
 
             scan_sources_lists_paths_from_sysroot(list_file, list_dir)
                 .await

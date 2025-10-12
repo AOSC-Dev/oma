@@ -31,6 +31,7 @@ apt-auth-config = { version = "0.4.0", path = "../apt-auth-config" }
 deb822-fast = { version = "0.2", features = ["derive"] }
 sys-locale = "0.3"
 fancy-regex = "0.16"
+oma-utils = { version = "0.12", path = "../oma-utils", default-features = false }
 
 [features]
 aosc = ["dep:oma-topics"]
