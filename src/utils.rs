@@ -27,6 +27,7 @@ use oma_utils::{
         Connection, InhibitTypeUnion, create_dbus_connection, is_using_battery, session_name,
         take_wake_lock,
     },
+    is_termux,
     zbus::zvariant::OwnedFd,
 };
 use rustix::process;
@@ -71,11 +72,6 @@ pub fn root() -> Result<()> {
         description: fl!("please-run-me-as-root"),
         source: None,
     })
-}
-
-#[inline]
-pub fn is_termux() -> bool {
-    env::var("TERMUX__PREFIX").is_ok_and(|v| !v.is_empty())
 }
 
 #[inline]
