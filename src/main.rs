@@ -33,7 +33,7 @@ use oma_console::OmaLayer;
 use oma_console::print::{OmaColorFormat, termbg};
 use oma_console::writer::{MessageType, Writer, writeln_inner};
 use oma_pm::apt::AptConfig;
-use oma_utils::OsRelease;
+use oma_utils::{is_termux, OsRelease};
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use reqwest::Client;
 use rustix::stdio::stdout;
@@ -55,7 +55,6 @@ use crate::config::Config;
 use crate::error::Chain;
 use crate::install_progress::osc94_progress;
 use crate::subcommand::*;
-use crate::utils::is_termux;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);

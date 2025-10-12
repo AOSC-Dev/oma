@@ -73,8 +73,3 @@ pub fn is_installed_pkg_contains_file(
 
     Ok(false)
 }
-
-#[inline]
-pub(crate) fn is_termux() -> bool {
-    std::env::var("TERMUX__PREFIX").is_ok_and(|v| !v.is_empty())
-}
