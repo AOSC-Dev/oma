@@ -11,6 +11,7 @@ use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use oma_pm::oma_apt::{Package, PackageSort};
 use oma_pm::pkginfo::OmaPackageWithoutVersion;
+use oma_utils::is_termux;
 use ratatui::crossterm::event::{self, KeyCode, KeyModifiers};
 use ratatui::layout::{Flex, Rect};
 use ratatui::prelude::Constraint;
@@ -115,7 +116,11 @@ impl CliExecuter for SizeAnalyzer {
             no_take_wake_lock,
         } = self;
 
-        let detail = if !is_root() { false } else { !details };
+        let detail = if !is_root() && !is_termux() {
+            false
+        } else {
+            !details
+        };
 
         let mut apt = OmaApt::new(
             vec![],
