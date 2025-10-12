@@ -104,8 +104,12 @@ pub fn dbus_check(
     no_take_wake_lock: bool,
     no_check_battery: bool,
 ) -> Result<Option<OwnedFd>> {
-    if config.no_check_dbus() || no_check_dbus || dry_run || is_termux() {
+    if config.no_check_dbus() || no_check_dbus || dry_run {
         no_check_dbus_warn();
+        return Ok(None);
+    }
+
+    if is_termux() {
         return Ok(None);
     }
 
@@ -163,6 +167,10 @@ pub(crate) fn no_take_wake_lock_warn() {
 
 pub fn connect_dbus_impl() -> Option<Connection> {
     let Ok(conn) = RT.block_on(create_dbus_connection()) else {
+        if is_termux() {
+            return None;
+        }
+
         warn!("{}", fl!("failed-check-dbus"));
         warn!("{}", fl!("failed-check-dbus-tips-1"));
         info!("{}", fl!("failed-check-dbus-tips-2"));
