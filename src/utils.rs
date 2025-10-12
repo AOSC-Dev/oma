@@ -27,6 +27,7 @@ use oma_utils::{
         Connection, InhibitTypeUnion, create_dbus_connection, is_using_battery, session_name,
         take_wake_lock,
     },
+    is_termux,
     zbus::zvariant::OwnedFd,
 };
 use rustix::process;
@@ -74,11 +75,6 @@ pub fn root() -> Result<()> {
 }
 
 #[inline]
-pub fn is_termux() -> bool {
-    env::var("TERMUX__PREFIX").is_ok_and(|v| !v.is_empty())
-}
-
-#[inline]
 pub fn is_root() -> bool {
     process::geteuid().is_root()
 }
@@ -108,8 +104,12 @@ pub fn dbus_check(
     no_take_wake_lock: bool,
     no_check_battery: bool,
 ) -> Result<Option<OwnedFd>> {
-    if config.no_check_dbus() || no_check_dbus || dry_run || is_termux() {
+    if config.no_check_dbus() || no_check_dbus || dry_run {
         no_check_dbus_warn();
+        return Ok(None);
+    }
+
+    if is_termux() {
         return Ok(None);
     }
 
@@ -167,6 +167,10 @@ pub(crate) fn no_take_wake_lock_warn() {
 
 pub fn connect_dbus_impl() -> Option<Connection> {
     let Ok(conn) = RT.block_on(create_dbus_connection()) else {
+        if is_termux() {
+            return None;
+        }
+
         warn!("{}", fl!("failed-check-dbus"));
         warn!("{}", fl!("failed-check-dbus-tips-1"));
         info!("{}", fl!("failed-check-dbus-tips-2"));

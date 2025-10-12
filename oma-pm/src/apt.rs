@@ -24,7 +24,7 @@ use oma_apt::{
 };
 
 use oma_fetch::{Event, Summary, checksum::ChecksumError, reqwest::Client};
-use oma_utils::{dpkg::DpkgError, human_bytes::HumanBytes};
+use oma_utils::{dpkg::DpkgError, human_bytes::HumanBytes, is_termux};
 
 pub use oma_apt::config::Config as AptConfig;
 use tracing::{debug, error};
@@ -43,7 +43,6 @@ use crate::{
     pkginfo::{OmaDependency, OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::InstallProgressManager,
     sort::SummarySort,
-    utils::is_termux,
 };
 
 pub enum InstallProgressOpt {
@@ -652,11 +651,7 @@ impl OmaApt {
 
         if dpkg_update_path
             .read_dir()
-            .map_err(|e| {
-                OmaAptError::FailedOperateDirOrFile(dpkg_update_path.display().to_string(), e)
-            })?
-            .count()
-            != 0
+            .is_ok_and(|dir| dir.count() != 0)
         {
             need_reconfigure = true;
             need_retriggers = true;

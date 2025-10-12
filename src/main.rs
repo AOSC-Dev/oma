@@ -33,8 +33,8 @@ use oma_console::OmaLayer;
 use oma_console::print::{OmaColorFormat, termbg};
 use oma_console::writer::{MessageType, Writer, writeln_inner};
 use oma_pm::apt::AptConfig;
-use oma_utils::OsRelease;
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
+use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
 use rustix::stdio::stdout;
 use subcommand::utils::{LockError, is_terminal};
@@ -55,7 +55,6 @@ use crate::config::Config;
 use crate::error::Chain;
 use crate::install_progress::osc94_progress;
 use crate::subcommand::*;
-use crate::utils::is_termux;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -238,7 +237,10 @@ fn main() {
 
 fn init_apt_config(oma: &OhManagerAilurus) {
     let apt_config = AptConfig::new();
-    apt_config.set("Dir", &oma.global.sysroot.to_string_lossy());
+
+    if !is_termux() {
+        apt_config.set("Dir", &oma.global.sysroot.to_string_lossy());
+    }
 
     for kv in &oma.global.apt_options {
         let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
@@ -669,7 +671,7 @@ pub fn terminal_ring() {
     eprint!("\x07"); // bell character
 }
 
-pub fn sysroot_default_value() -> &'static str {
+fn sysroot_default_value() -> &'static str {
     if is_termux() {
         "/data/data/com.termux/files/usr/"
     } else {
