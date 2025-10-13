@@ -296,6 +296,6 @@ impl Formatter for OmaFormatter {
         ctx: &mut spdlog::formatter::FormatterContext,
     ) -> spdlog::Result<()> {
         self.format_impl(record, dest, ctx)
-            .map_err(|e| spdlog::Error::FormatRecord(e))
+            .map_err(spdlog::Error::FormatRecord)
     }
 }
