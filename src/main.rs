@@ -37,10 +37,9 @@ use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
 use rustix::stdio::stdout;
-// FIXME: `spdlog::error` is conflict with `mod error`
 use spdlog::{
     Level, LevelFilter, Logger, debug, info, init_log_crate_proxy,
-    prelude::error as error2,
+    prelude::error as log_error,
     set_default_logger,
     sink::{AsyncPoolSink, RotatingFileSink, RotationPolicy, StdStreamSink},
     warn,
@@ -380,7 +379,7 @@ fn try_main(
                 if !plugin.is_file() {
                     plugin = plugin_fallback;
                     if !plugin.is_file() {
-                        error2!("{}", fl!("custom-command-unknown", subcmd = subcommand));
+                        log_error!("{}", fl!("custom-command-unknown", subcmd = subcommand));
                         return Ok(1);
                     }
                 }
@@ -393,7 +392,7 @@ fn try_main(
 
                 let status = process.status().unwrap().code().unwrap();
                 if status != 0 {
-                    error2!("{}", fl!("custom-command-applet-exception", s = status));
+                    log_error!("{}", fl!("custom-command-applet-exception", s = status));
                 }
 
                 Ok(status)
@@ -485,7 +484,7 @@ fn color_formatter() -> &'static OmaColorFormat {
 fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
     let mut unlock = true;
     if !e.description.is_empty() {
-        error2!("{e}");
+        log_error!("{e}");
 
         let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
         let last_cause = cause.last();
@@ -532,7 +531,7 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
                 unlock = false;
                 if let Err(e) = find_another_oma() {
                     debug!("{e}");
-                    error2!("{}", fl!("failed-to-lock-oma"));
+                    log_error!("{}", fl!("failed-to-lock-oma"));
                 }
             }
         }
@@ -555,7 +554,7 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
         pkg => fl!("status-package", pkg = pkg),
     };
 
-    error2!("{}", fl!("another-oma-is-running", s = status));
+    log_error!("{}", fl!("another-oma-is-running", s = status));
 
     Ok(())
 }
