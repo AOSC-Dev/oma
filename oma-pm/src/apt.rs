@@ -320,6 +320,14 @@ impl OmaApt {
             debug!("{k}={v} is set");
         }
 
+        #[cfg(feature = "aosc")]
+        if another_apt_options
+            .iter()
+            .all(|kv| !kv.starts_with("APT::Solver"))
+        {
+            config.set("APT::Solver", "3.0");
+        }
+
         Ok(config)
     }
 
