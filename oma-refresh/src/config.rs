@@ -395,6 +395,9 @@ fn compress_file(name: &str) -> CompressFileWrapper {
 #[cfg(feature = "apt")]
 #[test]
 fn test_compression_order() {
+    use crate::test::TEST_LOCK;
+
+    let _lock = TEST_LOCK.lock().unwrap();
     let config = Config::new();
 
     config.set_vector(
@@ -444,6 +447,9 @@ fn test_get_matches_language() {
 #[cfg(feature = "apt")]
 #[test]
 fn test_get_tree() {
+    use crate::test::TEST_LOCK;
+
+    let _lock = TEST_LOCK.lock().unwrap();
     let t = get_tree(&Config::new(), "Acquire::IndexTargets::deb");
     assert!(t.iter().any(|x| x.0.contains("::deb::")));
     assert!(t.iter().all(|x| !x.0.contains("::deb-src::")))
