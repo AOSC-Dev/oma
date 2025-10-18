@@ -40,8 +40,15 @@ _parse_os_release() {
 >>> Detected Debian ${VERSION_ID} ...
 "
 	elif [ "$ID" = 'debian' -a \
-	       "$VERSION_CODENAME" = 'trixie' ]; then
+	       "$VERSION_ID" = '13' ]; then
 		_oma_codename='trixie'
+		echo "
+>>> 探测到 Debian ${VERSION_ID} ...
+>>> Detected Debian ${VERSION_ID} ...
+"
+	elif [ "$ID" = 'debian' -a \
+	       "$VERSION_CODENAME" = 'forky' ]; then
+		_oma_codename='forky'
 		echo "
 >>> 探测到 Debian Testing/Unstable (${VERSION_CODENAME}) ...
 >>> Detected Debian Testing/Unstable (${VERSION_CODENAME}) ...
@@ -77,6 +84,11 @@ _parse_os_release() {
 		elif [ "$VERSION_ID" = '24.10' ]; then
 			# Match 24.04 (Noble Numbat).
 			_oma_codename='noble'
+			_non_lts='1'
+		elif [ "$VERSION_ID" = '25.04' -o \
+		       "$VERSION_ID" = '25.10' ]; then
+			# Ubuntu >= 25.04 uses libapt-pkg7.0
+			_oma_codename='plucky'
 			_non_lts='1'
 		else
 			echo "
@@ -132,6 +144,8 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 	elif [ "${ID}" = 'linuxmint' ]; then
 		if [ "$VERSION_CODENAME" = 'faye' ]; then
 			_oma_codename='bookworm'
+		elif [ "$VERSION_CODENAME" = 'gigi' ]; then
+			_oma_codename='trixie'
 		elif [ "$VERSION_CODENAME" = 'ulyana' -o \
 		       "$VERSION_CODENAME" = 'ulyssa' -o \
 		       "$VERSION_CODENAME" = 'uma' -o \
@@ -143,7 +157,8 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 		       "$VERSION_CODENAME" = 'virginia' ]; then
 			_oma_codename='jammy'
 		elif [ "$VERSION_CODENAME" = 'wilma' -o \
-		       "$VERSION_CODENAME" = 'xia' ]; then
+		       "$VERSION_CODENAME" = 'xia' -o \
+		       "$VERSION_CODENAME" = "zara" ]; then
 			_oma_codename='noble'
 		else
 			echo "
