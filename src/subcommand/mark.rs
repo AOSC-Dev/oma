@@ -7,7 +7,7 @@ use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
-use tracing::info;
+use spdlog::info;
 
 use crate::{
     color_formatter,

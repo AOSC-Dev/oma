@@ -11,7 +11,7 @@ use indexmap::{IndexMap, indexmap};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
-use tracing::debug;
+use spdlog::debug;
 
 use crate::parser::{
     MirrorConfig, MirrorConfigTemplate, MirrorsConfig, MirrorsConfigTemplate, TemplateParseError,

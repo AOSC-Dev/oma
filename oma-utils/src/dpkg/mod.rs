@@ -4,7 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use tracing::debug;
+use spdlog::debug;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DpkgError {
