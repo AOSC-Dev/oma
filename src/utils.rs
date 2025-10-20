@@ -31,7 +31,7 @@ use oma_utils::{
     zbus::zvariant::OwnedFd,
 };
 use rustix::process;
-use tracing::{debug, info, warn};
+use spdlog::{debug, info, warn};
 
 type Result<T> = std::result::Result<T, OutputError>;
 
@@ -249,7 +249,7 @@ macro_rules! msg {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
         let s = format!($($arg)+);
-        tracing::debug!("{s}");
+        spdlog::debug!("{s}");
         $crate::WRITER.writeln("", &s).ok();
     };
 }
@@ -260,7 +260,7 @@ macro_rules! success {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
         let s = format!($($arg)+);
-        tracing::debug!("{s}");
+        spdlog::debug!("{s}");
         $crate::WRITER.writeln(&oma_console::console::style("SUCCESS").green().bold().to_string(), &s).ok();
     };
 }
@@ -271,7 +271,7 @@ macro_rules! due_to {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
         let s = format!($($arg)+);
-        tracing::debug!("{s}");
+        spdlog::debug!("{s}");
         $crate::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &s).ok();
     };
 }

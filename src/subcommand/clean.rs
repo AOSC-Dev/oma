@@ -3,13 +3,13 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use crate::subcommand::utils::create_progress_spinner;
+use crate::success;
 use crate::{config::Config, fl};
-use crate::{error, success};
 use clap::Args;
 use fs_extra::dir::get_size;
 use oma_console::indicatif::HumanBytes;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-use tracing::{debug, info};
+use spdlog::{debug, error, info};
 
 use crate::{error::OutputError, utils::root};
 

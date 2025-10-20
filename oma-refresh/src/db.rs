@@ -40,12 +40,13 @@ use oma_topics::TopicManager;
 use oma_fetch::reqwest::StatusCode;
 
 use oma_utils::is_termux;
+
+use spdlog::{debug, warn};
 use sysinfo::{Pid, System};
 use tokio::{
     fs::{self},
     task::spawn_blocking,
 };
-use tracing::{debug, warn};
 
 use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
 use crate::{
@@ -392,7 +393,6 @@ impl<'a> OmaRefresh<'a> {
     #[cfg(feature = "apt")]
     async fn run_success_post_invoke(&self) {
         use tokio::process::Command;
-        use tracing::warn;
 
         let cmds = self
             .apt_config

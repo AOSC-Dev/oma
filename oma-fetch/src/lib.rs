@@ -4,9 +4,8 @@ use bon::{Builder, builder};
 use checksum::Checksum;
 use download::{BuilderError, SingleDownloader, SuccessSummary};
 use futures::StreamExt;
-
 use reqwest::{Client, Method, RequestBuilder, Response};
-use tracing::debug;
+use spdlog::debug;
 
 pub mod checksum;
 pub mod download;
