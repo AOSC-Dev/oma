@@ -14,5 +14,5 @@ pub mod url_no_escape;
 
 #[inline]
 pub fn is_termux() -> bool {
-    std::env::var("TERMUX__PREFIX").is_ok_and(|v| !v.is_empty())
+    std::env::var("TERMUX_VERSION").is_ok_and(|v| !v.is_empty())
 }
