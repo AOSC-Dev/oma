@@ -170,8 +170,8 @@ impl<'a> Tui<'a> {
                     match key.code {
                         KeyCode::Right => self.goto_next_word(),
                         KeyCode::Left => self.goto_previous_word(),
-                        KeyCode::Char('p') => self.handle_up(),
-                        KeyCode::Char('n') => self.handle_down(),
+                        KeyCode::Char('p') => self.handle_up(false),
+                        KeyCode::Char('n') => self.handle_down(false),
                         KeyCode::Char('w') => self.delete_word_backward(),
                         KeyCode::Char('c') => {
                             return Ok(Task {
@@ -228,8 +228,8 @@ impl<'a> Tui<'a> {
                 }
 
                 match key.code {
-                    KeyCode::Up => self.handle_up(),
-                    KeyCode::Down => self.handle_down(),
+                    KeyCode::Up => self.handle_up(false),
+                    KeyCode::Down => self.handle_down(false),
                     KeyCode::Esc => break,
                     KeyCode::Char(' ') => {
                         if let ControlFlow::Break(_) = self.handle_space() {
@@ -266,6 +266,8 @@ impl<'a> Tui<'a> {
                     KeyCode::Left => self.handle_left(),
                     KeyCode::Right => self.handle_right(),
                     KeyCode::F(1) => self.display_pending_detail = !self.display_pending_detail,
+                    KeyCode::PageDown => self.handle_down(true),
+                    KeyCode::PageUp => self.handle_up(true),
                     _ => {}
                 }
             }
@@ -553,24 +555,33 @@ impl<'a> Tui<'a> {
         ControlFlow::Continue(())
     }
 
-    fn handle_down(&mut self) {
+    fn handle_down(&mut self, is_pgdn: bool) {
         match self.mode {
-            Mode::Search => {
+            Mode::Search if !is_pgdn => {
                 change_to_packages_window(&mut self.mode, &mut self.pkg_result_state);
             }
             Mode::Packages => {
-                self.pkg_result_state.next();
+                if is_pgdn {
+                    self.pkg_result_state.page_down();
+                } else {
+                    self.pkg_result_state.next();
+                }
                 self.result_scroll = self
                     .result_scroll
                     .position(self.pkg_result_state.state.selected().unwrap_or(0));
             }
             Mode::Pending => {
-                self.pending_result_state.next();
+                if is_pgdn {
+                    self.pending_result_state.page_down();
+                } else {
+                    self.pending_result_state.next();
+                }
             }
+            _ => {}
         }
     }
 
-    fn handle_up(&mut self) {
+    fn handle_up(&mut self, is_pgup: bool) {
         match self.mode {
             Mode::Search => {}
             Mode::Packages => {
@@ -580,10 +591,15 @@ impl<'a> Tui<'a> {
                     .selected()
                     .map(|x| x == 0)
                     .unwrap_or(true)
+                    && !is_pgup
                 {
                     self.mode = Mode::Search;
                 } else {
-                    self.pkg_result_state.previous();
+                    if is_pgup {
+                        self.pkg_result_state.page_up();
+                    } else {
+                        self.pkg_result_state.previous();
+                    }
                     self.result_scroll = self
                         .result_scroll
                         .position(self.pkg_result_state.state.selected().unwrap_or(0));
@@ -596,8 +612,11 @@ impl<'a> Tui<'a> {
                     .selected()
                     .map(|x| x == 0)
                     .unwrap_or(true)
+                    && !is_pgup
                 {
                     self.mode = Mode::Search;
+                } else if is_pgup {
+                    self.pending_result_state.page_up();
                 } else {
                     self.pending_result_state.previous();
                 }

@@ -30,4 +30,22 @@ impl<T> StatefulList<T> {
         };
         self.state.select(i);
     }
+
+    pub fn page_down(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => Some(if i < self.items.len() - 1 { i + 4 } else { i }),
+            None if self.items.is_empty() => None,
+            None => Some(0),
+        };
+        self.state.select(i);
+    }
+
+    pub fn page_up(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => Some(i.saturating_sub(4)),
+            None if self.items.is_empty() => None,
+            None => Some(0),
+        };
+        self.state.select(i);
+    }
 }
