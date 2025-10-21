@@ -125,7 +125,7 @@ pub struct InstallEntry {
     op: InstallOperation,
     #[builder(default)]
     automatic: bool,
-    index: u64,
+    index: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Default, Serialize, Deserialize, Builder)]
@@ -141,7 +141,7 @@ pub struct RemoveEntry {
     size: u64,
     details: Vec<RemoveTag>,
     arch: String,
-    index: u64,
+    index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -232,7 +232,7 @@ impl InstallEntry {
         self.automatic
     }
 
-    pub fn index(&self) -> u64 {
+    pub fn index(&self) -> usize {
         self.index
     }
 }
@@ -244,7 +244,7 @@ impl RemoveEntry {
         size: u64,
         details: Vec<RemoveTag>,
         arch: String,
-        index: u64,
+        index: usize,
     ) -> Self {
         Self {
             name,
@@ -276,7 +276,7 @@ impl RemoveEntry {
         &self.arch
     }
 
-    pub fn index(&self) -> u64 {
+    pub fn index(&self) -> usize {
         self.index
     }
 }
