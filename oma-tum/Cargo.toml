@@ -1,12 +1,12 @@
 [package]
 name = "oma-tum"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 license = "MIT"
 description = "AOSC OS Topic Update Manifest library"
 
 [dependencies]
-oma-pm-operation-type = { version = "0.9", path = "../oma-pm-operation-type" }
+oma-pm-operation-type = { version = "0.10", path = "../oma-pm-operation-type" }
 snafu = "0.8.6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

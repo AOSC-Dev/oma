@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.58.0"
+version = "0.59.0"
 edition = "2024"
 description = "APT package manager API abstraction library"
 license = "GPL-3.0-or-later"
@@ -25,7 +25,7 @@ tokio = { version = "1.15", default-features = false, features = [
 ] }
 fs4 = "0.13"
 tracing = "0.1"
-oma-pm-operation-type = { version = "0.9", path = "../oma-pm-operation-type" }
+oma-pm-operation-type = { version = "0.10", path = "../oma-pm-operation-type" }
 zbus = { version = "5.1", features = ["tokio"] }
 cxx = "1.0.121"
 ahash = "0.8.11"
