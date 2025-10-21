@@ -80,11 +80,11 @@ pub struct OmaApt {
     /// See Document for `AptConfig`.
     pub config: AptConfig,
     /// The set of packages to be autoremoved.
-    autoremove: HashSet<u64>,
+    autoremove: HashSet<usize>,
     /// Toggle for dry-run mode.
     dry_run: bool,
     /// The set of selected packages.
-    select_pkgs: HashSet<u64>,
+    select_pkgs: HashSet<usize>,
     /// A set of lists containing broken packages that have unmet dependencies.
     /// Each inner vector represents a group of packages with unmet dependencies.
     unmet: Vec<Vec<BrokenPackage>>,
