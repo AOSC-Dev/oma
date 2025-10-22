@@ -54,7 +54,7 @@ use crate::{
         ChecksumItem, InReleaseChecksum, InReleaseError, Release, file_is_compress,
         split_ext_and_filename, verify_inrelease,
     },
-    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, scan_sources_lists_paths_from_sysroot},
+    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, scan_sources_lists_paths},
     util::DatabaseFilenameReplacer,
 };
 
@@ -263,7 +263,7 @@ impl<'a> OmaRefresh<'a> {
                     .to_string()
             };
 
-            scan_sources_lists_paths_from_sysroot(list_file, list_dir)
+            scan_sources_lists_paths(list_file, list_dir)
                 .await
                 .map_err(RefreshError::ScanSourceError)?
         };
