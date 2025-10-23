@@ -52,7 +52,7 @@ impl Debug for OmaSourceEntry<'_> {
     }
 }
 
-pub(crate) async fn scan_sources_lists_paths_from_sysroot(
+pub(crate) async fn scan_sources_lists_paths(
     list_file: impl AsRef<str>,
     list_dir: impl AsRef<str>,
 ) -> Result<Vec<PathBuf>, SourcesListError> {
@@ -103,15 +103,17 @@ pub async fn scan_sources_list_from_paths<'a>(
         match SourcesList::new(p) {
             Ok(s) => match s.entries {
                 SourceListType::SourceLine(source_list_line_style) => {
-                    for i in source_list_line_style.0 {
-                        if let SourceLine::Entry(entry) = i {
+                    for source in source_list_line_style.0 {
+                        if let SourceLine::Entry(entry) = source
+                            && entry.enabled
+                        {
                             res.push(OmaSourceEntry::new(entry, arch));
                         }
                     }
                 }
                 SourceListType::Deb822(source_list_deb822) => {
-                    for i in source_list_deb822.entries {
-                        res.push(OmaSourceEntry::new(i, arch));
+                    for source in source_list_deb822.entries.into_iter().filter(|s| s.enabled) {
+                        res.push(OmaSourceEntry::new(source, arch));
                     }
                 }
             },
