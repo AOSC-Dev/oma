@@ -839,7 +839,11 @@ fn collect_download_task(
                 .as_ref()
                 .map(|auth| (auth.login.clone(), auth.password.clone())),
         },
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
+        OmaSourceEntryFrom::Local => DownloadSourceType::Local(
+            mirror_source.is_flat()
+                && (!file_is_compress(&c.item.name)
+                    || (file_is_compress(&c.item.name) && c.keep_compress)),
+        ),
     };
 
     let not_compress_filename_before = if file_is_compress(&c.item.name) {
