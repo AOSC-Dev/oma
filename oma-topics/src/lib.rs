@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     hash::Hash,
     io,
     path::{Path, PathBuf},
@@ -435,8 +436,14 @@ async fn refresh_innter<'a>(
     client: &'a Client,
     url: &'a str,
     arch: &'a str,
-) -> Result<(&'a str, Vec<Topic>)> {
-    let topics_metadata_url = Url::parse(url)
+) -> Result<(Cow<'a, str>, Vec<Topic>)> {
+    let url = if !url.ends_with('/') {
+        format!("{url}/").into()
+    } else {
+        Cow::Borrowed(url)
+    };
+
+    let topics_metadata_url = Url::parse(&url)
         .and_then(|url| url.join("debs/manifest/topics.json"))
         .map_err(|e| OmaTopicsError::ParseUrl(e, url.to_string()))?;
 
