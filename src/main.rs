@@ -428,7 +428,7 @@ fn create_log_file(log_dir: &Path) -> anyhow::Result<String> {
 
 #[inline]
 fn enable_ansi(oma: &OhManagerAilurus) -> bool {
-    (oma.global.color != ColorChoice::Never && stderr().is_terminal())
+    (oma.global.color != ColorChoice::Never && is_terminal())
         || oma.global.color == ColorChoice::Always
 }
 
