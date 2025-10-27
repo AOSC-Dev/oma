@@ -1,6 +1,6 @@
 [package]
 name = "oma-topics"
-version = "0.25.0"
+version = "0.25.1"
 edition = "2024"
 description = "AOSC OS topic (testing) repository manager used by oma"
 license = "MIT"

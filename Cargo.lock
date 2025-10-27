@@ -3080,7 +3080,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.51.0"
+version = "0.51.1"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3121,7 +3121,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.25.0"
+version = "0.25.1"
 dependencies = [
  "ahash",
  "futures",
