@@ -338,7 +338,12 @@ impl<'a> TopicManager<'a> {
             new_source_list.push_str(&format!("# Topic `{}`\n", i.name));
             for config in &template.config {
                 for (_, mirror) in self.mm.enabled_mirrors() {
-                    if !self.all.get(mirror).is_some_and(|x| x.contains(i)) {
+                    if !self
+                        .all
+                        .get(mirror)
+                        .or_else(|| self.all.get(&*format!("{mirror}/")))
+                        .is_some_and(|x| x.contains(i))
+                    {
                         message_cb(i.name.to_string(), mirror.to_string()).await;
                         continue;
                     }
