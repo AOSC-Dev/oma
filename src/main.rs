@@ -1,13 +1,45 @@
+use crate::config::Config;
+use crate::error::Chain;
+use crate::install_progress::osc94_progress;
+use crate::subcommand::*;
+use args::{CliExecuter, OhManagerAilurus};
+use clap::builder::FalseyValueParser;
+use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches, arg};
+use clap_complete::CompleteEnv;
+use clap_i18n_richformatter::{ClapI18nRichFormatter, init_clap_rich_formatter_localizer};
+use error::OutputError;
+use i18n_embed::{DesktopLanguageRequester, Localizer};
+use lang::LANGUAGE_LOADER;
+use libc::SIGHUP;
+use oma_console::OmaLayer;
+use oma_console::console;
+use oma_console::print::{OmaColorFormat, termbg};
+use oma_console::writer::{MessageType, Writer, writeln_inner};
+use oma_pm::apt::AptConfig;
+use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
+use oma_utils::{OsRelease, is_termux};
+use reqwest::Client;
+use signal_hook::consts::{SIGINT, SIGTERM};
+use signal_hook::iterator::Signals;
 use std::env::{self, args};
 use std::ffi::CString;
 use std::fs::{create_dir_all, read_dir, remove_file};
-use std::io::{self, IsTerminal, stderr, stdin};
+use std::io::{self, IsTerminal, stderr, stdin, stdout};
 use std::path::{Path, PathBuf};
-
 use std::process::{Command, exit};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use subcommand::utils::{LockError, is_terminal};
+use tokio::runtime::Runtime;
+use tracing::{debug, error, info, warn};
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Layer, fmt};
+use tui::Tui;
+use utils::{is_root, is_ssh_from_loginctl};
 
 mod args;
 mod config;
@@ -20,41 +52,6 @@ mod subcommand;
 mod table;
 mod tui;
 mod utils;
-
-use args::{CliExecuter, OhManagerAilurus};
-use clap::builder::FalseyValueParser;
-use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches, arg};
-use clap_complete::CompleteEnv;
-use clap_i18n_richformatter::{ClapI18nRichFormatter, init_clap_rich_formatter_localizer};
-use error::OutputError;
-use i18n_embed::{DesktopLanguageRequester, Localizer};
-use lang::LANGUAGE_LOADER;
-use oma_console::OmaLayer;
-use oma_console::print::{OmaColorFormat, termbg};
-use oma_console::writer::{MessageType, Writer, writeln_inner};
-use oma_pm::apt::AptConfig;
-use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
-use oma_utils::{OsRelease, is_termux};
-use reqwest::Client;
-use rustix::stdio::stdout;
-use subcommand::utils::{LockError, is_terminal};
-use tokio::runtime::Runtime;
-use tracing::{debug, error, info, warn};
-use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, Layer, fmt};
-use tui::Tui;
-use utils::{is_root, is_ssh_from_loginctl};
-
-use std::sync::atomic::{AtomicBool, Ordering};
-
-use oma_console::console;
-
-use crate::config::Config;
-use crate::error::Chain;
-use crate::install_progress::osc94_progress;
-use crate::subcommand::*;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -172,7 +169,15 @@ fn main() {
         .completer("oma")
         .complete();
 
-    ctrlc::set_handler(signal_handler).expect("oma could not initialize SIGINT handler.");
+    thread::spawn(|| {
+        let mut sigs =
+            Signals::new([SIGTERM, SIGINT, SIGHUP]).expect("Failed to set signal handler");
+
+        for signal in &mut sigs {
+            signal_handler();
+            std::process::exit(128 + signal)
+        }
+    });
 
     // 要适配额外的插件子命令，所以这里要保留 matches
     let (matches, oma) = parse_args();
@@ -703,6 +708,4 @@ fn signal_handler() {
     if !not_display_abort {
         info!("{}", fl!("user-aborted-op"));
     }
-
-    std::process::exit(130);
 }
