@@ -680,10 +680,6 @@ fn sysroot_default_value() -> &'static str {
 }
 
 fn single_handler() {
-    if NOT_ALLOW_CTRLC.load(Ordering::Relaxed) {
-        return;
-    }
-
     // Force drop osc94 progress
     osc94_progress(0.0, true);
 

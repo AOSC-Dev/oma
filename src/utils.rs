@@ -1,19 +1,17 @@
 use std::{
     env,
     path::{Path, PathBuf},
-    process::{Command, exit},
-    sync::atomic::Ordering,
+    process::{Command, Stdio, exit},
 };
 
+use crate::{RT, fl};
 use crate::{
-    NOT_ALLOW_CTRLC,
     config::{BatteryTristate, Config, TakeWakeLockTristate},
     error::OutputError,
     path_completions::PathCompleter,
     subcommand::utils::no_check_dbus_warn,
     unlock_oma,
 };
-use crate::{RT, fl};
 
 use anyhow::anyhow;
 use clap_complete::{CompletionCandidate, engine::ValueCompleter};
@@ -57,12 +55,12 @@ pub fn root() -> Result<()> {
         info!("{}", fl!("pkexec-tips-1"));
         info!("{}", fl!("pkexec-tips-2"));
 
-        NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
-
         let out = Command::new("pkexec")
             .args(args)
-            .spawn()
-            .and_then(|x| x.wait_with_output())
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .output()
             .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
 
         exit(out.status.code().unwrap_or(1));
