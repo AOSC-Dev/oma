@@ -1,5 +1,6 @@
 use std::{
     env,
+    io::ErrorKind,
     path::{Path, PathBuf},
     process::{Command, exit},
     sync::atomic::Ordering,
@@ -31,7 +32,7 @@ use oma_utils::{
     zbus::zvariant::OwnedFd,
 };
 use rustix::process;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 type Result<T> = std::result::Result<T, OutputError>;
 
@@ -180,12 +181,9 @@ pub fn connect_dbus_impl() -> Option<Connection> {
         let ans = Confirm::with_theme(&theme)
             .with_prompt(fl!("continue"))
             .default(false)
-            .interact()
-            .unwrap_or(false);
+            .interact();
 
-        if !ans {
-            exit(0);
-        }
+        handle_dialoguer_question_result(ans);
 
         return None;
     };
@@ -219,9 +217,27 @@ pub fn ask_continue_no_use_battery(conn: &Connection, yes: bool) {
             .default(false)
             .interact();
 
-        if !cont.unwrap_or(false) {
-            unlock_oma().ok();
-            exit(0);
+        handle_dialoguer_question_result(cont);
+    }
+}
+
+fn handle_dialoguer_question_result(res: std::result::Result<bool, dialoguer::Error>) {
+    match res {
+        Ok(b) => {
+            if !b {
+                unlock_oma().ok();
+                exit(0);
+            }
+        }
+        Err(e) => {
+            let dialoguer::Error::IO(e) = e;
+            if e.kind() != ErrorKind::Interrupted {
+                unlock_oma().ok();
+                error!("{e}");
+                exit(1);
+            } else {
+                debug!("Interrupted by user.");
+            }
         }
     }
 }

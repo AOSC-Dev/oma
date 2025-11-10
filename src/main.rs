@@ -655,7 +655,9 @@ pub fn lock_oma_inner(sysroot: &Path) -> io::Result<()> {
 
 /// Unlock oma
 pub fn unlock_oma() -> io::Result<()> {
-    if let Some(lock) = LOCK.get() {
+    if let Some(lock) = LOCK.get()
+        && lock.exists()
+    {
         std::fs::remove_file(lock)?;
     }
 
