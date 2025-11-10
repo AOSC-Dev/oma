@@ -172,7 +172,7 @@ fn main() {
         .completer("oma")
         .complete();
 
-    ctrlc::set_handler(single_handler).expect("oma could not initialize SIGINT handler.");
+    ctrlc::set_handler(signal_handler).expect("oma could not initialize SIGINT handler.");
 
     // 要适配额外的插件子命令，所以这里要保留 matches
     let (matches, oma) = parse_args();
@@ -681,7 +681,7 @@ fn sysroot_default_value() -> &'static str {
     }
 }
 
-fn single_handler() {
+fn signal_handler() {
     if NOT_ALLOW_CTRLC.load(Ordering::Relaxed) {
         return;
     }
