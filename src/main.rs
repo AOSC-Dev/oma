@@ -20,6 +20,7 @@ mod subcommand;
 mod table;
 mod tui;
 mod utils;
+mod polkit;
 
 use args::{CliExecuter, OhManagerAilurus};
 use clap::builder::FalseyValueParser;

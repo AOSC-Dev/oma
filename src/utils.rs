@@ -1,7 +1,7 @@
 use std::{
     env,
     path::{Path, PathBuf},
-    process::{Command, exit},
+    process::exit,
     sync::atomic::Ordering,
 };
 
@@ -10,6 +10,7 @@ use crate::{
     config::{BatteryTristate, Config, TakeWakeLockTristate},
     error::OutputError,
     path_completions::PathCompleter,
+    polkit::get_permission_use_polkit,
     subcommand::utils::no_check_dbus_warn,
     unlock_oma,
 };
@@ -59,13 +60,10 @@ pub fn root() -> Result<()> {
 
         NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
 
-        let out = Command::new("pkexec")
-            .args(args)
-            .spawn()
-            .and_then(|x| x.wait_with_output())
-            .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
+        RT.block_on(get_permission_use_polkit())
+            .map_err(|e| anyhow!("{e}"))?;
 
-        exit(out.status.code().unwrap_or(1));
+        return Ok(());
     }
 
     Err(OutputError {
