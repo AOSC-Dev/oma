@@ -59,7 +59,13 @@ pub fn root() -> Result<()> {
             .args(std::env::args())
             .spawn()
             .and_then(|x| x.wait_with_output())
-            .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
+            .map_err(|e| {
+                anyhow!(fl!(
+                    "execute-cmd-fail",
+                    cmd = "systemd-run",
+                    e = e.to_string()
+                ))
+            })?;
 
         exit(out.status.code().unwrap_or(1));
     } else if (env::var("DISPLAY").is_ok() || env::var("WAYLAND_DISPLAY").is_ok()) && !is_wsl() {
@@ -74,7 +80,7 @@ pub fn root() -> Result<()> {
             .args(std::env::args())
             .spawn()
             .and_then(|x| x.wait_with_output())
-            .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
+            .map_err(|e| anyhow!(fl!("execute-cmd-fail", cmd = "pkexec", e = e.to_string())))?;
 
         exit(out.status.code().unwrap_or(1));
     } else if which::which("sudo").is_ok() {
@@ -82,7 +88,7 @@ pub fn root() -> Result<()> {
             .args(std::env::args())
             .spawn()
             .and_then(|x| x.wait_with_output())
-            .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
+            .map_err(|e| anyhow!(fl!("execute-cmd-fail", cmd = "sudo", e = e.to_string())))?;
 
         exit(out.status.code().unwrap_or(1));
     } else if which::which("doas").is_ok() {
@@ -90,7 +96,7 @@ pub fn root() -> Result<()> {
             .args(std::env::args())
             .spawn()
             .and_then(|x| x.wait_with_output())
-            .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
+            .map_err(|e| anyhow!(fl!("execute-cmd-fail", cmd = "doas", e = e.to_string())))?;
 
         exit(out.status.code().unwrap_or(1));
     }
