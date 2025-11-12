@@ -45,16 +45,32 @@ pub fn root() -> Result<()> {
         return Ok(());
     }
 
+    NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
+
     // 检测是否有 DISPLAY，如果有，则在提权时使用 pkexec
     // 通常情况下 SSH 连接不会有 DISPLAY 环境变量，除非开启 X11 Forwarding
     if (env::var("DISPLAY").is_ok() || env::var("WAYLAND_DISPLAY").is_ok()) && !is_wsl() {
         info!("{}", fl!("pkexec-tips-1"));
         info!("{}", fl!("pkexec-tips-2"));
 
-        NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
-
         let out = Command::new("pkexec")
             .arg("--keep-cwd")
+            .args(std::env::args())
+            .spawn()
+            .and_then(|x| x.wait_with_output())
+            .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
+
+        exit(out.status.code().unwrap_or(1));
+    } else if which::which("sudo").is_ok() {
+        let out = Command::new("sudo")
+            .args(std::env::args())
+            .spawn()
+            .and_then(|x| x.wait_with_output())
+            .map_err(|e| anyhow!(fl!("execute-pkexec-fail", e = e.to_string())))?;
+
+        exit(out.status.code().unwrap_or(1));
+    } else if which::which("doas").is_ok() {
+        let out = Command::new("doas")
             .args(std::env::args())
             .spawn()
             .and_then(|x| x.wait_with_output())

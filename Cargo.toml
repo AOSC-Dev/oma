@@ -52,6 +52,7 @@ once_cell = "1.21"
 itertools = "0.14.0"
 clap-i18n-richformatter = "0.1.0"
 debversion = "0.5"
+which = "8"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes"] }
