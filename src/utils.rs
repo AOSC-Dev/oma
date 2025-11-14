@@ -57,7 +57,7 @@ pub fn root() -> Result<()> {
     // Fix issue https://github.com/AOSC-Dev/oma/issues/609
     if which::which("systemd-run").is_ok() {
         systemd_run_oma()?;
-    } else if (env::var("DISPLAY").is_ok() || env::var("WAYLAND_DISPLAY").is_ok()) && !is_wsl() {
+    } else if is_desktop_env() && !is_wsl() && which::which("pkexec").is_ok() {
         // 检测是否有 DISPLAY，如果有，则在提权时使用 pkexec
         // 通常情况下 SSH 连接不会有 DISPLAY 环境变量，除非开启 X11 Forwarding
         pkexec_oma()?;
@@ -71,6 +71,11 @@ pub fn root() -> Result<()> {
         description: fl!("please-run-me-as-root"),
         source: None,
     })
+}
+
+#[inline]
+fn is_desktop_env() -> bool {
+    env::var("DISPLAY").is_ok() || env::var("WAYLAND_DISPLAY").is_ok()
 }
 
 fn other_permission_tools_run_oma(cmd: &str) -> Result<()> {
