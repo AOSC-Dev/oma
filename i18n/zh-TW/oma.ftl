@@ -1,6 +1,6 @@
 # utils
 can-not-run-dpkg-print-arch = 無法執行 `dpkg --print-architecture'。
-execute-pkexec-fail = 無法執行 `pkexec' 指令：{ $e }。
+execute-cmd-fail = 無法執行 `{ $cmd }' 指令：{ $e }。
 # history
 history-tips-1 = oma 已成功套用對系統的變更。
 history-tips-2 = 如需取消本次操作，請使用 { $cmd } 指令。

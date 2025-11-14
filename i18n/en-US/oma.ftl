@@ -1,6 +1,6 @@
 # utils
 can-not-run-dpkg-print-arch = Could not run `dpkg --print-architecture'.
-execute-pkexec-fail = Failed to execute `pkexec': { $e }.
+execute-cmd-fail = Failed to execute `{ $cmd }': { $e }.
 # history
 history-tips-1 = oma has successfully applied changes to your system.
 history-tips-2 = If you would like to undo these changes, please use the { $cmd } command.
