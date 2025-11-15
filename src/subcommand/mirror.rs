@@ -521,19 +521,30 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
             .ok()
             .map(|res| (m, res))
         })
-        .filter_map(|res| {
-            chrono::DateTime::parse_from_rfc2822(&res.1)
-                .ok()
-                .map(|r| (res.0, r))
+        .map(|res| {
+            (
+                res.0,
+                chrono::DateTime::parse_from_rfc2822(&res.1).expect("{} is not a rfc2822 fmt"),
+            )
         })
         .for_each(|res| {
             let delta = origin_date - res.1;
-            let dur = delta.to_std().expect("Should not < 0");
+            let delta_duration = delta.to_std().expect("Should not < 0");
 
             if let Some(pb) = &*pb {
-                pb.info(&format!("{}: {}", res.0, format_duration(dur)));
+                if delta.is_zero() {
+                    pb.info(&format!("{}: is newest", res.0));
+                } else {
+                    pb.info(&format!(
+                        "{}: expired {}",
+                        res.0,
+                        format_duration(delta_duration)
+                    ));
+                }
+            } else if delta.is_zero() {
+                println!("{}: is newest", res.0);
             } else {
-                println!("{}: {}", res.0, format_duration(dur));
+                println!("{}: expired {}", res.0, format_duration(delta_duration));
             }
         });
 
