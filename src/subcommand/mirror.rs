@@ -30,6 +30,7 @@ use oma_mirror::parser::MirrorConfig;
 use oma_pm::apt::AptConfig;
 use oma_refresh::inrelease::Release;
 use oma_topics::TopicManager;
+use oma_utils::concat_url;
 use oma_utils::dpkg::dpkg_arch;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
@@ -784,15 +785,6 @@ fn refresh_enabled_topics_sources_list(no_progress: bool) -> Result<(), OutputEr
     try_refresh?;
 
     Ok(())
-}
-
-#[inline]
-fn concat_url(url: &str, path: &str) -> String {
-    format!(
-        "{}/{}",
-        url.trim_end_matches('/'),
-        path.trim_start_matches('/')
-    )
 }
 
 #[test]
