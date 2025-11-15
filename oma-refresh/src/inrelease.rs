@@ -59,25 +59,25 @@ pub enum InReleaseChecksum {
 const COMPRESS: &[&str] = &[".gz", ".xz", ".zst", ".bz2"];
 
 pub struct Release {
-    source: InReleaseEntry,
+    pub source: InReleaseEntry,
     acquire_by_hash: OnceCell<bool>,
     checksum_type_and_list: OnceCell<(InReleaseChecksum, Vec<ChecksumItem>)>,
 }
 
 #[derive(Debug, FromDeb822)]
-struct InReleaseEntry {
+pub struct InReleaseEntry {
     #[deb822(field = "Date")]
-    date: Option<String>,
+    pub date: Option<String>,
     #[deb822(field = "Valid-Until")]
-    valid_until: Option<String>,
+    pub valid_until: Option<String>,
     #[deb822(field = "Acquire-By-Hash")]
-    acquire_by_hash: Option<String>,
+    pub acquire_by_hash: Option<String>,
     #[deb822(field = "MD5Sum")]
-    md5sum: Option<String>,
+    pub md5sum: Option<String>,
     #[deb822(field = "SHA256")]
-    sha256: Option<String>,
+    pub sha256: Option<String>,
     #[deb822(field = "SHA512")]
-    sha512: Option<String>,
+    pub sha512: Option<String>,
 }
 
 impl FromStr for Release {
