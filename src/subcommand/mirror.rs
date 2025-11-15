@@ -509,7 +509,7 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
         .filter(|m| !["origin", "origin4", "origin6", "repo-hk", "fastly"].contains(&m.0))
         .map(|m| (m.0, &m.1.url))
         .map(|(m, url)| (m, concat_url(url, "debs/dists/stable/InRelease")))
-        .map(|(m, url)| (m, get_mirror_date(&url, &client, &m, &pb)))
+        .map(|(m, url)| (m, get_mirror_date(&url, &client, m, &pb)))
         .filter_map(|(m, res)| {
             res.inspect_err(|e| {
                 if let Some(pb) = &*pb {
