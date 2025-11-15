@@ -16,6 +16,7 @@ use oma_fetch::{
     reqwest::{Client, Method, Response, StatusCode},
     send_request,
 };
+use oma_utils::concat_url;
 use once_cell::sync::OnceCell;
 use tokio::{
     fs::{self, File},
@@ -26,7 +27,7 @@ use url::Url;
 
 use crate::{
     db::{Event, RefreshError, content_length},
-    util::{DatabaseFilenameReplacer, concat_url, concat_url_only_check_once_slash},
+    util::{DatabaseFilenameReplacer, concat_url_only_check_once_slash},
 };
 
 #[derive(Clone)]

@@ -53,6 +53,8 @@ itertools = "0.14.0"
 clap-i18n-richformatter = "0.1.0"
 debversion = "0.5"
 which = "8"
+rayon = "1.11.0"
+humantime = "2.3"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes"] }
