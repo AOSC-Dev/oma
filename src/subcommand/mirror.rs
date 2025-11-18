@@ -534,22 +534,22 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
 
             result.lock().unwrap().push((res.0, Ok(delta)));
 
-            let delta_duration = delta.to_std().expect("Should not < 0");
+            let delta_duration = delta.to_std().expect("Latency delta should not be < 0");
 
             if let Some(pb) = &pb {
                 if delta.is_zero() {
-                    pb.info(&format!("{}: is newest", res.0));
+                    pb.info(&format!("{}: up to date", res.0));
                 } else {
                     pb.info(&format!(
-                        "{}: expired {}",
+                        "{}: outdated - {}",
                         res.0,
                         format_duration(delta_duration)
                     ));
                 }
             } else if delta.is_zero() {
-                info!("{}: is newest", res.0);
+                info!("{}: up to date", res.0);
             } else {
-                info!("{}: expired {}", res.0, format_duration(delta_duration));
+                info!("{}: outdated - {}", res.0, format_duration(delta_duration));
             }
         });
 
