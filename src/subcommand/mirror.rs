@@ -566,7 +566,7 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
                 match time {
                     Ok(t) => serde_json::json!({
                         "status": "ok",
-                        "seconds": t.num_seconds(),
+                        "latency": t.num_seconds(),
                     }),
                     Err(e) => serde_json::json!({
                         "status": "fail",
