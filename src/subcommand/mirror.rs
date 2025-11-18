@@ -557,7 +557,7 @@ fn get_mirror_date(
     let url = Url::parse(url)?;
 
     let inrelease = match url.scheme() {
-        "http" => client
+        "http" | "https" => client
             .get(url)
             .send()
             .and_then(|x| x.error_for_status())
