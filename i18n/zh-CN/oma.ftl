@@ -420,3 +420,4 @@ yes-mode-conflict-ui = 在 UI 模式下 `--yes` 模式将不启用。
 clap-download-only-help = 只下载软件包和其依赖项，不安装
 oma-mirror-up-to-date = { $mirror }: 最新同步
 oma-mirror-outdated = { $mirror }: 存在延迟 - { $duration }
+mirror-latency = 延迟

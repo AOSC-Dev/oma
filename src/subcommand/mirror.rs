@@ -12,9 +12,11 @@ use anyhow::Context;
 use anyhow::anyhow;
 use anyhow::bail;
 use chrono::DateTime;
+use chrono::TimeDelta;
 use clap::Args;
 use clap::Subcommand;
 use dialoguer::Sort;
+use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use faster_hex::hex_string;
 use humantime::format_duration;
@@ -537,23 +539,9 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
             let delta_duration = delta.to_std().expect("Latency delta should not be < 0");
 
             if let Some(pb) = &pb {
-                if delta.is_zero() {
-                    pb.info(&format!("{}", fl!("oma-mirror-up-to-date", mirror = res.0)));
-                } else {
-                    let dur = format_duration(delta_duration).to_string();
-                    pb.info(&format!(
-                        "{}",
-                        fl!("oma-mirror-outdated", mirror = res.0, duration = dur)
-                    ));
-                }
-            } else if delta.is_zero() {
-                info!("{}", fl!("oma-mirror-up-to-date", mirror = res.0));
+                pb.info(&format_latency(res.0, delta, delta_duration));
             } else {
-                let dur = format_duration(delta_duration).to_string();
-                info!(
-                    "{}",
-                    fl!("oma-mirror-outdated", mirror = res.0, duration = dur)
-                );
+                info!("{}", format_latency(res.0, delta, delta_duration));
             }
         });
 
@@ -561,8 +549,9 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
         pb.inner.finish_and_clear();
     }
 
+    let result = result.into_inner().unwrap();
+
     if json {
-        let result = result.into_inner().unwrap();
         let mut result_json = vec![];
         for (m, time) in result {
             result_json.push((
@@ -585,9 +574,54 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
             serde_json::to_string(&result_json).context("Failed to ser to JSON format")?
         )
         .ok();
+    } else {
+        let score_table = result.iter().filter(|x| x.1.is_ok()).map(|x| {
+            let time_delta = x.1.as_ref().unwrap();
+            let hours = time_delta.num_hours();
+            let latency = format_duration(
+                time_delta
+                    .to_std()
+                    .expect("Latency delta should not be < 0"),
+            );
+
+            let color_mirror_status = if hours <= 12 {
+                style(latency).green().to_string()
+            } else if hours <= 24 {
+                style(latency).yellow().to_string()
+            } else {
+                style(latency).red().to_string()
+            };
+
+            MirrorLatencyDisplay {
+                name: x.0,
+                lanency: color_mirror_status,
+            }
+        });
+
+        let mut printer = PagerPrinter::new(stdout());
+
+        printer.println("").ok();
+
+        printer
+            .print_table(
+                score_table,
+                vec![&fl!("mirror-name"), &fl!("mirror-latency")],
+                None,
+                None,
+            )
+            .ok();
     }
 
     Ok(0)
+}
+
+fn format_latency(mirror_name: &str, delta: TimeDelta, delta_duration: Duration) -> String {
+    if delta.is_zero() {
+        fl!("oma-mirror-up-to-date", mirror = mirror_name)
+    } else {
+        let dur = format_duration(delta_duration).to_string();
+        fl!("oma-mirror-outdated", mirror = mirror_name, duration = dur)
+    }
 }
 
 fn get_mirror_date(
@@ -627,6 +661,12 @@ fn get_mirror_date(
 struct MirrorScoreDisplay<'a> {
     name: &'a str,
     score: String,
+}
+
+#[derive(Debug, Tabled)]
+struct MirrorLatencyDisplay<'a> {
+    name: &'a str,
+    lanency: String,
 }
 
 fn speedtest(

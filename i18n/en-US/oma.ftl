@@ -429,3 +429,4 @@ clap-mark-auto = Mark package(s) as automatically installed, this will mark the 
 clap-download-only-help = Only download package(s) and dependency(ies) (without installing)
 oma-mirror-up-to-date = { $mirror }: up to date
 oma-mirror-outdated = { $mirror }: outdated - { $duration }
+mirror-latency = Latency
