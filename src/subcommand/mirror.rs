@@ -3,7 +3,6 @@ use std::fmt::Display;
 use std::io::stdout;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -483,17 +482,9 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
     let pb = if !no_progress {
-        Arc::new(Some(OmaProgressBar::new(
-            ProgressBar::new(mirrors.len() as u64 - 5).with_style(
-                ProgressStyle::with_template(
-                    "{spinner:.green} ({pos}/{len}) [{wide_bar:.cyan/blue}]",
-                )
-                .unwrap()
-                .progress_chars("=>-"),
-            ),
-        )))
+        Some(progress_bar(mirrors.len() as u64 - 5))
     } else {
-        None.into()
+        None
     };
 
     let origin_date = get_mirror_date(
@@ -514,7 +505,7 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
         .map(|(m, url)| (m, get_mirror_date(&url, &client, m, &pb)))
         .filter_map(|(m, res)| {
             res.inspect_err(|e| {
-                if let Some(pb) = &*pb {
+                if let Some(pb) = &pb {
                     pb.error(&format!("{}: {}", m, e));
                 } else {
                     error!("{}: {}", m, e);
@@ -533,7 +524,7 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
             let delta = origin_date - res.1;
             let delta_duration = delta.to_std().expect("Should not < 0");
 
-            if let Some(pb) = &*pb {
+            if let Some(pb) = &pb {
                 if delta.is_zero() {
                     pb.info(&format!("{}: is newest", res.0));
                 } else {
@@ -550,7 +541,7 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
             }
         });
 
-    if let Some(pb) = &*pb {
+    if let Some(pb) = &pb {
         pb.inner.finish_and_clear();
     }
 
@@ -614,18 +605,11 @@ fn speedtest(
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
     let pb = if !no_progress {
-        Some(OmaProgressBar::new(
-            ProgressBar::new(mirrors.len() as u64).with_style(
-                ProgressStyle::with_template(
-                    "{spinner:.green} ({pos}/{len}) [{wide_bar:.cyan/blue}]",
-                )
-                .unwrap()
-                .progress_chars("=>-"),
-            ),
-        ))
+        Some(progress_bar(mirrors.len() as u64))
     } else {
         None
     };
+
     let client = blocking::ClientBuilder::new()
         .user_agent(APP_USER_AGENT)
         .timeout(Duration::from_secs_f64(timeout))
@@ -732,6 +716,16 @@ fn speedtest(
     }
 
     Ok(0)
+}
+
+fn progress_bar(mirrors_len: u64) -> OmaProgressBar {
+    OmaProgressBar::new(
+        ProgressBar::new(mirrors_len).with_style(
+            ProgressStyle::with_template("{spinner:.green} ({pos}/{len}) [{wide_bar:.cyan/blue}]")
+                .unwrap()
+                .progress_chars("=>-"),
+        ),
+    )
 }
 
 fn refresh(
