@@ -538,18 +538,22 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
 
             if let Some(pb) = &pb {
                 if delta.is_zero() {
-                    pb.info(&format!("{}: up to date", res.0));
+                    pb.info(&format!("{}", fl!("oma-mirror-up-to-date", mirror = res.0)));
                 } else {
+                    let dur = format_duration(delta_duration).to_string();
                     pb.info(&format!(
-                        "{}: outdated - {}",
-                        res.0,
-                        format_duration(delta_duration)
+                        "{}",
+                        fl!("oma-mirror-outdated", mirror = res.0, duration = dur)
                     ));
                 }
             } else if delta.is_zero() {
-                info!("{}: up to date", res.0);
+                info!("{}", fl!("oma-mirror-up-to-date", mirror = res.0));
             } else {
-                info!("{}: outdated - {}", res.0, format_duration(delta_duration));
+                let dur = format_duration(delta_duration).to_string();
+                info!(
+                    "{}",
+                    fl!("oma-mirror-outdated", mirror = res.0, duration = dur)
+                );
             }
         });
 

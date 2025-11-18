@@ -427,3 +427,5 @@ clap-mark-unhold = Unlock package version(s), this will undo the “hold” stat
 clap-mark-manual = Mark package(s) as manually installed, this will prevent the specified package(s) from being removed when all reverse dependencies were removed
 clap-mark-auto = Mark package(s) as automatically installed, this will mark the specified package(s) for removal when all reverse dependencies were removed
 clap-download-only-help = Only download package(s) and dependency(ies) (without installing)
+oma-mirror-up-to-date = { $mirror }: up to date
+oma-mirror-outdated = { $mirror }: outdated - { $duration }
