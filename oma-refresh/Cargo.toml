@@ -1,6 +1,6 @@
 [package]
 name = "oma-refresh"
-version = "0.51.1"
+version = "0.51.2"
 edition = "2024"
 description = "APT repository refresh handler library"
 license = "GPL-3.0-or-later"

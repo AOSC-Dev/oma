@@ -3067,7 +3067,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.51.1"
+version = "0.51.2"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3141,7 +3141,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.12.2"
+version = "0.12.3"
 dependencies = [
  "logind-zbus",
  "number_prefix",
