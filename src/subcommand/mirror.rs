@@ -10,6 +10,7 @@ use std::time::Instant;
 use ahash::HashMap;
 use anyhow::Context;
 use anyhow::anyhow;
+use anyhow::bail;
 use chrono::DateTime;
 use clap::Args;
 use clap::Subcommand;
@@ -34,6 +35,7 @@ use oma_utils::concat_url;
 use oma_utils::dpkg::dpkg_arch;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
+use reqwest::Url;
 use reqwest::blocking;
 use sha2::Digest;
 use sha2::Sha256;
@@ -561,11 +563,17 @@ fn get_mirror_date(
     m: &str,
     p: &Option<OmaProgressBar>,
 ) -> anyhow::Result<String> {
-    let inrelease = client
-        .get(url)
-        .send()
-        .and_then(|x| x.error_for_status())
-        .and_then(|x| x.text())?;
+    let url = Url::parse(url)?;
+
+    let inrelease = match url.scheme() {
+        "http" => client
+            .get(url)
+            .send()
+            .and_then(|x| x.error_for_status())
+            .and_then(|x| x.text())?,
+        "file" => std::fs::read_to_string(url.path())?,
+        x => bail!("Unsupport protocol {x}"),
+    };
 
     let release = oma_repo_verify::verify_inrelease_by_sysroot(&inrelease, None, "/", false)?;
 
