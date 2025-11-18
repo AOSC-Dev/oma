@@ -563,7 +563,7 @@ fn get_mirror_date(
             .and_then(|x| x.error_for_status())
             .and_then(|x| x.text())?,
         "file" => std::fs::read_to_string(url.path())?,
-        x => bail!("Unsupport protocol {x}"),
+        x => bail!("Unsupported protocol {x}"),
     };
 
     let release = oma_repo_verify::verify_inrelease_by_sysroot(&inrelease, None, "/", false)?;
