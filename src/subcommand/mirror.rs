@@ -2,16 +2,24 @@ use std::cmp::Ordering;
 use std::fmt::Display;
 use std::io::stdout;
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 
 use ahash::HashMap;
+use anyhow::Context;
 use anyhow::anyhow;
+use anyhow::bail;
+use chrono::DateTime;
+use chrono::TimeDelta;
 use clap::Args;
 use clap::Subcommand;
 use dialoguer::Sort;
+use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use faster_hex::hex_string;
+use humantime::format_duration;
 use inquire::formatter::MultiOptionFormatter;
 use inquire::ui::Color;
 use inquire::ui::RenderConfig;
@@ -23,11 +31,17 @@ use oma_console::indicatif::ProgressStyle;
 use oma_mirror::MirrorManager;
 use oma_mirror::parser::MirrorConfig;
 use oma_pm::apt::AptConfig;
+use oma_refresh::inrelease::Release;
 use oma_topics::TopicManager;
+use oma_utils::concat_url;
 use oma_utils::dpkg::dpkg_arch;
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
+use reqwest::Url;
 use reqwest::blocking;
 use sha2::Digest;
 use sha2::Sha256;
+use std::io::Write;
 use tabled::Tabled;
 use tracing::warn;
 use tracing::{error, info};
@@ -186,6 +200,17 @@ pub enum MirrorSubCmd {
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
+    /// Get mirrors latency
+    #[command(help_template = &*HELP_TEMPLATE)]
+    #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
+    Latency {
+        /// Network timeout in seconds (default: 120)
+        #[arg(long, default_value = "120", help = fl!("clap-mirror-speedtest-timeout-help"))]
+        timeout: f64,
+        /// Set output format as JSON
+        #[arg(long, help = fl!("clap-json-help"))]
+        json: bool,
+    },
 }
 
 impl CliExecuter for CliMirror {
@@ -275,6 +300,7 @@ impl CliExecuter for CliMirror {
                     no_refresh,
                     apt_options,
                 ),
+                MirrorSubCmd::Latency { timeout, json } => get_latency(timeout, no_progress, json),
             }
         } else {
             tui(
@@ -415,7 +441,7 @@ fn operate(
     Ok(0)
 }
 
-pub fn set_order(
+fn set_order(
     no_progress: bool,
     refresh_topic: bool,
     network_threads: usize,
@@ -452,13 +478,198 @@ pub fn set_order(
     Ok(0)
 }
 
+fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, OutputError> {
+    let mm = MirrorManager::new("/")?;
+
+    let client = blocking::ClientBuilder::new()
+        .user_agent(APP_USER_AGENT)
+        .timeout(Duration::from_secs_f64(timeout))
+        .build()?;
+
+    let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
+
+    let pb = if !no_progress && !json {
+        Some(progress_bar(mirrors.len() as u64 - 5))
+    } else {
+        None
+    };
+
+    let origin_date = get_mirror_date(
+        "https://repo-hk.aosc.io/debs/dists/stable/InRelease",
+        &client,
+        "origin",
+        &pb,
+    )?;
+
+    let origin_date =
+        DateTime::parse_from_rfc2822(&origin_date).context("Failed parse origin date")?;
+
+    let result = Mutex::new(vec![]);
+
+    mirrors
+        .par_iter()
+        .filter(|m| !["origin", "origin4", "origin6", "repo-hk", "fastly"].contains(&m.0))
+        .map(|m| (m.0, &m.1.url))
+        .map(|(m, url)| (m, concat_url(url, "debs/dists/stable/InRelease")))
+        .map(|(m, url)| (m, get_mirror_date(&url, &client, m, &pb)))
+        .filter_map(|(m, res)| {
+            res.map_err(|e| {
+                if let Some(pb) = &pb {
+                    pb.error(&format!("{}: {}", m, e));
+                } else {
+                    error!("{}: {}", m, e);
+                }
+                result.lock().unwrap().push((m, Err(anyhow!("{e}"))));
+                e
+            })
+            .ok()
+            .map(|res| (m, res))
+        })
+        .map(|res| {
+            (
+                res.0,
+                chrono::DateTime::parse_from_rfc2822(&res.1).expect("{} is not a rfc2822 fmt"),
+            )
+        })
+        .for_each(|res| {
+            let delta = origin_date - res.1;
+
+            result.lock().unwrap().push((res.0, Ok(delta)));
+
+            let delta_duration = delta.to_std().expect("Latency delta should not be < 0");
+
+            if let Some(pb) = &pb {
+                pb.info(&format_latency(res.0, delta, delta_duration));
+            } else {
+                info!("{}", format_latency(res.0, delta, delta_duration));
+            }
+        });
+
+    if let Some(pb) = &pb {
+        pb.inner.finish_and_clear();
+    }
+
+    let result = result.into_inner().unwrap();
+
+    if json {
+        let mut result_json = vec![];
+        for (m, time) in result {
+            result_json.push((
+                m,
+                match time {
+                    Ok(t) => serde_json::json!({
+                        "status": "ok",
+                        "latency": t.num_seconds(),
+                    }),
+                    Err(e) => serde_json::json!({
+                        "status": "fail",
+                        "reason": e.to_string(),
+                    }),
+                },
+            ));
+        }
+        writeln!(
+            stdout(),
+            "{}",
+            serde_json::to_string(&result_json).context("Failed to ser to JSON format")?
+        )
+        .ok();
+    } else {
+        let score_table = result.iter().filter(|x| x.1.is_ok()).map(|x| {
+            let time_delta = x.1.as_ref().unwrap();
+            let hours = time_delta.num_hours();
+            let latency = format_duration(
+                time_delta
+                    .to_std()
+                    .expect("Latency delta should not be < 0"),
+            );
+
+            let color_mirror_status = if hours <= 12 {
+                style(latency).green().to_string()
+            } else if hours <= 24 {
+                style(latency).yellow().to_string()
+            } else {
+                style(latency).red().to_string()
+            };
+
+            MirrorLatencyDisplay {
+                name: x.0,
+                lanency: color_mirror_status,
+            }
+        });
+
+        let mut printer = PagerPrinter::new(stdout());
+
+        printer.println("").ok();
+
+        printer
+            .print_table(
+                score_table,
+                vec![&fl!("mirror-name"), &fl!("mirror-latency")],
+                None,
+                None,
+            )
+            .ok();
+    }
+
+    Ok(0)
+}
+
+fn format_latency(mirror_name: &str, delta: TimeDelta, delta_duration: Duration) -> String {
+    if delta.is_zero() {
+        fl!("oma-mirror-up-to-date", mirror = mirror_name)
+    } else {
+        let dur = format_duration(delta_duration).to_string();
+        fl!("oma-mirror-outdated", mirror = mirror_name, duration = dur)
+    }
+}
+
+fn get_mirror_date(
+    url: &str,
+    client: &blocking::Client,
+    m: &str,
+    p: &Option<OmaProgressBar>,
+) -> anyhow::Result<String> {
+    let url = Url::parse(url)?;
+
+    let inrelease = match url.scheme() {
+        "http" | "https" => client
+            .get(url)
+            .send()
+            .and_then(|x| x.error_for_status())
+            .and_then(|x| x.text())?,
+        "file" => std::fs::read_to_string(url.path())?,
+        x => bail!("Unsupported protocol {x}"),
+    };
+
+    let release = oma_repo_verify::verify_inrelease_by_sysroot(&inrelease, None, "/", false)?;
+
+    let release = Release::from_str(&release)?;
+    let date = release
+        .source
+        .date
+        .with_context(|| format!("mirror {} no date field found", m))?;
+
+    if let Some(p) = p {
+        p.inner.inc(1);
+    }
+
+    Ok(date)
+}
+
 #[derive(Debug, Tabled)]
 struct MirrorScoreDisplay<'a> {
     name: &'a str,
     score: String,
 }
 
-pub fn speedtest(
+#[derive(Debug, Tabled)]
+struct MirrorLatencyDisplay<'a> {
+    name: &'a str,
+    lanency: String,
+}
+
+fn speedtest(
     no_progress: bool,
     set_fastest: bool,
     refresh_topic: bool,
@@ -476,18 +687,11 @@ pub fn speedtest(
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
     let pb = if !no_progress {
-        Some(OmaProgressBar::new(
-            ProgressBar::new(mirrors.len() as u64).with_style(
-                ProgressStyle::with_template(
-                    "{spinner:.green} ({pos}/{len}) [{wide_bar:.cyan/blue}]",
-                )
-                .unwrap()
-                .progress_chars("=>-"),
-            ),
-        ))
+        Some(progress_bar(mirrors.len() as u64))
     } else {
         None
     };
+
     let client = blocking::ClientBuilder::new()
         .user_agent(APP_USER_AGENT)
         .timeout(Duration::from_secs_f64(timeout))
@@ -594,6 +798,17 @@ pub fn speedtest(
     }
 
     Ok(0)
+}
+
+#[inline]
+fn progress_bar(mirrors_len: u64) -> OmaProgressBar {
+    OmaProgressBar::new(
+        ProgressBar::new(mirrors_len).with_style(
+            ProgressStyle::with_template("{spinner:.green} ({pos}/{len}) [{wide_bar:.cyan/blue}]")
+                .unwrap()
+                .progress_chars("=>-"),
+        ),
+    )
 }
 
 fn refresh(

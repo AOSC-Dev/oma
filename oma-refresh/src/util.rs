@@ -55,15 +55,6 @@ impl DatabaseFilenameReplacer {
 }
 
 #[inline]
-pub(crate) fn concat_url(url: &str, path: &str) -> String {
-    format!(
-        "{}/{}",
-        url.trim_end_matches('/'),
-        path.trim_start_matches('/')
-    )
-}
-
-#[inline]
 pub(crate) fn concat_url_only_check_once_slash(url: &str, path: impl Display) -> String {
     if url.ends_with('/') {
         format!("{url}{path}")

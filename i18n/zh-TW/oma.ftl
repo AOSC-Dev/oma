@@ -416,3 +416,5 @@ clap-contents-find-bin-help = 搜尋包含指定可執行檔案的軟體套件
 clap-command-not-found-keyword-help = 要使用 command-not-found 查詢的指令（這個指令是由那個軟體套件提供的？）
 clap-list-autoremovable-help = 僅列出能夠「自動移除」（即不再需要）的軟體套件
 clap-topics-opt-out-help = 退出指定的測試主題（使用空格分隔）
+oma-mirror-up-to-date = { $mirror }: up to date
+oma-mirror-outdated = { $mirror }: outdated - { $duration }
