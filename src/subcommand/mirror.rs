@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::io::stdout;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -38,6 +39,7 @@ use reqwest::Url;
 use reqwest::blocking;
 use sha2::Digest;
 use sha2::Sha256;
+use std::io::Write;
 use tabled::Tabled;
 use tracing::warn;
 use tracing::{error, info};
@@ -203,6 +205,9 @@ pub enum MirrorSubCmd {
         /// Network timeout in seconds (default: 120)
         #[arg(long, default_value = "120", help = fl!("clap-mirror-speedtest-timeout-help"))]
         timeout: f64,
+        /// Set output format as JSON
+        #[arg(long, help = fl!("clap-json-help"))]
+        json: bool,
     },
 }
 
@@ -293,7 +298,7 @@ impl CliExecuter for CliMirror {
                     no_refresh,
                     apt_options,
                 ),
-                MirrorSubCmd::Latency { timeout } => get_latency(timeout, no_progress),
+                MirrorSubCmd::Latency { timeout, json } => get_latency(timeout, no_progress, json),
             }
         } else {
             tui(
@@ -471,7 +476,7 @@ fn set_order(
     Ok(0)
 }
 
-fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
+fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, OutputError> {
     let mm = MirrorManager::new("/")?;
 
     let client = blocking::ClientBuilder::new()
@@ -481,7 +486,7 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
-    let pb = if !no_progress {
+    let pb = if !no_progress && !json {
         Some(progress_bar(mirrors.len() as u64 - 5))
     } else {
         None
@@ -497,6 +502,8 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
     let origin_date =
         DateTime::parse_from_rfc2822(&origin_date).context("Failed parse origin date")?;
 
+    let result = Mutex::new(vec![]);
+
     mirrors
         .par_iter()
         .filter(|m| !["origin", "origin4", "origin6", "repo-hk", "fastly"].contains(&m.0))
@@ -504,12 +511,14 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
         .map(|(m, url)| (m, concat_url(url, "debs/dists/stable/InRelease")))
         .map(|(m, url)| (m, get_mirror_date(&url, &client, m, &pb)))
         .filter_map(|(m, res)| {
-            res.inspect_err(|e| {
+            res.map_err(|e| {
                 if let Some(pb) = &pb {
                     pb.error(&format!("{}: {}", m, e));
                 } else {
                     error!("{}: {}", m, e);
                 }
+                result.lock().unwrap().push((m, Err(anyhow!("{e}"))));
+                e
             })
             .ok()
             .map(|res| (m, res))
@@ -522,6 +531,9 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
         })
         .for_each(|res| {
             let delta = origin_date - res.1;
+
+            result.lock().unwrap().push((res.0, Ok(delta)));
+
             let delta_duration = delta.to_std().expect("Should not < 0");
 
             if let Some(pb) = &pb {
@@ -535,14 +547,40 @@ fn get_latency(timeout: f64, no_progress: bool) -> Result<i32, OutputError> {
                     ));
                 }
             } else if delta.is_zero() {
-                println!("{}: is newest", res.0);
+                info!("{}: is newest", res.0);
             } else {
-                println!("{}: expired {}", res.0, format_duration(delta_duration));
+                info!("{}: expired {}", res.0, format_duration(delta_duration));
             }
         });
 
     if let Some(pb) = &pb {
         pb.inner.finish_and_clear();
+    }
+
+    if json {
+        let result = result.into_inner().unwrap();
+        let mut result_json = vec![];
+        for (m, time) in result {
+            result_json.push((
+                m,
+                match time {
+                    Ok(t) => serde_json::json!({
+                        "status": "ok",
+                        "seconds": t.num_seconds(),
+                    }),
+                    Err(e) => serde_json::json!({
+                        "status": "fail",
+                        "reason": e.to_string(),
+                    }),
+                },
+            ));
+        }
+        writeln!(
+            stdout(),
+            "{}",
+            serde_json::to_string(&result_json).context("Failed to ser to JSON format")?
+        )
+        .ok();
     }
 
     Ok(0)
@@ -718,6 +756,7 @@ fn speedtest(
     Ok(0)
 }
 
+#[inline]
 fn progress_bar(mirrors_len: u64) -> OmaProgressBar {
     OmaProgressBar::new(
         ProgressBar::new(mirrors_len).with_style(
