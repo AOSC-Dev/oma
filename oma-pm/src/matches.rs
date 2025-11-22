@@ -131,10 +131,10 @@ impl<'a> PackagesMatcher<'a> {
                         .unwrap_or(pkg.name())
                 ));
 
-                let versions = pkg.versions().collect::<Vec<_>>();
+                let versions = pkg.versions();
 
-                for ver in &versions {
-                    let info = OmaPackage::new(ver, &pkg);
+                for ver in versions {
+                    let info = OmaPackage::new(&ver, &pkg);
 
                     let has = ver.uris().iter().any(|x| url_no_escape(x) == path);
                     if has {
@@ -208,8 +208,7 @@ impl<'a> PackagesMatcher<'a> {
 
         for pkg in pkgs {
             debug!("Select pkg: {}", pkg.fullname(true));
-            let versions = pkg.versions().collect::<Vec<_>>();
-            debug!("Versions: {:?}", versions);
+            let versions = pkg.versions();
             let mut candidated = false;
             for ver in versions {
                 let pkginfo = OmaPackage::new(&ver, &pkg)?;
