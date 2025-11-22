@@ -621,7 +621,11 @@ impl<'a> OmaRefresh<'a> {
                     && !archs.is_empty()
                 {
                     let archs = archs.iter().map(|x| x.as_str()).collect::<Vec<_>>();
-                    if arch_from_local_configure.iter().all(|x| !archs.contains(x)) {
+
+                    if arch_from_local_configure.iter().all(|x| !archs.contains(x))
+                        && !archs.contains(&"all")
+                        && !archs.contains(&"any")
+                    {
                         warn!(
                             "Mirror {} does not contain architectures enabled in local configuration ({} enabled, {} available from the mirror)",
                             ose.url(),
