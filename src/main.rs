@@ -10,7 +10,7 @@ use clap_i18n_richformatter::{ClapI18nRichFormatter, init_clap_rich_formatter_lo
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
-use libc::SIGHUP;
+use libc::{SIGHUP, SIGQUIT};
 use oma_console::OmaLayer;
 use oma_console::console;
 use oma_console::print::{OmaColorFormat, termbg};
@@ -171,7 +171,7 @@ fn main() {
 
     thread::spawn(|| {
         let mut sigs =
-            Signals::new([SIGTERM, SIGINT, SIGHUP]).expect("Failed to set signal handler");
+            Signals::new([SIGTERM, SIGINT, SIGHUP, SIGQUIT]).expect("Failed to set signal handler");
 
         for signal in &mut sigs {
             signal_handler(signal == SIGINT);
