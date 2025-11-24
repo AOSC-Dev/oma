@@ -174,8 +174,8 @@ fn main() {
             Signals::new([SIGTERM, SIGINT, SIGHUP]).expect("Failed to set signal handler");
 
         for signal in &mut sigs {
-            signal_handler();
-            std::process::exit(128 + signal)
+            signal_handler(signal == SIGINT);
+            std::process::exit(128 + signal);
         }
     });
 
@@ -686,8 +686,8 @@ fn sysroot_default_value() -> &'static str {
     }
 }
 
-fn signal_handler() {
-    if NOT_ALLOW_CTRLC.load(Ordering::Relaxed) {
+fn signal_handler(is_ctrlc: bool) {
+    if is_ctrlc && NOT_ALLOW_CTRLC.load(Ordering::Relaxed) {
         return;
     }
 
