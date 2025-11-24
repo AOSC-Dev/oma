@@ -499,6 +499,7 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
         &client,
         "origin",
         &pb,
+        false,
     )?;
 
     let origin_date =
@@ -511,7 +512,7 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
         .filter(|m| !["origin", "origin4", "origin6", "repo-hk", "fastly"].contains(&m.0))
         .map(|m| (m.0, &m.1.url))
         .map(|(m, url)| (m, concat_url(url, "debs/dists/stable/InRelease")))
-        .map(|(m, url)| (m, get_mirror_date(&url, &client, m, &pb)))
+        .map(|(m, url)| (m, get_mirror_date(&url, &client, m, &pb, true)))
         .filter_map(|(m, res)| {
             res.map_err(|e| {
                 if let Some(pb) = &pb {
@@ -629,6 +630,7 @@ fn get_mirror_date(
     client: &blocking::Client,
     m: &str,
     p: &Option<OmaProgressBar>,
+    error_without_url: bool,
 ) -> anyhow::Result<String> {
     let url = Url::parse(url)?;
 
@@ -637,7 +639,14 @@ fn get_mirror_date(
             .get(url)
             .send()
             .and_then(|x| x.error_for_status())
-            .and_then(|x| x.text())?,
+            .and_then(|x| x.text())
+            .map_err(|e| {
+                if error_without_url {
+                    e.without_url()
+                } else {
+                    e
+                }
+            })?,
         "file" => std::fs::read_to_string(url.path())?,
         x => bail!("Unsupported protocol {x}"),
     };
