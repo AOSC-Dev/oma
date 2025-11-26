@@ -576,28 +576,38 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
         )
         .ok();
     } else {
-        let score_table = result.iter().filter(|x| x.1.is_ok()).map(|x| {
-            let time_delta = x.1.as_ref().unwrap();
-            let hours = time_delta.num_hours();
-            let latency = format_duration(
-                time_delta
-                    .to_std()
-                    .expect("Latency delta should not be < 0"),
-            );
+        let mut score_table = result
+            .iter()
+            .filter_map(|x| {
+                if let Ok(time_delta) = x.1 {
+                    let hours = time_delta.num_hours();
+                    let secs = time_delta.num_seconds();
+                    let latency = format_duration(
+                        time_delta
+                            .to_std()
+                            .expect("Latency delta should not be < 0"),
+                    );
 
-            let color_mirror_status = if hours <= 12 {
-                style(latency).green().to_string()
-            } else if hours <= 24 {
-                style(latency).yellow().to_string()
-            } else {
-                style(latency).red().to_string()
-            };
+                    let color_mirror_status = if hours <= 12 {
+                        style(latency).green().to_string()
+                    } else if hours <= 24 {
+                        style(latency).yellow().to_string()
+                    } else {
+                        style(latency).red().to_string()
+                    };
 
-            MirrorLatencyDisplay {
-                name: x.0,
-                lanency: color_mirror_status,
-            }
-        });
+                    Some(MirrorLatencyDisplay {
+                        name: x.0,
+                        lanency: color_mirror_status,
+                        secs,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        score_table.sort_unstable_by(|a, b| a.secs.cmp(&b.secs));
 
         let mut printer = PagerPrinter::new(stdout());
 
@@ -676,6 +686,8 @@ struct MirrorScoreDisplay<'a> {
 struct MirrorLatencyDisplay<'a> {
     name: &'a str,
     lanency: String,
+    #[tabled(skip)]
+    secs: i64,
 }
 
 fn speedtest(
