@@ -430,3 +430,4 @@ clap-download-only-help = Only download package(s) and dependency(ies) (without 
 oma-mirror-up-to-date = { $mirror }: up to date
 oma-mirror-outdated = { $mirror }: outdated - { $duration }
 mirror-latency = Latency
+clap-mirror-latency-help = Test mirror synchronization latency

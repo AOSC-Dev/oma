@@ -200,7 +200,8 @@ pub enum MirrorSubCmd {
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
     },
-    /// Get mirrors latency
+    /// Test mirror synchronization latency
+    #[command(about = fl!("clap-mirror-latency-help"))]
     #[command(help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Latency {
