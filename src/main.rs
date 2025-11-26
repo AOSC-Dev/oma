@@ -25,7 +25,7 @@ use args::{CliExecuter, OhManagerAilurus};
 use clap::builder::FalseyValueParser;
 use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches, arg};
 use clap_complete::CompleteEnv;
-use clap_i18n_richformatter::{ClapI18nRichFormatter, init_clap_rich_formatter_localizer};
+use clap_i18n_richformatter::CommandI18nExt;
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
@@ -164,7 +164,6 @@ fn main() {
         libc::setlocale(libc::LC_ALL, s.as_ptr());
     }
 
-    init_clap_rich_formatter_localizer();
     init_localizer();
 
     // 补全
@@ -250,13 +249,7 @@ fn init_apt_config(oma: &OhManagerAilurus) {
 }
 
 fn parse_args() -> (ArgMatches, OhManagerAilurus) {
-    let matches = match OhManagerAilurus::command().try_get_matches() {
-        Ok(m) => m,
-        Err(e) => {
-            let e = e.apply::<ClapI18nRichFormatter>();
-            e.exit();
-        }
-    };
+    let matches = OhManagerAilurus::command().get_matches_i18n();
 
     let oma = match OhManagerAilurus::from_arg_matches(&matches).map_err(|e| {
         let mut cmd = OhManagerAilurus::command();
