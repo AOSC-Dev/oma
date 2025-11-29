@@ -214,7 +214,7 @@ You are using a non-LTS Ubuntu release, which is not officially supported!
 
 _install_keyring() {
 	# Install repository GPG key.
-	curl -sSf https://repo.aosc.io/pubkeys/repo/oma.gpg | \
+	curl -sSf https://repo.aosc.io/anthon/pubkeys/repo/oma.gpg | \
 		gpg --dearmor --yes -o /usr/share/keyrings/oma.gpg
 
 	if [ "$?" != '0' ]; then
@@ -230,7 +230,7 @@ _write_sources_list() {
 	# Common routine, called with $1 as the codename corresponding to a
 	# compatible distribution repository.
 	cat > /etc/apt/sources.list.d/oma.list << EOF
-deb [signed-by=/usr/share/keyrings/oma.gpg] https://repo.aosc.io/oma ${1} main
+deb [signed-by=/usr/share/keyrings/oma.gpg] https://repo.aosc.io/anthon/oma ${1} main
 EOF
 
 	if [ "$?" != '0' ]; then
