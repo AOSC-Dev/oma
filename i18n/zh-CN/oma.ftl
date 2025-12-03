@@ -421,3 +421,4 @@ clap-download-only-help = 只下载软件包和其依赖项，不安装
 oma-mirror-up-to-date = { $mirror }: 最新同步
 oma-mirror-outdated = { $mirror }: 存在延迟 - { $duration }
 mirror-latency = 延迟
+clap-mirror-latency-help = 测试镜像同步延迟
