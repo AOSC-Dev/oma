@@ -669,12 +669,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "clap-i18n-richformatter"
-version = "0.1.4"
+name = "clap-i18n-derive"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "621653df220c480eae48841f2e008e249b6b2b53c256edd1b0f9db6ae387ef3a"
+checksum = "76f2eedef973c0991d9063596f9ea4349f7808a4236c5c06cf4973c8a668e8d9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "clap-i18n-richformatter"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17172eb7fceca00997a790be61a59b4737ab44892757944df39edcd381722afc"
 dependencies = [
  "clap",
+ "clap-i18n-derive",
  "i18n-embed",
  "i18n-embed-fl",
  "rust-embed",
