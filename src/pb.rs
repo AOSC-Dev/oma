@@ -15,7 +15,9 @@ use oma_console::{
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
-use crate::{WRITER, error::Chain, fl, install_progress::osc94_progress, msg, utils::is_root};
+use crate::{
+    LATENCY, WRITER, error::Chain, fl, install_progress::osc94_progress, msg, utils::is_root,
+};
 use crate::{color_formatter, error::OutputError};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
@@ -281,6 +283,12 @@ impl OmaMultiProgressBar {
                     .insert(index + 1, ProgressBar::new(size).with_style(sty));
                 let total_width = total_width(total);
                 pb.set_message(format!("({:>total_width$}/{total}) {msg}", index + 1));
+                pb.enable_steady_tick(
+                    LATENCY
+                        .get()
+                        .copied()
+                        .unwrap_or_else(|| Duration::from_millis(100)),
+                );
                 self.pb_map.insert(index + 1, pb);
             }
             Event::ProgressInc { index, size } => {
@@ -313,6 +321,12 @@ impl OmaMultiProgressBar {
                 let pb = self
                     .mb
                     .insert(0, ProgressBar::new(total_size).with_style(sty));
+                pb.enable_steady_tick(
+                    LATENCY
+                        .get()
+                        .copied()
+                        .unwrap_or_else(|| Duration::from_millis(100)),
+                );
                 self.pb_map.insert(0, pb);
             }
             Event::Failed { file_name, error } => {
