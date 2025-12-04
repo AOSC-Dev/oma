@@ -275,7 +275,7 @@ impl OmaMultiProgressBar {
                 msg,
                 size,
             } => {
-                let sty = progress_bar_style(&WRITER);
+                let sty = progress_bar_style(WRITER.get_length());
                 let pb = self
                     .mb
                     .insert(index + 1, ProgressBar::new(size).with_style(sty));
@@ -309,7 +309,7 @@ impl OmaMultiProgressBar {
                 return true;
             }
             Event::NewGlobalProgressBar(total_size) => {
-                let sty = global_progress_bar_style(&WRITER);
+                let sty = global_progress_bar_style(WRITER.get_length());
                 let pb = self
                     .mb
                     .insert(0, ProgressBar::new(total_size).with_style(sty));

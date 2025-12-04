@@ -6,8 +6,6 @@ use std::{fmt::Write, time::Duration};
 use console::style;
 use indicatif::{HumanBytes, ProgressState, ProgressStyle};
 
-use crate::writer::Writer;
-
 const SPINNER_ANIME: &[&str] = &[
     "( ●    )",
     "(  ●   )",
@@ -34,9 +32,8 @@ const SPINNER_TEMPLATE: &str = " {msg:<59} {spinner}";
 /// # Arguments
 ///
 /// * `writer` - A reference to a `Writer` object.
-pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
-    let max_len = writer.get_length();
-    let template = if max_len < 100 {
+pub fn progress_bar_style(term_length: u16) -> ProgressStyle {
+    let template = if term_length < 100 {
         NORMAL_BAR_SMALL_TEMPLATE
     } else {
         NORMAL_BAR_TEMPLATE
@@ -56,9 +53,8 @@ pub fn progress_bar_style(writer: &Writer) -> ProgressStyle {
 /// # Arguments
 ///
 /// * `writer` - A reference to a `Writer` object.
-pub fn global_progress_bar_style(writer: &Writer) -> ProgressStyle {
-    let max_len = writer.get_length();
-    let template = if max_len < 100 {
+pub fn global_progress_bar_style(term_length: u16) -> ProgressStyle {
+    let template = if term_length < 100 {
         GLOBAL_BAR_SMALL_TEMPLATE
     } else {
         GLOBAL_BAR_TEMPLATE
