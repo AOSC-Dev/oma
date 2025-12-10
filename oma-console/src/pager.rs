@@ -27,8 +27,8 @@ use tracing::debug;
 
 use crate::{print::OmaColorFormat, writer::Writer};
 
-const ADD_HIGHLIGHT: &str = "\x1b[7m";
-const REMOVE_HIGHLIGHT: &str = "\x1b[49m";
+const HIGHLIGHT_START: &str = "\x1b[7m";
+const HIGHLIGHT_END: &str = "\x1b[0m";
 
 pub enum Pager<'a> {
     Plain,
@@ -732,7 +732,7 @@ impl<'a> Highlight<'a> {
             input,
             &[format!(
                 "{}{}{}",
-                ADD_HIGHLIGHT, self.pattern, REMOVE_HIGHLIGHT
+                HIGHLIGHT_START, self.pattern, HIGHLIGHT_END
             )],
         )
     }
@@ -742,7 +742,7 @@ struct ClearHighlight(AhoCorasick);
 
 impl ClearHighlight {
     fn new() -> Self {
-        Self(AhoCorasick::new([ADD_HIGHLIGHT, REMOVE_HIGHLIGHT]).unwrap())
+        Self(AhoCorasick::new([HIGHLIGHT_START, HIGHLIGHT_END]).unwrap())
     }
 
     fn replace(&self, input: &str) -> String {
