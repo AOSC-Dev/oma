@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.59.1"
+version = "0.59.2"
 edition = "2024"
 description = "APT package manager API abstraction library"
 license = "GPL-3.0-or-later"
