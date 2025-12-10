@@ -1,6 +1,6 @@
 [package]
 name = "oma"
-version = "1.23.0"
+version = "1.24.0-alpha.0"
 edition = "2024"
 description = "User-friendly and performant package manager for APT repositories"
 license = "GPL-3.0-or-later"
@@ -36,7 +36,7 @@ indexmap = "2.11.3"
 faster-hex = "0.10"
 sha2 = "0.10"
 bon = "3"
-flume = "0.11"
+flume = "0.12"
 enum_dispatch = "0.3"
 clap_mangen = "0.2.23"
 clap_complete = { version = "4.5", features = ["unstable-dynamic"] }

@@ -40,7 +40,7 @@ sysinfo = { version = "0.37", optional = true }
 deb822-lossless = "0.5"
 
 [dev-dependencies]
-flume = "0.11"
+flume = "0.12"
 
 [features]
 aosc = ["dep:sysinfo"]
