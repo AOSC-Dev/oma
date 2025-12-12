@@ -349,34 +349,28 @@ impl OmaMultiProgressBar {
 
         if let Some(last_cause) = last {
             let reason = format!("{first_cause}: {last_cause}");
-            if is_refresh {
-                self.error(&fl!(
-                    "download-file-failed-with-reason",
-                    filename = file_name,
-                    reason = reason
-                ));
-            } else {
-                self.error(&fl!(
-                    "download-package-failed-with-reason",
-                    filename = file_name,
-                    reason = reason
-                ));
-            }
+            self.error_display(&file_name, is_refresh, reason);
         } else if is_refresh {
+            self.error_display(&file_name, is_refresh, first_cause);
+        }
+
+        debug!("{:#?}", errs);
+    }
+
+    fn error_display(&mut self, file_name: &String, is_refresh: bool, reason: String) {
+        if is_refresh {
             self.error(&fl!(
                 "download-file-failed-with-reason",
                 filename = file_name,
-                reason = first_cause
+                reason = reason
             ));
         } else {
             self.error(&fl!(
                 "download-package-failed-with-reason",
                 filename = file_name,
-                reason = first_cause
+                reason = reason
             ));
         }
-
-        debug!("{:#?}", errs);
     }
 }
 
@@ -418,7 +412,7 @@ pub struct NoProgressBar {
 impl RenderPackagesDownloadProgress for NoProgressBar {
     fn render_progress(&mut self, rx: &flume::Receiver<Event>, _download_only: bool) {
         while let Ok(event) = rx.recv() {
-            if self.download_event(event) {
+            if self.download_event(event, false) {
                 break;
             }
         }
@@ -430,7 +424,7 @@ impl RenderRefreshProgress for NoProgressBar {
         while let Ok(event) = rx.recv() {
             match event {
                 RefreshEvent::DownloadEvent(event) => {
-                    self.download_event(event);
+                    self.download_event(event, true);
                 }
                 RefreshEvent::ClosingTopic(topic) => {
                     info!("{}", fl!("scan-topic-is-removed", name = topic));
@@ -453,7 +447,7 @@ impl RenderRefreshProgress for NoProgressBar {
 }
 
 impl NoProgressBar {
-    fn download_event(&mut self, event: Event) -> bool {
+    fn download_event(&mut self, event: Event, is_refresh: bool) -> bool {
         match event {
             Event::ChecksumMismatch {
                 index: _,
@@ -479,7 +473,7 @@ impl NoProgressBar {
                 file_name,
                 err,
             } => {
-                handle_no_pb_download_error(file_name, err);
+                handle_no_pb_download_error(file_name, err, is_refresh);
                 info!("{}", fl!("can-not-get-source-next-url"));
             }
             Event::DownloadDone { index: _, msg } => {
@@ -490,7 +484,7 @@ impl NoProgressBar {
                 self.total_size.get_or_init(|| total_size);
             }
             Event::Failed { file_name, error } => {
-                handle_no_pb_download_error(file_name, error);
+                handle_no_pb_download_error(file_name, error, is_refresh);
             }
             _ => {}
         };
@@ -517,7 +511,7 @@ impl NoProgressBar {
     }
 }
 
-fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
+fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError, is_refresh: bool) {
     if let SingleDownloadError::ReqwestError { ref source } = error
         && source
             .status()
@@ -538,12 +532,33 @@ fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError) {
 
     if let Some(last_cause) = last {
         let reason = format!("{first_cause}: {last_cause}");
+
+        if is_refresh {
+            error!(
+                "{}",
+                fl!(
+                    "download-file-failed-with-reason",
+                    filename = file_name,
+                    reason = reason
+                )
+            );
+        } else {
+            error!(
+                "{}",
+                fl!(
+                    "download-package-failed-with-reason",
+                    filename = file_name,
+                    reason = reason
+                )
+            );
+        }
+    } else if is_refresh {
         error!(
             "{}",
             fl!(
-                "download-package-failed-with-reason",
+                "download-file-failed-with-reason",
                 filename = file_name,
-                reason = reason
+                reason = first_cause
             )
         );
     } else {
