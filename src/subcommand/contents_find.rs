@@ -3,7 +3,7 @@ use crate::table::oma_display_with_normal_output;
 use crate::utils::pkgnames_completions;
 use crate::{config::Config, error::OutputError};
 use clap::Args;
-use clap_complete::ArgValueCompleter;
+use clap_complete::{ArgValueCompleter, PathCompleter};
 use indexmap::IndexSet;
 use oma_contents::searcher::{Mode, search};
 use std::io::{Write, stdout};
@@ -60,7 +60,11 @@ impl CliExecuter for Files {
 #[derive(Debug, Args)]
 pub struct Provides {
     /// Search for package(s) that contains the specified path or file
-    #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST, help = fl!("clap-contents-provides-help"))]
+    #[arg(
+        help_heading = &**crate::args::ARG_HELP_HEADING_MUST,
+        help = fl!("clap-contents-provides-help"),
+        add = ArgValueCompleter::new(PathCompleter::file())
+    )]
     pattern: String,
     /// Search binary of package(s)
     #[arg(long, help = fl!("clap-contents-find-bin-help"))]
