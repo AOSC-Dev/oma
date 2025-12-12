@@ -7,7 +7,7 @@ use std::{
 use ahash::{AHashMap, HashSet};
 use aho_corasick::BuildError;
 use apt_auth_config::AuthConfig;
-use bon::{Builder, builder};
+use bon::Builder;
 use chrono::Utc;
 use nix::{
     errno::Errno,

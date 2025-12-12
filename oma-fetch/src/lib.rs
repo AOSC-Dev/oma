@@ -1,6 +1,6 @@
 use std::{borrow::Cow, cmp::Ordering, fmt::Debug, path::PathBuf, time::Duration};
 
-use bon::{Builder, builder};
+use bon::Builder;
 use checksum::Checksum;
 use download::{BuilderError, SingleDownloader, SuccessSummary};
 use futures::StreamExt;
