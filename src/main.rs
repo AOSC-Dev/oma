@@ -23,7 +23,7 @@ mod utils;
 
 use args::{CliExecuter, OhManagerAilurus};
 use clap::builder::FalseyValueParser;
-use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches, arg};
+use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches};
 use clap_complete::CompleteEnv;
 use clap_i18n_richformatter::CommandI18nExt;
 use error::OutputError;
