@@ -7,7 +7,7 @@ use std::{
 
 use ahash::HashSet;
 use apt_auth_config::AuthConfig;
-use bon::{Builder, builder};
+use bon::Builder;
 pub use oma_apt::cache::Upgrade;
 use once_cell::sync::OnceCell;
 use tokio::runtime::Runtime;
@@ -27,7 +27,7 @@ use oma_fetch::{Event, Summary, checksum::ChecksumError, reqwest::Client};
 use oma_utils::{dpkg::DpkgError, human_bytes::HumanBytes, is_termux};
 
 pub use oma_apt::config::Config as AptConfig;
-use tracing::{debug, error};
+use tracing::debug;
 
 #[cfg(feature = "aosc")]
 use tracing::warn;

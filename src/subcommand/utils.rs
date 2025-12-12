@@ -42,7 +42,6 @@ use crate::utils::get_lists_dir;
 use ahash::HashSet;
 use apt_auth_config::AuthConfig;
 use bon::Builder;
-use bon::builder;
 use chrono::Local;
 use dialoguer::Confirm;
 use dialoguer::console;

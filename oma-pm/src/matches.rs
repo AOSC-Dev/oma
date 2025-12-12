@@ -1,6 +1,6 @@
 use std::{borrow::Cow, cmp::Ordering, path::Path};
 
-use bon::{Builder, builder};
+use bon::Builder;
 use cxx::UniquePtr;
 use glob_match::glob_match;
 use oma_apt::{
