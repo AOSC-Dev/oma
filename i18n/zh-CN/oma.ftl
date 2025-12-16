@@ -348,6 +348,7 @@ clap-no-check-battery-help = 不要检查电源状态（即系统是否正在使
 clap-no-check-dbus-help = 不要检查 D-Bus 可用性
 clap-no-fixbroken-help = 不要修复 APT 的 "损坏 (broken)" 状态
 clap-no-fix-dpkg-status-help = 不要修复 dpkg 的 "损坏 (broken)" 状态
+clap-fix-dpkg-status-help = 修复 dpkg 的 "损坏 (broken)" 状态
 clap-no-install-recommends-help = 不要安装推荐依赖
 clap-no-install-suggests-help = 不要安装建议依赖
 clap-no-pager-help = 将输出直接打印到标准输出流 (stdout) 而不使用查看器 (pager)
