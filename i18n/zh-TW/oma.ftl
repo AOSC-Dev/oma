@@ -338,6 +338,7 @@ clap-no-autoremove-help = 不要自動移除不再需要的軟體套件
 clap-no-bell-help = 在 oma 完成操作後不要發送終端提示音
 clap-no-check-dbus-help = 不要檢查 D-Bus 可用性
 clap-no-fixbroken-help = 不要修復 APT 的「損壞 (broken)」狀態
+clap-fix-dpkg-status-help = Fix "broken" dpkg status
 clap-no-fix-dpkg-status-help = 不要修復 dpkg 的「損壞 (broken)」狀態
 clap-no-install-recommends-help = 不要安裝推薦依賴
 clap-no-install-suggests-help = 不要安裝建議依賴

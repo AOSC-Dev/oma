@@ -358,6 +358,7 @@ clap-no-check-battery-help = Do not check for power supply status (whether the s
 clap-no-check-dbus-help = Do not check for D-Bus availability
 clap-no-fixbroken-help = Do not fix "broken" APT status
 clap-no-fix-dpkg-status-help = Do not fix "broken" dpkg status
+clap-fix-dpkg-status-help = Fix "broken" dpkg status
 clap-no-install-recommends-help = Do not install recommended package(s)
 clap-no-install-suggests-help = Do not install suggested package(s)
 clap-no-pager-help = Print output directly to stdout (output stream) directly without a pager

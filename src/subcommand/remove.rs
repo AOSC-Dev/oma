@@ -47,9 +47,9 @@ pub struct Remove {
     /// Resolve broken dependencies in the system
     #[arg(short, long, help = fl!("clap-fix-broken-help"))]
     fix_broken: bool,
-    /// Do not fix dpkg broken status
-    #[arg(short, long, help = fl!("clap-no-fix-dpkg-status-help"))]
-    no_fix_dpkg_status: bool,
+    /// Fix dpkg broken status
+    #[arg(short, long, help = fl!("clap-fix-dpkg-status-help"))]
+    fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(
         long,
@@ -101,9 +101,9 @@ pub struct Purge {
     /// Resolve broken dependencies in the system
     #[arg(short, long, help = fl!("clap-fix-broken-help"))]
     fix_broken: bool,
-    /// Do not fix dpkg broken status
-    #[arg(short, long, help = fl!("clap-no-fix-dpkg-status-help"))]
-    no_fix_dpkg_status: bool,
+    /// Fix dpkg broken status
+    #[arg(short, long, help = fl!("clap-fix-dpkg-status-help"))]
+    fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(
         long,
@@ -144,7 +144,7 @@ impl From<Purge> for Remove {
             force_yes,
             force_confnew,
             no_autoremove,
-            no_fix_dpkg_status,
+            fix_dpkg_status,
             download_threads,
             no_check_battery,
             no_take_wake_lock,
@@ -162,7 +162,7 @@ impl From<Purge> for Remove {
             force_yes,
             force_confnew,
             no_autoremove,
-            no_fix_dpkg_status,
+            fix_dpkg_status,
             remove_config: true,
             download_threads,
             no_check_battery,
@@ -193,7 +193,7 @@ impl CliExecuter for Remove {
             force_confnew,
             no_autoremove,
             remove_config,
-            no_fix_dpkg_status,
+            fix_dpkg_status,
             download_threads,
             no_check_battery,
             no_take_wake_lock,
@@ -281,7 +281,7 @@ impl CliExecuter for Remove {
             .autoremove(!no_autoremove)
             .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
             .maybe_auth_config(auth_config)
-            .fix_dpkg_status(!no_fix_dpkg_status)
+            .fix_dpkg_status(fix_dpkg_status)
             .build()
             .run()
     }
