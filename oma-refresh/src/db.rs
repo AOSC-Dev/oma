@@ -382,7 +382,12 @@ impl<'a> OmaRefresh<'a> {
             .await
             .map_err(RefreshError::DownloadManagerBuilderError)?;
 
-        if !res.is_download_success() {
+        if !res.is_download_success()
+            && res
+                .failed
+                .iter()
+                .any(|file_name| file_name.contains("_Packages"))
+        {
             return Err(RefreshError::DownloadFailed(None));
         }
 

@@ -357,13 +357,21 @@ impl OmaMultiProgressBar {
         debug!("{:#?}", errs);
     }
 
-    fn error_display(&mut self, file_name: &String, is_refresh: bool, reason: String) {
+    fn error_display(&mut self, file_name: &str, is_refresh: bool, reason: String) {
         if is_refresh {
-            self.error(&fl!(
-                "download-file-failed-with-reason",
-                filename = file_name,
-                reason = reason
-            ));
+            if file_name.contains("_Packages") || file_name.contains("Release") {
+                self.error(&fl!(
+                    "download-file-failed-with-reason",
+                    filename = file_name,
+                    reason = reason
+                ));
+            } else {
+                self.warn(&fl!(
+                    "download-file-failed-with-reason",
+                    filename = file_name,
+                    reason = reason
+                ));
+            }
         } else {
             self.error(&fl!(
                 "download-package-failed-with-reason",
