@@ -275,6 +275,13 @@ impl<'a> IndexTargetConfig<'a> {
                                             .replace_all(x, &[*a, comp, l, self.native_arch])
                                     })
                                     .unwrap_or_else(|| "Other".to_string()),
+                                optional: {
+                                    match config.get("Optional").map(|x| x.as_str()) {
+                                        Some("0") => false,
+                                        Some("1") => true,
+                                        _ => true,
+                                    }
+                                },
                             });
                     }
                 }
@@ -319,6 +326,13 @@ fn flat_repo_template_match(
                     .get("ShortDescription")
                     .map(|x| x.to_owned())
                     .unwrap_or_else(|| "Other".to_string()),
+                optional: {
+                    match config.get("Optional").map(|x| x.as_str()) {
+                        Some("0") => false,
+                        Some("1") => true,
+                        _ => true,
+                    }
+                },
             });
     }
 }
@@ -351,6 +365,7 @@ pub struct ChecksumDownloadEntry {
     pub item: ChecksumItem,
     pub keep_compress: bool,
     pub msg: String,
+    pub optional: bool,
 }
 
 fn get_matches_language(locales: impl IntoIterator<Item = String>) -> Vec<String> {
