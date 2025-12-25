@@ -252,7 +252,11 @@ impl<'a> IndexTargetConfig<'a> {
         let mut res = vec![];
 
         for i in 0..sort_res.len() {
-            for j in 1..sort_res.len() {
+            for j in 0..sort_res.len() {
+                if i == j {
+                    continue;
+                }
+
                 if let Some(fallback_of) = &sort_res[i].fallback_of
                     && fallback_of == &sort_res[j].config_key
                 {
