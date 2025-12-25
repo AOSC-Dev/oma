@@ -348,9 +348,9 @@ fn to_download_entry(
             _ => true,
         },
         config_key: config_key
-            .split("::")
-            .last()
+            .rsplit_once("::")
             .unwrap_or_default()
+            .1
             .to_string(),
         fallback_of: config.get("Fallback-Of").cloned(),
     }
