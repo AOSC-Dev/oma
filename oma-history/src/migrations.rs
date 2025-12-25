@@ -101,26 +101,26 @@ fn migration_from_oma_db_v2(conn: &mut Connection) -> HistoryResult<()> {
                         .install
                         .iter()
                         .filter(|x| x.operation == InstallOperation::Install)
-                        .count(),
-                    entry.inner.remove.len(),
+                        .count() as i64,
+                    entry.inner.remove.len() as i64,
                     entry
                         .inner
                         .install
                         .iter()
                         .filter(|x| x.operation == InstallOperation::Upgrade)
-                        .count(),
+                        .count() as i64,
                     entry
                         .inner
                         .install
                         .iter()
                         .filter(|x| x.operation == InstallOperation::Downgrade)
-                        .count(),
+                        .count() as i64,
                     entry
                         .inner
                         .install
                         .iter()
                         .filter(|x| x.operation == InstallOperation::ReInstall)
-                        .count(),
+                        .count() as i64,
                     entry.summary_type == OldSummaryType::FixBroken,
                     entry.summary_type == OldSummaryType::Undo,
                 ),
@@ -215,7 +215,7 @@ fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> 
             let install_packages: String = row.get(2)?;
             let remove_packages: String = row.get(3)?;
             let disk_size: i64 = row.get(4)?;
-            let total_download_size: u64 = row.get(5)?;
+            let total_download_size: i64 = row.get(5)?;
             let is_success: i64 = row.get(6)?;
             let summary_type: String = row.get(7)?;
 
