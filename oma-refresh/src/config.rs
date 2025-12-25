@@ -288,7 +288,18 @@ impl<'a> IndexTargetConfig<'a> {
                         res_map
                             .entry(name_without_ext)
                             .or_default()
-                            .push(to_download_entry(c, config, config_key));
+                            .push(to_download_entry(
+                                c,
+                                config,
+                                config_key,
+                                &config
+                                    .get("ShortDescription")
+                                    .map(|x| {
+                                        self.replacer
+                                            .replace_all(x, &[*a, comp, l, self.native_arch])
+                                    })
+                                    .unwrap_or_else(|| "Other".to_string()),
+                            ));
                     }
                 }
             }
@@ -323,7 +334,15 @@ fn flat_repo_template_match(
         res_map
             .entry(name_without_ext)
             .or_default()
-            .push(to_download_entry(c, config, config_key));
+            .push(to_download_entry(
+                c,
+                config,
+                config_key,
+                &config
+                    .get("ShortDescription")
+                    .map(|x| x.to_owned())
+                    .unwrap_or_else(|| "Other".to_string()),
+            ));
     }
 }
 
@@ -331,6 +350,7 @@ fn to_download_entry(
     c: &ChecksumItem,
     config: &HashMap<String, String>,
     config_key: &str,
+    msg: &str,
 ) -> ChecksumDownloadEntry {
     ChecksumDownloadEntry {
         item: c.to_owned(),
@@ -338,10 +358,7 @@ fn to_download_entry(
             .get("KeepCompressed")
             .and_then(|x| x.parse::<bool>().ok())
             .unwrap_or(false),
-        msg: config
-            .get("ShortDescription")
-            .map(|x| x.to_owned())
-            .unwrap_or_else(|| "Other".to_string()),
+        msg: msg.to_string(),
         optional: match config.get("Optional").map(|x| x.as_str()) {
             Some("0") => false,
             Some("1") => true,
