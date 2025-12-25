@@ -301,7 +301,7 @@ impl<'a> OmaRefresh<'a> {
 
         download_list.extend(mirror_sources.0.iter().flat_map(|x| x.file_name()));
 
-        let (tasks, total) = self
+        let (tasks, total, optional_index_files) = self
             .collect_all_release_entry(&replacer, &mirror_sources)
             .await?;
 
@@ -315,11 +315,9 @@ impl<'a> OmaRefresh<'a> {
             download_list.push(i.filename.as_str());
         }
 
-        let download_dir = self.download_dir.clone();
-
         let (_, res) = tokio::join!(
-            remove_unused_db(&download_dir, download_list),
-            self.download_release_data(&callback, &tasks, total)
+            remove_unused_db(&self.download_dir, download_list),
+            self.download_release_data(&callback, &tasks, total, optional_index_files)
         );
 
         // 有元数据更新才执行 success invoke
@@ -367,6 +365,7 @@ impl<'a> OmaRefresh<'a> {
         callback: &impl AsyncFn(Event),
         tasks: &[DownloadEntry],
         total: u64,
+        optional_index_files: HashSet<String>,
     ) -> Result<Summary> {
         let dm = DownloadManager::builder()
             .client(self.client)
@@ -377,12 +376,31 @@ impl<'a> OmaRefresh<'a> {
 
         let res = dm
             .start_download(|event| async {
-                callback(Event::DownloadEvent(event)).await;
+                let mut optional = false;
+                if let oma_fetch::Event::Failed { file_name, .. } = &event
+                    && optional_index_files.contains(file_name)
+                {
+                    optional = true;
+                }
+
+                if !optional {
+                    callback(Event::DownloadEvent(event)).await;
+                }
             })
             .await
             .map_err(RefreshError::DownloadManagerBuilderError)?;
 
-        if !res.is_download_success() {
+        let mut raise_err = false;
+
+        for fail in &res.failed {
+            if optional_index_files.contains(fail) {
+                debug!("Failed to download optional metadata file {fail}, ignoring.");
+            } else {
+                raise_err = true;
+            }
+        }
+
+        if raise_err {
             return Err(RefreshError::DownloadFailed(None));
         }
 
@@ -537,7 +555,7 @@ impl<'a> OmaRefresh<'a> {
         &self,
         replacer: &DatabaseFilenameReplacer,
         mirror_sources: &MirrorSources<'a>,
-    ) -> Result<(Vec<DownloadEntry>, u64)> {
+    ) -> Result<(Vec<DownloadEntry>, u64, HashSet<String>)> {
         let mut total = 0;
         let mut tasks = vec![];
 
@@ -560,6 +578,8 @@ impl<'a> OmaRefresh<'a> {
         };
 
         let mut flat_repo_no_release = vec![];
+
+        let mut optional_index_files = HashSet::with_hasher(ahash::RandomState::new());
 
         for m in &mirror_sources.0 {
             let file_name = match m.file_name() {
@@ -665,11 +685,19 @@ impl<'a> OmaRefresh<'a> {
             }
 
             for c in &handle {
-                collect_download_task(c, m, &self.download_dir, &mut tasks, &release, replacer)?;
+                collect_download_task(
+                    c,
+                    m,
+                    &self.download_dir,
+                    &mut tasks,
+                    &release,
+                    replacer,
+                    &mut optional_index_files,
+                )?;
             }
         }
 
-        Ok((tasks, total))
+        Ok((tasks, total, optional_index_files))
     }
 }
 
@@ -831,6 +859,7 @@ fn collect_download_task(
     tasks: &mut Vec<DownloadEntry>,
     release: &Release,
     replacer: &DatabaseFilenameReplacer,
+    optional_set: &mut HashSet<String>,
 ) -> Result<()> {
     let file_type = &c.msg;
 
@@ -894,6 +923,10 @@ fn collect_download_task(
     } else {
         mirror_source.get_download_file_name(Some(&not_compress_filename_before), replacer)?
     };
+
+    if c.optional {
+        optional_set.insert(file_name.clone());
+    }
 
     let task = DownloadEntry::builder()
         .source(sources)
