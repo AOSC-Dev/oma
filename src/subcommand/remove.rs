@@ -48,7 +48,7 @@ pub struct Remove {
     #[arg(short, long, help = fl!("clap-fix-broken-help"))]
     fix_broken: bool,
     /// Fix dpkg broken status
-    #[arg(short, long, help = fl!("clap-fix-dpkg-status-help"))]
+    #[arg(long, help = fl!("clap-fix-dpkg-status-help"))]
     fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(
@@ -102,7 +102,7 @@ pub struct Purge {
     #[arg(short, long, help = fl!("clap-fix-broken-help"))]
     fix_broken: bool,
     /// Fix dpkg broken status
-    #[arg(short, long, help = fl!("clap-fix-dpkg-status-help"))]
+    #[arg(long, help = fl!("clap-fix-dpkg-status-help"))]
     fix_dpkg_status: bool,
     /// Install package(s) without fsync(2)
     #[arg(
