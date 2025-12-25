@@ -258,31 +258,10 @@ impl<'a> IndexTargetConfig<'a> {
                 for l in &self.langs {
                     if self.template_is_match(template, &c.name, a, comp, l) {
                         let name_without_ext = uncompress_file_name(&c.name).to_string();
-
                         res_map
                             .entry(name_without_ext)
                             .or_default()
-                            .push(ChecksumDownloadEntry {
-                                item: c.to_owned(),
-                                keep_compress: config
-                                    .get("KeepCompressed")
-                                    .and_then(|x| x.parse::<bool>().ok())
-                                    .unwrap_or(false),
-                                msg: config
-                                    .get("ShortDescription")
-                                    .map(|x| {
-                                        self.replacer
-                                            .replace_all(x, &[*a, comp, l, self.native_arch])
-                                    })
-                                    .unwrap_or_else(|| "Other".to_string()),
-                                optional: {
-                                    match config.get("Optional").map(|x| x.as_str()) {
-                                        Some("0") => false,
-                                        Some("1") => true,
-                                        _ => true,
-                                    }
-                                },
-                            });
+                            .push(to_download_entry(c, config));
                     }
                 }
             }
@@ -316,24 +295,26 @@ fn flat_repo_template_match(
         res_map
             .entry(name_without_ext)
             .or_default()
-            .push(ChecksumDownloadEntry {
-                item: c.to_owned(),
-                keep_compress: config
-                    .get("KeepCompressed")
-                    .and_then(|x| x.parse::<bool>().ok())
-                    .unwrap_or(false),
-                msg: config
-                    .get("ShortDescription")
-                    .map(|x| x.to_owned())
-                    .unwrap_or_else(|| "Other".to_string()),
-                optional: {
-                    match config.get("Optional").map(|x| x.as_str()) {
-                        Some("0") => false,
-                        Some("1") => true,
-                        _ => true,
-                    }
-                },
-            });
+            .push(to_download_entry(c, config));
+    }
+}
+
+fn to_download_entry(c: &ChecksumItem, config: &HashMap<String, String>) -> ChecksumDownloadEntry {
+    ChecksumDownloadEntry {
+        item: c.to_owned(),
+        keep_compress: config
+            .get("KeepCompressed")
+            .and_then(|x| x.parse::<bool>().ok())
+            .unwrap_or(false),
+        msg: config
+            .get("ShortDescription")
+            .map(|x| x.to_owned())
+            .unwrap_or_else(|| "Other".to_string()),
+        optional: match config.get("Optional").map(|x| x.as_str()) {
+            Some("0") => false,
+            Some("1") => true,
+            _ => true,
+        },
     }
 }
 
