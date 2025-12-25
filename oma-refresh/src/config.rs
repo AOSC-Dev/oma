@@ -156,8 +156,8 @@ pub fn get_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, Stri
 }
 
 pub struct IndexTargetConfig<'a> {
-    deb: Vec<HashMap<String, String>>,
-    deb_src: Vec<HashMap<String, String>>,
+    deb: Vec<(String, HashMap<String, String>)>,
+    deb_src: Vec<(String, HashMap<String, String>)>,
     replacer: AhoCorasick,
     native_arch: &'a str,
     langs: Vec<String>,
@@ -174,8 +174,8 @@ impl<'a> IndexTargetConfig<'a> {
     }
 
     pub fn new(
-        deb: Vec<HashMap<String, String>>,
-        deb_src: Vec<HashMap<String, String>>,
+        deb: Vec<(String, HashMap<String, String>)>,
+        deb_src: Vec<(String, HashMap<String, String>)>,
         native_arch: &'a str,
     ) -> Self {
         let locales = sys_locale::get_locales();
@@ -215,21 +215,29 @@ impl<'a> IndexTargetConfig<'a> {
         }
 
         for c in checksums {
-            'a: for (template, config) in tree.iter().map(|x| (x.get(key), x)) {
+            'a: for (template, (config_key, config)) in tree.iter().map(|x| (x.1.get(key), x)) {
                 let Some(template) = template else {
                     debug!("{:?} config has no key: {}", config, key);
                     continue 'a;
                 };
 
                 if is_flat {
-                    flat_repo_template_match(&mut res_map, c, config, template);
+                    flat_repo_template_match(&mut res_map, c, config, template, config_key);
                 } else {
-                    self.normal_repo_match(&archs, components, &mut res_map, c, config, template);
+                    self.normal_repo_match(
+                        &archs,
+                        components,
+                        &mut res_map,
+                        c,
+                        config,
+                        template,
+                        config_key,
+                    );
                 }
             }
         }
 
-        let mut res = vec![];
+        let mut sort_res = vec![];
 
         for (_, v) in &mut res_map {
             v.sort_unstable_by(|a, b| {
@@ -238,12 +246,30 @@ impl<'a> IndexTargetConfig<'a> {
             if v[0].item.size == 0 {
                 continue;
             }
-            res.push(v.last().unwrap().to_owned());
+            sort_res.push(v.last().unwrap().to_owned());
+        }
+
+        let mut res = vec![];
+
+        for i in 0..sort_res.len() {
+            for j in 1..sort_res.len() {
+                if let Some(fallback_of) = &sort_res[i].fallback_of
+                    && fallback_of == &sort_res[j].config_key
+                {
+                    debug!(
+                        "Skip {} because it is fallback of {}",
+                        sort_res[j].config_key, sort_res[i].config_key
+                    );
+                    continue;
+                }
+                res.push(sort_res[i].to_owned());
+            }
         }
 
         Ok(res)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn normal_repo_match(
         &self,
         archs: &[&str],
@@ -252,6 +278,7 @@ impl<'a> IndexTargetConfig<'a> {
         c: &ChecksumItem,
         config: &HashMap<String, String>,
         template: &str,
+        config_key: &str,
     ) {
         for a in archs {
             for comp in components {
@@ -261,7 +288,7 @@ impl<'a> IndexTargetConfig<'a> {
                         res_map
                             .entry(name_without_ext)
                             .or_default()
-                            .push(to_download_entry(c, config));
+                            .push(to_download_entry(c, config, config_key));
                     }
                 }
             }
@@ -289,17 +316,22 @@ fn flat_repo_template_match(
     c: &ChecksumItem,
     config: &HashMap<String, String>,
     template: &str,
+    config_key: &str,
 ) {
     let name_without_ext = uncompress_file_name(&c.name).to_string();
     if *template == name_without_ext {
         res_map
             .entry(name_without_ext)
             .or_default()
-            .push(to_download_entry(c, config));
+            .push(to_download_entry(c, config, config_key));
     }
 }
 
-fn to_download_entry(c: &ChecksumItem, config: &HashMap<String, String>) -> ChecksumDownloadEntry {
+fn to_download_entry(
+    c: &ChecksumItem,
+    config: &HashMap<String, String>,
+    config_key: &str,
+) -> ChecksumDownloadEntry {
     ChecksumDownloadEntry {
         item: c.to_owned(),
         keep_compress: config
@@ -315,6 +347,12 @@ fn to_download_entry(c: &ChecksumItem, config: &HashMap<String, String>) -> Chec
             Some("1") => true,
             _ => true,
         },
+        config_key: config_key
+            .split("::")
+            .last()
+            .unwrap_or_default()
+            .to_string(),
+        fallback_of: config.get("Fallback-Of").cloned(),
     }
 }
 
@@ -329,12 +367,11 @@ fn uncompress_file_name(target: &str) -> Cow<'_, str> {
 }
 
 #[cfg(feature = "apt")]
-fn get_index_target_tree(config: &Config, key: &str) -> Vec<HashMap<String, String>> {
+fn get_index_target_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
     get_tree(config, key)
         .into_iter()
-        .map(|x| x.1)
         .filter(|x| {
-            x.get("DefaultEnabled")
+            x.1.get("DefaultEnabled")
                 .and_then(|x| x.parse::<bool>().ok())
                 .unwrap_or(true)
         })
@@ -347,6 +384,8 @@ pub struct ChecksumDownloadEntry {
     pub keep_compress: bool,
     pub msg: String,
     pub optional: bool,
+    pub config_key: String,
+    pub fallback_of: Option<String>,
 }
 
 fn get_matches_language(locales: impl IntoIterator<Item = String>) -> Vec<String> {
