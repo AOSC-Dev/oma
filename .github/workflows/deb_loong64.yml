@@ -56,7 +56,7 @@ jobs:
           VER_SUFFIX="${TARGET_DISTRO/:/}"
           VER_SUFFIX="${VER_SUFFIX##*\/}"
           case "${TARGET_DISTRO}" in
-              'lcr.loongnix.cn/library/debian')
+              'lcr.loongnix.cn/library/debian'*)
                   CODENAME='trixie'
                   VER_SUFFIX='debian13'
                   ;;
