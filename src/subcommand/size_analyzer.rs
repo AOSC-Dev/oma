@@ -15,7 +15,7 @@ use oma_utils::is_termux;
 use ratatui::crossterm::event::{self, KeyCode, KeyModifiers};
 use ratatui::layout::{Flex, Rect};
 use ratatui::prelude::Constraint;
-use ratatui::style::{Color, Style, Stylize};
+use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{
     Block, Borders, Clear, List, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
@@ -450,7 +450,9 @@ impl<'a> PkgSizeAnalyzer<'a> {
         self.installed.state.select_first();
 
         loop {
-            terminal.draw(|f| self.ui(f))?;
+            terminal
+                .draw(|f| self.ui(f))
+                .map_err(|e| io::Error::other(e.to_string()))?;
 
             if event::poll(tick_rate)? {
                 let event::Event::Key(key) = event::read()? else {

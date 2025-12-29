@@ -265,7 +265,10 @@ impl<'a> OmaPager<'a> {
         let mut last_tick = Instant::now();
         // Start the loop, waiting for the keyboard interrupts.
         loop {
-            terminal.draw(|f| self.ui(f))?;
+            terminal
+                .draw(|f| self.ui(f))
+                .map_err(|e| io::Error::other(e.to_string()))?;
+
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
             if crossterm::event::poll(timeout)? {
                 match event::read()? {
