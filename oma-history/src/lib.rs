@@ -18,7 +18,7 @@ pub struct HistoryEntryInner {
     pub install: Vec<InstallHistoryEntry>,
     pub remove: Vec<RemoveHistoryEntry>,
     pub disk_size: i64,
-    pub total_download_size: u64,
+    pub total_download_size: i64,
     pub is_success: bool,
 }
 
@@ -144,28 +144,28 @@ pub fn write_history_entry(
                 start_time,
                 if success { 1 } else { 0 },
                 summary.disk_size_delta,
-                summary.total_download_size,
+                summary.total_download_size as i64,
                 summary
                     .install
                     .iter()
                     .filter(|x| x.op() == &InstallOperation::Install)
-                    .count(),
-                summary.remove.len(),
+                    .count() as i64,
+                summary.remove.len() as i64,
                 summary
                     .install
                     .iter()
                     .filter(|x| x.op() == &InstallOperation::Upgrade)
-                    .count(),
+                    .count() as i64,
                 summary
                     .install
                     .iter()
                     .filter(|x| x.op() == &InstallOperation::Downgrade)
-                    .count(),
+                    .count() as i64,
                 summary
                     .install
                     .iter()
                     .filter(|x| x.op() == &InstallOperation::ReInstall)
-                    .count(),
+                    .count() as i64,
                 if is_fix_broken { 1 } else { 0 },
                 if is_undo { 1 } else { 0 },
             ),
@@ -185,9 +185,9 @@ pub fn write_history_entry(
                     i.name(),
                     i.old_version(),
                     i.new_version(),
-                    i.old_size(),
-                    i.new_size(),
-                    i.download_size(),
+                    i.old_size().map(|n| n as i64),
+                    i.new_size() as i64,
+                    i.download_size() as i64,
                     i.arch(),
                     op,
                 ),
@@ -204,7 +204,7 @@ pub fn write_history_entry(
         transaction
             .execute(
                 INSERT_REMOVE_TABLE,
-                (id, i.name(), version, i.size(), i.arch()),
+                (id, i.name(), version, i.size() as i64, i.arch()),
             )
             .map_err(HistoryError::ExecuteError)?;
 
@@ -434,7 +434,7 @@ pub fn find_history_by_id(conn: &Connection, id: i64) -> HistoryResult<HistoryEn
         .query_map([id], |row| {
             let is_success: i64 = row.get(0)?;
             let disk_size: i64 = row.get(1)?;
-            let total_download_size: u64 = row.get(2)?;
+            let total_download_size: i64 = row.get(2)?;
 
             Ok((is_success, disk_size, total_download_size))
         })
