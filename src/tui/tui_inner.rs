@@ -20,7 +20,7 @@ use ratatui::{
     Frame, Terminal,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
     prelude::Backend,
-    style::{Color, Style, Stylize},
+    style::{Color, Style},
     text::{Line, Span, Text},
     widgets::{
         Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
@@ -144,7 +144,9 @@ impl<'a> Tui<'a> {
     ) -> io::Result<Task> {
         let mut last_tick = Instant::now();
         loop {
-            terminal.draw(|f| self.ui(f))?;
+            terminal
+                .draw(|f| self.ui(f))
+                .map_err(|e| io::Error::other(e.to_string()))?;
 
             if event::poll(tick_rate)?
                 && let event::Event::Key(key) = event::read()?
