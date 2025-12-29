@@ -11,7 +11,7 @@ jobs:
       matrix:
         target:
           [
-            "lcr.loongnix.cn/library/debian",
+            "lcr.loongnix.cn/library/debian:sid-20251209",
             # "linuxdeepin/deepin:beige-loong64-v1.4.0", 编译 cargo-deb 会卡住
           ]
     container:
