@@ -321,6 +321,8 @@ pub(crate) struct CommitChanges<'a> {
     topics_disabled: Vec<String>,
     #[builder(default)]
     download_only: bool,
+    #[builder(default)]
+    is_upgrade: bool,
 }
 
 impl CommitChanges<'_> {
@@ -344,6 +346,7 @@ impl CommitChanges<'_> {
             topics_enabled,
             topics_disabled,
             download_only,
+            is_upgrade,
         } = self;
 
         fix_broken(
@@ -353,6 +356,7 @@ impl CommitChanges<'_> {
             fix_dpkg_status,
             remove_config,
             autoremove,
+            is_upgrade,
         )?;
 
         let op = apt.summary(
@@ -575,15 +579,18 @@ pub fn fix_broken(
     fix_dpkg_status: bool,
     remove_config: bool,
     autoremove: bool,
+    is_upgrade: bool,
 ) -> Result<(), OutputError> {
     let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
 
     let res = Ok(()).and_then(|_| -> Result<(), OmaAptError> {
+        let solver = apt.config.find("APT::Solver", "internal");
+
         if autoremove {
             apt.autoremove(remove_config)?;
         }
 
-        if !no_fixbroken {
+        if !no_fixbroken && solver != "3.0" {
             apt.fix_resolver_broken();
         }
 
@@ -596,6 +603,10 @@ pub fn fix_broken(
                 info!("{}", fl!("fixing-status"));
                 apt.fix_dpkg_status(needs_reconfigure, needs_retrigger)?;
             }
+        }
+
+        if solver == "3.0" && is_upgrade {
+            return Ok(());
         }
 
         apt.resolve(no_fixbroken, remove_config)?;

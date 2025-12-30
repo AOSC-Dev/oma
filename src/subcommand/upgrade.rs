@@ -241,6 +241,7 @@ impl CliExecuter for Upgrade {
             .maybe_auth_config(Some(&auth_config))
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
+            .is_upgrade(true)
             .build()
             .run()?;
 
