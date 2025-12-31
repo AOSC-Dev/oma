@@ -59,6 +59,7 @@ use crate::pb::Print;
 use crate::subcommand::utils::multiselect;
 use crate::success;
 use crate::table::PagerPrinter;
+use crate::tls_config;
 use crate::utils::root;
 
 use super::utils::Refresh;
@@ -482,10 +483,7 @@ fn set_order(
 fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, OutputError> {
     let mm = MirrorManager::new("/")?;
 
-    let client = blocking::ClientBuilder::new()
-        .user_agent(APP_USER_AGENT)
-        .timeout(Duration::from_secs_f64(timeout))
-        .build()?;
+    let client = client(timeout)?;
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
@@ -714,10 +712,7 @@ fn speedtest(
         None
     };
 
-    let client = blocking::ClientBuilder::new()
-        .user_agent(APP_USER_AGENT)
-        .timeout(Duration::from_secs_f64(timeout))
-        .build()?;
+    let client = client(timeout)?;
 
     let mut score_map = HashMap::with_hasher(ahash::RandomState::new());
 
@@ -820,6 +815,16 @@ fn speedtest(
     }
 
     Ok(0)
+}
+
+fn client(timeout: f64) -> Result<blocking::Client, OutputError> {
+    let client = blocking::ClientBuilder::new()
+        .user_agent(APP_USER_AGENT)
+        .tls_backend_preconfigured(tls_config())
+        .timeout(Duration::from_secs_f64(timeout))
+        .build()?;
+
+    Ok(client)
 }
 
 #[inline]

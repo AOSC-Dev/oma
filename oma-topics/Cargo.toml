@@ -9,6 +9,7 @@ license = "MIT"
 
 [dependencies]
 reqwest = { version = "0.13", features = ["json"], default-features = false }
+rustls = { version = "0.23", default-features = false, features = ["ring", "tls12"], optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.28", default-features = false, features = ["fs", "rt", "rt-multi-thread"] }
@@ -25,6 +26,6 @@ oma-console = { path = "../oma-console" }
 tokio = { version = "1.28", default-features = false, features = ["macros", "rt-multi-thread"] }
 
 [features]
-rustls = ["reqwest/default-tls"]
+rustls = ["reqwest/rustls-no-provider", "dep:rustls"]
 native-tls = ["reqwest/native-tls"]
 default = ["rustls"]

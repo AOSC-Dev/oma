@@ -9,6 +9,7 @@ license = "MIT"
 
 [dependencies]
 reqwest = { version = "0.13", default-features = false, features = ["stream"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "tls12"], optional = true }
 tokio = { version = "1.28", default-features = false, features = ["fs"] }
 serde = { version = "1.0", features = ["derive"] }
 faster-hex = "0.10"
@@ -31,6 +32,6 @@ tokio = { version = "1.42", features = ["macros", "rt-multi-thread"] }
 flume = "0.12"
 
 [features]
-rustls = ["reqwest/default-tls"]
+rustls = ["reqwest/rustls-no-provider", "dep:rustls"]
 native-tls = ["reqwest/native-tls"]
 default = ["rustls"]
