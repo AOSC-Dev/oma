@@ -190,19 +190,6 @@ impl CliExecuter for Upgrade {
 
         let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, AptConfig::new())?;
 
-        #[cfg(feature = "aosc")]
-        let mode = AptUpgrade::FullUpgrade;
-
-        #[cfg(not(feature = "aosc"))]
-        let mode = if no_remove {
-            AptUpgrade::Upgrade
-        } else {
-            AptUpgrade::FullUpgrade
-        };
-
-        debug!("Upgrade mode is using: {:?}", mode);
-        apt.upgrade(mode)?;
-
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .filter_candidate(true)
@@ -226,6 +213,19 @@ impl CliExecuter for Upgrade {
             }
         }
 
+        #[cfg(feature = "aosc")]
+        let mode = AptUpgrade::FullUpgrade;
+
+        #[cfg(not(feature = "aosc"))]
+        let mode = if no_remove {
+            AptUpgrade::Upgrade
+        } else {
+            AptUpgrade::FullUpgrade
+        };
+
+        debug!("Upgrade mode is using: {:?}", mode);
+        apt.upgrade(mode)?;
+
         let code = CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
@@ -241,6 +241,7 @@ impl CliExecuter for Upgrade {
             .maybe_auth_config(Some(&auth_config))
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
+            .is_upgrade(true)
             .build()
             .run()?;
 

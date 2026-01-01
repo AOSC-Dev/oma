@@ -3102,9 +3102,9 @@ dependencies = [
 
 [[package]]
 name = "oma-apt"
-version = "0.12.2"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17c7f4603562ad8e06863ed4753e104b1c4d70f890d9da0dfb868c9995fa808"
+checksum = "69123cbdba48fee657d365a51ac8fccb9b735d600ab072efb9bb1243a5abd692"
 dependencies = [
  "cxx",
  "cxx-build",
