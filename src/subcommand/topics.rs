@@ -277,9 +277,24 @@ impl CliExecuter for Topics {
                 }
 
                 let pkg_name = pkg.name();
+                let pkginfo = matcher.find_candidate_by_pkgname(pkg_name)?;
 
                 // linux-kernel-VER 包在关闭 topic 的时候应该直接删除
                 if pkg_name.starts_with("linux-kernel-") {
+                    let installed_version = pkg.installed().unwrap();
+                    let installed_version = installed_version.version();
+                    let candidate = pkginfo.version_raw.version();
+                    let (inst_ver_no_rel, _) = installed_version
+                        .split_once('-')
+                        .unwrap_or((installed_version, "0"));
+                    let (cand_ver_no_rel, _) =
+                        candidate.split_once('-').unwrap_or((candidate, "0"));
+
+                    if inst_ver_no_rel == cand_ver_no_rel {
+                        pkgs.push(pkginfo);
+                        continue;
+                    }
+
                     let current_kernel_ver = kernel_ver.get_or_try_init(|| {
                         System::kernel_version().context("Failed to get kernel version")
                     })?;
@@ -308,8 +323,6 @@ impl CliExecuter for Topics {
 
                     continue;
                 }
-
-                let pkginfo = matcher.find_candidate_by_pkgname(pkg_name)?;
 
                 pkgs.push(pkginfo);
             }
