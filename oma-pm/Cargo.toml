@@ -8,7 +8,7 @@ license = "GPL-3.0-or-later"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-oma-apt = { git = "https://github.com/aosc-dev/oma-apt.git", rev = "b2171c27224628f670c3a7484ac678492a6df6c8" }
+oma-apt = "0.13"
 thiserror = "2"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 glob-match = "0.2"
