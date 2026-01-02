@@ -26,7 +26,7 @@ tokio = { version = "1.15", default-features = false, features = [
 fs4 = "0.13"
 tracing = "0.1"
 oma-pm-operation-type = { version = "0.10", path = "../oma-pm-operation-type" }
-zbus = { version = "5.1", features = ["tokio"] }
+zbus = { version = "5.1", default-features = false, features = ["tokio"] }
 cxx = "1.0.121"
 ahash = "0.8.11"
 bon = "3"

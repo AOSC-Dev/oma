@@ -33,7 +33,7 @@ use tracing::debug;
 use tracing::warn;
 
 pub use oma_pm_operation_type::*;
-use zbus::Connection;
+use oma_utils::zbus::Connection;
 
 use crate::{
     commit::{CommitConfig, CustomDownloadMessage, DoInstall},

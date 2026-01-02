@@ -11,13 +11,13 @@ license = "MIT"
 thiserror = "2"
 number_prefix = { version = "0.4", optional = true }
 os-release = "0.1"
-zbus = { version = "5.1", optional = true }
+zbus = { version = "5.1", optional = true, default-features = false, features = ["tokio"] }
 url-escape = { version = "0.1", optional = true }
 tracing = "0.1"
-logind-zbus = "5.1"
+logind-zbus = { version = "5.1", optional = true, default-features = false, features = ["tokio"], package = "logind-zbus-tokio" }
 
 [features]
 dpkg = []
-human-bytes = ["number_prefix"]
-dbus = ["zbus"]
-url-no-escape = ["url-escape"]
+human-bytes = ["dep:number_prefix"]
+dbus = ["dep:zbus", "dep:logind-zbus"]
+url-no-escape = ["dep:url-escape"]
