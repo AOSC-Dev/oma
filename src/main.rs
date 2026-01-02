@@ -5,7 +5,7 @@ use std::io::{self, IsTerminal, stderr, stdin};
 use std::path::{Path, PathBuf};
 
 use std::process::{Command, exit};
-use std::sync::{LazyLock, OnceLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -37,6 +37,8 @@ use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
 use rustix::stdio::stdout;
+use rustls::ClientConfig;
+use rustls_platform_verifier::BuilderVerifierExt;
 use subcommand::utils::{LockError, is_terminal};
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
@@ -67,12 +69,15 @@ static RT: LazyLock<Runtime> = LazyLock::new(|| {
         .build()
         .expect("Failed to init async runtime")
 });
+
 static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
     Client::builder()
         .user_agent(APP_USER_AGENT)
+        .tls_backend_preconfigured(tls_config())
         .build()
         .unwrap()
 });
+
 static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
 static LOCK: OnceLock<PathBuf> = OnceLock::new();
 
@@ -473,6 +478,17 @@ fn try_main(
     }
 
     code
+}
+
+fn tls_config() -> ClientConfig {
+    let arc_crypto_provider = Arc::new(rustls::crypto::ring::default_provider());
+
+    ClientConfig::builder_with_provider(arc_crypto_provider)
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_platform_verifier()
+        .unwrap()
+        .with_no_client_auth()
 }
 
 fn init_color_formatter(oma: &OhManagerAilurus, config: &Config) {
