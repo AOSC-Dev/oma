@@ -230,6 +230,7 @@ fn main() {
             1
         }
     };
+    dbg!(7);
 
     exit(code);
 }
@@ -430,10 +431,13 @@ fn try_main(
     config: Config,
     matches: ArgMatches,
 ) -> Result<i32, OutputError> {
+    dbg!(1);
     init_color_formatter(&oma, &config);
+    dbg!(2);
 
     let no_progress =
         oma.global.no_progress || !is_terminal() || oma.global.debug || oma.global.dry_run;
+    dbg!(3);
 
     let code = match oma.subcmd {
         Some(subcmd) => subcmd.execute(&config, no_progress),
@@ -468,9 +472,13 @@ fn try_main(
         }
     };
 
+    dbg!(5);
+
     if !oma.global.no_bell && config.bell() {
         terminal_ring();
     }
+
+    dbg!(6);
 
     code
 }

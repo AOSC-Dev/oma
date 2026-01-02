@@ -19,6 +19,7 @@ pub struct GenerateManpages {
 
 impl CliExecuter for GenerateManpages {
     fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
+        dbg!(4);
         let cmd = OhManagerAilurus::command();
         Ok(build_man(&cmd, self.path)?)
     }
