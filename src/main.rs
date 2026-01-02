@@ -518,6 +518,10 @@ fn init_color_formatter(oma: &OhManagerAilurus, config: &Config) {
         // Ref: https://github.com/dalance/procs/commit/83305be6fb431695a070524328b66c7107ce98f3
         let timeout = Duration::from_millis(100);
 
+        dbg!(stdout().is_terminal());
+        dbg!(stderr().is_terminal());
+        dbg!(stdin().is_terminal());
+
         if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() || no_color
         {
             follow_term_color = true;
@@ -532,18 +536,22 @@ fn init_color_formatter(oma: &OhManagerAilurus, config: &Config) {
                 "Unknown or unsupported terminal ($TERM is empty or unsupported) detected, using default terminal colors to avoid latency."
             );
             follow_term_color = true;
-        } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
-            debug!("latency: {:?}", latency);
-            if latency * 2 > timeout {
-                debug!(
-                    "Terminal latency is too long, falling back to default terminal colors, latency: {:?}.",
-                    latency
-                );
+        } else {
+            dbg!("Checking terminal latency...");
+            if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
+                debug!("latency: {:?}", latency);
+                if latency * 2 > timeout {
+                    debug!(
+                        "Terminal latency is too long, falling back to default terminal colors, latency: {:?}.",
+                        latency
+                    );
+                    follow_term_color = true;
+                }
+            }  else {
+                debug!("Terminal latency is too long, falling back to default terminal colors.");
                 follow_term_color = true;
             }
-        } else {
-            debug!("Terminal latency is too long, falling back to default terminal colors.");
-            follow_term_color = true;
+            dbg!("Terminal latency check complete.");
         }
 
         OmaColorFormat::new(follow_term_color, timeout)
