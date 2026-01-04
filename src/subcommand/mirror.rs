@@ -53,13 +53,13 @@ use crate::args::HELP_TEMPLATE;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
+use crate::init_tls_config;
 use crate::lang::SYSTEM_LANG;
 use crate::pb::OmaProgressBar;
 use crate::pb::Print;
 use crate::subcommand::utils::multiselect;
 use crate::success;
 use crate::table::PagerPrinter;
-use crate::tls_config;
 use crate::utils::root;
 
 use super::utils::Refresh;
@@ -818,9 +818,10 @@ fn speedtest(
 }
 
 fn client(timeout: f64) -> Result<blocking::Client, OutputError> {
+    init_tls_config();
+
     let client = blocking::ClientBuilder::new()
         .user_agent(APP_USER_AGENT)
-        .tls_backend_preconfigured(tls_config())
         .timeout(Duration::from_secs_f64(timeout))
         .build()?;
 
