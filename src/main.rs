@@ -482,6 +482,7 @@ fn try_main(
 /// Initialize ring TLS config for HTTP client
 #[inline]
 fn init_tls_config() {
+    #[cfg(feature = "rustls")]
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");
