@@ -23,8 +23,7 @@ toml = "0.9"
 chrono = "0.4.38"
 rustix = { version = "1", features = ["process", "stdio"] }
 libc = "0.2.159"
-reqwest = { version = "0.13", default-features = false }
-rustls-platform-verifier = { version = "0.6", optional = true }
+reqwest = { version = "0.13", default-features = false, features = ["http2"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "tls12"], optional = true }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
@@ -82,7 +81,7 @@ aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc"
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
 tokio-console = ["dep:console-subscriber"]
-rustls = ["reqwest/rustls-no-provider", "dep:rustls-platform-verifier", "dep:rustls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-topics/rustls"]
+rustls = ["reqwest/rustls-no-provider", "dep:rustls", "oma-fetch/rustls", "oma-refresh/rustls", "oma-topics/rustls"]
 openssl = ["reqwest/native-tls", "oma-fetch/native-tls", "oma-refresh/native-tls", "oma-topics/native-tls"]
 nice-setup = ["sequoia-nettle-backend", "rustls", "oma-refresh/apt"]
 openssl-setup = ["sequoia-openssl-backend", "openssl", "oma-refresh/apt"]
