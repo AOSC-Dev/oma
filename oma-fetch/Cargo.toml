@@ -33,5 +33,5 @@ flume = "0.12"
 
 [features]
 rustls = ["reqwest/rustls-no-provider", "dep:rustls"]
-native-tls = ["reqwest/native-tls", "reqwest/http2"]
+native-tls = ["reqwest/native-tls"]
 default = ["rustls"]
