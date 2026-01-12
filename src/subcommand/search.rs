@@ -2,12 +2,7 @@ use std::{fmt::Display, path::PathBuf};
 
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
-use oma_console::{
-    console::style,
-    pager::Pager,
-    print::Action,
-    writer::{MessageType, gen_prefix, writeln_inner},
-};
+use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
 use oma_pm::{
     PackageStatus,
     apt::{AptConfig, OmaApt, OmaAptArgs},
@@ -108,25 +103,20 @@ impl Display for SearchResultDisplay<'_> {
 
         writeln!(f, "{}{}", gen_prefix(&prefix, 10), pkg_info_line)?;
 
-        writeln_inner(
-            &i.desc,
-            "",
-            WRITER.get_max_len().into(),
-            WRITER.get_prefix_len(),
-            |t, s| {
-                match t {
-                    MessageType::Msg => {
-                        writeln!(
-                            f,
-                            "{}",
-                            color_formatter().color_str(s.trim(), Action::Secondary)
-                        )
-                    }
-                    MessageType::Prefix => write!(f, "{}", gen_prefix(s, 10)),
-                }
+        WRITER
+            .get_terminal()
+            .wrap_content("", &i.desc)
+            .into_iter()
+            .for_each(|(prefix, body)| {
+                write!(f, "{}", gen_prefix(prefix, 10)).ok();
+                writeln!(
+                    f,
+                    "{}",
+                    color_formatter().color_str(body.trim(), Action::Secondary)
+                )
+                // Keep original behavior (?
                 .ok();
-            },
-        );
+            });
 
         Ok(())
     }

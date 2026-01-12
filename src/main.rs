@@ -1,13 +1,11 @@
 use std::env::{self, args};
 use std::ffi::CString;
-use std::fs::{create_dir_all, read_dir, remove_file};
 use std::io::{self, IsTerminal, stderr, stdin};
 use std::path::{Path, PathBuf};
 
 use std::process::{Command, exit};
-use std::sync::{LazyLock, OnceLock};
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, LazyLock, OnceLock};
+use std::time::Duration;
 
 mod args;
 mod config;
@@ -29,21 +27,26 @@ use clap_i18n_richformatter::CommandI18nExt;
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
-use oma_console::OmaLayer;
-use oma_console::print::{OmaColorFormat, termbg};
-use oma_console::writer::{MessageType, Writer, writeln_inner};
+use oma_console::{
+    OmaFormatter,
+    print::{OmaColorFormat, termbg},
+    terminal::wrap_content,
+    writer::Writer,
+};
 use oma_pm::apt::AptConfig;
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
 use rustix::stdio::stdout;
+use spdlog::{
+    Level, LevelFilter, Logger, debug, info, init_log_crate_proxy,
+    prelude::error as log_error,
+    set_default_logger,
+    sink::{AsyncPoolSink, RotatingFileSink, RotationPolicy, StdStreamSink},
+    warn,
+};
 use subcommand::utils::{LockError, is_terminal};
 use tokio::runtime::Runtime;
-use tracing::{debug, error, info, warn};
-use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, Layer, fmt};
 use tui::Tui;
 use utils::{is_root, is_ssh_from_loginctl};
 
@@ -187,7 +190,7 @@ fn main() {
     console_subscriber::init();
 
     #[cfg(not(feature = "tokio-console"))]
-    let (_guard, file) = init_logger(&oma, &config);
+    let file = init_logger(&oma, &config);
 
     debug!(
         "Run oma with args: {} (pid: {})",
@@ -280,147 +283,71 @@ fn init_localizer() {
     LANGUAGE_LOADER.set_use_isolating(false);
 }
 
-macro_rules! init_logger_inner {
-    ($context:ident, $non_blocking:ident) => {{
-        let debug_filter: EnvFilter = "hyper=off,rustls=off,debug".parse().unwrap();
-        $context
-            .with(
-                fmt::layer()
-                    .with_file(true)
-                    .with_writer($non_blocking)
-                    .with_filter(debug_filter),
-            )
-            .init()
-    }};
-    ($context:ident) => {{ $context.init() }};
-}
-
-fn init_logger(
-    oma: &OhManagerAilurus,
-    config: &Config,
-) -> (Option<WorkerGuard>, anyhow::Result<String>) {
+fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String> {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
 
-    let log_dir = if is_root() {
+    let log_file = (if is_root() {
         PathBuf::from("/var/log/oma")
     } else {
         dirs::state_dir()
             .expect("Failed to get state dir")
             .join("oma")
-    };
+    })
+    .join("oma.log");
 
-    let log_file = create_log_file(&log_dir);
-    let mut log_guard = None;
+    // TODO: We need `spdlog-rs` implements `EnvFilter` first
 
-    if !debug && !dry_run {
-        let no_i18n_embd: EnvFilter = "i18n_embed=off,info".parse().unwrap();
+    let (level_filter, formatter) = if !debug && !dry_run {
+        let level_filter = LevelFilter::MoreSevereEqual(Level::Info);
 
-        let context = tracing_subscriber::registry().with(
-            OmaLayer::new()
-                .with_ansi(enable_ansi(oma))
-                .with_filter(no_i18n_embd),
-        );
+        let formatter = OmaFormatter::new().with_ansi(enable_ansi(oma));
 
-        if let Ok(log_file) = &log_file {
-            let file_appender = tracing_appender::rolling::never(&log_dir, log_file);
-            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-            init_logger_inner!(context, non_blocking);
-            log_guard = Some(guard);
-        } else {
-            init_logger_inner!(context);
-        }
+        (level_filter, formatter)
     } else {
-        let filter = EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| "hyper=off,rustls=off,debug".parse().unwrap());
+        let level_filter = LevelFilter::MoreSevereEqual(Level::Debug);
 
-        let context = tracing_subscriber::registry().with(
-            fmt::layer()
-                .event_format(
-                    tracing_subscriber::fmt::format()
-                        .with_file(true)
-                        .with_line_number(true)
-                        .with_ansi(enable_ansi(oma)),
-                )
-                .with_filter(filter),
-        );
+        let formatter = OmaFormatter::new()
+            .with_ansi(enable_ansi(oma))
+            .with_file(true)
+            .with_time(true);
 
-        if let Ok(log_file) = &log_file {
-            let file_appender = tracing_appender::rolling::never(&log_dir, log_file);
-            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-            init_logger_inner!(context, non_blocking);
-            log_guard = Some(guard);
-        } else {
-            init_logger_inner!(context);
-        }
-    }
+        (level_filter, formatter)
+    };
+    let rotating_sink = AsyncPoolSink::builder()
+        .sink(Arc::new(
+            RotatingFileSink::builder()
+                .base_path(&log_file)
+                .formatter(formatter.clone())
+                // 10 MB
+                .rotation_policy(RotationPolicy::FileSize(10 * 1024 * 1024))
+                .max_files(config.save_log_count())
+                .build()
+                .unwrap(),
+        ))
+        .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
+        .build()
+        .unwrap();
 
-    // 日志文件创建成功再去遍历文件
-    if log_file.is_ok() {
-        thread::scope(|s| {
-            s.spawn(|| {
-                let mut v = vec![];
-                let dirs = read_dir(&log_dir)
-                    .expect("Failed to read log dir")
-                    .collect::<Vec<_>>();
+    let stream_sink = StdStreamSink::builder()
+        .formatter(formatter)
+        .stdout()
+        .build()
+        .unwrap();
 
-                for p in &dirs {
-                    let Ok(p) = p else {
-                        continue;
-                    };
+    let mut logger_builder = Logger::builder();
 
-                    let file_name = p.file_name();
-                    let file_name = file_name.to_string_lossy();
-                    let Some((prefix, timestamp)) = file_name.rsplit_once('.') else {
-                        continue;
-                    };
+    logger_builder
+        .level_filter(level_filter)
+        .sink(Arc::new(stream_sink))
+        .sink(Arc::new(rotating_sink));
 
-                    if prefix != "oma.log" {
-                        continue;
-                    }
+    let logger = logger_builder.build().unwrap();
 
-                    let Ok(timestamp) = timestamp.parse::<usize>() else {
-                        continue;
-                    };
+    set_default_logger(Arc::new(logger));
+    init_log_crate_proxy().unwrap();
 
-                    v.push(timestamp);
-                }
-
-                if v.len() > config.save_log_count() {
-                    v.sort_unstable_by(|a, b| b.cmp(a));
-
-                    for _ in 1..=(v.len() - config.save_log_count()) {
-                        let Some(pop) = v.pop() else {
-                            break;
-                        };
-
-                        let log_path = log_dir.join(format!("oma.log.{pop}"));
-                        if let Err(e) = remove_file(&log_path) {
-                            debug!("Failed to remove file {}: {}", log_path.display(), e);
-                        }
-                    }
-                }
-            });
-        });
-    }
-
-    (log_guard, log_file)
-}
-
-fn create_log_file(log_dir: &Path) -> anyhow::Result<String> {
-    create_dir_all(log_dir)?;
-
-    let log_file = format!(
-        "oma.log.{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-    );
-
-    let log_file = log_dir.join(log_file).to_string_lossy().to_string();
-
-    Ok(log_file)
+    Ok(log_file.to_string_lossy().to_string())
 }
 
 #[inline]
@@ -449,7 +376,7 @@ fn try_main(
                 if !plugin.is_file() {
                     plugin = plugin_fallback;
                     if !plugin.is_file() {
-                        error!("{}", fl!("custom-command-unknown", subcmd = subcommand));
+                        log_error!("{}", fl!("custom-command-unknown", subcmd = subcommand));
                         return Ok(1);
                     }
                 }
@@ -462,7 +389,7 @@ fn try_main(
 
                 let status = process.status().unwrap().code().unwrap();
                 if status != 0 {
-                    error!("{}", fl!("custom-command-applet-exception", s = status));
+                    log_error!("{}", fl!("custom-command-applet-exception", s = status));
                 }
 
                 Ok(status)
@@ -563,7 +490,7 @@ fn color_formatter() -> &'static OmaColorFormat {
 fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
     let mut unlock = true;
     if !e.description.is_empty() {
-        error!("{e}");
+        log_error!("{e}");
 
         let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
         let last_cause = cause.last();
@@ -579,17 +506,16 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
                         WRITER.write_prefix("")?;
                     }
 
-                    let mut res = vec![];
-                    writeln_inner(
-                        &c.to_string(),
+                    let res = wrap_content(
                         "",
-                        cause_writer.get_max_len().into(),
+                        &c.to_string(),
+                        cause_writer.get_max_len(),
                         cause_writer.get_prefix_len() + WRITER.get_prefix_len(),
-                        |t, s| match t {
-                            MessageType::Msg => res.push(s.to_owned()),
-                            MessageType::Prefix => (),
-                        },
-                    );
+                    )
+                    .into_iter()
+                    .map(|(_, s)| s)
+                    .collect::<Vec<_>>();
+
                     for (k, j) in res.iter().enumerate() {
                         if k == 0 {
                             cause_writer.write_prefix(&format!("{i}."))?;
@@ -610,7 +536,7 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
                 unlock = false;
                 if let Err(e) = find_another_oma() {
                     debug!("{e}");
-                    error!("{}", fl!("failed-to-lock-oma"));
+                    log_error!("{}", fl!("failed-to-lock-oma"));
                 }
             }
         }
@@ -633,7 +559,7 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
         pkg => fl!("status-package", pkg = pkg),
     };
 
-    error!("{}", fl!("another-oma-is-running", s = status));
+    log_error!("{}", fl!("another-oma-is-running", s = status));
 
     Ok(())
 }

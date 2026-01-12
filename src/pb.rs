@@ -10,7 +10,8 @@ use oma_console::{
     indicatif::{MultiProgress, ProgressBar},
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
     print::Action,
-    writer::{MessageType, Writeln, gen_prefix, writeln_inner},
+    terminal::gen_prefix,
+    writer::Writeln,
 };
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
@@ -19,7 +20,7 @@ use crate::{WRITER, error::Chain, fl, install_progress::osc94_progress, msg, uti
 use crate::{color_formatter, error::OutputError};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;
-use tracing::{debug, error, info, warn};
+use spdlog::{debug, error, info, warn};
 
 pub trait RenderPackagesDownloadProgress {
     fn render_progress(&mut self, rx: &flume::Receiver<Event>, download_only: bool);
@@ -87,23 +88,14 @@ impl Drop for OmaProgressBar {
 
 impl Writeln for OmaProgressBar {
     fn writeln(&self, prefix: &str, msg: &str) -> std::io::Result<()> {
-        let max_len = WRITER.get_max_len();
-        let mut output = (None, None);
-
-        writeln_inner(msg, prefix, max_len as usize, WRITER.prefix_len, |t, s| {
-            match t {
-                MessageType::Msg => {
-                    let s: Box<str> = Box::from(s);
-                    output.1 = Some(s)
-                }
-                MessageType::Prefix => output.0 = Some(gen_prefix(s, 10)),
-            }
-
-            if let (Some(prefix), Some(msg)) = &output {
-                self.inner.println(format!("{prefix}{msg}"));
-                output = (None, None);
-            }
-        });
+        WRITER
+            .get_terminal()
+            .wrap_content(prefix, msg)
+            .into_iter()
+            .for_each(|(prefix, body)| {
+                self.inner
+                    .println(format!("{}{}", &gen_prefix(prefix, 10), &body));
+            });
 
         Ok(())
     }
@@ -145,27 +137,12 @@ impl Print for OmaMultiProgressBar {
 
 impl Writeln for OmaMultiProgressBar {
     fn writeln(&self, prefix: &str, msg: &str) -> std::io::Result<()> {
-        let max_len = WRITER.get_max_len();
-        let mut output = (None, None);
+        for (prefix, body) in WRITER.get_terminal().wrap_content(prefix, msg).into_iter() {
+            self.mb
+                .println(format!("{}{}", &gen_prefix(prefix, 10), &body))?;
+        }
 
-        let mut result = Ok(());
-
-        writeln_inner(msg, prefix, max_len as usize, WRITER.prefix_len, |t, s| {
-            match t {
-                MessageType::Msg => {
-                    let s: Box<str> = Box::from(s);
-                    output.1 = Some(s)
-                }
-                MessageType::Prefix => output.0 = Some(gen_prefix(s, 10)),
-            }
-
-            if let (Some(prefix), Some(msg)) = &output {
-                result = self.mb.println(format!("{prefix}{msg}"));
-                output = (None, None);
-            }
-        });
-
-        result
+        Ok(())
     }
 }
 
@@ -297,7 +274,7 @@ impl OmaMultiProgressBar {
                 self.info(&fl!("can-not-get-source-next-url"));
             }
             Event::DownloadDone { index: _, msg } => {
-                tracing::debug!("Downloaded {msg}");
+                spdlog::debug!("Downloaded {msg}");
             }
             Event::AllDone => {
                 if let Some(gpb) = &self.pb_map.get(&0) {
