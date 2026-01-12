@@ -114,7 +114,7 @@ impl Display for SearchResultDisplay<'_> {
                     "{}",
                     color_formatter().color_str(body.trim(), Action::Secondary)
                 )
-                // Keep original behavior (?
+                // Keep original behavior
                 .ok();
             });
 
