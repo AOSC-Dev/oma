@@ -590,7 +590,7 @@ pub fn fix_broken(
             apt.autoremove(remove_config)?;
         }
 
-        if !no_fixbroken && solver != "3.0" {
+        if !(no_fixbroken || (solver == "3.0" && is_upgrade)) {
             apt.fix_resolver_broken();
         }
 
