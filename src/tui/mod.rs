@@ -323,6 +323,7 @@ impl CliExecuter for Tui {
                 .maybe_auth_config(auth_config)
                 .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
                 .check_tum(upgrade)
+                .is_upgrade(upgrade)
                 .build()
                 .run()?;
         }
