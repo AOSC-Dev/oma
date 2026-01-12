@@ -145,6 +145,9 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
     }
 }
 
+// '1970-01-01T00:00:00Z' costs 24 chars, and a space costs 1.
+const TIME_RFC3339_LEN: u16 = 24 + 1;
+
 /// OmaFormatter
 /// `OmaFormatter` is used for outputting oma-style logs to `spdlog-rs`
 ///
@@ -213,8 +216,7 @@ impl OmaFormatter {
 
     pub fn with_time(mut self, with_time: bool) -> Self {
         self.with_time = with_time;
-        // '1970-01-01T00:00:00Z' counts 20 chars.
-        self.term.prefix_len += 20;
+        self.term.prefix_len += TIME_RFC3339_LEN;
         self
     }
 
@@ -230,7 +232,12 @@ impl OmaFormatter {
     }
 
     pub fn with_prefix_len(mut self, prefix_len: u16) -> Self {
-        self.term.prefix_len = prefix_len;
+        self.term.prefix_len = if self.with_time {
+            prefix_len + TIME_RFC3339_LEN
+        } else {
+            prefix_len
+        };
+
         self
     }
 
