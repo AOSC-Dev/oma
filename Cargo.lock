@@ -3006,6 +3006,7 @@ dependencies = [
  "dialoguer",
  "dirs",
  "enum_dispatch",
+ "env_filter",
  "faster-hex",
  "flume",
  "fs4",

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::env::{self, args};
 use std::ffi::CString;
 use std::io::{self, IsTerminal, stderr, stdin};
@@ -39,7 +40,7 @@ use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
 use rustix::stdio::stdout;
 use spdlog::{
-    Level, LevelFilter, Logger, debug, info, init_log_crate_proxy,
+    Level, LevelFilter, Logger, debug, info, init_log_crate_proxy, log_crate_proxy,
     prelude::error as log_error,
     set_default_logger,
     sink::{AsyncPoolSink, RotatingFileSink, RotationPolicy, StdStreamSink},
@@ -296,15 +297,29 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
     })
     .join("oma.log");
 
-    // TODO: We need `spdlog-rs` implements `EnvFilter` first
+    init_log_crate_proxy().unwrap();
 
-    let (level_filter, formatter) = if !debug && !dry_run {
+    let (level_filter, formatter, filter) = if !debug && !dry_run {
+        let no_i18n_embd = env_filter::Builder::new()
+            .try_parse("i18n_embed=off,info")
+            .unwrap()
+            .build();
+
         let level_filter = LevelFilter::MoreSevereEqual(Level::Info);
 
         let formatter = OmaFormatter::new().with_ansi(enable_ansi(oma));
 
-        (level_filter, formatter)
+        (level_filter, formatter, no_i18n_embd)
     } else {
+        let filter = env_filter::Builder::new()
+            .try_parse(
+                &env::var("RUST_LOG")
+                    .map(|s| Cow::Owned(s))
+                    .unwrap_or(Cow::Borrowed("hyper=off,rustls=off,debug")),
+            )
+            .unwrap()
+            .build();
+
         let level_filter = LevelFilter::MoreSevereEqual(Level::Debug);
 
         let formatter = OmaFormatter::new()
@@ -312,8 +327,11 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
             .with_file(true)
             .with_time(true);
 
-        (level_filter, formatter)
+        (level_filter, formatter, filter)
     };
+
+    log_crate_proxy().set_filter(Some(filter));
+
     let rotating_sink = AsyncPoolSink::builder()
         .sink(Arc::new(
             RotatingFileSink::builder()
@@ -339,13 +357,13 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
 
     logger_builder
         .level_filter(level_filter)
+        .flush_level_filter(LevelFilter::All)
         .sink(Arc::new(stream_sink))
         .sink(Arc::new(rotating_sink));
 
     let logger = logger_builder.build().unwrap();
 
     set_default_logger(Arc::new(logger));
-    init_log_crate_proxy().unwrap();
 
     Ok(log_file.to_string_lossy().to_string())
 }
