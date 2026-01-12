@@ -9,7 +9,7 @@ use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::oma_apt::PackageSort;
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
-use tracing::warn;
+use spdlog::warn;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -315,7 +315,7 @@ impl CliExecuter for Undo {
         if code == 0 && (!opt_in.is_empty() || !opt_out.is_empty()) {
             use crate::RT;
             use crate::fl;
-            use tracing::warn;
+            use spdlog::warn;
 
             let arch = oma_utils::dpkg::dpkg_arch(&sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(

@@ -41,10 +41,9 @@ use reqwest::Url;
 use reqwest::blocking;
 use sha2::Digest;
 use sha2::Sha256;
+use spdlog::{error, info, warn};
 use std::io::Write;
 use tabled::Tabled;
-use tracing::warn;
-use tracing::{error, info};
 
 use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;

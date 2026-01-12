@@ -25,10 +25,10 @@ use ratatui::{
     layout::{Direction, Layout},
     prelude::Backend,
 };
+use spdlog::info;
 use std::io::Write;
 use tabled::builder::Builder;
 use tabled::settings::{Alignment, Settings};
-use tracing::info;
 
 use crate::utils::{dbus_check, is_root};
 use crate::{CliExecuter, config::Config, error::OutputError};

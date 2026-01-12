@@ -6,7 +6,7 @@ use clap_complete::{CompletionCandidate, engine::ValueCompleter};
 use clap_lex::OsStrExt;
 use dirs::home_dir;
 use rustix::path::Arg;
-use tracing::debug;
+use spdlog::debug;
 
 /// Complete a value as a [`std::path::Path`]
 ///

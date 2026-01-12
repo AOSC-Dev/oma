@@ -10,8 +10,8 @@ use futures::future::try_join_all;
 use oma_mirror::{MirrorError, MirrorManager, parser::MirrorsConfigTemplate, write_sources_inner};
 use reqwest::Client;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use spdlog::{debug, warn};
 use tokio::fs;
-use tracing::{debug, warn};
 use url::Url;
 
 pub type Result<T> = std::result::Result<T, OmaTopicsError>;

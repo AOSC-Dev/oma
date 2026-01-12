@@ -9,7 +9,7 @@ license = "MIT"
 anyhow = "1"
 thiserror = "2"
 sequoia-openpgp = { version = "2", default-features = false }
-tracing = "0.1"
+spdlog-rs = "0.5"
 oma-apt-sources-lists = "0.9"
 sequoia-policy-config = "0.8"
 

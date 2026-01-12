@@ -3,6 +3,7 @@ use deb822_fast::{FromDeb822, FromDeb822Paragraph, Paragraph};
 use oma_apt_sources_lists::Signature;
 use oma_repo_verify::verify_release_by_sysroot;
 use once_cell::sync::OnceCell;
+use spdlog::{debug, trace};
 use std::{
     borrow::Cow,
     fs,
@@ -12,7 +13,6 @@ use std::{
     str::FromStr,
 };
 use thiserror::Error;
-use tracing::{debug, trace};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChecksumItem {

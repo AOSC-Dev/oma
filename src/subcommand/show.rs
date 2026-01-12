@@ -10,7 +10,7 @@ use oma_pm::{
     oma_apt::records::RecordField,
     pkginfo::{AptSource, OmaPackage},
 };
-use tracing::info;
+use spdlog::info;
 
 use crate::{config::Config, error::OutputError, utils::pkgnames_and_path_completions};
 

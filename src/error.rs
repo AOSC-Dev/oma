@@ -29,7 +29,7 @@ use oma_utils::dpkg::DpkgError;
 
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
-use tracing::{debug, error, info};
+use spdlog::{debug, error, info};
 
 use crate::subcommand::utils::LockError;
 use crate::{due_to, fl, msg};

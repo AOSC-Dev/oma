@@ -2,7 +2,7 @@ use oma_pm_operation_type::{InstallOperation, RemoveTag};
 use rusqlite::Connection;
 use serde::Deserialize;
 use serde_json::Value;
-use tracing::{debug, info, warn};
+use spdlog::{debug, info, warn};
 
 use crate::{
     HistoryEntryInner, HistoryError, HistoryResult, INSERT_INSTALL_TABLE, INSERT_NEW_MAIN_TABLE,

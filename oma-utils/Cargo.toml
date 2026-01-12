@@ -13,7 +13,7 @@ number_prefix = { version = "0.4", optional = true }
 os-release = "0.1"
 zbus = { version = "5.1", optional = true, default-features = false, features = ["tokio"] }
 url-escape = { version = "0.1", optional = true }
-tracing = "0.1"
+spdlog-rs = "0.5"
 logind-zbus = { version = "5.1", optional = true, default-features = false, features = ["tokio"], package = "logind-zbus-tokio" }
 
 [features]

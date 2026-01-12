@@ -6,7 +6,7 @@ use oma_fetch::{
 };
 use oma_pm_operation_type::InstallEntry;
 use oma_utils::url_no_escape::url_no_escape_times;
-use tracing::debug;
+use spdlog::debug;
 
 use crate::{
     CustomDownloadMessage,
