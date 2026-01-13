@@ -12,7 +12,7 @@ use spdlog::error;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::table::PagerPrinter;
-use crate::utils::get_lists_dir;
+use crate::utils::{ExitHandle, ExitStatus, get_lists_dir};
 use crate::{color_formatter, due_to, fl};
 
 use crate::args::CliExecuter;
@@ -29,7 +29,7 @@ pub struct CommandNotFound {
 }
 
 impl CliExecuter for CommandNotFound {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
         let CommandNotFound { keyword } = self;
 
         let mut res = IndexSet::with_hasher(ahash::RandomState::new());
@@ -146,7 +146,7 @@ impl CliExecuter for CommandNotFound {
             }
         }
 
-        Ok(127)
+        Ok(ExitHandle::default().status(ExitStatus::Other(127)))
     }
 }
 

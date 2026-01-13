@@ -14,6 +14,7 @@ use crate::args::ARG_HELP_HEADING;
 use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
+use crate::utils::ExitHandle;
 use crate::utils::dbus_check;
 use crate::utils::pkgnames_and_path_completions;
 use crate::utils::root;
@@ -114,7 +115,7 @@ pub struct Install {
 }
 
 impl CliExecuter for Install {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Install {
             packages,
             install_recommends,

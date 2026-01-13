@@ -8,13 +8,13 @@ use oma_pm::{
     pkginfo::OmaPackage,
 };
 
-use crate::fl;
 use crate::{
     HTTP_CLIENT,
     config::Config,
     error::OutputError,
     utils::{dbus_check, pkgnames_completions, root},
 };
+use crate::{fl, utils::ExitHandle};
 use anyhow::anyhow;
 
 use super::utils::{CommitChanges, Refresh, auth_config, lock_oma, tui_select_list_size};
@@ -84,7 +84,7 @@ pub struct Pick {
 }
 
 impl CliExecuter for Pick {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Pick {
             package,
             fix_broken,

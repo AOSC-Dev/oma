@@ -3,7 +3,9 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use crate::subcommand::utils::create_progress_spinner;
+
 use crate::success;
+use crate::utils::ExitHandle;
 use crate::{config::Config, fl};
 use clap::Args;
 use fs_extra::dir::get_size;
@@ -38,7 +40,7 @@ pub struct Clean {
 }
 
 impl CliExecuter for Clean {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Clean {
             sysroot,
             apt_options,
@@ -50,7 +52,7 @@ impl CliExecuter for Clean {
 
         if dry_run {
             info!("Running in dry-run mode, Exit.");
-            return Ok(0);
+            return Ok(ExitHandle::default());
         }
 
         root()?;
@@ -135,7 +137,7 @@ impl CliExecuter for Clean {
             info!("{}", fl!("clean-zero"));
         }
 
-        Ok(0)
+        Ok(ExitHandle::default().ring(true))
     }
 }
 

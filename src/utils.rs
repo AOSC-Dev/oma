@@ -12,13 +12,14 @@ use crate::{
     error::OutputError,
     path_completions::PathCompleter,
     subcommand::utils::no_check_dbus_warn,
-    unlock_oma,
+    terminal_ring, unlock_oma,
 };
 use crate::{RT, fl};
 
 use anyhow::anyhow;
 use clap_complete::{CompletionCandidate, engine::ValueCompleter};
 use dialoguer::{Confirm, theme::ColorfulTheme};
+use oma_console::pager::PagerExit;
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     oma_apt::PackageSort,
@@ -35,6 +36,64 @@ use rustix::process;
 use spdlog::{debug, error, info, warn};
 
 type Result<T> = std::result::Result<T, OutputError>;
+
+pub struct ExitHandle {
+    ring: bool,
+    status: ExitStatus,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ExitStatus {
+    Success,
+    Fail,
+    Other(i32),
+}
+
+impl Default for ExitHandle {
+    fn default() -> Self {
+        Self {
+            ring: false,
+            status: ExitStatus::Success,
+        }
+    }
+}
+
+impl From<PagerExit> for ExitStatus {
+    fn from(value: PagerExit) -> Self {
+        match value {
+            PagerExit::NormalExit => ExitStatus::Success,
+            x => ExitStatus::Other(x.into()),
+        }
+    }
+}
+
+impl ExitHandle {
+    pub fn ring(mut self, ring: bool) -> Self {
+        self.ring = ring;
+        self
+    }
+
+    pub fn status(mut self, status: ExitStatus) -> Self {
+        self.status = status;
+        self
+    }
+
+    pub fn get_status(&self) -> ExitStatus {
+        self.status
+    }
+
+    pub fn handle(self, config_ring: bool) -> ! {
+        if self.ring && config_ring {
+            terminal_ring();
+        }
+
+        match self.status {
+            ExitStatus::Success => exit(0),
+            ExitStatus::Fail => exit(1),
+            ExitStatus::Other(status) => exit(status),
+        }
+    }
+}
 
 pub fn root() -> Result<()> {
     if is_termux() {

@@ -38,6 +38,8 @@ use crate::pb::RenderRefreshProgress;
 use crate::success;
 use crate::table::table_for_install_pending;
 use crate::unlock_oma;
+use crate::utils::ExitHandle;
+use crate::utils::ExitStatus;
 use crate::utils::get_lists_dir;
 use ahash::HashSet;
 use apt_auth_config::AuthConfig;
@@ -323,7 +325,7 @@ pub(crate) struct CommitChanges<'a> {
 }
 
 impl CommitChanges<'_> {
-    pub fn run(self) -> Result<i32, OutputError> {
+    pub fn run(self) -> Result<ExitHandle, OutputError> {
         let CommitChanges {
             mut apt,
             dry_run,
@@ -388,7 +390,7 @@ impl CommitChanges<'_> {
 
         if is_nothing_to_do(install, remove, !no_fixbroken) {
             autoremovable_tips(ar_count, ar_size);
-            return Ok(0);
+            return Ok(ExitHandle::default().ring(true));
         }
 
         apt.init_dbus_status()?;
@@ -412,13 +414,12 @@ impl CommitChanges<'_> {
                 dry_run,
             )? {
                 PagerExit::NormalExit => {}
-                x @ PagerExit::Sigint => return Ok(x.into()),
-                x @ PagerExit::DryRun => return Ok(x.into()),
+                x => return Ok(ExitHandle::default().status(ExitStatus::Other(x.into()))),
             }
         } else {
             match table_for_install_pending(install, remove, *disk_size, None, !yes, dry_run)? {
                 PagerExit::NormalExit => {}
-                x => return Ok(x.into()),
+                x => return Ok(ExitHandle::default().status(ExitStatus::Other(x.into()))),
             }
         }
 
@@ -480,7 +481,7 @@ impl CommitChanges<'_> {
                         fl!("successfully-download-to-path", len = len, path = path)
                     );
 
-                    return Ok(0);
+                    return Ok(ExitHandle::default().ring(true));
                 }
 
                 write_oma_installed_status(&apt, &sysroot)?;
@@ -509,7 +510,7 @@ impl CommitChanges<'_> {
 
                 space_tips(&apt, sysroot);
 
-                Ok(0)
+                Ok(ExitHandle::default().ring(true))
             }
             Err(e) => {
                 if let OmaAptError::FailedToDownload(_) = e {

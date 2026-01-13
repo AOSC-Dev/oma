@@ -11,8 +11,10 @@ use oma_pm::{
 };
 
 use crate::{
-    WRITER, color_formatter, config::SearchEngine as ConfigSearchEngine, fl,
-    utils::pkgnames_completions,
+    WRITER, color_formatter,
+    config::SearchEngine as ConfigSearchEngine,
+    fl,
+    utils::{ExitHandle, pkgnames_completions},
 };
 use crate::{config::Config, error::OutputError, table::oma_display_with_normal_output};
 
@@ -123,7 +125,7 @@ impl Display for SearchResultDisplay<'_> {
 }
 
 impl CliExecuter for Search {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Search {
             pattern,
             no_pager,
@@ -189,7 +191,7 @@ impl CliExecuter for Search {
             source: Some(Box::new(e)),
         })?;
 
-        Ok(exit.into())
+        Ok(ExitHandle::default().status(exit.into()))
     }
 }
 

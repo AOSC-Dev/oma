@@ -22,7 +22,10 @@ use crate::{
     config::{BatteryTristate, TakeWakeLockTristate},
     subcommand::utils::{auth_config, create_progress_spinner, no_check_dbus_warn},
     tui::tui_inner::PackageStatus,
-    utils::{check_battery_disabled_warn, connect_dbus_impl, is_battery, no_take_wake_lock_warn},
+    utils::{
+        ExitHandle, check_battery_disabled_warn, connect_dbus_impl, is_battery,
+        no_take_wake_lock_warn,
+    },
 };
 use crate::{
     HTTP_CLIENT, RT,
@@ -110,7 +113,7 @@ impl From<&GlobalOptions> for Tui {
 }
 
 impl CliExecuter for Tui {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Tui {
             fix_broken,
             force_unsafe_io,
@@ -132,7 +135,7 @@ impl CliExecuter for Tui {
 
         if dry_run {
             info!("Running in dry-run mode, Exit.");
-            return Ok(0);
+            return Ok(ExitHandle::default());
         }
 
         if find_another_oma().is_ok() {
@@ -262,7 +265,7 @@ impl CliExecuter for Tui {
             source: Some(Box::new(e)),
         })?;
 
-        let mut code = 0;
+        let mut exit = ExitHandle::default();
 
         if execute_apt {
             let _fds = if !no_check_dbus && !config.no_check_dbus() && !dry_run && !is_termux() {
@@ -309,7 +312,7 @@ impl CliExecuter for Tui {
                 !autoremove,
             )?;
 
-            code = CommitChanges::builder()
+            exit = CommitChanges::builder()
                 .apt(apt)
                 .dry_run(dry_run)
                 .no_fixbroken(!fix_broken)
@@ -328,6 +331,6 @@ impl CliExecuter for Tui {
                 .run()?;
         }
 
-        Ok(code)
+        Ok(exit)
     }
 }

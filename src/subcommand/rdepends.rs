@@ -8,7 +8,12 @@ use oma_pm::{
 };
 use std::io::Write;
 
-use crate::{config::Config, error::OutputError, fl, utils::pkgnames_and_path_completions};
+use crate::{
+    config::Config,
+    error::OutputError,
+    fl,
+    utils::{ExitHandle, pkgnames_and_path_completions},
+};
 
 use super::utils::handle_no_result;
 
@@ -32,7 +37,7 @@ pub struct Rdepends {
 }
 
 impl CliExecuter for Rdepends {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Rdepends {
             packages,
             json,
@@ -102,6 +107,6 @@ impl CliExecuter for Rdepends {
             }
         }
 
-        Ok(0)
+        Ok(ExitHandle::default())
     }
 }

@@ -9,6 +9,7 @@ use crate::{
     config::Config,
     error::OutputError,
     lang::SYSTEM_LANG,
+    utils::ExitHandle,
 };
 
 #[derive(Debug, Args)]
@@ -18,13 +19,13 @@ pub struct GenerateManpages {
 }
 
 impl CliExecuter for GenerateManpages {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
         let cmd = OhManagerAilurus::command();
         Ok(build_man(&cmd, self.path)?)
     }
 }
 
-fn build_man(cmd: &Command, path: PathBuf) -> Result<i32, anyhow::Error> {
+fn build_man(cmd: &Command, path: PathBuf) -> Result<ExitHandle, anyhow::Error> {
     let man = Man::new(cmd.clone());
     let mut buffer: Vec<u8> = Default::default();
     man.render(&mut buffer)?;
@@ -59,5 +60,5 @@ fn build_man(cmd: &Command, path: PathBuf) -> Result<i32, anyhow::Error> {
         )?;
     }
 
-    Ok(0)
+    Ok(ExitHandle::default())
 }

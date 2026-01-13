@@ -12,7 +12,11 @@ use oma_pm::{
 };
 use spdlog::info;
 
-use crate::{config::Config, error::OutputError, utils::pkgnames_and_path_completions};
+use crate::{
+    config::Config,
+    error::OutputError,
+    utils::{ExitHandle, pkgnames_and_path_completions},
+};
 
 use super::utils::handle_no_result;
 use crate::args::CliExecuter;
@@ -59,7 +63,7 @@ const RECORDS: &[&str] = &[
 ];
 
 impl CliExecuter for Show {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Show {
             all,
             json,
@@ -110,7 +114,7 @@ impl CliExecuter for Show {
             for_each_show_package(json, &apt, &mut stdout, &pkgs)?;
         }
 
-        Ok(0)
+        Ok(ExitHandle::default())
     }
 }
 

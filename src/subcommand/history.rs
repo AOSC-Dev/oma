@@ -16,6 +16,9 @@ use std::sync::atomic::Ordering;
 
 use crate::HTTP_CLIENT;
 use crate::config::Config;
+use crate::utils::ExitHandle;
+#[cfg(feature = "aosc")]
+use crate::utils::ExitStatus;
 use crate::{
     NOT_DISPLAY_ABORT,
     error::OutputError,
@@ -38,7 +41,7 @@ pub struct History {
 }
 
 impl CliExecuter for History {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
         let History { sysroot } = self;
         let conn = connect_db(sysroot.join(DATABASE_PATH), false)?;
 
@@ -129,7 +132,7 @@ pub struct Undo {
 }
 
 impl CliExecuter for Undo {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         root()?;
 
         let Undo {
@@ -293,7 +296,7 @@ impl CliExecuter for Undo {
 
         apt.install(&install, false)?;
 
-        let code = CommitChanges::builder()
+        let exit = CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
             .is_undo(true)
@@ -312,7 +315,7 @@ impl CliExecuter for Undo {
             .run()?;
 
         #[cfg(feature = "aosc")]
-        if code == 0 && (!opt_in.is_empty() || !opt_out.is_empty()) {
+        if exit.get_status() == ExitStatus::Success && (!opt_in.is_empty() || !opt_out.is_empty()) {
             use crate::RT;
             use crate::fl;
             use spdlog::warn;
@@ -353,7 +356,7 @@ impl CliExecuter for Undo {
             ))?;
         }
 
-        Ok(code)
+        Ok(exit)
     }
 }
 

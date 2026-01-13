@@ -33,6 +33,7 @@ use crate::{
     },
     tui::Tui,
     upgrade::Upgrade,
+    utils::ExitHandle,
 };
 
 #[cfg(feature = "aosc")]
@@ -40,7 +41,7 @@ use crate::topics::Topics;
 
 #[enum_dispatch]
 pub(crate) trait CliExecuter {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError>;
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError>;
 }
 
 pub static HELP_HEADING: LazyLock<String> = LazyLock::new(|| fl!("clap-command"));
@@ -238,9 +239,9 @@ pub enum SubCmd {
 pub struct Version;
 
 impl CliExecuter for Version {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
         print_version();
-        Ok(0)
+        Ok(ExitHandle::default())
     }
 }
 

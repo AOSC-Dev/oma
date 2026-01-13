@@ -59,6 +59,7 @@ use crate::pb::Print;
 use crate::subcommand::utils::multiselect;
 use crate::success;
 use crate::table::PagerPrinter;
+use crate::utils::ExitHandle;
 use crate::utils::root;
 
 use super::utils::Refresh;
@@ -215,7 +216,7 @@ pub enum MirrorSubCmd {
 }
 
 impl CliExecuter for CliMirror {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let CliMirror {
             mirror_subcmd,
             no_refresh_topics,
@@ -227,7 +228,7 @@ impl CliExecuter for CliMirror {
 
         if dry_run {
             info!("Running in dry-run mode, Exit.");
-            return Ok(0);
+            return Ok(ExitHandle::default());
         }
 
         if let Some(subcmd) = mirror_subcmd {
@@ -321,7 +322,7 @@ pub fn tui(
     network_threads: usize,
     no_refresh: bool,
     apt_options: Vec<String>,
-) -> Result<i32, OutputError> {
+) -> Result<ExitHandle, OutputError> {
     root()?;
 
     let mut mm = MirrorManager::new("/")?;
@@ -392,7 +393,7 @@ pub fn tui(
         refresh(no_progress, network_threads, refresh_topic, apt_options)?;
     }
 
-    Ok(0)
+    Ok(ExitHandle::default().ring(true))
 }
 
 enum Operate {
@@ -411,7 +412,7 @@ fn operate(
     sysroot: PathBuf,
     subcmd: Operate,
     apt_options: Vec<String>,
-) -> Result<i32, OutputError> {
+) -> Result<ExitHandle, OutputError> {
     root()?;
 
     let mut mm = MirrorManager::new(sysroot)?;
@@ -439,7 +440,7 @@ fn operate(
         refresh(no_progress, network_threads, refresh_topic, apt_options)?;
     }
 
-    Ok(0)
+    Ok(ExitHandle::default().ring(true))
 }
 
 fn set_order(
@@ -448,7 +449,7 @@ fn set_order(
     network_threads: usize,
     no_refresh: bool,
     apt_options: Vec<String>,
-) -> Result<i32, OutputError> {
+) -> Result<ExitHandle, OutputError> {
     root()?;
 
     let mut mm = MirrorManager::new("/")?;
@@ -476,10 +477,10 @@ fn set_order(
         refresh(no_progress, network_threads, refresh_topic, apt_options)?;
     }
 
-    Ok(0)
+    Ok(ExitHandle::default().ring(true))
 }
 
-fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, OutputError> {
+fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<ExitHandle, OutputError> {
     let mm = MirrorManager::new("/")?;
 
     let client = client(timeout)?;
@@ -621,7 +622,7 @@ fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<i32, Outpu
             .ok();
     }
 
-    Ok(0)
+    Ok(ExitHandle::default().ring(true))
 }
 
 fn format_latency(mirror_name: &str, delta: TimeDelta, delta_duration: Duration) -> String {
@@ -696,7 +697,7 @@ fn speedtest(
     no_refresh: bool,
     apt_options: Vec<String>,
     timeout: f64,
-) -> Result<i32, OutputError> {
+) -> Result<ExitHandle, OutputError> {
     if set_fastest {
         root()?;
     }
@@ -813,7 +814,7 @@ fn speedtest(
         }
     }
 
-    Ok(0)
+    Ok(ExitHandle::default().ring(true))
 }
 
 fn client(timeout: f64) -> Result<blocking::Client, OutputError> {

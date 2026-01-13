@@ -7,7 +7,7 @@ use crate::{
     config::Config,
     error::OutputError,
     fl,
-    utils::{dbus_check, root},
+    utils::{ExitHandle, dbus_check, root},
 };
 
 use super::utils::{CommitChanges, auth_config, lock_oma};
@@ -60,7 +60,7 @@ pub struct FixBroken {
 }
 
 impl CliExecuter for FixBroken {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         root()?;
 
         let FixBroken {

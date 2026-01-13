@@ -14,7 +14,7 @@ use crate::{
     config::Config,
     error::OutputError,
     success,
-    utils::{pkgnames_completions, root},
+    utils::{ExitHandle, pkgnames_completions, root},
 };
 
 use super::utils::handle_no_result;
@@ -63,7 +63,7 @@ pub struct Mark {
 }
 
 impl CliExecuter for Mark {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Mark {
             action,
             packages,
@@ -140,6 +140,6 @@ impl CliExecuter for Mark {
             };
         }
 
-        Ok(0)
+        Ok(ExitHandle::default())
     }
 }
