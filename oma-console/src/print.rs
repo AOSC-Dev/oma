@@ -295,7 +295,7 @@ impl OmaFormatter {
             prefix.write_char(' ')?;
         };
 
-        prefix.write_str(&prefix_str)?;
+        prefix.write_str(prefix_str)?;
 
         let mut body = String::new();
 
