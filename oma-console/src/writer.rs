@@ -17,14 +17,8 @@ impl Writeln for Writer {
     }
 }
 
-impl Default for Writer {
-    fn default() -> Self {
-        Self {
-            term: Terminal::default(),
-        }
-    }
-}
 
+#[derive(Default)]
 pub struct Writer {
     term: Terminal,
 }

@@ -314,7 +314,7 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
         let filter = env_filter::Builder::new()
             .try_parse(
                 &env::var("RUST_LOG")
-                    .map(|s| Cow::Owned(s))
+                    .map(Cow::Owned)
                     .unwrap_or(Cow::Borrowed("hyper=off,rustls=off,debug")),
             )
             .unwrap()
