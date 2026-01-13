@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, time::Duration};
+use std::{collections::BTreeMap, sync::LazyLock, time::Duration};
 
 use console::{Color, StyledObject, style};
 use termbg::Theme;
@@ -8,6 +8,15 @@ use tracing_subscriber::Layer;
 pub use termbg;
 
 use crate::writer::{Writeln, Writer};
+
+static PREFIX_DEBUG: LazyLock<String> = LazyLock::new(|| console::style("DEBUG").dim().to_string());
+static PREFIX_INFO: LazyLock<String> =
+    LazyLock::new(|| console::style("INFO").blue().bold().to_string());
+static PREFIX_WARN: LazyLock<String> =
+    LazyLock::new(|| console::style("WARNING").yellow().bold().to_string());
+static PREFIX_ERROR: LazyLock<String> =
+    LazyLock::new(|| console::style("ERROR").red().bold().to_string());
+static PREFIX_TRACE: LazyLock<String> = LazyLock::new(|| console::style("TRACE").dim().to_string());
 
 #[derive(Clone)]
 enum StyleFollow {
@@ -131,6 +140,7 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
         Action::PendingBg => style(input).bg(Color::Blue).bold(),
     }
 }
+
 /// OmaLayer
 /// `OmaLayer` is used for outputting oma-style logs to `tracing`
 ///
@@ -190,21 +200,21 @@ where
         let level = *event.metadata().level();
 
         let prefix = if self.with_ansi {
-            Cow::Owned(match level {
-                Level::DEBUG => console::style("DEBUG").dim().to_string(),
-                Level::INFO => console::style("INFO").blue().bold().to_string(),
-                Level::WARN => console::style("WARNING").yellow().bold().to_string(),
-                Level::ERROR => console::style("ERROR").red().bold().to_string(),
-                Level::TRACE => console::style("TRACE").dim().to_string(),
-            })
+            match level {
+                Level::DEBUG => &*PREFIX_DEBUG,
+                Level::INFO => &*PREFIX_INFO,
+                Level::WARN => &*PREFIX_WARN,
+                Level::ERROR => &*PREFIX_ERROR,
+                Level::TRACE => &*PREFIX_TRACE,
+            }
         } else {
-            Cow::Borrowed(match level {
+            match level {
                 Level::DEBUG => "DEBUG",
                 Level::INFO => "INFO",
                 Level::WARN => "WARNING",
                 Level::ERROR => "ERROR",
                 Level::TRACE => "TRACE",
-            })
+            }
         };
 
         let mut visitor = OmaRecorder(BTreeMap::new());
@@ -213,10 +223,10 @@ where
         for (k, v) in visitor.0 {
             if k == "message" {
                 if self.with_ansi {
-                    self.writer.writeln(&prefix, &v).ok();
+                    self.writer.writeln(prefix, &v).ok();
                 } else {
                     self.writer
-                        .writeln(&prefix, &console::strip_ansi_codes(&v))
+                        .writeln(prefix, &console::strip_ansi_codes(&v))
                         .ok();
                 }
             }
