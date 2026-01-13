@@ -325,7 +325,8 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
         let formatter = OmaFormatter::new()
             .with_ansi(enable_ansi(oma))
             .with_file(true)
-            .with_time(true);
+            .with_time(true)
+            .with_debug(true);
 
         (level_filter, formatter, filter)
     };

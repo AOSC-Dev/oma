@@ -181,6 +181,7 @@ pub struct OmaFormatter {
     #[allow(unused)]
     with_kv: bool,
     term: Terminal,
+    debug: bool,
 }
 
 impl Default for OmaFormatter {
@@ -190,6 +191,7 @@ impl Default for OmaFormatter {
             with_file: false,
             with_time: false,
             with_kv: false,
+            debug: false,
             term: Terminal::default(),
         }
     }
@@ -227,6 +229,11 @@ impl OmaFormatter {
 
     pub fn with_max_len(mut self, max_len: Option<u16>) -> Self {
         self.term.limit_max_len = max_len;
+        self
+    }
+
+    pub fn with_debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
         self
     }
 
@@ -322,9 +329,16 @@ impl OmaFormatter {
             body.write_str(&console::strip_ansi_codes(record.payload()))?;
         }
 
-        for (prefix, body) in self.term.wrap_content(&prefix, &body).into_iter() {
-            dest.write_str(&self.term.gen_prefix(prefix))?;
+        if self.debug {
+            dest.write_str(&prefix)?;
+            dest.write_str(" ")?;
             dest.write_str(&body)?;
+            writeln!(dest)?;
+        } else {
+            for (prefix, body) in self.term.wrap_content(&prefix, &body).into_iter() {
+                dest.write_str(&self.term.gen_prefix(prefix))?;
+                dest.write_str(&body)?;
+            }
         }
 
         Ok(())
