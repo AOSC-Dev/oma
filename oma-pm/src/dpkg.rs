@@ -1,7 +1,7 @@
 use std::{fmt::Display, fs, io, path::Path, str::FromStr};
 
 use deb822_lossless::{Deb822, Paragraph};
-use tracing::{debug, info};
+use spdlog::{debug, info};
 
 use crate::apt::{OmaAptError, OmaAptResult};
 

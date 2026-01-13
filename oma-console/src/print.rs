@@ -1,13 +1,15 @@
-use std::{collections::BTreeMap, sync::LazyLock, time::Duration};
+use std::fmt::{self, Write};
+use std::sync::LazyLock;
+use std::time::Duration;
 
+use chrono::{DateTime, SecondsFormat, Utc};
 use console::{Color, StyledObject, style};
+use spdlog::{Level, debug, formatter::Formatter};
 use termbg::Theme;
-use tracing::{Level, debug, field::Field};
-use tracing_subscriber::Layer;
 
 pub use termbg;
 
-use crate::writer::{Writeln, Writer};
+use crate::terminal::Terminal;
 
 static PREFIX_DEBUG: LazyLock<String> = LazyLock::new(|| console::style("DEBUG").dim().to_string());
 static PREFIX_INFO: LazyLock<String> =
@@ -17,6 +19,8 @@ static PREFIX_WARN: LazyLock<String> =
 static PREFIX_ERROR: LazyLock<String> =
     LazyLock::new(|| console::style("ERROR").red().bold().to_string());
 static PREFIX_TRACE: LazyLock<String> = LazyLock::new(|| console::style("TRACE").dim().to_string());
+static PREFIX_CRITICAL: LazyLock<String> =
+    LazyLock::new(|| console::style("CRITICAL").red().bright().bold().to_string());
 
 #[derive(Clone)]
 enum StyleFollow {
@@ -141,41 +145,61 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
     }
 }
 
-/// OmaLayer
-/// `OmaLayer` is used for outputting oma-style logs to `tracing`
+const TIME_RFC3339_LEN: u16 = "1970-01-01T00:00:00.000Z".len() as u16 + 1;
+
+/// OmaFormatter
+/// `OmaFormatter` is used for outputting oma-style logs to `spdlog-rs`
 ///
 /// # Example:
 /// ```
-/// use tracing_subscriber::prelude::*;
-/// use oma_console::OmaLayer;
-/// use tracing::info;
+/// use spdlog::{info, sink::StdStreamSink, Logger, Result};
+/// use oma_console::OmaFormatter;
 ///
-/// tracing_subscriber::registry()
-///     .with(OmaLayer::new())
-///     .init();
+/// use std::sync::Arc;
 ///
-/// info!("My name is oma!");
+/// fn main() -> Result<()> {
+///   let mut logger_builder = Logger::builder();
+///
+///   let stream_sink = StdStreamSink::builder()
+///     .formatter(OmaFormatter::default())
+///     .stdout()
+///     .build()?;
+///
+///   let logger = logger_builder.sink(Arc::new(stream_sink)).build()?;
+///
+///   spdlog::set_default_logger(Arc::new(logger));
+///   info!("My name is oma!");
+///   Ok(())
+/// }
 /// ```
-///
-pub struct OmaLayer {
+#[derive(Clone)]
+pub struct OmaFormatter {
     /// Display result with ansi
     with_ansi: bool,
-    /// A Terminal writer to print oma-style message
-    writer: Writer,
+    with_time: bool,
+    with_file: bool,
+    #[allow(unused)]
+    with_kv: bool,
+    term: Terminal,
+    debug: bool,
 }
 
-impl Default for OmaLayer {
+impl Default for OmaFormatter {
     fn default() -> Self {
         Self {
             with_ansi: true,
-            writer: Writer::default(),
+            with_file: false,
+            with_time: false,
+            with_kv: false,
+            debug: false,
+            term: Terminal::default(),
         }
     }
 }
 
-impl OmaLayer {
+impl OmaFormatter {
     pub fn new() -> Self {
-        OmaLayer::default()
+        OmaFormatter::default()
     }
 
     /// Display with ANSI colors
@@ -185,95 +209,150 @@ impl OmaLayer {
         self.with_ansi = with_ansi;
         self
     }
-}
 
-impl<S> Layer<S> for OmaLayer
-where
-    S: tracing::Subscriber,
-    S: for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>,
-{
-    fn on_event(
+    pub fn with_file(mut self, with_file: bool) -> Self {
+        self.with_file = with_file;
+        self
+    }
+
+    pub fn with_time(mut self, with_time: bool) -> Self {
+        self.with_time = with_time;
+        self.term.prefix_len += TIME_RFC3339_LEN;
+        self
+    }
+
+    #[allow(unused)]
+    pub fn with_kv(mut self, with_kv: bool) -> Self {
+        self.with_kv = with_kv;
+        self
+    }
+
+    pub fn with_max_len(mut self, max_len: Option<u16>) -> Self {
+        self.term.limit_max_len = max_len;
+        self
+    }
+
+    pub fn with_debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
+
+    pub fn with_prefix_len(mut self, prefix_len: u16) -> Self {
+        self.term.prefix_len = if self.with_time {
+            prefix_len + TIME_RFC3339_LEN
+        } else {
+            prefix_len
+        };
+
+        self
+    }
+
+    pub fn with_term(mut self, term: Terminal) -> Self {
+        self.term = term;
+        self
+    }
+
+    pub fn get_term(&self) -> &Terminal {
+        &self.term
+    }
+
+    fn format_impl(
         &self,
-        event: &tracing::Event<'_>,
-        _ctx: tracing_subscriber::layer::Context<'_, S>,
-    ) {
-        let level = *event.metadata().level();
+        record: &spdlog::Record,
+        dest: &mut spdlog::StringBuf,
+        _: &mut spdlog::formatter::FormatterContext,
+    ) -> fmt::Result {
+        let level = record.level();
 
-        let prefix = if self.with_ansi {
+        let mut prefix = String::with_capacity(8);
+
+        let prefix_str = if self.with_ansi {
             match level {
-                Level::DEBUG => &*PREFIX_DEBUG,
-                Level::INFO => &*PREFIX_INFO,
-                Level::WARN => &*PREFIX_WARN,
-                Level::ERROR => &*PREFIX_ERROR,
-                Level::TRACE => &*PREFIX_TRACE,
+                Level::Debug => &*PREFIX_DEBUG,
+                Level::Info => &*PREFIX_INFO,
+                Level::Warn => &*PREFIX_WARN,
+                Level::Error => &*PREFIX_ERROR,
+                Level::Trace => &*PREFIX_TRACE,
+                Level::Critical => &*PREFIX_CRITICAL,
             }
         } else {
             match level {
-                Level::DEBUG => "DEBUG",
-                Level::INFO => "INFO",
-                Level::WARN => "WARNING",
-                Level::ERROR => "ERROR",
-                Level::TRACE => "TRACE",
+                Level::Debug => "DEBUG",
+                Level::Info => "INFO",
+                Level::Warn => "WARNING",
+                Level::Error => "ERROR",
+                Level::Trace => "TRACE",
+                Level::Critical => "CRITICAL",
             }
         };
 
-        let mut visitor = OmaRecorder(BTreeMap::new());
-        event.record(&mut visitor);
+        if self.with_time {
+            let time = {
+                let time = DateTime::<Utc>::from(record.time())
+                    .to_rfc3339_opts(SecondsFormat::Millis, true);
 
-        for (k, v) in visitor.0 {
-            if k == "message" {
                 if self.with_ansi {
-                    self.writer.writeln(prefix, &v).ok();
+                    console::style(time).dim().to_string()
                 } else {
-                    self.writer
-                        .writeln(prefix, &console::strip_ansi_codes(&v))
-                        .ok();
+                    time
                 }
+            };
+
+            prefix.write_str(&time)?;
+            prefix.write_char(' ')?;
+        };
+
+        prefix.write_str(prefix_str)?;
+
+        let mut body = String::new();
+
+        if self.with_file {
+            let loc = record.source_location();
+
+            if let Some(loc) = loc {
+                let loc = format!("{}: {}:", loc.module_path(), loc.file());
+
+                let loc = if self.with_ansi {
+                    console::style(loc).dim().to_string()
+                } else {
+                    loc
+                };
+
+                body.write_str(&loc)?;
+                body.write_char(' ')?;
             }
         }
+
+        if self.with_ansi {
+            body.write_str(record.payload())?;
+        } else {
+            body.write_str(&console::strip_ansi_codes(record.payload()))?;
+        }
+
+        if self.debug {
+            dest.write_str(&prefix)?;
+            dest.write_str(" ")?;
+            dest.write_str(&body)?;
+            writeln!(dest)?;
+        } else {
+            for (prefix, body) in self.term.wrap_content(&prefix, &body).into_iter() {
+                dest.write_str(&self.term.gen_prefix(prefix))?;
+                dest.write_str(&body)?;
+            }
+        }
+
+        Ok(())
     }
 }
-/// OmaRecorder
-/// `OmaRecorder` is used for recording oma-style logs.
-///
-/// # Example:
-/// ```ignore
-/// let mut visitor = OmaRecorder(BTreeMap::new());
-/// event.record(&mut visitor);
-/// for (k, v) in visitor.0 {
-///     if k == "message" {
-///         self.writer.writeln(&prefix, &v).ok();
-///     }
-/// }
-/// ```
-struct OmaRecorder<'a>(BTreeMap<&'a str, String>);
 
-impl tracing::field::Visit for OmaRecorder<'_> {
-    fn record_f64(&mut self, field: &Field, value: f64) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_i64(&mut self, field: &Field, value: i64) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_u64(&mut self, field: &Field, value: u64) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_bool(&mut self, field: &Field, value: bool) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_str(&mut self, field: &Field, value: &str) {
-        self.0.insert(field.name(), value.to_string());
-    }
-
-    fn record_error(&mut self, field: &Field, value: &(dyn std::error::Error + 'static)) {
-        self.0.insert(field.name(), format!("{value:#?}"));
-    }
-
-    fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-        self.0.insert(field.name(), format!("{value:#?}"));
+impl Formatter for OmaFormatter {
+    fn format(
+        &self,
+        record: &spdlog::Record,
+        dest: &mut spdlog::StringBuf,
+        ctx: &mut spdlog::formatter::FormatterContext,
+    ) -> spdlog::Result<()> {
+        self.format_impl(record, dest, ctx)
+            .map_err(spdlog::Error::FormatRecord)
     }
 }

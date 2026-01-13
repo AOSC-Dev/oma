@@ -21,7 +21,7 @@ async-compression = { version = "=0.4.27", features = ["gzip", "xz", "futures-io
 # even with older liblzma (Ubuntu 22.04 uses 5.2.x). Be mindful, however, that
 # async-compression depends on a different liblzma-rs than what is specified here.
 liblzma = { version = "0", features = ["uncheck_liblzma_version"] }
-tracing = "0.1"
+spdlog-rs = "0.5"
 tokio-util = { version = "0.7", features = ["compat"] }
 md-5 = "0.10.6"
 bon = "3"

@@ -14,7 +14,7 @@ use flate2::bufread::GzDecoder;
 use lzzzz::lz4f::BufReadDecompressor;
 use memchr::memmem;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use tracing::debug;
+use spdlog::debug;
 use zstd::Decoder;
 
 use crate::{OmaContentsError, parser::parse_contents_single_line};

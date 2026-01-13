@@ -1,5 +1,7 @@
 use std::{fs, io, path::Path};
 
+use spdlog::{debug, warn};
+
 #[cfg(feature = "aosc")]
 pub fn pkg_is_current_kernel(
     sysroot: &Path,
@@ -13,13 +15,13 @@ pub fn pkg_is_current_kernel(
         sysroot: &Path,
     ) -> bool {
         is_installed_pkg_contains_file(pkg_name, image_names, sysroot).unwrap_or_else(|e| {
-            tracing::warn!("Failed to get package {pkg_name} file list: {e}");
+            warn!("Failed to get package {pkg_name} file list: {e}");
             false
         })
     }
 
     let image_name = image_name.get_or_init(get_kernel_image_filename);
-    tracing::debug!("image name = {image_name:?}");
+    debug!("image name = {image_name:?}");
 
     if let Some(image_name) = image_name {
         is_installed_pkg_contains_file_impl(pkg_name, &[image_name], sysroot)

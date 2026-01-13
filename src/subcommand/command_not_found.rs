@@ -7,7 +7,7 @@ use oma_console::print::Action;
 use oma_contents::OmaContentsError;
 use oma_contents::searcher::{Mode, search};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
-use tracing::error;
+use spdlog::error;
 
 use crate::config::Config;
 use crate::error::OutputError;

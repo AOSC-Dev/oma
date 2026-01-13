@@ -18,11 +18,11 @@ use oma_fetch::{
 };
 use oma_utils::concat_url;
 use once_cell::sync::OnceCell;
+use spdlog::debug;
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
 };
-use tracing::debug;
 use url::Url;
 
 use crate::{
@@ -82,7 +82,7 @@ pub(crate) async fn scan_sources_lists_paths(
 
 #[cfg(feature = "apt")]
 pub fn ignores(config: &oma_apt::config::Config) -> Vec<Regex> {
-    use tracing::warn;
+    use spdlog::warn;
 
     config.find_vector("Dir::Ignore-Files-Silently")
         .iter()

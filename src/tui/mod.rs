@@ -13,7 +13,7 @@ use oma_utils::{
     dbus::{InhibitTypeUnion, take_wake_lock},
     is_termux,
 };
-use tracing::info;
+use spdlog::info;
 use tui_inner::{Task, Tui as TuiInner};
 
 use crate::{

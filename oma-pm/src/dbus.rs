@@ -1,4 +1,4 @@
-use tracing::debug;
+use spdlog::debug;
 use zbus::{Connection, Result, interface, proxy};
 
 pub struct OmaBus {

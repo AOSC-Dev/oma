@@ -16,7 +16,7 @@ futures = "0.3"
 oma-apt-sources-lists = "0.9"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 oma-topics = { version = "^0.25.0", path = "../oma-topics", optional = true, default-features = false }
-tracing ="0.1"
+spdlog-rs = "0.5"
 oma-repo-verify = { version = "^0.9.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
 oma-apt = { version = "0.13", optional = true}

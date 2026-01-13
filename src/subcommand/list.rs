@@ -7,7 +7,7 @@ use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
     oma_apt::{PackageSort, PkgCurrentState, PkgSelectedState},
 };
-use tracing::info;
+use spdlog::info;
 
 use crate::{NOT_DISPLAY_ABORT, fl, utils::pkgnames_completions};
 use crate::{color_formatter, config::Config, error::OutputError, table::PagerPrinter};

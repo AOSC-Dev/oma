@@ -75,11 +75,8 @@ use oma_pm::sort::SummarySort;
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg::dpkg_arch;
 use reqwest::Client;
+use spdlog::{debug, error, info, warn};
 use std::fmt::Display;
-use tracing::debug;
-use tracing::error;
-use tracing::info;
-use tracing::warn;
 
 use super::remove::ask_user_do_as_i_say;
 

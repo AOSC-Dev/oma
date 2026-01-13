@@ -27,10 +27,13 @@ pub mod pb;
 pub mod writer;
 
 #[cfg(feature = "print")]
+pub mod terminal;
+
+#[cfg(feature = "print")]
 pub mod print;
 
 #[cfg(feature = "print")]
-pub use print::OmaLayer;
+pub use print::OmaFormatter;
 
 #[cfg(feature = "print")]
 pub use console;

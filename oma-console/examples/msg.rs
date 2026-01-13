@@ -1,11 +1,15 @@
-use oma_console::OmaLayer;
-use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt};
+use oma_console::OmaFormatter;
 
 fn main() {
-    tracing_subscriber::registry().with(OmaLayer::new()).init();
-    tracing::info!("Welcome");
-    tracing::debug!("Hello");
-    tracing::info!("I'am fine");
-    tracing::warn!("Thank you");
-    tracing::error!("and you?");
+    spdlog::default_logger()
+        .sinks()
+        .iter()
+        .for_each(|s| s.set_formatter(Box::new(OmaFormatter::default())));
+    spdlog::default_logger().set_level_filter(spdlog::LevelFilter::All);
+
+    spdlog::info!("Welcome");
+    spdlog::debug!("Hello");
+    spdlog::info!("I'am fine");
+    spdlog::warn!("Thank you");
+    spdlog::error!("and you?");
 }

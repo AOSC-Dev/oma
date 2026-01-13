@@ -22,8 +22,8 @@ use ratatui::{
     },
     widgets::Borders,
 };
+use spdlog::debug;
 use termbg::Theme;
-use tracing::debug;
 
 use crate::{print::OmaColorFormat, writer::Writer};
 
