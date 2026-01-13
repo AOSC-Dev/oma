@@ -335,7 +335,7 @@ impl OmaFormatter {
             dest.write_str(&body)?;
             writeln!(dest)?;
         } else {
-            for (prefix, body) in self.term.wrap_content(&prefix, &body).into_iter() {
+            for (prefix, body) in self.term.wrap_content(&prefix, &body) {
                 dest.write_str(&self.term.gen_prefix(prefix))?;
                 dest.write_str(&body)?;
             }
