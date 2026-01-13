@@ -17,7 +17,6 @@ impl Writeln for Writer {
     }
 }
 
-
 #[derive(Default)]
 pub struct Writer {
     term: Terminal,
