@@ -10,7 +10,7 @@ use spdlog::error;
 
 use crate::config::Config;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress};
-use crate::utils::pkgnames_completions;
+use crate::utils::{ExitHandle, pkgnames_completions};
 use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 
@@ -36,7 +36,7 @@ pub struct Download {
 }
 
 impl CliExecuter for Download {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Download {
             packages,
             path,
@@ -110,6 +110,6 @@ impl CliExecuter for Download {
             });
         }
 
-        Ok(0)
+        Ok(ExitHandle::default().ring(true))
     }
 }

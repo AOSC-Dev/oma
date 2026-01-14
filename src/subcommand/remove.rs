@@ -12,7 +12,7 @@ use spdlog::{info, warn};
 
 use crate::config::Config;
 use crate::fl;
-use crate::utils::pkgnames_remove_completions;
+use crate::utils::{ExitHandle, pkgnames_remove_completions};
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},
@@ -172,14 +172,14 @@ impl From<Purge> for Remove {
 }
 
 impl CliExecuter for Purge {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let remove = Remove::from(self);
         remove.execute(config, no_progress)
     }
 }
 
 impl CliExecuter for Remove {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Remove {
             packages,
             yes,

@@ -28,7 +28,7 @@ use crate::{
     config::Config,
     error::OutputError,
     subcommand::utils::multiselect,
-    utils::{dbus_check, root},
+    utils::{ExitHandle, ExitStatus, dbus_check, root},
 };
 
 use super::utils::{
@@ -148,7 +148,7 @@ impl Display for TopicDisplay<'_> {
 }
 
 impl CliExecuter for Topics {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Topics {
             mut opt_in,
             mut opt_out,
@@ -223,7 +223,7 @@ impl CliExecuter for Topics {
         let auth_config = auth_config.as_ref();
         let apt_config = AptConfig::new();
 
-        let code = Ok(()).and_then(|_| -> Result<i32, OutputError> {
+        let code = Ok(()).and_then(|_| -> Result<ExitHandle, OutputError> {
             refresh(
                 download_threads.unwrap_or_else(|| config.network_thread()),
                 no_progress,
@@ -235,7 +235,7 @@ impl CliExecuter for Topics {
             )?;
 
             if only_apply_sources_list {
-                return Ok(0);
+                return Ok(ExitHandle::default().ring(true));
             }
 
             let oma_apt_args = OmaAptArgs::builder()
@@ -379,8 +379,8 @@ impl CliExecuter for Topics {
         });
 
         match code {
-            Ok(x) => {
-                if x != 0 && !always_write_status {
+            Ok(ref x) => {
+                if x.get_status() != ExitStatus::Success && !always_write_status {
                     NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;

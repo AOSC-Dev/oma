@@ -19,8 +19,12 @@ use oma_pm::{
 use spdlog::{debug, trace};
 
 use crate::{
-    CliExecuter, config::Config, error::OutputError, fl, table::oma_display_with_normal_output,
-    utils::pkgnames_completions,
+    CliExecuter,
+    config::Config,
+    error::OutputError,
+    fl,
+    table::oma_display_with_normal_output,
+    utils::{ExitHandle, pkgnames_completions},
 };
 
 use super::utils::{create_progress_spinner, handle_no_result};
@@ -91,7 +95,7 @@ impl From<Why> for Tree {
 }
 
 impl CliExecuter for Why {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         Tree::from(self).execute(config, no_progress)
     }
 }
@@ -121,7 +125,7 @@ impl Display for PkgWrapper<'_> {
 }
 
 impl CliExecuter for Tree {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Tree {
             packages,
             reverse: invert,
@@ -198,7 +202,7 @@ impl CliExecuter for Tree {
         }
 
         if no_pager {
-            return Ok(0);
+            return Ok(ExitHandle::default());
         }
 
         let res = res
@@ -220,7 +224,7 @@ impl CliExecuter for Tree {
 
         pager.wait_for_exit().ok();
 
-        Ok(0)
+        Ok(ExitHandle::default())
     }
 }
 

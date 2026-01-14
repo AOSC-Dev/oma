@@ -59,6 +59,7 @@ use crate::config::Config;
 use crate::error::Chain;
 use crate::install_progress::osc94_progress;
 use crate::subcommand::*;
+use crate::utils::ExitHandle;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -219,10 +220,12 @@ fn main() {
 
     init_apt_config(&oma);
 
-    let code = match try_main(oma, config, matches) {
+    let oma_no_bell = oma.global.no_bell;
+
+    let code = match try_main(oma, &config, matches) {
         Ok(exit_code) => {
             unlock_oma().ok();
-            exit_code
+            exit_code.handle(config.bell() && !oma_no_bell)
         }
         Err(e) => {
             match display_error_and_can_unlock(e) {
@@ -233,6 +236,10 @@ fn main() {
                 Err(e) => {
                     eprintln!("Failed to display error, kind: {e}");
                 }
+            }
+
+            if !oma_no_bell && config.bell() {
+                terminal_ring();
             }
 
             1
@@ -377,16 +384,16 @@ fn enable_ansi(oma: &OhManagerAilurus) -> bool {
 
 fn try_main(
     oma: OhManagerAilurus,
-    config: Config,
+    config: &Config,
     matches: ArgMatches,
-) -> Result<i32, OutputError> {
-    init_color_formatter(&oma, &config);
+) -> Result<ExitHandle, OutputError> {
+    init_color_formatter(&oma, config);
 
     let no_progress =
         oma.global.no_progress || !is_terminal() || oma.global.debug || oma.global.dry_run;
 
-    let code = match oma.subcmd {
-        Some(subcmd) => subcmd.execute(&config, no_progress),
+    match oma.subcmd {
+        Some(subcmd) => subcmd.execute(config, no_progress),
         None => {
             if let Some((subcommand, args)) = matches.subcommand() {
                 let mut plugin = Path::new("/usr/local/libexec").join(format!("oma-{subcommand}"));
@@ -396,7 +403,9 @@ fn try_main(
                     plugin = plugin_fallback;
                     if !plugin.is_file() {
                         log_error!("{}", fl!("custom-command-unknown", subcmd = subcommand));
-                        return Ok(1);
+                        return Ok(ExitHandle::default()
+                            .ring(true)
+                            .status(utils::ExitStatus::Fail));
                     }
                 }
 
@@ -411,18 +420,14 @@ fn try_main(
                     log_error!("{}", fl!("custom-command-applet-exception", s = status));
                 }
 
-                Ok(status)
+                Ok(ExitHandle::default()
+                    .ring(true)
+                    .status(utils::ExitStatus::Other(status)))
             } else {
-                Tui::from(&oma.global).execute(&config, no_progress)
+                Tui::from(&oma.global).execute(config, no_progress)
             }
         }
-    };
-
-    if !oma.global.no_bell && config.bell() {
-        terminal_ring();
     }
-
-    code
 }
 
 /// Initialize ring TLS config for HTTP client

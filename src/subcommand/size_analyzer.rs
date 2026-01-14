@@ -30,7 +30,7 @@ use std::io::Write;
 use tabled::builder::Builder;
 use tabled::settings::{Alignment, Settings};
 
-use crate::utils::{dbus_check, is_root};
+use crate::utils::{ExitHandle, dbus_check, is_root};
 use crate::{CliExecuter, config::Config, error::OutputError};
 use crate::{WRITER, fl};
 
@@ -97,7 +97,7 @@ pub struct SizeAnalyzer {
 }
 
 impl CliExecuter for SizeAnalyzer {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let SizeAnalyzer {
             sysroot,
             dry_run,
@@ -134,7 +134,7 @@ impl CliExecuter for SizeAnalyzer {
             AptConfig::new(),
         )?;
 
-        let mut exit_code = 0;
+        let mut exit_code = ExitHandle::default();
 
         if !detail {
             let installed = installed_packages(&apt, true)
@@ -190,7 +190,7 @@ impl CliExecuter for SizeAnalyzer {
             exit_tui(&mut terminal).map_err(|e| anyhow!("{e}"))?;
 
             if remove_pkgs.is_empty() {
-                return Ok(0);
+                return Ok(exit_code);
             }
 
             apt.remove(

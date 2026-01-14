@@ -1,4 +1,5 @@
 use crate::subcommand::utils::CommitChanges;
+use crate::utils::ExitHandle;
 use crate::utils::pkgnames_and_path_completions;
 use clap_complete::ArgValueCompleter;
 use spdlog::{debug, info, warn};
@@ -97,7 +98,7 @@ pub(crate) struct Upgrade {
 }
 
 impl CliExecuter for Upgrade {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Upgrade {
             no_fixbroken,
             force_unsafe_io,
@@ -223,7 +224,7 @@ impl CliExecuter for Upgrade {
         debug!("Upgrade mode is using: {:?}", mode);
         apt.upgrade(mode)?;
 
-        let code = CommitChanges::builder()
+        let exit = CommitChanges::builder()
             .apt(apt)
             .dry_run(dry_run)
             .no_fixbroken(no_fixbroken)
@@ -258,6 +259,6 @@ impl CliExecuter for Upgrade {
             );
         }
 
-        Ok(code)
+        Ok(exit)
     }
 }

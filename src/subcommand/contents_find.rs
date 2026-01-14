@@ -1,6 +1,6 @@
 use crate::fl;
 use crate::table::oma_display_with_normal_output;
-use crate::utils::pkgnames_completions;
+use crate::utils::{ExitHandle, pkgnames_completions};
 use crate::{config::Config, error::OutputError};
 use clap::Args;
 use clap_complete::{ArgValueCompleter, PathCompleter};
@@ -39,7 +39,7 @@ pub struct Files {
 }
 
 impl CliExecuter for Files {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Files {
             bin,
             package,
@@ -78,7 +78,7 @@ pub struct Provides {
 }
 
 impl CliExecuter for Provides {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Provides {
             bin,
             pattern,
@@ -103,7 +103,7 @@ fn execute(
     no_progress: bool,
     sysroot: String,
     no_pager: bool,
-) -> Result<i32, OutputError> {
+) -> Result<ExitHandle, OutputError> {
     let pb = create_progress_spinner(no_progress || no_pager, fl!("searching"));
     let mode = match mode {
         CliMode::Provides if is_bin => Mode::BinProvides,
@@ -140,7 +140,7 @@ fn execute(
     }
 
     if no_pager {
-        return Ok(0);
+        return Ok(ExitHandle::default());
     }
 
     let mut pager = oma_display_with_normal_output(false, res.len())?;
@@ -160,5 +160,5 @@ fn execute(
         source: Some(Box::new(e)),
     })?;
 
-    Ok(exit.into())
+    Ok(ExitHandle::default().status(exit.into()))
 }

@@ -5,6 +5,7 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use spdlog::info;
 
 use crate::config::Config;
+use crate::utils::ExitHandle;
 use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, utils::root};
 
@@ -32,7 +33,7 @@ pub struct Refresh {
 }
 
 impl CliExecuter for Refresh {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Refresh {
             #[cfg(feature = "aosc")]
             no_refresh_topics,
@@ -44,7 +45,7 @@ impl CliExecuter for Refresh {
 
         if dry_run {
             info!("Running in dry-run mode, Exit.");
-            return Ok(0);
+            return Ok(ExitHandle::default());
         }
 
         root()?;
@@ -114,6 +115,6 @@ impl CliExecuter for Refresh {
 
         space_tips(&apt, sysroot);
 
-        Ok(0)
+        Ok(ExitHandle::default().ring(true))
     }
 }

@@ -9,7 +9,10 @@ use oma_pm::{
 };
 use spdlog::info;
 
-use crate::{NOT_DISPLAY_ABORT, fl, utils::pkgnames_completions};
+use crate::{
+    NOT_DISPLAY_ABORT, fl,
+    utils::{ExitHandle, pkgnames_completions},
+};
 use crate::{color_formatter, config::Config, error::OutputError, table::PagerPrinter};
 use anyhow::anyhow;
 
@@ -54,7 +57,7 @@ pub struct List {
 }
 
 impl CliExecuter for List {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
         let List {
             packages,
             all,
@@ -261,6 +264,6 @@ impl CliExecuter for List {
             info!("{}", fl!("additional-version", len = display_tips.1));
         }
 
-        Ok(0)
+        Ok(ExitHandle::default())
     }
 }

@@ -11,7 +11,12 @@ use oma_pm::{
     matches::{GetArchMethod, PackagesMatcher},
 };
 
-use crate::{config::Config, error::OutputError, fl, utils::pkgnames_and_path_completions};
+use crate::{
+    config::Config,
+    error::OutputError,
+    fl,
+    utils::{ExitHandle, pkgnames_and_path_completions},
+};
 
 use super::utils::handle_no_result;
 
@@ -35,7 +40,7 @@ pub struct Depends {
 }
 
 impl CliExecuter for Depends {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<i32, OutputError> {
+    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
         let Depends {
             packages,
             json,
@@ -100,6 +105,6 @@ impl CliExecuter for Depends {
             }
         }
 
-        Ok(0)
+        Ok(ExitHandle::default())
     }
 }
