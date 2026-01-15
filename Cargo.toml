@@ -74,7 +74,7 @@ oma-tum = { path = "./oma-tum", optional = true }
 i18n-embed = { version = "0.16.0", features = ["fluent-system", "desktop-requester"]}
 i18n-embed-fl = "0.10"
 # Wait https://github.com/kellpossible/cargo-i18n/pull/165
-rust-embed = "8.9.0"
+rust-embed = "8.11.0"
 
 [features]
 aosc = ["dep:oma-topics", "oma-refresh/aosc", "oma-pm/aosc", "oma-contents/aosc", "dep:oma-mirror", "reqwest/blocking", "dep:oma-tum"]
