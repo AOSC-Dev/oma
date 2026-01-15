@@ -73,7 +73,6 @@ oma-tum = { path = "./oma-tum", optional = true }
 # i18n
 i18n-embed = { version = "0.16.0", features = ["fluent-system", "desktop-requester"]}
 i18n-embed-fl = "0.10"
-# Wait https://github.com/kellpossible/cargo-i18n/pull/165
 rust-embed = "8.11.0"
 
 [features]
