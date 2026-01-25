@@ -1,4 +1,5 @@
 use crate::fl;
+use crate::subcommand::utils::handle_no_result;
 use crate::table::oma_display_with_normal_output;
 use crate::utils::{ExitHandle, pkgnames_completions};
 use crate::{config::Config, error::OutputError};
@@ -6,6 +7,8 @@ use clap::Args;
 use clap_complete::{ArgValueCompleter, PathCompleter};
 use indexmap::IndexSet;
 use oma_contents::searcher::{Mode, search};
+use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use std::io::{Write, stdout};
 use std::path::{Path, PathBuf};
 
@@ -51,7 +54,7 @@ impl CliExecuter for Files {
             bin,
             &package,
             no_progress,
-            sysroot.to_string_lossy().to_string(),
+            sysroot,
             no_pager,
         )
     }
@@ -90,7 +93,7 @@ impl CliExecuter for Provides {
             bin,
             &pattern,
             no_progress,
-            sysroot.to_string_lossy().to_string(),
+            sysroot,
             no_pager,
         )
     }
@@ -101,16 +104,39 @@ fn execute(
     is_bin: bool,
     input: &str,
     no_progress: bool,
-    sysroot: String,
+    sysroot: PathBuf,
     no_pager: bool,
 ) -> Result<ExitHandle, OutputError> {
-    let pb = create_progress_spinner(no_progress || no_pager, fl!("searching"));
     let mode = match mode {
         CliMode::Provides if is_bin => Mode::BinProvides,
         CliMode::Provides => Mode::Provides,
         CliMode::Files if is_bin => Mode::BinFiles,
         CliMode::Files => Mode::Files,
     };
+
+    match mode {
+        Mode::Files | Mode::BinFiles | Mode::FilesSrc => {
+            let apt = OmaApt::new(
+                vec![],
+                OmaAptArgs::builder().build(),
+                false,
+                AptConfig::new(),
+            )?;
+
+            let result = PackagesMatcher::builder()
+                .cache(&apt.cache)
+                .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+                .build()
+                .match_pkgs_and_versions_from_glob(input)?;
+
+            if result.is_empty() {
+                handle_no_result(vec![input], no_progress)?;
+            }
+        }
+        _ => {}
+    }
+
+    let pb = create_progress_spinner(no_progress || no_pager, fl!("searching"));
 
     let mut res = IndexSet::with_hasher(ahash::RandomState::new());
     let mut count = 0;
