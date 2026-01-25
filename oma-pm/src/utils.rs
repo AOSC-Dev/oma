@@ -1,7 +1,5 @@
 use std::{fs, io, path::Path};
 
-use spdlog::{debug, warn};
-
 #[cfg(feature = "aosc")]
 pub fn pkg_is_current_kernel(
     sysroot: &Path,
@@ -9,6 +7,8 @@ pub fn pkg_is_current_kernel(
     pkg_name: &str,
     current_kernel_ver: &str,
 ) -> bool {
+    use spdlog::{debug, warn};
+
     fn is_installed_pkg_contains_file_impl(
         pkg_name: &str,
         image_names: &[impl AsRef<str>],
