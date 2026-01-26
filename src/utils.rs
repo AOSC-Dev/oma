@@ -67,6 +67,7 @@ impl From<PagerExit> for ExitStatus {
     }
 }
 
+#[allow(dead_code)]
 impl ExitHandle {
     pub fn ring(mut self, ring: bool) -> Self {
         self.ring = ring;
