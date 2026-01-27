@@ -131,6 +131,8 @@ fn execute(
 
             if result.is_empty() {
                 handle_no_result(vec![input], no_progress)?;
+
+                return Ok(ExitHandle::default().ring(true));
             }
         }
         _ => {}
