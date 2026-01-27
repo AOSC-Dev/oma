@@ -159,8 +159,15 @@ pub fn parse_version_expr(input: &str) -> Result<Vec<VersionToken<'_>>, VersionP
                     stack.push(op);
                 }
             }
-            VersionToken::Hexadecimal(_) => {
-                return Err(VersionParseError::VersionExpr { span: lexer.span() });
+            VersionToken::Hexadecimal(v) => {
+                if !prev_is_op {
+                    return Err(VersionParseError::UnexpectedString {
+                        s: v.to_string(),
+                        span: lexer.span(),
+                    });
+                }
+                // convert to version number token, as in this context, hex strings are only used as sha256sum arguments
+                stack.push(VersionToken::VersionNumber(v));
             }
             VersionToken::VersionNumber(_) => {
                 if !prev_is_op {
@@ -198,7 +205,7 @@ fn test_lexer() {
 
 #[test]
 fn test_parser_simple() {
-    let input_expr = "(=1.2.3 || =4.5.6) && <7.8.9";
+    let input_expr = "(=1.2.3 || =4.5.6) && <7.8.9 && > 20201010";
     let tokens = parse_version_expr(input_expr).unwrap();
     assert_eq!(
         tokens,
@@ -213,6 +220,10 @@ fn test_parser_simple() {
             VERSION_PLACEHOLDER_TOKEN,
             VersionToken::VersionNumber("7.8.9"),
             VersionToken::Lt,
+            VERSION_PLACEHOLDER_TOKEN,
+            VersionToken::VersionNumber("20201010"),
+            VersionToken::Gt,
+            VersionToken::And,
             VersionToken::And,
         ]
     );
