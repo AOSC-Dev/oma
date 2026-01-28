@@ -3284,7 +3284,7 @@ dependencies = [
 
 [[package]]
 name = "oma-tum"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "ahash",
  "debversion",
