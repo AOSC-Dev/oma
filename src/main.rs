@@ -296,7 +296,7 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
     let dry_run = oma.global.dry_run;
 
     let log_file = (if is_root() {
-        PathBuf::from("/var/log/oma")
+        PathBuf::from(&oma.global.sysroot).join("var/log/oma")
     } else {
         dirs::state_dir()
             .expect("Failed to get state dir")
@@ -340,23 +340,41 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
 
     log_crate_proxy().set_filter(Some(filter));
 
-    let rotating_sink = AsyncPoolSink::builder()
-        .sink(Arc::new(
-            RotatingFileSink::builder()
-                .base_path(&log_file)
-                .formatter(formatter.clone())
-                // 10 MB
-                .rotation_policy(RotationPolicy::FileSize(10 * 1024 * 1024))
-                .max_files(config.save_log_count())
+    let file_formatter = OmaFormatter::new()
+        .with_ansi(enable_ansi(oma))
+        .with_file(true)
+        .with_time(true)
+        .with_debug(true);
+
+    let rotating_file_sink = RotatingFileSink::builder()
+        .base_path(&log_file)
+        .formatter(file_formatter)
+        // 10 MB
+        .rotation_policy(RotationPolicy::FileSize(10 * 1024 * 1024))
+        .rotate_on_open(true)
+        .level_filter(LevelFilter::MoreSevereEqual(Level::Debug))
+        .max_files(config.save_log_count())
+        .build();
+
+    let mut file_sink_error = None;
+
+    let rotating_file_sink = match rotating_file_sink {
+        Ok(file_sink) => Some(
+            AsyncPoolSink::builder()
+                .sink(Arc::new(file_sink))
+                .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
                 .build()
                 .unwrap(),
-        ))
-        .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
-        .build()
-        .unwrap();
+        ),
+        Err(e) => {
+            file_sink_error = Some(e);
+            None
+        }
+    };
 
     let stream_sink = StdStreamSink::builder()
         .formatter(formatter)
+        .level_filter(level_filter)
         .stdout()
         .build()
         .unwrap();
@@ -364,16 +382,23 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
     let mut logger_builder = Logger::builder();
 
     logger_builder
-        .level_filter(level_filter)
+        .level_filter(LevelFilter::All)
         .flush_level_filter(LevelFilter::All)
-        .sink(Arc::new(stream_sink))
-        .sink(Arc::new(rotating_sink));
+        .sink(Arc::new(stream_sink));
+
+    if let Some(file_sink) = rotating_file_sink {
+        logger_builder.sink(Arc::new(file_sink));
+    }
 
     let logger = logger_builder.build().unwrap();
 
     set_default_logger(Arc::new(logger));
 
-    Ok(log_file.to_string_lossy().to_string())
+    if let Some(e) = file_sink_error {
+        Err(e.into())
+    } else {
+        Ok(log_file.to_string_lossy().to_string())
+    }
 }
 
 #[inline]
