@@ -39,11 +39,12 @@ use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
 use rustix::stdio::stdout;
+use spdlog::sink::FileSink;
 use spdlog::{
     Level, LevelFilter, Logger, debug, info, init_log_crate_proxy, log_crate_proxy,
     prelude::error as log_error,
     set_default_logger,
-    sink::{AsyncPoolSink, RotatingFileSink, RotationPolicy, StdStreamSink},
+    sink::{AsyncPoolSink, StdStreamSink},
     warn,
 };
 use subcommand::utils::{LockError, is_terminal};
@@ -302,7 +303,7 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
             .expect("Failed to get state dir")
             .join("oma")
     })
-    .join("oma.log");
+    .join(format!("oma.log.{}", chrono::Local::now().timestamp()));
 
     init_log_crate_proxy().unwrap();
 
@@ -346,19 +347,15 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
         .with_time(true)
         .with_debug(true);
 
-    let rotating_file_sink = RotatingFileSink::builder()
-        .base_path(&log_file)
+    let file_sink = FileSink::builder()
+        .path(&log_file)
         .formatter(file_formatter)
-        // 10 MB
-        .rotation_policy(RotationPolicy::FileSize(10 * 1024 * 1024))
-        .rotate_on_open(true)
         .level_filter(LevelFilter::MoreSevereEqual(Level::Debug))
-        .max_files(config.save_log_count())
         .build();
 
     let mut file_sink_error = None;
 
-    let rotating_file_sink = match rotating_file_sink {
+    let file_sink = match file_sink {
         Ok(file_sink) => Some(
             AsyncPoolSink::builder()
                 .sink(Arc::new(file_sink))
@@ -386,7 +383,7 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
         .flush_level_filter(LevelFilter::All)
         .sink(Arc::new(stream_sink));
 
-    if let Some(file_sink) = rotating_file_sink {
+    if let Some(file_sink) = file_sink {
         logger_builder.sink(Arc::new(file_sink));
     }
 
@@ -397,7 +394,58 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
     if let Some(e) = file_sink_error {
         Err(e.into())
     } else {
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                remove_old_log_file(config, &log_file);
+            });
+        });
+
         Ok(log_file.to_string_lossy().to_string())
+    }
+}
+
+fn remove_old_log_file(config: &Config, log_file: &Path) {
+    let mut v = vec![];
+    let log_dir = log_file.parent().unwrap();
+    let dirs = std::fs::read_dir(log_dir)
+        .expect("Failed to read log dir")
+        .collect::<Vec<_>>();
+
+    for p in &dirs {
+        let Ok(p) = p else {
+            continue;
+        };
+
+        let file_name = p.file_name();
+        let file_name = file_name.to_string_lossy();
+        let Some((prefix, timestamp)) = file_name.rsplit_once('.') else {
+            continue;
+        };
+
+        if prefix != "oma.log" {
+            continue;
+        }
+
+        let Ok(timestamp) = timestamp.parse::<usize>() else {
+            continue;
+        };
+
+        v.push(timestamp);
+    }
+
+    if v.len() > config.save_log_count() {
+        v.sort_unstable_by(|a, b| b.cmp(a));
+
+        for _ in 1..=(v.len() - config.save_log_count()) {
+            let Some(pop) = v.pop() else {
+                break;
+            };
+
+            let log_path = log_dir.join(format!("oma.log.{pop}"));
+            if let Err(e) = std::fs::remove_file(&log_path) {
+                debug!("Failed to remove file {}: {}", log_path.display(), e);
+            }
+        }
     }
 }
 
