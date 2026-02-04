@@ -669,26 +669,28 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             error!("{}", fl!("dep-issue-1"));
             debug!("{:#?}", broken_deps);
 
-            if is_solver3 {
-                let mut errs = vec![];
+            let mut solver_3_errs = vec![];
 
+            if is_solver3 {
                 for err in apt_errors.iter() {
-                    if !errs.contains(&err.msg) {
-                        errs.push(err.msg.to_string());
+                    if !solver_3_errs.contains(&&err.msg) {
+                        solver_3_errs.push(&err.msg);
                     }
                 }
 
                 #[cfg(feature = "aosc")]
-                if !errs.is_empty() {
+                if !solver_3_errs.is_empty() {
                     info!("{}", fl!("dep-issue-2"));
                 }
 
                 eprintln!();
 
-                for err in errs {
+                for err in &solver_3_errs {
                     msg!("{err}");
                 }
-            } else if !broken_deps.is_empty() {
+            }
+
+            if !broken_deps.is_empty() && solver_3_errs.is_empty() {
                 let name_len_max = broken_deps
                     .iter()
                     .filter(|dep| !dep.is_empty())
