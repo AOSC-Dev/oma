@@ -127,7 +127,7 @@ sha256-bad-length = SHA256 校验和无效：长度不正确。
 can-not-checksum = 无法解析 SHA256 校验和。
 failed-to-open-to-checksum = BUG：无法打开用于验证校验和的路径 { $path }，请于 https://github.com/AOSC-Dev/oma 报告问题。
 # config
-config-invalid = oma 配置文件 (/etc/oma.toml) 似乎已损坏！将使用默认配置。
+config-invalid = oma 配置文件 (/etc/oma.toml) 缺失或已损坏！将使用默认配置 ...
 cleaning = 正在清理本地软件包缓存 ...
 download-failed-with-len = { $len } 个软件包下载失败。
 download-failed = 下载 { $filename } 文件失败！

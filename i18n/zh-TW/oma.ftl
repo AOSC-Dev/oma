@@ -123,7 +123,7 @@ sha256-bad-length = SHA256 雜湊值無效：長度不正確。
 can-not-checksum = 無法解析 SHA256 雜湊值。
 failed-to-open-to-checksum = BUG：無法打開用於驗證雜湊值的路徑 { $path }，請於 https://github.com/AOSC-Dev/oma 報告問題。
 # config
-config-invalid = oma 設定檔 (/etc/oma.toml) 似乎已損壞！將使用預設設定。
+config-invalid = oma 設定檔 (/etc/oma.toml) 缺失或已損壞！將使用預設設定 ...
 cleaning = 正在清理本機軟體套件快取……
 download-failed-with-len = { $len } 個軟體套件下載失敗。
 download-failed = 下載 { $filename } 檔案失敗！
