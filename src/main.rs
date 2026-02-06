@@ -186,14 +186,14 @@ fn main() {
     // 要适配额外的插件子命令，所以这里要保留 matches
     let (matches, oma) = parse_args();
 
-    // Init config file
-    let config = Config::read();
-
     #[cfg(feature = "tokio-console")]
     console_subscriber::init();
 
     #[cfg(not(feature = "tokio-console"))]
-    let file = init_logger(&oma, &config);
+    let file = init_logger(&oma);
+
+    // Init config file
+    let config = Config::read();
 
     debug!(
         "Run oma with args: {} (pid: {})",
@@ -212,7 +212,12 @@ fn main() {
 
     match file {
         Ok(file) => {
-            debug!("Log file: {}", file);
+            debug!("Log file: {}", file.display());
+            std::thread::scope(|s| {
+                s.spawn(|| {
+                    remove_old_log_file(&config, &file);
+                });
+            });
         }
         Err(e) => {
             warn!("Failed to write log to file: {e}");
@@ -292,7 +297,7 @@ fn init_localizer() {
     LANGUAGE_LOADER.set_use_isolating(false);
 }
 
-fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String> {
+fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
 
@@ -306,6 +311,8 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
     .join(format!("oma.log.{}", chrono::Local::now().timestamp()));
 
     init_log_crate_proxy().unwrap();
+
+    let debug_formatter = debug_formatter(oma);
 
     let (level_filter, formatter, filter) = if !debug && !dry_run {
         let no_i18n_embd = env_filter::Builder::new()
@@ -330,26 +337,14 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
 
         let level_filter = LevelFilter::MoreSevereEqual(Level::Debug);
 
-        let formatter = OmaFormatter::new()
-            .with_ansi(enable_ansi(oma))
-            .with_file(true)
-            .with_time(true)
-            .with_debug(true);
-
-        (level_filter, formatter, filter)
+        (level_filter, debug_formatter.clone(), filter)
     };
 
     log_crate_proxy().set_filter(Some(filter));
 
-    let file_formatter = OmaFormatter::new()
-        .with_ansi(enable_ansi(oma))
-        .with_file(true)
-        .with_time(true)
-        .with_debug(true);
-
     let file_sink = FileSink::builder()
         .path(&log_file)
-        .formatter(file_formatter)
+        .formatter(debug_formatter)
         .level_filter(LevelFilter::MoreSevereEqual(Level::Debug))
         .build();
 
@@ -372,7 +367,7 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
     let stream_sink = StdStreamSink::builder()
         .formatter(formatter)
         .level_filter(level_filter)
-        .stdout()
+        .stderr()
         .build()
         .unwrap();
 
@@ -394,14 +389,17 @@ fn init_logger(oma: &OhManagerAilurus, config: &Config) -> anyhow::Result<String
     if let Some(e) = file_sink_error {
         Err(e.into())
     } else {
-        std::thread::scope(|s| {
-            s.spawn(|| {
-                remove_old_log_file(config, &log_file);
-            });
-        });
-
-        Ok(log_file.to_string_lossy().to_string())
+        Ok(log_file)
     }
+}
+
+#[inline]
+fn debug_formatter(oma: &OhManagerAilurus) -> OmaFormatter {
+    OmaFormatter::new()
+        .with_ansi(enable_ansi(oma))
+        .with_file(true)
+        .with_time(true)
+        .with_debug(true)
 }
 
 fn remove_old_log_file(config: &Config, log_file: &Path) {
