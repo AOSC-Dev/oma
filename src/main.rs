@@ -177,14 +177,14 @@ fn main() {
     // 要适配额外的插件子命令，所以这里要保留 matches
     let (matches, oma) = parse_args();
 
-    // Init config file
-    let config = Config::read();
-
     #[cfg(feature = "tokio-console")]
     console_subscriber::init();
 
     #[cfg(not(feature = "tokio-console"))]
-    let (_guard, file) = init_logger(&oma, &config);
+    let (_guard, file) = init_logger(&oma);
+
+    // Init config file
+    let config = Config::read();
 
     debug!(
         "Run oma with args: {} (pid: {})",
@@ -203,7 +203,8 @@ fn main() {
 
     match file {
         Ok(file) => {
-            debug!("Log file: {}", file);
+            debug!("Log file: {}", file.display());
+            remove_old_log(&file, &config);
         }
         Err(e) => {
             warn!("Failed to write log to file: {e}");
@@ -233,6 +234,56 @@ fn main() {
     };
 
     exit(code);
+}
+
+fn remove_old_log(log_file: &Path, config: &Config) {
+    // 日志文件创建成功再去遍历文件
+    thread::scope(|s| {
+        s.spawn(|| {
+            let mut v = vec![];
+            let log_dir = log_file.parent().unwrap();
+            let dirs = read_dir(log_dir)
+                .expect("Failed to read log dir")
+                .collect::<Vec<_>>();
+
+            for p in &dirs {
+                let Ok(p) = p else {
+                    continue;
+                };
+
+                let file_name = p.file_name();
+                let file_name = file_name.to_string_lossy();
+                let Some((prefix, timestamp)) = file_name.rsplit_once('.') else {
+                    continue;
+                };
+
+                if prefix != "oma.log" {
+                    continue;
+                }
+
+                let Ok(timestamp) = timestamp.parse::<usize>() else {
+                    continue;
+                };
+
+                v.push(timestamp);
+            }
+
+            if v.len() > config.save_log_count() {
+                v.sort_unstable_by(|a, b| b.cmp(a));
+
+                for _ in 1..=(v.len() - config.save_log_count()) {
+                    let Some(pop) = v.pop() else {
+                        break;
+                    };
+
+                    let log_path = log_dir.join(format!("oma.log.{pop}"));
+                    if let Err(e) = remove_file(&log_path) {
+                        debug!("Failed to remove file {}: {}", log_path.display(), e);
+                    }
+                }
+            }
+        });
+    });
 }
 
 fn init_apt_config(oma: &OhManagerAilurus) {
@@ -298,10 +349,7 @@ macro_rules! init_logger_inner {
     ($context:ident) => {{ $context.init() }};
 }
 
-fn init_logger(
-    oma: &OhManagerAilurus,
-    config: &Config,
-) -> (Option<WorkerGuard>, anyhow::Result<String>) {
+fn init_logger(oma: &OhManagerAilurus) -> (Option<WorkerGuard>, anyhow::Result<PathBuf>) {
     let debug = oma.global.debug;
     let dry_run = oma.global.dry_run;
 
@@ -358,59 +406,10 @@ fn init_logger(
         }
     }
 
-    // 日志文件创建成功再去遍历文件
-    if log_file.is_ok() {
-        thread::scope(|s| {
-            s.spawn(|| {
-                let mut v = vec![];
-                let dirs = read_dir(&log_dir)
-                    .expect("Failed to read log dir")
-                    .collect::<Vec<_>>();
-
-                for p in &dirs {
-                    let Ok(p) = p else {
-                        continue;
-                    };
-
-                    let file_name = p.file_name();
-                    let file_name = file_name.to_string_lossy();
-                    let Some((prefix, timestamp)) = file_name.rsplit_once('.') else {
-                        continue;
-                    };
-
-                    if prefix != "oma.log" {
-                        continue;
-                    }
-
-                    let Ok(timestamp) = timestamp.parse::<usize>() else {
-                        continue;
-                    };
-
-                    v.push(timestamp);
-                }
-
-                if v.len() > config.save_log_count() {
-                    v.sort_unstable_by(|a, b| b.cmp(a));
-
-                    for _ in 1..=(v.len() - config.save_log_count()) {
-                        let Some(pop) = v.pop() else {
-                            break;
-                        };
-
-                        let log_path = log_dir.join(format!("oma.log.{pop}"));
-                        if let Err(e) = remove_file(&log_path) {
-                            debug!("Failed to remove file {}: {}", log_path.display(), e);
-                        }
-                    }
-                }
-            });
-        });
-    }
-
     (log_guard, log_file)
 }
 
-fn create_log_file(log_dir: &Path) -> anyhow::Result<String> {
+fn create_log_file(log_dir: &Path) -> anyhow::Result<PathBuf> {
     create_dir_all(log_dir)?;
 
     let log_file = format!(
@@ -421,7 +420,7 @@ fn create_log_file(log_dir: &Path) -> anyhow::Result<String> {
             .as_secs()
     );
 
-    let log_file = log_dir.join(log_file).to_string_lossy().to_string();
+    let log_file = log_dir.join(log_file);
 
     Ok(log_file)
 }
