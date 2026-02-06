@@ -130,7 +130,7 @@ sha256-bad-length = Malformed SHA256 checksum: bad length.
 can-not-checksum = Failed to parse SHA256 checksum.
 failed-to-open-to-checksum = BUG: Failed to open { $path } for checksum verification. Please report this issue at https://github.com/AOSC-Dev/oma.
 # config
-config-invalid = oma configuration file appears to be broken (/etc/oma.toml)! Falling back to default configuration.
+config-invalid = oma configuration file appears to be missing or broken (/etc/oma.toml)! Falling back to default configuration ...
 cleaning = Clearing packages cache ...
 download-failed-with-len = { $len } package(s) failed to download.
 download-failed = Failed to download { $filename }!
