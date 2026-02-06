@@ -1,20 +1,36 @@
 use crate::fl;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use spdlog::{error, warn};
 
-#[cfg(feature = "aosc")]
-const DEFAULT_CONFIG: &str = include_str!("../data/config/oma.toml");
-
-#[cfg(not(feature = "aosc"))]
-const DEFAULT_CONFIG: &str = include_str!("../data/config/oma-debian.toml");
-
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct Config {
     pub general: Option<GeneralConfig>,
     pub network: Option<NetworkConfig>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            general: Some(GeneralConfig {
+                protect_essentials: GeneralConfig::default_protect_essentials(),
+                no_check_dbus: GeneralConfig::default_no_check_dbus(),
+                check_battery: GeneralConfig::default_check_battery(),
+                take_wake_lock: GeneralConfig::default_take_wake_lock(),
+                no_refresh_topics: GeneralConfig::default_no_refresh_topics(),
+                follow_terminal_color: GeneralConfig::default_follow_terminal_color(),
+                search_contents_println: GeneralConfig::default_search_contents_println(),
+                bell: GeneralConfig::default_bell(),
+                search_engine: GeneralConfig::default_search_engine(),
+                save_log_count: GeneralConfig::default_save_log_count(),
+            }),
+            network: Some(NetworkConfig {
+                network_threads: NetworkConfig::default_network_thread(),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
 pub struct GeneralConfig {
     #[serde(default = "GeneralConfig::default_protect_essentials")]
     pub protect_essentials: bool,
@@ -38,7 +54,7 @@ pub struct GeneralConfig {
     pub save_log_count: usize,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum BatteryTristate {
     Ask,
@@ -46,7 +62,7 @@ pub enum BatteryTristate {
     Ignore,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum SearchEngine {
     Indicium,
@@ -54,7 +70,7 @@ pub enum SearchEngine {
     Text,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum TakeWakeLockTristate {
     Yes,
@@ -62,7 +78,7 @@ pub enum TakeWakeLockTristate {
     Ignore,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct NetworkConfig {
     #[serde(default = "NetworkConfig::default_network_thread")]
     pub network_threads: usize,
@@ -124,13 +140,13 @@ impl Config {
     pub fn read() -> Self {
         let Ok(s) = std::fs::read_to_string("/etc/oma.toml") else {
             warn!("{}", fl!("config-invalid"));
-            return toml::from_str::<Self>(DEFAULT_CONFIG).unwrap();
+            return Self::default();
         };
 
         toml::from_str(&s).unwrap_or_else(|e| {
             error!("Failed to read config: {e}");
             warn!("{}", fl!("config-invalid"));
-            toml::from_str(DEFAULT_CONFIG).unwrap()
+            Self::default()
         })
     }
 

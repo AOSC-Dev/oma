@@ -419,3 +419,4 @@ clap-list-autoremovable-help = 僅列出能夠「自動移除」（即不再需�
 clap-topics-opt-out-help = 退出指定的測試主題（使用空格分隔）
 oma-mirror-up-to-date = { $mirror }: up to date
 oma-mirror-outdated = { $mirror }: outdated - { $duration }
+clap-no-config-help = 不要使用設定檔

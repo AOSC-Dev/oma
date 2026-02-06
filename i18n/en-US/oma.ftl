@@ -432,3 +432,5 @@ oma-mirror-up-to-date = { $mirror }: up to date
 oma-mirror-outdated = { $mirror }: outdated - { $duration }
 mirror-latency = Latency
 clap-mirror-latency-help = Test mirror synchronization latency
+clap-no-config-help = Do not load configuration file, use default settings
+no-config-warning = Running oma with default configuration due to --no-config option.
