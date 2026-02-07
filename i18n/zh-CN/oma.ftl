@@ -423,3 +423,5 @@ oma-mirror-up-to-date = { $mirror }: 最新同步
 oma-mirror-outdated = { $mirror }: 存在延迟 - { $duration }
 mirror-latency = 延迟
 clap-mirror-latency-help = 测试镜像同步延迟
+clap-no-config-help = 不使用配置文件，使用默认设置
+no-config-warning = 运行 oma 时因使用 `--no-config` 选项，将使用默认设置。
