@@ -1,13 +1,17 @@
 use std::{
     io::Read,
     path::{Path, PathBuf},
+    sync::OnceLock,
+    time::SystemTime,
 };
 
 use anyhow::bail;
+use chrono::{DateTime, NaiveDate, Utc};
 use oma_apt_sources_lists::Signature;
 use sequoia_openpgp::{
     Cert, KeyHandle,
     cert::CertParser,
+    packet::Tag,
     parse::{
         PacketParserBuilder, Parse,
         stream::{
@@ -15,10 +19,13 @@ use sequoia_openpgp::{
             VerificationHelper, VerifierBuilder,
         },
     },
-    policy::StandardPolicy,
+    policy::{AsymmetricAlgorithm, HashAlgoSecurity, StandardPolicy},
+    types::HashAlgorithm,
 };
 use sequoia_policy_config::ConfiguredStandardPolicy;
-use spdlog::debug;
+use spdlog::{debug, warn};
+
+static POLICY: OnceLock<StandardPolicy<'static>> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct InReleaseVerifier {
@@ -146,10 +153,10 @@ pub fn verify_inrelease_inner(
     trusted: bool,
     kob: KeyBlockOrPaths<'_>,
 ) -> Result<String, VerifyError> {
-    let p = policy()?;
+    let p = POLICY.get_or_init(policy);
 
     let mut v = VerifierBuilder::from_bytes(inrelease.as_bytes())?.with_policy(
-        &p,
+        p,
         None,
         match kob {
             KeyBlockOrPaths::Block(block) => InReleaseVerifier::from_key_block(block, trusted)?,
@@ -164,39 +171,77 @@ pub fn verify_inrelease_inner(
     Ok(res)
 }
 
-fn policy() -> Result<StandardPolicy<'static>, anyhow::Error> {
+fn policy() -> StandardPolicy<'static> {
     let mut p = ConfiguredStandardPolicy::new();
+    let default_configure_path = Path::new("/usr/share/apt/default-sequoia.config");
     let custom_configure_path = Path::new("/etc/crypto-policies/back-ends/apt-sequoia.config");
 
-    if custom_configure_path.exists() {
-        if !p.parse_config_file(custom_configure_path)? {
-            bail!(
-                "configure {} does not exist",
-                custom_configure_path.display()
-            );
+    for path in [custom_configure_path, default_configure_path] {
+        match p.parse_config_file(path) {
+            Ok(true) => {
+                debug!("config file {} loaded", path.display());
+                return p.build();
+            }
+            Ok(false) => {
+                debug!("config file {} does not exist", path.display());
+            }
+            Err(e) => {
+                warn!("Failed to parse config file {}: {e}", path.display());
+            }
         }
-    } else {
-        // https://salsa.debian.org/apt-team/apt/-/blob/main/debian/default-sequoia.config
-        let policy_config = &b"[asymmetric_algorithms]
-dsa2048 = 2024-02-01
-dsa3072 = 2024-02-01
-dsa4096 = 2024-02-01
-brainpoolp256 = 2028-02-01
-brainpoolp384 = 2028-02-01
-brainpoolp512 = 2028-02-01
-rsa2048  = 2030-02-01
-
-[hash_algorithms]
-sha1.second_preimage_resistance = 2026-02-01    # Extend the expiry for legacy repositories
-sha224 = 2026-02-01
-
-[packets]
-signature.v3 = 2026-02-01   # Extend the expiry"[..];
-
-        p.parse_bytes(policy_config).unwrap();
     }
 
-    Ok(p.build())
+    debug!("No config file found, using built-in policy");
+    default_policy()
+}
+
+// From Debian apt default policy:
+// https://salsa.debian.org/apt-team/apt/-/blob/main/debian/default-sequoia.config
+fn default_policy() -> StandardPolicy<'static> {
+    let mut policy = StandardPolicy::new();
+
+    let expire_20240201: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(
+        NaiveDate::from_ymd_opt(2024, 2, 1).unwrap().into(),
+        Utc,
+    )
+    .into();
+
+    let expire_20280201: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(
+        NaiveDate::from_ymd_opt(2028, 2, 1).unwrap().into(),
+        Utc,
+    )
+    .into();
+
+    let expire_20300201: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(
+        NaiveDate::from_ymd_opt(2030, 2, 1).unwrap().into(),
+        Utc,
+    )
+    .into();
+
+    let expire_20260201: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(
+        NaiveDate::from_ymd_opt(2026, 2, 1).unwrap().into(),
+        Utc,
+    )
+    .into();
+
+    policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::DSA2048, Some(expire_20240201));
+    policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::DSA3072, Some(expire_20240201));
+    policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::DSA4096, Some(expire_20240201));
+    policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::BrainpoolP256, Some(expire_20280201));
+    policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::BrainpoolP384, Some(expire_20280201));
+    policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::BrainpoolP512, Some(expire_20280201));
+    policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::RSA2048, Some(expire_20300201));
+
+    policy.reject_hash_property_at(
+        HashAlgorithm::SHA1,
+        HashAlgoSecurity::SecondPreImageResistance,
+        Some(expire_20260201),
+    );
+
+    policy.reject_hash_at(HashAlgorithm::SHA224, Some(expire_20260201));
+    policy.reject_packet_tag_version_at(Tag::Signature, 3, Some(expire_20260201));
+
+    policy
 }
 
 pub fn verify_release_by_sysroot(
@@ -218,10 +263,10 @@ pub fn verify_release_inner(
     trusted: bool,
     bop: KeyBlockOrPaths<'_>,
 ) -> Result<(), VerifyError> {
-    let p = policy()?;
+    let p = POLICY.get_or_init(policy);
 
     let mut v = DetachedVerifierBuilder::from_bytes(detached)?.with_policy(
-        &p,
+        p,
         None,
         match bop {
             KeyBlockOrPaths::Block(block) => InReleaseVerifier::from_key_block(block, trusted)?,

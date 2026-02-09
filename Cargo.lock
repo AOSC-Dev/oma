@@ -3253,6 +3253,7 @@ name = "oma-repo-verify"
 version = "0.9.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "oma-apt-sources-lists",
  "sequoia-openpgp",
  "sequoia-policy-config",
