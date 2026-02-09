@@ -12,6 +12,7 @@ sequoia-openpgp = { version = "2", default-features = false }
 spdlog-rs = "0.5"
 oma-apt-sources-lists = "0.9"
 sequoia-policy-config = "0.8"
+chrono = "0.4"
 
 [features]
 sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]
