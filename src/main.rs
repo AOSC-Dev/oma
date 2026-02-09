@@ -165,6 +165,9 @@ pub struct GlobalOptions {
     /// Print help
     #[arg(long, short, global = true, action = ArgAction::Help, help = fl!("clap-help"))]
     help: Option<bool>,
+    /// No use config
+    #[arg(long, global = true, env = "OMA_NO_CONFIG", help = fl!("clap-no-config-help"))]
+    no_config: bool,
 }
 
 fn main() {
@@ -193,7 +196,12 @@ fn main() {
     let file = init_logger(&oma);
 
     // Init config file
-    let config = Config::read();
+    let config = if oma.global.no_config {
+        warn!("{}", fl!("no-config-warning"));
+        Config::default()
+    } else {
+        Config::read()
+    };
 
     debug!(
         "Run oma with args: {} (pid: {})",
