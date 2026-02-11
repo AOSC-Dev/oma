@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    os::fd::OwnedFd,
     path::{Path, PathBuf},
 };
 
@@ -9,16 +8,7 @@ use aho_corasick::BuildError;
 use apt_auth_config::AuthConfig;
 use bon::Builder;
 use chrono::Utc;
-use nix::{
-    errno::Errno,
-    fcntl::{
-        FcntlArg::{F_GETLK, F_SETFD, F_SETLK},
-        FdFlag, OFlag, fcntl, open,
-    },
-    libc::{F_WRLCK, SEEK_SET, flock},
-    sys::stat::Mode,
-    unistd::close,
-};
+
 #[cfg(feature = "apt")]
 use oma_apt::config::Config;
 use oma_apt_sources_lists::SourcesListError;
@@ -39,9 +29,8 @@ use oma_topics::TopicManager;
 #[cfg(feature = "aosc")]
 use oma_fetch::reqwest::StatusCode;
 
-use oma_utils::is_termux;
+use oma_utils::{GetLockError, get_file_lock, is_termux};
 use spdlog::{debug, warn};
-use sysinfo::{Pid, System};
 use tokio::{
     fs::{self},
     task::spawn_blocking,
@@ -90,10 +79,8 @@ pub enum RefreshError {
     AhoCorasickBuilder(#[from] BuildError),
     #[error("stream_replace_all failed")]
     ReplaceAll(std::io::Error),
-    #[error("Set lock failed")]
-    SetLock(Errno),
-    #[error("Set lock failed: process {0} ({1}) is using.")]
-    SetLockWithProcess(String, i32),
+    #[error(transparent)]
+    SetLock(GetLockError),
     #[error("duplicate components")]
     DuplicateComponents(Box<str>, String),
     #[error("sources.list is empty")]
@@ -131,63 +118,6 @@ pub struct OmaRefresh<'a> {
     #[cfg(feature = "apt")]
     #[builder(default)]
     another_apt_options: Vec<String>,
-}
-
-/// Create `apt update` file lock
-fn get_apt_update_lock(download_dir: &Path) -> Result<OwnedFd> {
-    let lock_path = download_dir.join("lock");
-
-    let fd = open(
-        &lock_path,
-        OFlag::O_RDWR | OFlag::O_CREAT | OFlag::O_NOFOLLOW,
-        Mode::from_bits_truncate(0o640),
-    )
-    .map_err(RefreshError::SetLock)?;
-
-    fcntl(&fd, F_SETFD(FdFlag::FD_CLOEXEC)).map_err(RefreshError::SetLock)?;
-
-    // From apt libapt-pkg/fileutil.cc:287
-    let mut fl = flock {
-        l_type: F_WRLCK as i16,
-        l_whence: SEEK_SET as i16,
-        l_start: 0,
-        l_len: 0,
-        l_pid: -1,
-    };
-
-    if let Err(e) = fcntl(&fd, F_SETLK(&fl)) {
-        debug!("{e}");
-
-        if e == Errno::EACCES || e == Errno::EAGAIN {
-            fl.l_type = F_WRLCK as i16;
-            fl.l_whence = SEEK_SET as i16;
-            fl.l_len = 0;
-            fl.l_start = 0;
-            fl.l_pid = -1;
-            fcntl(&fd, F_GETLK(&mut fl)).ok();
-        } else {
-            fl.l_pid = -1;
-        }
-
-        close(fd).map_err(RefreshError::SetLock)?;
-
-        if fl.l_pid != -1 {
-            let mut sys = System::new();
-            sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
-            let Some(process) = sys.process(Pid::from(fl.l_pid as usize)) else {
-                return Err(RefreshError::SetLock(e));
-            };
-
-            return Err(RefreshError::SetLockWithProcess(
-                process.name().to_string_lossy().to_string(),
-                fl.l_pid,
-            ));
-        }
-
-        return Err(RefreshError::SetLock(e));
-    }
-
-    Ok(fd)
 }
 
 #[derive(Debug)]
@@ -286,9 +216,11 @@ impl<'a> OmaRefresh<'a> {
 
         let download_dir: Box<Path> = Box::from(self.download_dir.as_path());
 
-        let _fd = spawn_blocking(move || get_apt_update_lock(&download_dir))
+        // Create `apt update` file lock
+        let _fd = spawn_blocking(move || get_file_lock(&download_dir.join("lock")))
             .await
-            .unwrap()?;
+            .unwrap()
+            .map_err(RefreshError::SetLock)?;
 
         detect_duplicate_repositories(&sourcelist)?;
 

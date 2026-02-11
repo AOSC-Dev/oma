@@ -3240,7 +3240,6 @@ dependencies = [
  "fancy-regex 0.17.0",
  "flume",
  "futures",
- "nix 0.31.1",
  "oma-apt",
  "oma-apt-sources-lists",
  "oma-fetch",
@@ -3250,7 +3249,6 @@ dependencies = [
  "once_cell",
  "spdlog-rs",
  "sys-locale",
- "sysinfo",
  "thiserror 2.0.18",
  "tokio",
  "url",
@@ -3307,9 +3305,11 @@ name = "oma-utils"
 version = "0.13.0"
 dependencies = [
  "logind-zbus-tokio",
+ "nix 0.31.1",
  "number_prefix",
  "os-release",
  "spdlog-rs",
+ "sysinfo",
  "thiserror 2.0.18",
  "url-escape",
  "zbus",
