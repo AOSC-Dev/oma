@@ -135,7 +135,7 @@ checksum = "5f0e0fee31ef5ed1ba1316088939cea399010ed7731dba877ed44aeb407a75ea"
 
 [[package]]
 name = "apt-auth-config"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "rust-netrc",
  "spdlog-rs",
@@ -3094,7 +3094,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.29.2"
+version = "0.30.0"
 dependencies = [
  "aho-corasick",
  "ansi-to-tui",
@@ -3109,7 +3109,7 @@ dependencies = [
 
 [[package]]
 name = "oma-contents"
-version = "0.17.1"
+version = "0.18.0"
 dependencies = [
  "flate2",
  "lzzzz",
@@ -3125,7 +3125,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "async-compression",
  "bon",
@@ -3146,7 +3146,7 @@ dependencies = [
 
 [[package]]
 name = "oma-history"
-version = "0.8.1"
+version = "0.9.0"
 dependencies = [
  "chrono",
  "oma-pm-operation-type",
@@ -3175,7 +3175,7 @@ dependencies = [
 
 [[package]]
 name = "oma-mirror"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "ahash",
  "indexmap",
@@ -3189,7 +3189,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.59.2"
+version = "0.60.1"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3219,7 +3219,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm-operation-type"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "bon",
  "num_enum",
@@ -3229,7 +3229,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.52.0"
+version = "0.53.1"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3258,7 +3258,7 @@ dependencies = [
 
 [[package]]
 name = "oma-repo-verify"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3271,7 +3271,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.25.2"
+version = "0.26.0"
 dependencies = [
  "ahash",
  "futures",
@@ -3290,7 +3290,7 @@ dependencies = [
 
 [[package]]
 name = "oma-tum"
-version = "0.5.3"
+version = "0.6.0"
 dependencies = [
  "ahash",
  "debversion",
@@ -3304,7 +3304,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.12.3"
+version = "0.13.0"
 dependencies = [
  "logind-zbus-tokio",
  "number_prefix",
