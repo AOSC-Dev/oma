@@ -108,7 +108,6 @@ impl Display for SearchResultDisplay<'_> {
         WRITER
             .get_terminal()
             .wrap_content("", &i.desc)
-            .into_iter()
             .for_each(|(prefix, body)| {
                 write!(f, "{}", gen_prefix(prefix, 10)).ok();
                 writeln!(
