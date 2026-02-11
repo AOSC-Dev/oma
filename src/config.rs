@@ -30,6 +30,7 @@ impl Default for Config {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct GeneralConfig {
     #[serde(default = "GeneralConfig::default_protect_essentials")]
