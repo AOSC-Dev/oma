@@ -905,6 +905,20 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::DpkgStatusGetPkg(_) => anyhow::anyhow!("{err}").into(),
         OmaAptError::WrongDpkgStatus(_) => anyhow::anyhow!("{err}").into(),
         OmaAptError::DpkgStatusBroken(_) => anyhow::anyhow!("{err}").into(),
+        OmaAptError::FailedGetArchiveDirLock(get_lock_error) => match get_lock_error {
+            GetLockError::SetLock(errno) => OutputError {
+                description: fl!("oma-archive-lock"),
+                source: Some(Box::new(errno)),
+            },
+            GetLockError::SetLockWithProcess(cmd, pid) => OutputError {
+                description: fl!("oma-archive-lock"),
+                source: Some(Box::new(io::Error::other(fl!(
+                    "oma-archive-lock-dueto",
+                    exec = cmd,
+                    pid = pid
+                )))),
+            },
+        },
     }
 }
 
