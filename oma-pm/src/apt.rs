@@ -24,7 +24,7 @@ use oma_apt::{
 };
 
 use oma_fetch::{Event, Summary, checksum::ChecksumError, reqwest::Client};
-use oma_utils::{dpkg::DpkgError, human_bytes::HumanBytes, is_termux};
+use oma_utils::{GetLockError, dpkg::DpkgError, human_bytes::HumanBytes, is_termux};
 
 pub use oma_apt::config::Config as AptConfig;
 use spdlog::debug;
@@ -163,6 +163,8 @@ pub enum OmaAptError {
     WrongDpkgStatus(String),
     #[error("Package {0} status field is missing, dpkg status is broken.")]
     DpkgStatusBroken(String),
+    #[error(transparent)]
+    FailedGetArchiveDirLock(#[from] GetLockError),
 }
 
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
