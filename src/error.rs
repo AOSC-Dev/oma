@@ -24,6 +24,7 @@ use oma_repo_verify::VerifyError;
 #[cfg(feature = "aosc")]
 use oma_tum::TumError;
 
+use oma_utils::GetLockError;
 use oma_utils::dbus::OmaDbusError;
 use oma_utils::dpkg::DpkgError;
 
@@ -440,17 +441,19 @@ impl From<RefreshError> for OutputError {
                 description: e.to_string(),
                 source: Some(Box::new(e)),
             },
-            RefreshError::SetLock(errno) => Self {
-                description: fl!("oma-refresh-lock"),
-                source: Some(Box::new(errno)),
-            },
-            RefreshError::SetLockWithProcess(cmd, pid) => Self {
-                description: fl!("oma-refresh-lock"),
-                source: Some(Box::new(io::Error::other(fl!(
-                    "oma-refresh-lock-dueto",
-                    exec = cmd,
-                    pid = pid
-                )))),
+            RefreshError::SetLock(e) => match e {
+                GetLockError::SetLock(errno) => Self {
+                    description: fl!("oma-refresh-lock"),
+                    source: Some(Box::new(errno)),
+                },
+                GetLockError::SetLockWithProcess(cmd, pid) => Self {
+                    description: fl!("oma-refresh-lock"),
+                    source: Some(Box::new(io::Error::other(fl!(
+                        "oma-refresh-lock-dueto",
+                        exec = cmd,
+                        pid = pid
+                    )))),
+                },
             },
             RefreshError::DuplicateComponents(url, component) => Self {
                 description: fl!("doplicate-component", url = url.to_string(), c = component),
