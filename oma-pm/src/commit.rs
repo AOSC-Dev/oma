@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::create_dir_all, path::Path};
+use std::{borrow::Cow, fs::create_dir_all, os::fd::OwnedFd, path::Path, sync::OnceLock};
 
 use apt_auth_config::AuthConfig;
 use chrono::Local;
@@ -9,6 +9,7 @@ use oma_apt::{
 };
 use oma_fetch::{Event, Summary, reqwest::Client};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
+use oma_utils::get_file_lock;
 use spdlog::debug;
 use std::io::Write;
 
@@ -32,6 +33,7 @@ pub struct DoInstall<'a> {
     client: &'a Client,
     sysroot: &'a str,
     config: CommitConfig<'a>,
+    archive_lock: OnceLock<OwnedFd>,
 }
 
 pub type CustomDownloadMessage = Box<dyn Fn(&InstallEntry) -> Cow<'static, str>>;
@@ -48,6 +50,7 @@ impl<'a> DoInstall<'a> {
             sysroot,
             client,
             config,
+            archive_lock: OnceLock::new(),
         })
     }
 
@@ -81,6 +84,9 @@ impl<'a> DoInstall<'a> {
 
         create_dir_all(path)
             .map_err(|e| OmaAptError::FailedOperateDirOrFile(path.display().to_string(), e))?;
+
+        let fd = get_file_lock(&path.join("lock")).map_err(OmaAptError::FailedGetArchiveDirLock)?;
+        self.archive_lock.get_or_init(|| fd);
 
         self.apt.get_or_init_async_runtime()?.block_on(async {
             if let Some(conn) = self.apt.conn.get() {

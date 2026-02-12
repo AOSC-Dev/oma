@@ -185,6 +185,7 @@ no-result-bincontents-tips = 您可能在尋找這些軟體套件：
 no-result-bincontents-tips-2 = 指令 { $cmd } 由軟體套件 { $pkg } 提供
 oma-refresh-lock = 無法重新整理本機軟體套件資料庫。
 oma-refresh-lock-dueto = { $exec } ({ $pid }) 已鎖定資料庫。
+oma-archive-lock-dueto = { $exec } ({ $pid }) 已鎖定套件庫（軟體套件快取)。
 oma-refresh-success-invoke = 正在執行重新整理後配置腳本 (Post-Invoke-Success)……
 autoremove-tips-1 = 您的系統中有 { $count } 個可清理的軟體套件，清理後可釋出 { $size } 儲存空間；請使用 { $cmd } 檢閱可清理的軟體套件。
 essential-continue = 您確定要移除該軟體套件嗎？
