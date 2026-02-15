@@ -41,7 +41,9 @@ use reqwest::Client;
 use rustix::stdio::stdout;
 use spdlog::sink::FileSink;
 use spdlog::{
-    Level, LevelFilter, Logger, debug, info, init_log_crate_proxy, log_crate_proxy,
+    Level, LevelFilter, Logger, debug,
+    error::SendToChannelError,
+    info, init_log_crate_proxy, log_crate_proxy,
     prelude::error as log_error,
     set_default_logger,
     sink::{AsyncPoolSink, StdStreamSink},
@@ -362,6 +364,14 @@ fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
         Ok(file_sink) => Some(
             AsyncPoolSink::builder()
                 .sink(Arc::new(file_sink))
+                .error_handler(|err| {
+                    match err {
+                        spdlog::Error::SendToChannel(SendToChannelError::Full, _) => {
+                            // Ignore, the async pool sink is dropping logs
+                        }
+                        err => spdlog::ErrorHandler::default().handle(err),
+                    }
+                })
                 .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
                 .build()
                 .unwrap(),
