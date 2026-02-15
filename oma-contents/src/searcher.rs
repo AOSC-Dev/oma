@@ -14,7 +14,7 @@ use flate2::bufread::GzDecoder;
 use lzzzz::lz4f::BufReadDecompressor;
 use memchr::memmem;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use spdlog::debug;
+use spdlog::{debug, trace};
 use zstd::Decoder;
 
 use crate::{OmaContentsError, parser::parse_contents_single_line};
@@ -365,7 +365,7 @@ fn rg_filter_line(
 ) -> Result<Vec<(String, String)>, OmaContentsError> {
     let (file, pkgs) = parse_contents_single_line(line)?;
 
-    debug!("file: {file}, pkgs: {pkgs:?}");
+    trace!("file: {file}, pkgs: {pkgs:?}");
 
     if pkgs.len() != 1 {
         let mut res = vec![];
