@@ -324,7 +324,7 @@ fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
 
     let debug_formatter = debug_formatter(oma);
 
-    let (level_filter, formatter, filter) = if !debug && !dry_run {
+    let (level_filter, formatter, filter) = if !debug && !dry_run && env::var("OMA_LOG").is_err() {
         let no_i18n_embd = env_filter::Builder::new()
             .try_parse("i18n_embed=off,info")
             .unwrap()
@@ -338,7 +338,8 @@ fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
     } else {
         let filter = env_filter::Builder::new()
             .try_parse(
-                &env::var("RUST_LOG")
+                &env::var("OMA_LOG")
+                    .or_else(|_| env::var("RUST_LOG"))
                     .map(Cow::Owned)
                     .unwrap_or(Cow::Borrowed("hyper=off,rustls=off,debug")),
             )
@@ -478,8 +479,11 @@ fn try_main(
 ) -> Result<ExitHandle, OutputError> {
     init_color_formatter(&oma, config);
 
-    let no_progress =
-        oma.global.no_progress || !is_terminal() || oma.global.debug || oma.global.dry_run;
+    let no_progress = oma.global.no_progress
+        || !is_terminal()
+        || oma.global.debug
+        || oma.global.dry_run
+        || env::var("OMA_LOG").is_ok();
 
     match oma.subcmd {
         Some(subcmd) => subcmd.execute(config, no_progress),
