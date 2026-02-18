@@ -87,6 +87,7 @@ static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
 
 static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
 static LOCK: OnceLock<PathBuf> = OnceLock::new();
+static LATENCY: OnceLock<Duration> = OnceLock::new();
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {
@@ -583,6 +584,8 @@ fn init_color_formatter(oma: &OhManagerAilurus, config: &Config) {
             follow_term_color = true;
         } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
             debug!("latency: {:?}", latency);
+            LATENCY.set(latency).expect("LATENCY must no set.");
+
             if latency * 2 > timeout {
                 debug!(
                     "Terminal latency is too long, falling back to default terminal colors, latency: {:?}.",
