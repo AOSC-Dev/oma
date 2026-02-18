@@ -14,6 +14,7 @@ pub struct OmaOperation {
     pub total_download_size: u64,
     pub suggest: Vec<(String, String)>,
     pub recommend: Vec<(String, String)>,
+    pub max_old_installed_size: u64,
 }
 
 impl Display for OmaOperation {
