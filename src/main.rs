@@ -364,14 +364,6 @@ fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
         Ok(file_sink) => Some(
             AsyncPoolSink::builder()
                 .sink(Arc::new(file_sink))
-                .error_handler(|err| {
-                    match err {
-                        spdlog::Error::SendToChannel(SendToChannelError::Full, _) => {
-                            // Ignore, the async pool sink is dropping logs
-                        }
-                        err => spdlog::ErrorHandler::default().call(err),
-                    }
-                })
                 .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
                 .build()
                 .unwrap(),
@@ -394,6 +386,14 @@ fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
     logger_builder
         .level_filter(LevelFilter::All)
         .flush_level_filter(LevelFilter::All)
+        .error_handler(|err| {
+            match err {
+                spdlog::Error::SendToChannel(SendToChannelError::Full, _) => {
+                    // Ignore, the async pool sink is dropping logs
+                }
+                err => spdlog::ErrorHandler::default().call(err),
+            }
+        })
         .sink(Arc::new(stream_sink));
 
     if let Some(file_sink) = file_sink {
