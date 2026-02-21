@@ -295,6 +295,9 @@ impl OmaMultiProgressBar {
             Event::Failed { file_name, error } => {
                 self.handle_download_err(file_name, is_refresh, error);
             }
+            Event::Timeout { filename, times } => {
+                self.error(&fl!("timeout-retry", c = filename, retry = times));
+            }
         };
 
         false

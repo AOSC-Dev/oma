@@ -104,6 +104,10 @@ pub enum Event {
         filename: String,
         times: usize,
     },
+    Timeout {
+        filename: String,
+        times: usize,
+    },
     GlobalProgressAdd(u64),
     GlobalProgressSub(u64),
     ProgressDone(usize),
