@@ -691,7 +691,7 @@ struct MirrorLatencyDisplay<'a> {
 
 fn speedtest(
     no_progress: bool,
-    set_fastest: bool,
+    mut set_fastest: bool,
     refresh_topic: bool,
     network_threads: usize,
     no_refresh: bool,
@@ -798,12 +798,21 @@ fn speedtest(
         )
         .ok();
 
-    if set_fastest {
-        let (name, _) = score.first().ok_or_else(|| OutputError {
-            description: fl!("all-speedtest-failed"),
-            source: None,
-        })?;
+    let (name, _) = score.first().ok_or_else(|| OutputError {
+        description: fl!("all-speedtest-failed"),
+        source: None,
+    })?;
 
+    if !set_fastest {
+        eprintln!();
+        let name = **name;
+        set_fastest = dialoguer::Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt(fl!("set-mirror-default", m = name))
+            .interact()
+            .unwrap_or(false);
+    }
+
+    if set_fastest {
         let name: Box<str> = Box::from(**name);
         mm.set(&[&name])?;
         mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;

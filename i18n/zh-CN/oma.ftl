@@ -427,3 +427,4 @@ mirror-latency = 延迟
 clap-mirror-latency-help = 测试镜像同步延迟
 clap-no-config-help = 不使用配置文件，使用默认设置
 no-config-warning = 运行 oma 时因使用 `--no-config` 选项，将使用默认设置。
+set-mirror-default = 镜像源 { $m } 是最快的，是否将其设置为默认镜像源？
