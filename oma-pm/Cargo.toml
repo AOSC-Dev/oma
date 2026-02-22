@@ -1,6 +1,6 @@
 [package]
 name = "oma-pm"
-version = "0.61.0"
+version = "0.61.1"
 edition = "2024"
 description = "APT package manager API abstraction library"
 license = "GPL-3.0-or-later"
@@ -19,7 +19,7 @@ oma-utils = { version = "^0.13.0", path = "../oma-utils", features = [
     "human-bytes",
     "dbus",
 ] }
-oma-fetch = { version = "^0.35.0", path = "../oma-fetch" }
+oma-fetch = { version = "^0.36.0", path = "../oma-fetch" }
 tokio = { version = "1.15", default-features = false, features = [
     "fs",
     "rt-multi-thread",
