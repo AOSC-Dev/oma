@@ -145,7 +145,7 @@ fn remove(i: &Path, total_size: &mut u64) {
     let size = get_size(i);
 
     let result = if i.is_dir() {
-        fs::remove_dir(i)
+        fs::remove_dir_all(i)
     } else {
         fs::remove_file(i)
     };
