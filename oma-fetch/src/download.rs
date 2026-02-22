@@ -219,6 +219,21 @@ impl<'a> SingleDownloader<'a> {
                         times += 1;
                         allow_resume = false;
                     }
+                    SingleDownloadError::DownloadTimeout => {
+                        if self.retry_times == times {
+                            return Err(e);
+                        }
+
+                        if times > 1 {
+                            callback(Event::Timeout {
+                                filename: self.entry.filename.to_string(),
+                                times,
+                            })
+                            .await;
+                        }
+
+                        times += 1;
+                    }
                     e => {
                         return Err(e);
                     }
