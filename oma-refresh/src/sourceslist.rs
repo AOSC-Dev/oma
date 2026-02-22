@@ -399,7 +399,10 @@ impl MirrorSource<'_> {
         let mut url = self.get_download_url("InRelease");
         let mut is_release = false;
 
-        let resp = match self.send_request(client, &url, Method::GET).await {
+        let resp = self.send_request(client, &url, Method::GET).await;
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+
+        let resp = match resp {
             Ok(resp) => resp,
             Err(e) if e.status().is_some_and(|e| e == StatusCode::NOT_FOUND) => {
                 url = self.get_download_url("Release");
@@ -407,13 +410,10 @@ impl MirrorSource<'_> {
 
                 if resp.is_err() && self.is_flat() {
                     // Flat repo no release
-                    callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
                     return Ok(());
                 }
 
                 is_release = true;
-
-                callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
                 resp.map_err(|e| SingleDownloadError::ReqwestError { source: e })
                     .map_err(|e| RefreshError::DownloadFailed(Some(e)))?
@@ -424,8 +424,6 @@ impl MirrorSource<'_> {
                 )));
             }
         };
-
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
         let file_name = if is_release {
             self.get_download_file_name(Some("Release"), replacer)?
