@@ -437,3 +437,4 @@ mirror-latency = Latency
 clap-mirror-latency-help = Test mirror synchronization latency
 clap-no-config-help = Do not load configuration file, use default settings
 no-config-warning = Running oma with default configuration due to --no-config option.
+set-mirror-default = Mirror { $m } seems to be the fastest, set as default?
