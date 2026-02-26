@@ -249,28 +249,28 @@ impl<'a> IndexTargetConfig<'a> {
             sort_res.push(v.last().unwrap().to_owned());
         }
 
-        let mut res = vec![];
+        if sort_res.len() == 1 {
+            return Ok(sort_res);
+        } else {
+            let mut res = vec![];
+            for i in 0..sort_res.len() {
+                for j in i + 1..sort_res.len() {
+                    if let Some(fallback_of) = &sort_res[i].fallback_of
+                        && fallback_of == &sort_res[j].config_key
+                    {
+                        debug!(
+                            "Skip {} because it is fallback of {}",
+                            sort_res[j].config_key, sort_res[i].config_key
+                        );
+                        continue;
+                    }
 
-        for i in 0..sort_res.len() {
-            for j in 0..sort_res.len() {
-                if i == j {
-                    continue;
+                    res.push(sort_res[i].to_owned());
                 }
-
-                if let Some(fallback_of) = &sort_res[i].fallback_of
-                    && fallback_of == &sort_res[j].config_key
-                {
-                    debug!(
-                        "Skip {} because it is fallback of {}",
-                        sort_res[j].config_key, sort_res[i].config_key
-                    );
-                    continue;
-                }
-                res.push(sort_res[i].to_owned());
             }
-        }
 
-        Ok(res)
+            Ok(res)
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
