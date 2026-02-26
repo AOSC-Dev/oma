@@ -250,7 +250,7 @@ impl<'a> IndexTargetConfig<'a> {
         }
 
         if sort_res.len() == 1 {
-            return Ok(sort_res);
+            Ok(sort_res)
         } else {
             let mut res = vec![];
             for i in 0..sort_res.len() {
