@@ -1,4 +1,9 @@
-use std::{borrow::Cow, cmp::Ordering, collections::HashMap, path::Path};
+use std::{
+    borrow::Cow,
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use ahash::AHashMap;
 use aho_corasick::AhoCorasick;
@@ -249,28 +254,7 @@ impl<'a> IndexTargetConfig<'a> {
             sort_res.push(v.last().unwrap().to_owned());
         }
 
-        if sort_res.len() == 1 {
-            Ok(sort_res)
-        } else {
-            let mut res = vec![];
-            for i in 0..sort_res.len() {
-                for j in i + 1..sort_res.len() {
-                    if let Some(fallback_of) = &sort_res[i].fallback_of
-                        && fallback_of == &sort_res[j].config_key
-                    {
-                        debug!(
-                            "Skip {} because it is fallback of {}",
-                            sort_res[j].config_key, sort_res[i].config_key
-                        );
-                        continue;
-                    }
-
-                    res.push(sort_res[i].to_owned());
-                }
-            }
-
-            Ok(res)
-        }
+        Ok(fallback_of_filter(sort_res))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -324,6 +308,30 @@ impl<'a> IndexTargetConfig<'a> {
             .replacer
             .replace_all(template, &[arch, component, lang, self.native_arch])
     }
+}
+
+fn fallback_of_filter(res: Vec<ChecksumDownloadEntry>) -> Vec<ChecksumDownloadEntry> {
+    if res.len() <= 1 {
+        return res;
+    }
+
+    let config_keys: HashSet<_> = res.iter().map(|e| e.config_key.clone()).collect();
+
+    res.into_iter()
+        .filter(|entry| {
+            if let Some(fallback_of) = &entry.fallback_of
+                && config_keys.contains(fallback_of)
+            {
+                debug!(
+                    "Skip {} because it has fallback_of pointing to existing key",
+                    entry.config_key
+                );
+                false
+            } else {
+                true
+            }
+        })
+        .collect()
 }
 
 fn flat_repo_template_match(
@@ -509,4 +517,53 @@ fn test_get_tree() {
     let t = get_tree(&Config::new(), "Acquire::IndexTargets::deb");
     assert!(t.iter().any(|x| x.0.contains("::deb::")));
     assert!(t.iter().all(|x| !x.0.contains("::deb-src::")))
+}
+
+#[test]
+fn test_fallback_of_filter() {
+    let entries = vec![
+        ChecksumDownloadEntry {
+            item: ChecksumItem {
+                name: "file1".to_string(),
+                size: 100,
+                checksum: "abc".to_string(),
+            },
+            keep_compress: false,
+            msg: "msg1".to_string(),
+            optional: false,
+            config_key: "key1".to_string(),
+            fallback_of: None,
+        },
+        ChecksumDownloadEntry {
+            item: ChecksumItem {
+                name: "file2".to_string(),
+                size: 100,
+                checksum: "def".to_string(),
+            },
+            keep_compress: false,
+            msg: "msg2".to_string(),
+            optional: false,
+            config_key: "key2".to_string(),
+            fallback_of: Some("key1".to_string()),
+        },
+        ChecksumDownloadEntry {
+            item: ChecksumItem {
+                name: "file3".to_string(),
+                size: 100,
+                checksum: "ghi".to_string(),
+            },
+            keep_compress: false,
+            msg: "msg3".to_string(),
+            optional: false,
+            config_key: "key3".to_string(),
+            fallback_of: None,
+        },
+    ];
+
+    let filtered = fallback_of_filter(entries);
+    assert_eq!(filtered.len(), 2);
+
+    for i in ["key1", "key3"] {
+        assert!(filtered.iter().any(|x| x.config_key == i));
+    }
 }
