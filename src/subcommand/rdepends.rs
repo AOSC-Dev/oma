@@ -1,4 +1,4 @@
-use std::{borrow::Cow, io::stdout, path::PathBuf};
+use std::{borrow::Cow, io::stdout};
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
@@ -9,7 +9,7 @@ use oma_pm::{
 use std::io::Write;
 
 use crate::{
-    config::Config,
+    config::OmaConfig,
     error::OutputError,
     fl,
     utils::{ExitHandle, pkgnames_and_path_completions},
@@ -28,22 +28,11 @@ pub struct Rdepends {
     /// Set output format as JSON
     #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
 }
 
 impl CliExecuter for Rdepends {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
-        let Rdepends {
-            packages,
-            json,
-            sysroot,
-            apt_options,
-        } = self;
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
+        let Rdepends { packages, json } = self;
 
         let local_debs = packages
             .iter()
@@ -52,20 +41,20 @@ impl CliExecuter for Rdepends {
             .collect::<Vec<_>>();
 
         let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .another_apt_options(apt_options)
+            .sysroot(config.sysroot.to_string_lossy().to_string())
+            .another_apt_options(config.apt_options.clone())
             .build();
 
         let apt = OmaApt::new(local_debs, oma_apt_args, false, AptConfig::new())?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
             .build();
         let (pkgs, no_result) =
             matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
 
-        handle_no_result(no_result, no_progress)?;
+        handle_no_result(no_result, config.no_progress())?;
 
         if !json {
             for pkg in pkgs {

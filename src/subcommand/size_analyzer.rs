@@ -1,5 +1,4 @@
 use std::io::{self, stdout};
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -30,8 +29,9 @@ use std::io::Write;
 use tabled::builder::Builder;
 use tabled::settings::{Alignment, Settings};
 
+use crate::config::OmaConfig;
 use crate::utils::{ExitHandle, dbus_check, is_root};
-use crate::{CliExecuter, config::Config, error::OutputError};
+use crate::{CliExecuter, error::OutputError};
 use crate::{WRITER, fl};
 
 const FULL: &str = "█";
@@ -49,18 +49,6 @@ pub struct SizeAnalyzer {
     /// Only display packages size details
     #[arg(short, long, help = fl!("clap-size-analyzer-details-help"))]
     details: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Run oma do not check dbus
-    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
-    no_check_dbus: bool,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
     /// Resolve broken dependencies in the system
     #[arg(short, long, help = fl!("clap-fix-broken-help"))]
     fix_broken: bool,
@@ -85,24 +73,11 @@ pub struct SizeAnalyzer {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help"))]
-    download_threads: Option<usize>,
-    /// Run oma do not check battery status
-    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
-    no_check_battery: bool,
-    /// Run oma do not take wake lock
-    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
-    no_take_wake_lock: bool,
 }
 
 impl CliExecuter for SizeAnalyzer {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let SizeAnalyzer {
-            sysroot,
-            dry_run,
-            no_check_dbus,
-            apt_options,
             fix_broken,
             no_fix_dpkg_status,
             force_unsafe_io,
@@ -110,10 +85,7 @@ impl CliExecuter for SizeAnalyzer {
             force_confnew,
             no_autoremove,
             remove_config,
-            download_threads,
             details,
-            no_check_battery,
-            no_take_wake_lock,
         } = self;
 
         let detail = if !is_root() && !is_termux() {
@@ -125,7 +97,7 @@ impl CliExecuter for SizeAnalyzer {
         let mut apt = OmaApt::new(
             vec![],
             OmaAptArgs::builder()
-                .another_apt_options(apt_options)
+                .another_apt_options(config.apt_options.clone())
                 .dpkg_force_unsafe_io(force_unsafe_io)
                 .force_yes(force_yes)
                 .dpkg_force_confnew(force_confnew)
@@ -170,14 +142,7 @@ impl CliExecuter for SizeAnalyzer {
             writeln!(stdout()).ok();
             info!("{}", fl!("psa-without-root-tips"));
         } else {
-            let _fds = dbus_check(
-                false,
-                config,
-                no_check_dbus,
-                dry_run,
-                no_take_wake_lock,
-                no_check_battery,
-            )?;
+            let _fds = dbus_check(false, &config)?;
 
             let tui = PkgSizeAnalyzer::new(&apt);
             let mut terminal =
@@ -204,20 +169,20 @@ impl CliExecuter for SizeAnalyzer {
                 no_autoremove,
             )?;
 
-            let auth_config = auth_config(&sysroot);
+            let auth_config = auth_config(&config.sysroot);
             let auth_config = auth_config.as_ref();
 
             exit_code = CommitChanges::builder()
                 .apt(apt)
-                .dry_run(dry_run)
+                .dry_run(config.dry_run)
                 .no_fixbroken(!fix_broken)
-                .no_progress(no_progress)
-                .sysroot(sysroot.to_string_lossy().to_string())
-                .protect_essential(config.protect_essentials())
+                .no_progress(config.no_progress())
+                .sysroot(config.sysroot.to_string_lossy().to_string())
+                .protect_essential(config.protect_essentials)
                 .yes(false)
                 .remove_config(remove_config)
                 .autoremove(!no_autoremove)
-                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+                .network_thread(config.download_threads)
                 .maybe_auth_config(auth_config)
                 .fix_dpkg_status(!no_fix_dpkg_status)
                 .build()

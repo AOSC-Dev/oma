@@ -3,7 +3,6 @@ use std::{
     collections::HashSet,
     fmt::Display,
     io::{Write, stdout},
-    path::PathBuf,
     sync::LazyLock,
 };
 
@@ -20,7 +19,7 @@ use spdlog::{debug, trace};
 
 use crate::{
     CliExecuter,
-    config::Config,
+    config::OmaConfig,
     error::OutputError,
     fl,
     table::oma_display_with_normal_output,
@@ -50,9 +49,6 @@ pub struct Tree {
     /// Maximum display depth of the dependency tree
     #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = &**DEPTH_HELP)]
     depth: u8,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
     /// Output result to stdout, not pager
     #[arg(long, help = fl!("clap-no-pager-help"))]
     no_pager: bool,
@@ -67,9 +63,6 @@ pub struct Why {
     /// Maximum display depth of the dependency tree
     #[arg(short, long, default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=5), help = &**DEPTH_HELP)]
     depth: u8,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
     /// Output result to stdout, not pager
     #[arg(long, help = fl!("clap-no-pager-help"))]
     no_pager: bool,
@@ -80,7 +73,6 @@ impl From<Why> for Tree {
         let Why {
             packages,
             depth,
-            sysroot,
             no_pager,
         } = value;
 
@@ -88,15 +80,14 @@ impl From<Why> for Tree {
             packages,
             reverse: true,
             depth,
-            sysroot,
             no_pager,
         }
     }
 }
 
 impl CliExecuter for Why {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
-        Tree::from(self).execute(config, no_progress)
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
+        Tree::from(self).execute(config)
     }
 }
 
@@ -125,12 +116,11 @@ impl Display for PkgWrapper<'_> {
 }
 
 impl CliExecuter for Tree {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Tree {
             packages,
             reverse: invert,
             depth: limit,
-            sysroot,
             no_pager,
         } = self;
 
@@ -143,7 +133,7 @@ impl CliExecuter for Tree {
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot));
+            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot));
 
         let matcher = if invert {
             let matcher = matcher.filter_candidate(false);
@@ -155,11 +145,11 @@ impl CliExecuter for Tree {
         let (pkgs, no_result) =
             matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
 
-        handle_no_result(no_result, no_progress)?;
+        handle_no_result(no_result, config.no_progress())?;
 
         let mut res = vec![];
 
-        let pb = create_progress_spinner(no_progress || no_pager, fl!("loading-tree"));
+        let pb = create_progress_spinner(config.no_progress() || no_pager, fl!("loading-tree"));
 
         for p in pkgs {
             let depth = 1;

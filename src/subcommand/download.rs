@@ -8,7 +8,7 @@ use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
 use spdlog::error;
 
-use crate::config::Config;
+use crate::config::OmaConfig;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress};
 use crate::utils::{ExitHandle, pkgnames_completions};
 use crate::{HTTP_CLIENT, fl, success};
@@ -27,22 +27,11 @@ pub struct Download {
     /// The path where package(s) should be downloaded to
     #[arg(short, long, default_value = ".", help = fl!("clap-download-path-help"))]
     path: PathBuf,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help"))]
-    download_threads: Option<usize>,
 }
 
 impl CliExecuter for Download {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
-        let Download {
-            packages,
-            path,
-            dry_run,
-            download_threads,
-        } = self;
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
+        let Download { packages, path } = self;
 
         let path = path.canonicalize().map_err(|e| OutputError {
             description: format!("Failed to canonicalize path: {}", path.display()),
@@ -51,7 +40,7 @@ impl CliExecuter for Download {
 
         let apt_config = AptConfig::new();
         let oma_apt_args = OmaAptArgs::builder().build();
-        let apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
+        let apt = OmaApt::new(vec![], oma_apt_args, config.dry_run, apt_config)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .filter_candidate(true)
@@ -61,9 +50,11 @@ impl CliExecuter for Download {
 
         let (pkgs, no_result) =
             matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
-        handle_no_result(no_result, no_progress)?;
+        handle_no_result(no_result, config.no_progress())?;
 
         let (tx, rx) = unbounded();
+
+        let no_progress = config.no_progress();
 
         thread::spawn(move || {
             let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
@@ -78,7 +69,7 @@ impl CliExecuter for Download {
             &HTTP_CLIENT,
             pkgs,
             DownloadConfig {
-                network_thread: Some(download_threads.unwrap_or_else(|| config.network_thread())),
+                network_thread: Some(config.download_threads),
                 download_dir: Some(&path),
                 auth: auth_config("/").as_ref(),
             },

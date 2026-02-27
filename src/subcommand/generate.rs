@@ -6,7 +6,7 @@ use clap_mangen::Man;
 
 use crate::{
     args::{CliExecuter, OhManagerAilurus},
-    config::Config,
+    config::OmaConfig,
     error::OutputError,
     lang::SYSTEM_LANG,
     utils::ExitHandle,
@@ -19,7 +19,7 @@ pub struct GenerateManpages {
 }
 
 impl CliExecuter for GenerateManpages {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, _config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let cmd = OhManagerAilurus::command();
         Ok(build_man(&cmd, self.path)?)
     }

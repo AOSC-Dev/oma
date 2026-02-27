@@ -1,4 +1,4 @@
-use std::{borrow::Cow, io::stdout, path::PathBuf};
+use std::{borrow::Cow, io::stdout};
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
@@ -13,7 +13,7 @@ use oma_pm::{
 use spdlog::info;
 
 use crate::{
-    config::Config,
+    config::OmaConfig,
     error::OutputError,
     utils::{ExitHandle, pkgnames_and_path_completions},
 };
@@ -36,12 +36,6 @@ pub struct Show {
     /// Set output format as JSON
     #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
 }
 
 const RECORDS: &[&str] = &[
@@ -63,18 +57,16 @@ const RECORDS: &[&str] = &[
 ];
 
 impl CliExecuter for Show {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Show {
             all,
             json,
             packages,
-            sysroot,
-            apt_options,
         } = self;
 
         let oma_apt_args = OmaAptArgs::builder()
-            .another_apt_options(apt_options)
-            .sysroot(sysroot.to_string_lossy().to_string())
+            .another_apt_options(config.apt_options.clone())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
             .build();
 
         let local_debs = packages
@@ -87,14 +79,14 @@ impl CliExecuter for Show {
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
             .filter_candidate(!all)
             .build();
 
         let (pkgs, no_result) =
             matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
 
-        handle_no_result(no_result, no_progress)?;
+        handle_no_result(no_result, config.no_progress())?;
 
         let mut stdout = stdout();
 
