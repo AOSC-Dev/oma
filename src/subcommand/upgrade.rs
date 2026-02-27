@@ -1,9 +1,9 @@
+use crate::config::OmaConfig;
 use crate::subcommand::utils::CommitChanges;
 use crate::utils::ExitHandle;
 use crate::utils::pkgnames_and_path_completions;
 use clap_complete::ArgValueCompleter;
 use spdlog::{debug, info, warn};
-use std::path::PathBuf;
 
 use apt_auth_config::AuthConfig;
 use clap::Args;
@@ -16,7 +16,6 @@ use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
 
 use crate::HTTP_CLIENT;
-use crate::config::Config;
 use crate::error::OutputError;
 use crate::fl;
 use crate::utils::dbus_check;
@@ -54,10 +53,6 @@ pub(crate) struct Upgrade {
     /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
     #[arg(long, help = fl!("clap-force-confnew-help"))]
     force_confnew: bool,
-    #[cfg(feature = "aosc")]
-    /// Do not refresh topics manifest.json file
-    #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
-    no_refresh_topics: bool,
     /// Auto remove unnecessary package(s)
     #[arg(long, help = fl!("clap-autoremove-help"))]
     autoremove: bool,
@@ -74,90 +69,51 @@ pub(crate) struct Upgrade {
     /// Only download dependencies, not install
     #[arg(long, short, help = fl!("clap-download-only-help"))]
     download_only: bool,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Run oma do not check dbus
-    #[arg(from_global, help = fl!("clap-no-check-dbus"))]
-    no_check_dbus: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help"))]
-    download_threads: Option<usize>,
-    /// Run oma do not check battery status
-    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
-    no_check_battery: bool,
-    /// Run oma do not take wake lock
-    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
-    no_take_wake_lock: bool,
 }
 
 impl CliExecuter for Upgrade {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Upgrade {
             no_fixbroken,
             force_unsafe_io,
             no_refresh,
             force_yes,
             force_confnew,
-            #[cfg(feature = "aosc")]
-            no_refresh_topics,
             autoremove,
             remove_config,
             yes,
             packages,
-            dry_run,
-            no_check_dbus,
-            sysroot,
-            apt_options,
             #[cfg(not(feature = "aosc"))]
             no_remove,
             no_fix_dpkg_status,
-            download_threads,
-            no_check_battery,
-            no_take_wake_lock,
             download_only,
         } = self;
 
-        if !dry_run {
+        if !config.dry_run {
             root()?;
-            lock_oma(&sysroot)?;
+            lock_oma(&config.sysroot)?;
         }
 
-        let _fds = dbus_check(
-            false,
-            config,
-            no_check_dbus,
-            dry_run,
-            no_take_wake_lock,
-            no_check_battery,
-        )?;
+        let _fds = dbus_check(false, &config)?;
 
         let apt_config = AptConfig::new();
 
-        let auth_config = AuthConfig::system(&sysroot)?;
+        let auth_config = AuthConfig::system(&config.sysroot)?;
 
         if !no_refresh {
-            let sysroot = sysroot.to_string_lossy();
+            let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
                 .client(&HTTP_CLIENT)
-                .dry_run(dry_run)
-                .no_progress(no_progress)
-                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+                .dry_run(config.dry_run)
+                .no_progress(config.no_progress())
+                .network_thread(config.download_threads)
                 .sysroot(&sysroot)
                 .config(&apt_config)
-                .apt_options(apt_options.clone())
+                .apt_options(config.apt_options.clone())
                 .auth_config(&auth_config);
 
             #[cfg(feature = "aosc")]
-            let refresh = builder
-                .refresh_topics(!no_refresh_topics && !config.no_refresh_topics())
-                .build();
+            let refresh = builder.refresh_topics(!config.no_refresh_topics).build();
 
             #[cfg(not(feature = "aosc"))]
             let refresh = builder.build();
@@ -178,27 +134,27 @@ impl CliExecuter for Upgrade {
         let pkgs_unparse = packages.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
         let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(sysroot.to_string_lossy().to_string())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
             .dpkg_force_confnew(force_confnew)
             .force_yes(force_yes)
             .yes(yes)
-            .another_apt_options(apt_options)
+            .another_apt_options(config.apt_options.clone())
             .dpkg_force_unsafe_io(force_unsafe_io)
             .build();
 
-        let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, AptConfig::new())?;
+        let mut apt = OmaApt::new(local_debs, oma_apt_args, config.dry_run, AptConfig::new())?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .filter_candidate(true)
             .filter_downloadable_candidate(false)
             .select_dbg(false)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
             .build();
 
         let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;
 
-        handle_no_result(no_result, no_progress)?;
+        handle_no_result(no_result, config.no_progress())?;
 
         let no_marked_install = apt.install(&pkgs, false)?;
 
@@ -226,16 +182,16 @@ impl CliExecuter for Upgrade {
 
         let exit = CommitChanges::builder()
             .apt(apt)
-            .dry_run(dry_run)
+            .dry_run(config.dry_run)
             .no_fixbroken(no_fixbroken)
             .check_tum(true)
-            .no_progress(no_progress)
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .protect_essential(config.protect_essentials())
+            .no_progress(config.no_progress())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
+            .protect_essential(config.protect_essentials)
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+            .network_thread(config.download_threads)
             .maybe_auth_config(Some(&auth_config))
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
@@ -246,7 +202,7 @@ impl CliExecuter for Upgrade {
         let apt = OmaApt::new(
             vec![],
             OmaAptArgs::builder().build(),
-            dry_run,
+            config.dry_run,
             AptConfig::new(),
         )?;
 

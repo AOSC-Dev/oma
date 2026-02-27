@@ -1,12 +1,13 @@
 use std::fs::{self};
 use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
+use crate::config::OmaConfig;
 use crate::subcommand::utils::create_progress_spinner;
 
+use crate::fl;
 use crate::success;
 use crate::utils::ExitHandle;
-use crate::{config::Config, fl};
 use clap::Args;
 use fs_extra::dir::get_size;
 use oma_console::indicatif::HumanBytes;
@@ -28,27 +29,24 @@ pub struct Clean {
     /// Keep installed packages
     #[arg(long, conflicts_with = "keep_downloadable_and_installed", help = fl!("clap-clean-keep-installed-help"))]
     keep_installed: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
 }
 
 impl CliExecuter for Clean {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Clean {
-            sysroot,
-            apt_options,
-            dry_run,
             keep_downloadable,
             keep_downloadable_and_installed,
             keep_installed,
         } = self;
+
+        let no_progress = config.no_progress();
+
+        let OmaConfig {
+            sysroot,
+            apt_options,
+            dry_run,
+            ..
+        } = config;
 
         if dry_run {
             info!("Running in dry-run mode, Exit.");

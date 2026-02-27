@@ -9,7 +9,7 @@ use oma_contents::searcher::{Mode, search};
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use spdlog::error;
 
-use crate::config::Config;
+use crate::config::OmaConfig;
 use crate::error::OutputError;
 use crate::table::PagerPrinter;
 use crate::utils::{ExitHandle, ExitStatus, get_lists_dir};
@@ -29,7 +29,7 @@ pub struct CommandNotFound {
 }
 
 impl CliExecuter for CommandNotFound {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, _config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let CommandNotFound { keyword } = self;
 
         let mut res = IndexSet::with_hasher(ahash::RandomState::new());

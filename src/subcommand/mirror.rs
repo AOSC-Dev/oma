@@ -49,7 +49,7 @@ use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;
 use crate::RT;
 use crate::args::HELP_TEMPLATE;
-use crate::config::Config;
+use crate::config::OmaConfig;
 use crate::error::OutputError;
 use crate::fl;
 use crate::init_tls_config;
@@ -97,21 +97,9 @@ impl Display for MirrorDisplay {
 pub struct CliMirror {
     #[command(subcommand)]
     mirror_subcmd: Option<MirrorSubCmd>,
-    /// Do not refresh topics manifest.json file
-    #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
-    no_refresh_topics: bool,
     /// Do not refresh repository metadata
     #[arg(long, help = fl!("clap-no-refresh-help"))]
     no_refresh: bool,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help", long_help = fl!("clap-dry-run-long-help")))]
-    dry_run: bool,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help"))]
-    download_threads: Option<usize>,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -125,12 +113,6 @@ pub enum MirrorSubCmd {
         /// Enable mirror name(s)
         #[arg(required = true, help = fl!("clap-mirror-set-names-help"))]
         names: Vec<String>,
-        /// Set sysroot target directory
-        #[arg(from_global, help = fl!("clap-sysroot-help"))]
-        sysroot: PathBuf,
-        /// Do not refresh topics manifest.json file
-        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
-        no_refresh_topics: bool,
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
@@ -143,12 +125,6 @@ pub enum MirrorSubCmd {
         /// Add mirror name(s)
         #[arg(required = true, help = fl!("clap-mirror-add-names-help"))]
         names: Vec<String>,
-        /// Set sysroot target directory
-        #[arg(from_global, help = fl!("clap-sysroot-help"))]
-        sysroot: PathBuf,
-        /// Do not refresh topics manifest.json file
-        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
-        no_refresh_topics: bool,
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
@@ -161,12 +137,6 @@ pub enum MirrorSubCmd {
         /// Remove mirror name(s)
         #[arg(required = true, help = fl!("clap-mirror-remove-names-help"))]
         names: Vec<String>,
-        /// Set sysroot target directory
-        #[arg(from_global, help = fl!("clap-sysroot-help"))]
-        sysroot: PathBuf,
-        /// Do not refresh topics manifest.json file
-        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
-        no_refresh_topics: bool,
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
@@ -176,9 +146,6 @@ pub enum MirrorSubCmd {
     #[command(help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     SortMirrors {
-        /// Do not refresh topics manifest.json file
-        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
-        no_refresh_topics: bool,
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
@@ -194,9 +161,6 @@ pub enum MirrorSubCmd {
         /// Network timeout in seconds (default: 120)
         #[arg(long, default_value = "120", help = fl!("clap-mirror-speedtest-timeout-help"))]
         timeout: f64,
-        /// Do not refresh topics manifest.json file
-        #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
-        no_refresh_topics: bool,
         /// Do not refresh repository metadata
         #[arg(long, help = fl!("clap-no-refresh-help"))]
         no_refresh: bool,
@@ -216,101 +180,80 @@ pub enum MirrorSubCmd {
 }
 
 impl CliExecuter for CliMirror {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let CliMirror {
             mirror_subcmd,
-            no_refresh_topics,
             no_refresh,
-            dry_run,
-            download_threads,
-            apt_options,
         } = self;
 
-        if dry_run {
+        if config.dry_run {
             info!("Running in dry-run mode, Exit.");
             return Ok(ExitHandle::default());
         }
 
         if let Some(subcmd) = mirror_subcmd {
             match subcmd {
-                MirrorSubCmd::Set {
-                    names,
-                    sysroot,
-                    no_refresh_topics,
-                    no_refresh,
-                } => operate(
-                    no_progress,
-                    !no_refresh_topics && !config.no_refresh_topics(),
-                    download_threads.unwrap_or_else(|| config.network_thread()),
+                MirrorSubCmd::Set { names, no_refresh } => operate(
+                    config.no_progress(),
+                    !config.no_refresh_topics,
+                    config.download_threads,
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-                    sysroot,
+                    config.sysroot,
                     Operate::Set,
-                    apt_options,
+                    config.apt_options,
                 ),
                 MirrorSubCmd::Speedtest {
                     set_fastest,
-                    no_refresh_topics,
                     no_refresh,
                     timeout,
                 } => speedtest(
-                    no_progress,
+                    config.no_progress(),
                     set_fastest,
-                    !no_refresh_topics && !config.no_refresh_topics(),
-                    download_threads.unwrap_or_else(|| config.network_thread()),
+                    !config.no_refresh_topics,
+                    config.download_threads,
                     no_refresh,
-                    apt_options,
+                    config.apt_options,
                     timeout,
                 ),
-                MirrorSubCmd::Add {
-                    names,
-                    sysroot,
-                    no_refresh_topics,
-                    no_refresh,
-                } => operate(
-                    no_progress,
-                    !no_refresh_topics && !config.no_refresh_topics(),
-                    download_threads.unwrap_or_else(|| config.network_thread()),
+                MirrorSubCmd::Add { names, no_refresh } => operate(
+                    config.no_progress(),
+                    !config.no_refresh_topics,
+                    config.download_threads,
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-                    sysroot,
+                    config.sysroot,
                     Operate::Add,
-                    apt_options,
+                    config.apt_options,
                 ),
-                MirrorSubCmd::Remove {
-                    names,
-                    sysroot,
-                    no_refresh_topics,
-                    no_refresh,
-                } => operate(
-                    no_progress,
-                    !no_refresh_topics && !config.no_refresh_topics(),
-                    download_threads.unwrap_or_else(|| config.network_thread()),
+                MirrorSubCmd::Remove { names, no_refresh } => operate(
+                    config.no_progress(),
+                    !config.no_refresh_topics,
+                    config.download_threads,
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-                    sysroot,
+                    config.sysroot,
                     Operate::Remove,
-                    apt_options,
+                    config.apt_options,
                 ),
-                MirrorSubCmd::SortMirrors {
-                    no_refresh_topics,
+                MirrorSubCmd::SortMirrors { no_refresh } => set_order(
+                    config.no_progress(),
+                    !config.no_refresh_topics,
+                    config.download_threads,
                     no_refresh,
-                } => set_order(
-                    no_progress,
-                    !no_refresh_topics && !config.no_refresh_topics(),
-                    download_threads.unwrap_or_else(|| config.network_thread()),
-                    no_refresh,
-                    apt_options,
+                    config.apt_options,
                 ),
-                MirrorSubCmd::Latency { timeout, json } => get_latency(timeout, no_progress, json),
+                MirrorSubCmd::Latency { timeout, json } => {
+                    get_latency(timeout, config.no_progress(), json)
+                }
             }
         } else {
             tui(
-                no_progress,
-                !no_refresh_topics && !config.no_refresh_topics(),
-                download_threads.unwrap_or_else(|| config.network_thread()),
+                config.no_progress(),
+                !config.no_refresh_topics,
+                config.download_threads,
                 no_refresh,
-                apt_options,
+                config.apt_options,
             )
         }
     }

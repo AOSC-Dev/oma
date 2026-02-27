@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use anyhow::anyhow;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
@@ -10,7 +8,7 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use spdlog::{info, warn};
 
-use crate::config::Config;
+use crate::config::OmaConfig;
 use crate::fl;
 use crate::utils::{ExitHandle, pkgnames_remove_completions};
 use crate::{
@@ -32,18 +30,6 @@ pub struct Remove {
     /// Bypass confirmation prompts
     #[arg(short, long, help = fl!("clap-yes-help"))]
     yes: bool,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Run oma do not check dbus
-    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
-    no_check_dbus: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
     /// Resolve broken dependencies in the system
     #[arg(short, long, help = fl!("clap-fix-broken-help"))]
     fix_broken: bool,
@@ -67,15 +53,6 @@ pub struct Remove {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help"))]
-    download_threads: Option<usize>,
-    /// Run oma do not check battery status
-    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
-    no_check_battery: bool,
-    /// Run oma do not take wake lock
-    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
-    no_take_wake_lock: bool,
 }
 
 #[derive(Debug, Args)]
@@ -86,18 +63,6 @@ pub struct Purge {
     /// Bypass confirmation prompts
     #[arg(short, long, help = fl!("clap-yes-help"))]
     yes: bool,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Run oma do not check dbus
-    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
-    no_check_dbus: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
     /// Resolve broken dependencies in the system
     #[arg(short, long, help = fl!("clap-fix-broken-help"))]
     fix_broken: bool,
@@ -119,15 +84,6 @@ pub struct Purge {
     /// Do not auto remove unnecessary package(s)
     #[arg(long, help = fl!("clap-no-autoremove-help"))]
     no_autoremove: bool,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help"))]
-    download_threads: Option<usize>,
-    /// Run oma do not check battery status
-    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
-    no_check_battery: bool,
-    /// Run oma do not take wake lock
-    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
-    no_take_wake_lock: bool,
 }
 
 impl From<Purge> for Remove {
@@ -135,28 +91,17 @@ impl From<Purge> for Remove {
         let Purge {
             packages,
             yes,
-            dry_run,
-            no_check_dbus,
-            sysroot,
-            apt_options,
             fix_broken,
             force_unsafe_io,
             force_yes,
             force_confnew,
             no_autoremove,
             fix_dpkg_status,
-            download_threads,
-            no_check_battery,
-            no_take_wake_lock,
         } = value;
 
         Self {
             packages,
             yes,
-            dry_run,
-            no_check_dbus,
-            sysroot,
-            apt_options,
             fix_broken,
             force_unsafe_io,
             force_yes,
@@ -164,29 +109,22 @@ impl From<Purge> for Remove {
             no_autoremove,
             fix_dpkg_status,
             remove_config: true,
-            download_threads,
-            no_check_battery,
-            no_take_wake_lock,
         }
     }
 }
 
 impl CliExecuter for Purge {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let remove = Remove::from(self);
-        remove.execute(config, no_progress)
+        remove.execute(config)
     }
 }
 
 impl CliExecuter for Remove {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Remove {
             packages,
             yes,
-            dry_run,
-            no_check_dbus,
-            sysroot,
-            apt_options,
             fix_broken,
             force_unsafe_io,
             force_yes,
@@ -194,24 +132,14 @@ impl CliExecuter for Remove {
             no_autoremove,
             remove_config,
             fix_dpkg_status,
-            download_threads,
-            no_check_battery,
-            no_take_wake_lock,
         } = self;
 
-        if !dry_run {
+        if !config.dry_run {
             root()?;
-            lock_oma(&sysroot)?;
+            lock_oma(&config.sysroot)?;
         }
 
-        let _fds = dbus_check(
-            false,
-            config,
-            no_check_dbus,
-            dry_run,
-            no_take_wake_lock,
-            no_check_battery,
-        )?;
+        let _fds = dbus_check(yes, &config)?;
 
         if yes {
             warn!("{}", fl!("automatic-mode-warn"));
@@ -220,19 +148,19 @@ impl CliExecuter for Remove {
         let oma_apt_args = OmaAptArgs::builder()
             .yes(yes)
             .force_yes(force_yes)
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .another_apt_options(apt_options)
+            .sysroot(config.sysroot.to_string_lossy().to_string())
+            .another_apt_options(config.apt_options.clone())
             .dpkg_force_unsafe_io(force_unsafe_io)
             .dpkg_force_confnew(force_confnew)
             .build();
 
-        let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, AptConfig::new())?;
+        let mut apt = OmaApt::new(vec![], oma_apt_args, config.dry_run, AptConfig::new())?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .filter_candidate(false)
             .filter_downloadable_candidate(false)
             .select_dbg(false)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
             .build();
 
         let mut pkgs = vec![];
@@ -247,10 +175,10 @@ impl CliExecuter for Remove {
             }
         }
 
-        let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
+        let pb = create_progress_spinner(config.no_progress(), fl!("resolving-dependencies"));
 
         #[cfg(feature = "aosc")]
-        check_is_current_kernel_deleting(config, &sysroot, &pkgs, &pb)?;
+        check_is_current_kernel_deleting(&config, &pkgs, &pb)?;
 
         let context = apt.remove(pkgs, remove_config, no_autoremove)?;
 
@@ -264,22 +192,22 @@ impl CliExecuter for Remove {
             }
         }
 
-        handle_no_result(no_result, no_progress)?;
+        handle_no_result(no_result, config.no_progress())?;
 
-        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config(&config.sysroot);
         let auth_config = auth_config.as_ref();
 
         CommitChanges::builder()
             .apt(apt)
-            .dry_run(dry_run)
+            .dry_run(config.dry_run)
             .no_fixbroken(!fix_broken)
-            .no_progress(no_progress)
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .protect_essential(config.protect_essentials())
+            .no_progress(config.no_progress())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
+            .protect_essential(config.protect_essentials)
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(!no_autoremove)
-            .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+            .network_thread(config.download_threads)
             .maybe_auth_config(auth_config)
             .fix_dpkg_status(fix_dpkg_status)
             .build()
@@ -289,8 +217,7 @@ impl CliExecuter for Remove {
 
 #[cfg(feature = "aosc")]
 fn check_is_current_kernel_deleting(
-    config: &Config,
-    sysroot: &std::path::Path,
+    config: &OmaConfig,
     pkgs: &[oma_pm::pkginfo::OmaPackageWithoutVersion],
     pb: &Option<crate::pb::OmaProgressBar>,
 ) -> Result<(), OutputError> {
@@ -314,11 +241,11 @@ fn check_is_current_kernel_deleting(
             })?;
 
         if oma_pm::utils::pkg_is_current_kernel(
-            sysroot,
+            &config.sysroot,
             &image_name,
             pkg.raw_pkg.name(),
             current_kernel_ver,
-        ) && (config.protect_essentials()
+        ) && (config.protect_essentials
             || !ask_user_delete_current_kernel(pkg.raw_pkg.name()).unwrap_or(false))
         {
             return Err(OutputError {

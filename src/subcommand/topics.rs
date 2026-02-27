@@ -1,8 +1,4 @@
-use std::{
-    fmt::Display,
-    path::{Path, PathBuf},
-    sync::atomic::Ordering,
-};
+use std::{fmt::Display, path::Path, sync::atomic::Ordering};
 
 use clap::{ArgAction, ArgGroup, Args};
 use dialoguer::console::style;
@@ -25,7 +21,7 @@ use tokio::task::spawn_blocking;
 
 use crate::{
     HTTP_CLIENT, NOT_ALLOW_CTRLC, RT,
-    config::Config,
+    config::OmaConfig,
     error::OutputError,
     subcommand::utils::multiselect,
     utils::{ExitHandle, ExitStatus, dbus_check, root},
@@ -85,30 +81,9 @@ pub struct Topics {
     /// Only download dependencies, not install
     #[arg(long, short, help = fl!("clap-download-only-help"))]
     download_only: bool,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Run oma do not check dbus
-    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
-    no_check_dbus: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
     /// Always write status to atm file and sources.list
     #[arg(long, help = fl!("clap-topics-always-write-status-help"))]
     always_write_status: bool,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help"))]
-    download_threads: Option<usize>,
-    /// Run oma do not check battery status
-    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
-    no_check_battery: bool,
-    /// Run oma do not take wake lock
-    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
-    no_take_wake_lock: bool,
     /// Only apply topics change to sources list file, not apply system change
     #[arg(long, help = fl!("clap-topics-only-apply-sources-list-help"))]
     only_apply_sources_list: bool,
@@ -148,7 +123,7 @@ impl Display for TopicDisplay<'_> {
 }
 
 impl CliExecuter for Topics {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Topics {
             mut opt_in,
             mut opt_out,
@@ -158,42 +133,29 @@ impl CliExecuter for Topics {
             force_confnew,
             autoremove,
             remove_config,
-            dry_run,
-            no_check_dbus,
-            sysroot,
-            apt_options,
             all,
             no_fix_dpkg_status,
             always_write_status,
-            download_threads,
-            no_check_battery,
-            no_take_wake_lock,
             only_apply_sources_list,
             yes,
             download_only,
         } = self;
 
-        if !dry_run {
+        if !config.dry_run {
             root()?;
-            lock_oma(&sysroot)?;
+            lock_oma(&config.sysroot)?;
         }
 
-        let _fds = dbus_check(
-            false,
-            config,
-            no_check_dbus,
-            dry_run,
-            no_take_wake_lock,
-            no_check_battery,
-        )?;
+        let _fds = dbus_check(false, &config)?;
 
-        let dpkg_arch = dpkg_arch(&sysroot)?;
-        let mut tm = TopicManager::new_blocking(&HTTP_CLIENT, &sysroot, &dpkg_arch, dry_run)?;
+        let dpkg_arch = dpkg_arch(&config.sysroot)?;
+        let mut tm =
+            TopicManager::new_blocking(&HTTP_CLIENT, &config.sysroot, &dpkg_arch, config.dry_run)?;
 
         let topics_changed = RT.block_on(topics_inner(
             &mut opt_in,
             &mut opt_out,
-            no_progress,
+            config.no_progress(),
             &mut tm,
             all,
         ))?;
@@ -219,19 +181,19 @@ impl CliExecuter for Topics {
             RT.block_on(tm.write_enabled(false))?;
         }
 
-        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config(&config.sysroot);
         let auth_config = auth_config.as_ref();
         let apt_config = AptConfig::new();
 
         let code = Ok(()).and_then(|_| -> Result<ExitHandle, OutputError> {
             refresh(
-                download_threads.unwrap_or_else(|| config.network_thread()),
-                no_progress,
-                dry_run,
-                &sysroot,
+                config.download_threads,
+                config.no_progress(),
+                config.dry_run,
+                &config.sysroot,
                 &apt_config,
                 auth_config,
-                apt_options.clone(),
+                config.apt_options.clone(),
             )?;
 
             if only_apply_sources_list {
@@ -239,8 +201,8 @@ impl CliExecuter for Topics {
             }
 
             let oma_apt_args = OmaAptArgs::builder()
-                .sysroot(sysroot.to_string_lossy().to_string())
-                .another_apt_options(apt_options.clone())
+                .sysroot(config.sysroot.to_string_lossy().to_string())
+                .another_apt_options(config.apt_options.clone())
                 .dpkg_force_unsafe_io(force_unsafe_io)
                 .dpkg_force_confnew(force_confnew)
                 .force_yes(force_yes)
@@ -253,7 +215,7 @@ impl CliExecuter for Topics {
 
             let matcher = PackagesMatcher::builder()
                 .cache(&apt.cache)
-                .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+                .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
                 .select_dbg(false)
                 .build();
 
@@ -301,8 +263,12 @@ impl CliExecuter for Topics {
 
                     debug!("kernel version = {current_kernel_ver}");
 
-                    let is_current_kernel =
-                        pkg_is_current_kernel(&sysroot, &image_name, pkg_name, current_kernel_ver);
+                    let is_current_kernel = pkg_is_current_kernel(
+                        &config.sysroot,
+                        &image_name,
+                        pkg_name,
+                        current_kernel_ver,
+                    );
 
                     debug!("Deleting kernel package name = {pkg_name}");
 
@@ -351,16 +317,16 @@ impl CliExecuter for Topics {
 
             let code = CommitChanges::builder()
                 .apt(apt)
-                .dry_run(dry_run)
+                .dry_run(config.dry_run)
                 .no_fixbroken(!no_fixbroken)
-                .no_progress(no_progress)
-                .sysroot(sysroot.to_string_lossy().to_string())
+                .no_progress(config.no_progress())
+                .sysroot(config.sysroot.to_string_lossy().to_string())
                 .fix_dpkg_status(!no_fix_dpkg_status)
-                .protect_essential(config.protect_essentials())
+                .protect_essential(config.protect_essentials)
                 .yes(yes)
                 .remove_config(remove_config)
                 .autoremove(autoremove)
-                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+                .network_thread(config.download_threads)
                 .maybe_auth_config(auth_config)
                 .check_tum(true)
                 .topics_enabled(opt_in)
@@ -386,13 +352,13 @@ impl CliExecuter for Topics {
                     revert_sources_list(&tm)?;
                     RT.block_on(tm.write_enabled(true))?;
                     refresh(
-                        download_threads.unwrap_or_else(|| config.network_thread()),
-                        no_progress,
-                        dry_run,
-                        &sysroot,
+                        config.download_threads,
+                        config.no_progress(),
+                        config.dry_run,
+                        &config.sysroot,
                         &AptConfig::new(),
                         auth_config,
-                        apt_options,
+                        config.apt_options.clone(),
                     )?;
                 }
             }

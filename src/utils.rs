@@ -8,7 +8,8 @@ use std::{
 
 use crate::{
     NOT_ALLOW_CTRLC,
-    config::{BatteryTristate, Config, TakeWakeLockTristate},
+    config::OmaConfig,
+    config_file::{BatteryTristate, TakeWakeLockTristate},
     error::OutputError,
     path_completions::PathCompleter,
     subcommand::utils::no_check_dbus_warn,
@@ -193,15 +194,8 @@ pub fn get_lists_dir(config: &AptConfig) -> PathBuf {
     PathBuf::from(config.dir("Dir::State::lists", "lists/"))
 }
 
-pub fn dbus_check(
-    yes: bool,
-    config: &Config,
-    no_check_dbus: bool,
-    dry_run: bool,
-    no_take_wake_lock: bool,
-    no_check_battery: bool,
-) -> Result<Option<OwnedFd>> {
-    if config.no_check_dbus() || no_check_dbus || dry_run {
+pub fn dbus_check(yes: bool, config: &OmaConfig) -> Result<Option<OwnedFd>> {
+    if config.no_check_dbus {
         no_check_dbus_warn();
         return Ok(None);
     }
@@ -214,41 +208,32 @@ pub fn dbus_check(
         return Ok(None);
     };
 
-    if no_check_battery {
-        check_battery_disabled_warn();
-    } else {
-        match config.check_battery() {
-            BatteryTristate::Ask => {
-                ask_continue_no_use_battery(&conn, yes);
-            }
-            BatteryTristate::Warn => {
-                if is_battery(&conn) {
-                    check_battery_disabled_warn();
-                }
-            }
-            BatteryTristate::Ignore => {}
+    match config.check_battery {
+        BatteryTristate::Ask => {
+            ask_continue_no_use_battery(&conn, yes);
         }
+        BatteryTristate::Warn => {
+            if is_battery(&conn) {
+                check_battery_disabled_warn();
+            }
+        }
+        BatteryTristate::Ignore => {}
     }
 
     // 需要保留 fd
     // login1 根据 fd 来判断是否关闭 inhibit
-    if no_take_wake_lock {
-        no_take_wake_lock_warn();
-        Ok(None)
-    } else {
-        match config.take_wake_lock() {
-            TakeWakeLockTristate::Yes => Ok(Some(RT.block_on(take_wake_lock(
-                &conn,
-                InhibitTypeUnion::all(),
-                &fl!("changing-system"),
-                "oma",
-            ))?)),
-            TakeWakeLockTristate::Warn => {
-                no_take_wake_lock_warn();
-                Ok(None)
-            }
-            TakeWakeLockTristate::Ignore => Ok(None),
+    match config.take_wake_lock {
+        TakeWakeLockTristate::Yes => Ok(Some(RT.block_on(take_wake_lock(
+            &conn,
+            InhibitTypeUnion::all(),
+            &fl!("changing-system"),
+            "oma",
+        ))?)),
+        TakeWakeLockTristate::Warn => {
+            no_take_wake_lock_warn();
+            Ok(None)
         }
+        TakeWakeLockTristate::Ignore => Ok(None),
     }
 }
 

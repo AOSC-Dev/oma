@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::PathBuf};
+use std::fmt::Display;
 
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
@@ -12,11 +12,12 @@ use oma_pm::{
 
 use crate::{
     WRITER, color_formatter,
-    config::SearchEngine as ConfigSearchEngine,
+    config::OmaConfig,
+    config_file::SearchEngine as ConfigSearchEngine,
     fl,
     utils::{ExitHandle, pkgnames_completions},
 };
-use crate::{config::Config, error::OutputError, table::oma_display_with_normal_output};
+use crate::{error::OutputError, table::oma_display_with_normal_output};
 
 use crate::args::CliExecuter;
 
@@ -34,12 +35,6 @@ pub struct Search {
     /// Set output format as JSON
     #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
 }
 
 pub struct SearchResultDisplay<'a>(pub &'a SearchResult);
@@ -125,29 +120,27 @@ impl Display for SearchResultDisplay<'_> {
 }
 
 impl CliExecuter for Search {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Search {
             pattern,
             no_pager,
             json,
-            sysroot,
-            apt_options,
         } = self;
 
-        let no_pager = no_pager || config.search_contents_println();
+        let no_pager = no_pager || config.search_contents_println;
 
         let oma_apt_args = OmaAptArgs::builder()
-            .another_apt_options(apt_options)
-            .sysroot(sysroot.to_string_lossy().to_string())
+            .another_apt_options(config.apt_options.clone())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
             .build();
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
-        let pb = create_progress_spinner(no_progress || json, fl!("searching"));
+        let pb = create_progress_spinner(config.no_progress() || json, fl!("searching"));
         let res = search(
             &apt,
             &pattern,
-            match config.search_engine() {
+            match config.search_engine {
                 ConfigSearchEngine::Indicium => SearchEngine::Indicium(Box::new(|_| {})),
                 ConfigSearchEngine::StrSim => SearchEngine::Strsim,
                 ConfigSearchEngine::Text => SearchEngine::Text,
