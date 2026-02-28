@@ -9,7 +9,7 @@ use ahash::AHashMap;
 use aho_corasick::AhoCorasick;
 #[cfg(feature = "apt")]
 use oma_apt::config::{Config, ConfigTree};
-use oma_fetch::CompressFile;
+use oma_fetch::CompressType;
 use once_cell::sync::OnceCell;
 use spdlog::debug;
 
@@ -19,29 +19,29 @@ static COMPRESSION_ORDER: OnceCell<Vec<CompressFileWrapper>> = OnceCell::new();
 
 #[derive(Debug, Eq, PartialEq)]
 struct CompressFileWrapper {
-    compress_file: CompressFile,
+    compress_file: CompressType,
 }
 
 impl From<&str> for CompressFileWrapper {
     fn from(value: &str) -> Self {
         match value {
             "xz" => CompressFileWrapper {
-                compress_file: CompressFile::Xz,
+                compress_file: CompressType::Xz,
             },
             "bz2" => CompressFileWrapper {
-                compress_file: CompressFile::Bz2,
+                compress_file: CompressType::Bz2,
             },
             "lzma" => CompressFileWrapper {
-                compress_file: CompressFile::Lzma,
+                compress_file: CompressType::Lzma,
             },
             "gz" => CompressFileWrapper {
-                compress_file: CompressFile::Gzip,
+                compress_file: CompressType::Gzip,
             },
             "lz4" => CompressFileWrapper {
-                compress_file: CompressFile::Lz4,
+                compress_file: CompressType::Lz4,
             },
             "zst" => CompressFileWrapper {
-                compress_file: CompressFile::Zstd,
+                compress_file: CompressType::Zstd,
             },
             x => {
                 if !x.is_ascii() {
@@ -49,7 +49,7 @@ impl From<&str> for CompressFileWrapper {
                 }
 
                 CompressFileWrapper {
-                    compress_file: CompressFile::Nothing,
+                    compress_file: CompressType::None,
                 }
             }
         }
@@ -98,8 +98,8 @@ impl Ord for CompressFileWrapper {
     }
 }
 
-impl From<CompressFile> for CompressFileWrapper {
-    fn from(value: CompressFile) -> Self {
+impl From<CompressType> for CompressFileWrapper {
+    fn from(value: CompressType) -> Self {
         Self {
             compress_file: value,
         }
@@ -386,7 +386,7 @@ fn to_download_entry(
 }
 
 fn uncompress_file_name(target: &str) -> Cow<'_, str> {
-    if compress_file(target) == CompressFile::Nothing.into() {
+    if compress_file(target) == CompressType::None.into() {
         Cow::Borrowed(target)
     } else {
         let compress_target_without_ext = Path::new(target).with_extension("");
@@ -445,7 +445,7 @@ fn get_matches_language(locales: impl IntoIterator<Item = String>) -> Vec<String
 
 fn compress_file(name: &str) -> CompressFileWrapper {
     CompressFileWrapper {
-        compress_file: CompressFile::from(
+        compress_file: CompressType::from(
             Path::new(name)
                 .extension()
                 .map(|x| x.to_string_lossy())
@@ -481,13 +481,13 @@ fn test_compression_order() {
     assert_eq!(
         types,
         vec![
-            CompressFile::Zstd,
-            CompressFile::Xz,
-            CompressFile::Bz2,
-            CompressFile::Lzma,
-            CompressFile::Gzip,
-            CompressFile::Lz4,
-            CompressFile::Nothing
+            CompressType::Zstd,
+            CompressType::Xz,
+            CompressType::Bz2,
+            CompressType::Lzma,
+            CompressType::Gzip,
+            CompressType::Lz4,
+            CompressType::None
         ]
         .into_iter()
         .map(|x| x.into())
