@@ -26,6 +26,7 @@ tokio-util = { version = "0.7", features = ["compat"] }
 md-5 = "0.10.6"
 bon = "3"
 snafu = "0.8.5"
+headers = "0.4.1"
 
 [dev-dependencies]
 tokio = { version = "1.42", features = ["macros", "rt-multi-thread"] }
