@@ -629,7 +629,6 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
                         cause_writer.get_max_len(),
                         cause_writer.get_prefix_len() + WRITER.get_prefix_len(),
                     )
-                    .into_iter()
                     .map(|(_, s)| s)
                     .collect::<Vec<_>>();
 
