@@ -472,8 +472,11 @@ async fn topics_inner(
                 .unwrap()?;
     }
 
+    let mut enabled_pkgs = vec![];
+
     for i in opt_in {
-        tm.add(i)?;
+        let t = tm.add(i)?;
+        enabled_pkgs.extend(t.packages);
     }
 
     let mut downgrade_pkgs = vec![];
@@ -481,12 +484,6 @@ async fn topics_inner(
         let removed_topic = tm.remove(i)?;
         downgrade_pkgs.extend(removed_topic.packages);
     }
-
-    let enabled_pkgs = tm
-        .enabled_topics()
-        .iter()
-        .flat_map(|x| x.packages.clone())
-        .collect::<Vec<_>>();
 
     Ok(TopicChanged {
         enabled_pkgs,
