@@ -12,7 +12,7 @@ use async_compression::futures::bufread::{
 use bon::bon;
 use futures::{AsyncRead, TryStreamExt, io::BufReader};
 use reqwest::{
-    Client, Method, RequestBuilder,
+    Client, Method, RequestBuilder, Response,
     header::{ACCEPT_RANGES, CONTENT_LENGTH, HeaderValue, RANGE},
 };
 use snafu::{ResultExt, Snafu};
@@ -326,21 +326,25 @@ impl<'a> SingleDownloader<'a> {
         callback(Event::ProgressDone(self.download_list_index)).await;
 
         let resp_head = match resp_head {
-            Ok(Ok(resp)) => resp,
+            Ok(Ok(resp)) => Some(resp),
             Ok(Err(e)) => {
-                return Err(SingleDownloadError::ReqwestError { source: e });
+                if e.is_status() {
+                    None
+                } else {
+                    return Err(SingleDownloadError::ReqwestError { source: e });
+                }
             }
             Err(_) => {
                 return Err(SingleDownloadError::SendRequestTimeout);
             }
         };
 
-        let head = resp_head.headers();
+        let head = resp_head.as_ref().map(Response::headers);
 
         // 看看头是否有 ACCEPT_RANGES 这个变量
         // 如果有，而且值不为 none，则可以断点续传
         // 反之，则不能断点续传
-        let server_can_resume = match head.get(ACCEPT_RANGES) {
+        let server_can_resume = match head.and_then(|head| head.get(ACCEPT_RANGES)) {
             Some(x) if x == "none" => false,
             Some(_) => true,
             None => false,
@@ -349,7 +353,7 @@ impl<'a> SingleDownloader<'a> {
         // 从服务器获取文件的总大小
         let total_size = {
             let total_size = head
-                .get(CONTENT_LENGTH)
+                .and_then(|head| head.get(CONTENT_LENGTH))
                 .map(|x| x.to_owned())
                 .unwrap_or(HeaderValue::from(0));
 
