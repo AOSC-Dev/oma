@@ -14,6 +14,7 @@ pub enum Checksum {
 
 #[derive(Clone, Debug)]
 pub enum ChecksumValidator {
+    None,
     Sha256((Vec<u8>, Sha256)),
     Sha512((Vec<u8>, Sha512)),
     Md5((Vec<u8>, Md5)),
@@ -22,14 +23,25 @@ pub enum ChecksumValidator {
 impl ChecksumValidator {
     pub fn update(&mut self, data: impl AsRef<[u8]>) {
         match self {
+            ChecksumValidator::None => {}
             ChecksumValidator::Sha256((_, v)) => v.update(data),
             ChecksumValidator::Sha512((_, v)) => v.update(data),
             ChecksumValidator::Md5((_, v)) => v.update(data),
         }
     }
 
+    pub fn reset(&mut self) {
+        match self {
+            ChecksumValidator::None => {}
+            ChecksumValidator::Sha256((_, v)) => v.reset(),
+            ChecksumValidator::Sha512((_, v)) => v.reset(),
+            ChecksumValidator::Md5((_, v)) => v.reset(),
+        }
+    }
+
     pub fn finish(&self) -> bool {
         match self {
+            ChecksumValidator::None => true,
             ChecksumValidator::Sha256((c, v)) => c == &v.clone().finalize().to_vec(),
             ChecksumValidator::Sha512((c, v)) => c == &v.clone().finalize().to_vec(),
             ChecksumValidator::Md5((c, v)) => c == &v.clone().finalize().to_vec(),

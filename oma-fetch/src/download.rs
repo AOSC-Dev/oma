@@ -1,8 +1,11 @@
-use crate::{CompressFile, DownloadSource, Event, checksum::ChecksumValidator, send_request};
+use crate::{CompressType, DownloadSource, Event, checksum::ChecksumValidator, send_request};
 use std::{
     borrow::Cow,
     io::{self, SeekFrom},
     path::Path,
+    pin::Pin,
+    sync::atomic::{AtomicUsize, Ordering},
+    task::{Context, Poll},
     time::Duration,
 };
 
@@ -10,11 +13,9 @@ use async_compression::futures::bufread::{
     BzDecoder, GzipDecoder, Lz4Decoder, LzmaDecoder, XzDecoder, ZstdDecoder,
 };
 use bon::bon;
-use futures::{AsyncRead, TryStreamExt, io::BufReader};
-use reqwest::{
-    Client, Method, RequestBuilder,
-    header::{ACCEPT_RANGES, CONTENT_LENGTH, HeaderValue, RANGE},
-};
+use futures::{AsyncBufRead, AsyncRead, TryStreamExt, io::BufReader};
+use headers::{ContentLength, ContentRange, HeaderMapExt};
+use reqwest::{Client, Method, RequestBuilder, StatusCode, header::RANGE};
 use snafu::{ResultExt, Snafu};
 use tokio::{
     fs::{self, File},
@@ -45,7 +46,7 @@ pub(crate) struct SingleDownloader<'a> {
     retry_times: usize,
     msg: Option<Cow<'static, str>>,
     download_list_index: usize,
-    file_type: CompressFile,
+    file_type: CompressType,
     timeout: Duration,
 }
 
@@ -78,7 +79,7 @@ pub enum SingleDownloadError {
     Write { source: io::Error },
     #[snafu(display("Failed to flush file"))]
     Flush { source: io::Error },
-    #[snafu(display("Failed to Remove file"))]
+    #[snafu(display("Failed to remove file"))]
     Remove { source: io::Error },
     #[snafu(display("Failed to create symlink"))]
     CreateSymlink { source: io::Error },
@@ -104,7 +105,7 @@ impl<'a> SingleDownloader<'a> {
         retry_times: usize,
         msg: Option<Cow<'static, str>>,
         download_list_index: usize,
-        file_type: CompressFile,
+        file_type: CompressType,
         timeout: Duration,
     ) -> Result<SingleDownloader<'a>, BuilderError> {
         if entry.source.is_empty() {
@@ -251,12 +252,10 @@ impl<'a> SingleDownloader<'a> {
     ) -> Result<bool, SingleDownloadError> {
         let file = self.entry.dir.join(&*self.entry.filename);
         let file_exist = file.exists();
-        let mut file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
+        let file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
 
         trace!("{} Exist file size is: {file_size}", file.display());
         trace!("{} download url is: {}", file.display(), source.url);
-        let mut dest = None;
-        let mut validator = None;
         let is_symlink = file.is_symlink();
 
         debug!("file {} is symlink = {}", file.display(), is_symlink);
@@ -265,51 +264,50 @@ impl<'a> SingleDownloader<'a> {
             tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
         }
 
-        // 如果要下载的文件已经存在，则验证 Checksum 是否正确，若正确则添加总进度条的进度，并返回
-        // 如果不存在，则继续往下走
+        // downloaded HTTP content representation size
+        let mut downloaded_size: u64 = 0;
+        let mut old_downloaded_size: u64 = 0;
+
+        let mut validator = self
+            .entry
+            .hash
+            .as_ref()
+            .map(|hash| hash.get_validator())
+            .unwrap_or(ChecksumValidator::None);
+
         if file_exist && !is_symlink {
             trace!(
                 "File {} already exists, verifying checksum ...",
                 self.entry.filename
             );
+            downloaded_size = file_size;
 
             if let Some(hash) = &self.entry.hash {
                 trace!("Hash {} exists for the existing file.", hash);
 
                 let mut f = tokio::fs::OpenOptions::new()
-                    .write(true)
                     .read(true)
                     .open(&file)
                     .await
-                    .context(OpenAsWriteModeSnafu)?;
+                    .context(OpenSnafu)?;
 
-                trace!("oma opened file {} read/write.", self.entry.filename);
-
-                let mut v = hash.get_validator();
-
-                trace!("Validator created.");
-
-                let (read, finish) = checksum(callback, &mut f, &mut v).await;
+                let (read, finish) = checksum(callback, &mut f, &mut validator).await;
 
                 if finish {
-                    trace!("Checksum {} matches, cache hit!", self.entry.filename);
-
+                    trace!("checksum of {} matches, cache hit!", self.entry.filename);
                     callback(Event::ProgressDone(self.download_list_index)).await;
-
                     return Ok(false);
                 }
 
                 debug!(
-                    "Checksum mismatch, initiating re-download for file {} ...",
+                    "checksum mismatch, initiating re-download for file {} ...",
                     self.entry.filename
                 );
+                old_downloaded_size = read;
+            }
 
-                if !allow_resume {
-                    callback(Event::GlobalProgressSub(read)).await;
-                } else {
-                    dest = Some(f);
-                    validator = Some(v);
-                }
+            if self.entry.file_type != CompressType::None {
+                downloaded_size = 0;
             }
         }
 
@@ -320,253 +318,308 @@ impl<'a> SingleDownloader<'a> {
         })
         .await;
 
-        let req = self.build_request_with_basic_auth(&source.url, Method::HEAD, auth);
-        let resp_head = timeout(self.timeout, send_request(&source.url, req)).await;
-
-        callback(Event::ProgressDone(self.download_list_index)).await;
-
-        let resp_head = match resp_head {
-            Ok(Ok(resp)) => resp,
-            Ok(Err(e)) => {
-                return Err(SingleDownloadError::ReqwestError { source: e });
-            }
-            Err(_) => {
-                return Err(SingleDownloadError::SendRequestTimeout);
-            }
-        };
-
-        let head = resp_head.headers();
-
-        // 看看头是否有 ACCEPT_RANGES 这个变量
-        // 如果有，而且值不为 none，则可以断点续传
-        // 反之，则不能断点续传
-        let server_can_resume = match head.get(ACCEPT_RANGES) {
-            Some(x) if x == "none" => false,
-            Some(_) => true,
-            None => false,
-        };
-
-        // 从服务器获取文件的总大小
-        let total_size = {
-            let total_size = head
-                .get(CONTENT_LENGTH)
-                .map(|x| x.to_owned())
-                .unwrap_or(HeaderValue::from(0));
-
-            total_size
-                .to_str()
-                .ok()
-                .and_then(|x| x.parse::<u64>().ok())
-                .unwrap_or_default()
-        };
-
-        trace!("File total size is: {total_size}");
-
-        let mut req = self.build_request_with_basic_auth(&source.url, Method::GET, auth);
-
-        let mut resume = server_can_resume;
-
-        if !allow_resume {
-            resume = false;
-        }
-
-        if server_can_resume && allow_resume {
-            // 如果已存在的文件大小大于或等于要下载的文件，则重置文件大小，重新下载
-            // 因为已经走过一次 chekcusm 了，函数走到这里，则说明肯定文件完整性不对
-            if total_size <= file_size {
-                trace!(
-                    "Resetting size indicator for file to 0, as the file to download is larger that the one that already exists."
-                );
-                callback(Event::GlobalProgressSub(file_size)).await;
-                file_size = 0;
-                resume = false;
-            }
-
-            // 发送 RANGE 的头，传入的是已经下载的文件的大小
-            trace!("oma will set header range as bytes={file_size}-");
-            req = req.header(RANGE, format!("bytes={file_size}-"));
-        }
-
-        debug!("Can resume = {server_can_resume}, will resume = {resume}",);
-
-        let resp = timeout(self.timeout, req.send()).await;
-
-        callback(Event::ProgressDone(self.download_list_index)).await;
-
-        let resp = match resp {
-            Ok(resp) => resp
-                .and_then(|resp| resp.error_for_status())
-                .context(ReqwestSnafu)?,
-            Err(_) => return Err(SingleDownloadError::SendRequestTimeout),
-        };
-
-        callback(Event::NewProgressBar {
-            index: self.download_list_index,
-            msg: self.download_message(),
-            total: self.total,
-            size: total_size,
-        })
-        .await;
-
-        let source = resp;
-
-        let hash = &self.entry.hash;
-
-        let mut self_progress = 0;
-        let (mut dest, mut validator) = if !resume {
-            // 如果不能 resume，则使用创建模式
-            trace!(
-                "oma will open file {} in creation mode.",
-                self.entry.filename
-            );
-
-            let f = match File::create(&file).await {
-                Ok(f) => f,
-                Err(e) => {
-                    callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(SingleDownloadError::Create { source: e });
-                }
-            };
-
-            if file_size > 0 {
-                callback(Event::GlobalProgressSub(file_size)).await;
-            }
-
-            if let Err(e) = f.set_len(0).await {
+        // open destination file
+        let mut dest = match tokio::fs::OpenOptions::new()
+            .write(true)
+            .read(true)
+            .create(true)
+            .truncate(false)
+            .open(&file)
+            .await
+        {
+            Ok(f) => f,
+            Err(e) => {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(SingleDownloadError::Create { source: e });
             }
+        };
 
-            (f, hash.as_ref().map(|hash| hash.get_validator()))
-        } else if let Some((dest, validator)) = dest.zip(validator) {
-            callback(Event::ProgressInc {
-                index: self.download_list_index,
-                size: file_size,
-            })
-            .await;
-
-            trace!(
-                "oma will re-use opened destination file for {}",
-                self.entry.filename
-            );
-            self_progress += file_size;
-
-            (dest, Some(validator))
+        let mut buf = Vec::with_capacity(DOWNLOAD_BUFSIZE);
+        #[allow(clippy::uninit_vec)]
+        unsafe {
+            buf.set_len(DOWNLOAD_BUFSIZE)
+        };
+        let mut total_size: Option<u64> = None;
+        let mut first_request = true;
+        'download: while if let Some(total_size) = total_size {
+            downloaded_size < total_size
         } else {
-            trace!(
-                "oma will open file {} in creation mode.",
-                self.entry.filename
-            );
-
-            let f = match File::create(&file).await {
-                Ok(f) => f,
-                Err(e) => {
-                    callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(SingleDownloadError::Create { source: e });
-                }
-            };
-
-            if let Err(e) = f.set_len(0).await {
-                callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(SingleDownloadError::Create { source: e });
+            true
+        } {
+            if !allow_resume || self.entry.file_type != CompressType::None {
+                // restart download if resume is disallowed
+                downloaded_size = 0;
             }
 
-            (f, hash.as_ref().map(|hash| hash.get_validator()))
-        };
+            let old_total_size = total_size;
 
-        if server_can_resume && allow_resume {
-            // 把文件指针移动到末尾
-            trace!("oma will seek to end-of-file for {}", self.entry.filename);
-            if let Err(e) = dest.seek(SeekFrom::End(0)).await {
-                callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(SingleDownloadError::Seek { source: e });
+            // send request
+            let mut req = self.build_request_with_basic_auth(&source.url, Method::GET, auth);
+            if downloaded_size != 0 {
+                // request for resume
+                // assume reqwest's automatical decompression is disabled
+                debug!("sending partial request ...");
+                req = req.header(RANGE, format!("bytes={downloaded_size}-"));
+            } else {
+                debug!("sending complete request ...");
             }
-        }
-        // 下载！
-        trace!("Starting download!");
-
-        let bytes_stream = source
-            .bytes_stream()
-            .map_err(io::Error::other)
-            .into_async_read();
-
-        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
-            CompressFile::Xz => &mut XzDecoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Gzip => &mut GzipDecoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Zstd => &mut ZstdDecoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Lzma => &mut LzmaDecoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Lz4 => &mut Lz4Decoder::new(BufReader::new(bytes_stream)),
-            CompressFile::Nothing => &mut BufReader::new(bytes_stream),
-        };
-
-        let mut reader = reader.compat();
-
-        let mut buf = vec![0u8; DOWNLOAD_BUFSIZE];
-
-        loop {
-            let size = match timeout(self.timeout, reader.read(&mut buf[..])).await {
-                Ok(Ok(size)) => size,
-                Ok(Err(e)) => {
-                    callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(SingleDownloadError::BrokenPipe { source: e });
-                }
+            let resp = timeout(self.timeout, send_request(&source.url, req)).await;
+            let resp = match resp {
+                Ok(Ok(resp)) => resp,
+                Ok(Err(e)) => match e.status() {
+                    Some(StatusCode::RANGE_NOT_SATISFIABLE) => {
+                        debug!("range not satisfiable from server, restarting ...");
+                        downloaded_size = 0;
+                        continue 'download;
+                    }
+                    Some(StatusCode::BAD_REQUEST) => {
+                        // some servers reply with Bad Request when Range is invalid
+                        // so retry once
+                        if downloaded_size == 0 {
+                            return Err(SingleDownloadError::ReqwestError { source: e });
+                        } else {
+                            debug!("HTTP Bad Request from server, restarting ...");
+                            downloaded_size = 0;
+                            continue 'download;
+                        }
+                    }
+                    _ => return Err(SingleDownloadError::ReqwestError { source: e }),
+                },
                 Err(_) => {
-                    callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(SingleDownloadError::DownloadTimeout);
+                    return Err(SingleDownloadError::SendRequestTimeout);
                 }
             };
 
-            if size == 0 {
-                break;
+            // check resume
+            let resp_headers = resp.headers();
+            'resume: {
+                if resp.status() == StatusCode::PARTIAL_CONTENT {
+                    match resp_headers.typed_get::<ContentRange>() {
+                        Some(range) => {
+                            // update total size if possible
+                            if let Some(new_total_size) = range.bytes_len() {
+                                debug!(
+                                    "extracted complete length from Content-Range: {new_total_size}"
+                                );
+                                total_size = Some(new_total_size);
+                            }
+
+                            // check returned range is the expected
+                            if let Some((returned_start, _)) = range.bytes_range() {
+                                if returned_start != downloaded_size {
+                                    // The server didn't send us the request range
+                                    // Implementing part combination is too complex, just restart it
+                                    debug!("incomplete Content-Range, restarting ...");
+                                    downloaded_size = 0;
+                                    continue 'download;
+                                }
+                                debug!("partial request succeeded");
+                                break 'resume;
+                            } else {
+                                // Unsatisfiable Content-Range should never appear in HTTP 206
+                                // per RFC 9110. The server implementation is violating RFC.
+                                debug!("unsatisfiable Content-Range in HTTP 206, restarting ...");
+                                downloaded_size = 0;
+                                continue 'download;
+                            }
+                        }
+                        None => {
+                            debug!("multi-parts are not supported, restarting ...");
+                            downloaded_size = 0;
+                            continue 'download;
+                        }
+                    }
+                }
+                if resp.status() == StatusCode::OK {
+                    // update total size if possible.
+                    // Content-Length is the complete length for OK but it may not be the case for other statuses
+                    if let Some(length) = resp_headers.typed_get::<ContentLength>() {
+                        let length = length.0;
+                        debug!("extracted complete length from Content-Length: {length}");
+                        total_size = Some(length);
+                    }
+                }
+                if downloaded_size != 0 {
+                    // requested partial response, but not getting expected response
+                    debug!("range request failed");
+                    downloaded_size = 0;
+                    // no need to re-send request in this case, the body is already complete
+                }
+            }
+            debug!("response body is at {downloaded_size}/{total_size:?}");
+
+            // seek to expected location
+            if downloaded_size != old_downloaded_size {
+                assert!(downloaded_size == 0 || self.entry.file_type == CompressType::None);
+                debug!("moving writer from {old_downloaded_size} to {downloaded_size}");
+                if let Err(e) = dest.seek(SeekFrom::Start(0)).await {
+                    callback(Event::ProgressDone(self.download_list_index)).await;
+                    return Err(SingleDownloadError::Seek { source: e });
+                }
+
+                if downloaded_size == 0 {
+                    validator.reset();
+                } else {
+                    {
+                        // refresh hasher state
+                        let mut dest_buf = Vec::with_capacity(downloaded_size.try_into().unwrap());
+                        if let Err(e) = dest.read_to_end(&mut dest_buf).await {
+                            callback(Event::ProgressDone(self.download_list_index)).await;
+                            return Err(SingleDownloadError::Seek { source: e });
+                        }
+                        validator.reset();
+                        validator.update(dest_buf);
+                    }
+
+                    if let Err(e) = dest.seek(SeekFrom::Start(downloaded_size)).await {
+                        callback(Event::ProgressDone(self.download_list_index)).await;
+                        return Err(SingleDownloadError::Seek { source: e });
+                    }
+                }
+
+                // truncate file
+                if let Err(e) = dest.set_len(downloaded_size).await {
+                    callback(Event::ProgressDone(self.download_list_index)).await;
+                    return Err(SingleDownloadError::Write { source: e });
+                }
             }
 
-            if let Err(e) = dest.write_all(&buf[..size]).await {
+            // update progress
+            if old_total_size != total_size
+                || old_downloaded_size > downloaded_size
+                || first_request
+            {
+                // recreate the progress bar if:
+                // 1. total size updated
+                // 2. offset moved backwards
+                // 3. is the first request (the previous bar is a spinner)
+                first_request = false;
+                callback(Event::ProgressDone(self.download_list_index)).await;
+                callback(Event::NewProgressBar {
+                    index: self.download_list_index,
+                    msg: self.download_message(),
+                    total: self.total,
+                    size: total_size.unwrap_or(0),
+                })
+                .await;
+                callback(Event::ProgressInc {
+                    index: self.download_list_index,
+                    size: downloaded_size,
+                })
+                .await;
+                if old_downloaded_size != downloaded_size {
+                    callback(Event::GlobalProgressSub(old_downloaded_size)).await;
+                    callback(Event::GlobalProgressAdd(downloaded_size)).await;
+                }
+            } else if old_downloaded_size < downloaded_size {
+                let new_offset = downloaded_size - old_downloaded_size;
+                callback(Event::ProgressInc {
+                    index: self.download_list_index,
+                    size: new_offset,
+                })
+                .await;
+                callback(Event::GlobalProgressAdd(new_offset)).await;
+            }
+
+            old_downloaded_size = downloaded_size;
+
+            let stream = resp
+                .bytes_stream()
+                .map_err(io::Error::other)
+                .into_async_read();
+            let stream = BufReader::new(stream);
+            let stream_counter = AtomicUsize::new(0);
+            let mut stream = Counter::new(stream, &stream_counter);
+
+            // initialize decompressor
+            let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
+                CompressType::Xz => &mut XzDecoder::new(&mut stream),
+                CompressType::Gzip => &mut GzipDecoder::new(&mut stream),
+                CompressType::Bz2 => &mut BzDecoder::new(&mut stream),
+                CompressType::Zstd => &mut ZstdDecoder::new(&mut stream),
+                CompressType::Lzma => &mut LzmaDecoder::new(&mut stream),
+                CompressType::Lz4 => &mut Lz4Decoder::new(&mut stream),
+                CompressType::None => &mut stream,
+            };
+            let mut reader = reader.compat();
+
+            // copy data
+            loop {
+                let buf_size = match timeout(self.timeout, reader.read(&mut buf[..])).await {
+                    Ok(Ok(size)) => size,
+                    Ok(Err(e)) => {
+                        callback(Event::ProgressDone(self.download_list_index)).await;
+                        return Err(SingleDownloadError::BrokenPipe { source: e });
+                    }
+                    Err(_) => {
+                        callback(Event::ProgressDone(self.download_list_index)).await;
+                        return Err(SingleDownloadError::DownloadTimeout);
+                    }
+                };
+                if buf_size == 0 {
+                    break; // EOF
+                }
+                if let Err(e) = dest.write_all(&buf[..buf_size]).await {
+                    callback(Event::ProgressDone(self.download_list_index)).await;
+                    return Err(SingleDownloadError::Write { source: e });
+                }
+                validator.update(&buf[..buf_size]);
+
+                let http_size = stream_counter.swap(0, Ordering::AcqRel);
+                let http_size: u64 = http_size.try_into().unwrap();
+                downloaded_size += http_size;
+                callback(Event::ProgressInc {
+                    index: self.download_list_index,
+                    size: http_size,
+                })
+                .await;
+                callback(Event::GlobalProgressAdd(http_size)).await;
+            }
+
+            debug!("downloaded {} bytes", downloaded_size - old_downloaded_size);
+            if downloaded_size == old_downloaded_size {
+                // this should not happen ...
+                break 'download;
+            }
+
+            if total_size.is_none() {
+                // total size is unknown, we have to assume that the body is complete
+                break 'download;
+            }
+
+            old_downloaded_size = downloaded_size;
+        }
+        debug!("download end, {downloaded_size} bytes");
+        callback(Event::ProgressDone(self.download_list_index)).await;
+
+        // verify checksum
+        if !validator.finish() {
+            debug!("checksum mismatch for {}", self.entry.filename);
+            callback(Event::GlobalProgressSub(downloaded_size)).await;
+            callback(Event::ProgressDone(self.download_list_index)).await;
+
+            // truncate file, avoid attempts to reuse it in retries
+            if let Err(e) = dest.set_len(0).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(SingleDownloadError::Write { source: e });
             }
 
-            callback(Event::ProgressInc {
-                index: self.download_list_index,
-                size: size as u64,
-            })
-            .await;
-
-            self_progress += size as u64;
-
-            callback(Event::GlobalProgressAdd(size as u64)).await;
-
-            if let Some(ref mut v) = validator {
-                v.update(&buf[..size]);
-            }
+            return Err(SingleDownloadError::ChecksumMismatch);
+        }
+        if matches!(validator, ChecksumValidator::None) {
+            trace!(
+                "checksum verification succeeded for {}",
+                self.entry.filename
+            );
         }
 
-        // 下载完成，告诉运行时不再写这个文件了
-        trace!("Download complete! Shutting down destination file stream ...");
+        // flush
         if let Err(e) = dest.shutdown().await {
             callback(Event::ProgressDone(self.download_list_index)).await;
             return Err(SingleDownloadError::Flush { source: e });
         }
 
-        // 最后看看 checksum 验证是否通过
-        if let Some(v) = validator {
-            if !v.finish() {
-                debug!("Checksum mismatch for file {}", self.entry.filename);
-                trace!("{self_progress}");
-
-                callback(Event::GlobalProgressSub(self_progress)).await;
-                callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(SingleDownloadError::ChecksumMismatch);
-            }
-
-            trace!(
-                "Checksum verification successful for file {}",
-                self.entry.filename
-            );
-        }
-
         callback(Event::ProgressDone(self.download_list_index)).await;
-
         Ok(true)
     }
 
@@ -641,13 +694,13 @@ impl<'a> SingleDownloader<'a> {
             .context(CreateSnafu)?;
 
         let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
-            CompressFile::Xz => &mut XzDecoder::new(BufReader::new(from)),
-            CompressFile::Gzip => &mut GzipDecoder::new(BufReader::new(from)),
-            CompressFile::Bz2 => &mut BzDecoder::new(BufReader::new(from)),
-            CompressFile::Zstd => &mut ZstdDecoder::new(BufReader::new(from)),
-            CompressFile::Lzma => &mut LzmaDecoder::new(BufReader::new(from)),
-            CompressFile::Lz4 => &mut Lz4Decoder::new(BufReader::new(from)),
-            CompressFile::Nothing => &mut BufReader::new(from),
+            CompressType::Xz => &mut XzDecoder::new(BufReader::new(from)),
+            CompressType::Gzip => &mut GzipDecoder::new(BufReader::new(from)),
+            CompressType::Bz2 => &mut BzDecoder::new(BufReader::new(from)),
+            CompressType::Zstd => &mut ZstdDecoder::new(BufReader::new(from)),
+            CompressType::Lzma => &mut LzmaDecoder::new(BufReader::new(from)),
+            CompressType::Lz4 => &mut Lz4Decoder::new(BufReader::new(from)),
+            CompressType::None => &mut BufReader::new(from),
         };
 
         let mut reader = reader.compat();
@@ -751,4 +804,54 @@ async fn checksum(
     }
 
     (read, v.finish())
+}
+
+pub struct Counter<'a, D> {
+    inner: D,
+    bytes: &'a AtomicUsize,
+}
+
+impl<'a, D> Counter<'a, D> {
+    #[inline]
+    pub const fn new(inner: D, bytes: &'a AtomicUsize) -> Self {
+        Self { inner, bytes }
+    }
+
+    #[inline]
+    pub fn take_read_bytes(&self) -> usize {
+        self.bytes.swap(0, Ordering::AcqRel)
+    }
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for Counter<'_, R> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        ctx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
+        let counter = self.get_mut();
+        let pin = Pin::new(&mut counter.inner);
+
+        let poll = pin.poll_read(ctx, buf);
+        if let Poll::Ready(Ok(bytes)) = poll {
+            counter.bytes.fetch_add(bytes, Ordering::AcqRel);
+        }
+
+        poll
+    }
+}
+
+impl<R: AsyncBufRead + Unpin> AsyncBufRead for Counter<'_, R> {
+    fn poll_fill_buf(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<std::io::Result<&[u8]>> {
+        let counter = self.get_mut();
+        let pin = Pin::new(&mut counter.inner);
+        pin.poll_fill_buf(ctx)
+    }
+
+    fn consume(self: Pin<&mut Self>, amt: usize) {
+        let counter = self.get_mut();
+        counter.bytes.fetch_add(amt, Ordering::AcqRel);
+        let pin = Pin::new(&mut counter.inner);
+        pin.consume(amt);
+    }
 }

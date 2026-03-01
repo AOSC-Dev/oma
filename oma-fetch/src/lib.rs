@@ -23,7 +23,7 @@ pub struct DownloadEntry {
     allow_resume: bool,
     msg: Option<Cow<'static, str>>,
     #[builder(default)]
-    file_type: CompressFile,
+    file_type: CompressType,
 }
 
 impl Debug for DownloadEntry {
@@ -41,7 +41,7 @@ impl Debug for DownloadEntry {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Copy)]
-pub enum CompressFile {
+pub enum CompressType {
     Bz2,
     Gzip,
     Xz,
@@ -49,17 +49,17 @@ pub enum CompressFile {
     Lzma,
     Lz4,
     #[default]
-    Nothing,
+    None,
 }
 
-impl From<&str> for CompressFile {
+impl From<&str> for CompressType {
     fn from(s: &str) -> Self {
         match s {
-            "xz" => CompressFile::Xz,
-            "gz" => CompressFile::Gzip,
-            "bz2" => CompressFile::Bz2,
-            "zst" => CompressFile::Zstd,
-            _ => CompressFile::Nothing,
+            "xz" => CompressType::Xz,
+            "gz" => CompressType::Gzip,
+            "bz2" => CompressType::Bz2,
+            "zst" => CompressType::Zstd,
+            _ => CompressType::None,
         }
     }
 }
