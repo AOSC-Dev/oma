@@ -166,7 +166,8 @@ pub struct GlobalOptions {
     /// No use config
     #[arg(long, global = true, env = "OMA_NO_CONFIG", help = fl!("clap-no-config-help"), value_parser = FalseyValueParser::new())]
     no_config: bool,
-    #[arg(long, global = true, env = "OMA_USER_AGENT")]
+    /// User agent string to use for HTTP requests.
+    #[arg(long, global = true, env = "OMA_USER_AGENT", help = fl!("clap-user-agent-help"))]
     user_agent: Option<String>,
 }
 
