@@ -10,12 +10,10 @@ use oma_pm::oma_apt::PackageSort;
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
 use spdlog::warn;
-
-use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 
 use crate::HTTP_CLIENT;
-use crate::config::Config;
+use crate::config::OmaConfig;
 use crate::utils::ExitHandle;
 #[cfg(feature = "aosc")]
 use crate::utils::ExitStatus;
@@ -34,16 +32,11 @@ use super::utils::{
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
-pub struct History {
-    /// Set sysroot target directory
-    #[arg(from_global)]
-    sysroot: PathBuf,
-}
+pub struct History;
 
 impl CliExecuter for History {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
-        let History { sysroot } = self;
-        let conn = connect_db(sysroot.join(DATABASE_PATH), false)?;
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
+        let conn = connect_db(config.sysroot.join(DATABASE_PATH), false)?;
 
         let list = list_history(&conn)?;
         let display_list = format_summary_log(&list, false)
@@ -101,38 +94,13 @@ pub struct Undo {
     /// Only download dependencies, not install
     #[arg(long, short, help = fl!("clap-download-only-help"))]
     download_only: bool,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Run oma do not check dbus
-    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
-    no_check_dbus: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help = Setup download threads (default as 4)"))]
-    download_threads: Option<usize>,
     /// Do not refresh repository metadata
     #[arg(long, help = fl!("clap-no-refresh-help"))]
     no_refresh: bool,
-    #[cfg(feature = "aosc")]
-    /// Do not refresh topics manifest.json file
-    #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
-    no_refresh_topics: bool,
-    /// Run oma do not check battery status
-    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
-    no_check_battery: bool,
-    /// Run oma do not take wake lock
-    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
-    no_take_wake_lock: bool,
 }
 
 impl CliExecuter for Undo {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         root()?;
 
         let Undo {
@@ -142,32 +110,16 @@ impl CliExecuter for Undo {
             force_confnew,
             autoremove,
             remove_config,
-            dry_run,
-            no_check_dbus,
-            sysroot,
-            apt_options,
             no_fix_dpkg_status,
-            download_threads,
             no_refresh,
-            #[cfg(feature = "aosc")]
-            no_refresh_topics,
-            no_check_battery,
-            no_take_wake_lock,
             download_only,
         } = self;
 
-        lock_oma(&sysroot)?;
+        lock_oma(&config.sysroot)?;
 
-        let _fds = dbus_check(
-            false,
-            config,
-            no_check_dbus,
-            dry_run,
-            no_take_wake_lock,
-            no_check_battery,
-        )?;
+        let _fds = dbus_check(false, &config)?;
 
-        let conn = connect_db(Path::new(&sysroot).join(DATABASE_PATH), false)?;
+        let conn = connect_db(config.sysroot.join(DATABASE_PATH), false)?;
 
         let list = list_history(&conn)?;
         let display_list = format_summary_log(&list, true);
@@ -188,24 +140,22 @@ impl CliExecuter for Undo {
         let (opt_in, opt_out) = oma_history::find_history_topics_status_by_id(&conn, id)?;
 
         let apt_config = AptConfig::new();
-        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config(&config.sysroot);
 
         if !no_refresh {
-            let sysroot = sysroot.to_string_lossy();
+            let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
                 .client(&HTTP_CLIENT)
-                .dry_run(dry_run)
-                .no_progress(no_progress)
-                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+                .dry_run(config.dry_run)
+                .no_progress(config.no_progress())
+                .network_thread(config.download_threads)
                 .sysroot(&sysroot)
                 .config(&apt_config)
                 .maybe_auth_config(auth_config.as_ref())
-                .apt_options(apt_options.clone());
+                .apt_options(config.apt_options.clone());
 
             #[cfg(feature = "aosc")]
-            let refresh = builder
-                .refresh_topics(!no_refresh_topics && !config.no_refresh_topics())
-                .build();
+            let refresh = builder.refresh_topics(config.no_refresh_topics).build();
 
             #[cfg(not(feature = "aosc"))]
             let refresh = builder.build();
@@ -213,9 +163,11 @@ impl CliExecuter for Undo {
             refresh.run()?;
         }
 
+        let no_progress = config.no_progress();
+
         let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .another_apt_options(apt_options)
+            .sysroot(config.sysroot.to_string_lossy().to_string())
+            .another_apt_options(config.apt_options)
             .dpkg_force_confnew(force_confnew)
             .dpkg_force_unsafe_io(force_unsafe_io)
             .force_yes(force_yes)
@@ -247,7 +199,7 @@ impl CliExecuter for Undo {
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
             .build();
 
         let mut delete = vec![];
@@ -298,17 +250,17 @@ impl CliExecuter for Undo {
 
         let exit = CommitChanges::builder()
             .apt(apt)
-            .dry_run(dry_run)
+            .dry_run(config.dry_run)
             .is_undo(true)
             .no_fixbroken(no_fixbroken)
             .no_progress(no_progress)
-            .sysroot(sysroot.to_string_lossy().to_string())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
             .fix_dpkg_status(!no_fix_dpkg_status)
-            .protect_essential(config.protect_essentials())
+            .protect_essential(config.protect_essentials)
             .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+            .network_thread(config.download_threads)
             .maybe_auth_config(auth_config.as_ref())
             .download_only(download_only)
             .build()
@@ -320,12 +272,12 @@ impl CliExecuter for Undo {
             use crate::fl;
             use spdlog::warn;
 
-            let arch = oma_utils::dpkg::dpkg_arch(&sysroot)?;
+            let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(
                 &crate::HTTP_CLIENT,
-                sysroot,
+                config.sysroot,
                 &arch,
-                dry_run,
+                config.dry_run,
             )?;
 
             RT.block_on(tm.refresh())?;

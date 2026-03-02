@@ -1,8 +1,9 @@
+use crate::config::OmaConfig;
+use crate::error::OutputError;
 use crate::fl;
 use crate::subcommand::utils::handle_no_result;
 use crate::table::oma_display_with_normal_output;
 use crate::utils::{ExitHandle, pkgnames_completions};
-use crate::{config::Config, error::OutputError};
 use clap::Args;
 use clap_complete::{ArgValueCompleter, PathCompleter};
 use indexmap::IndexSet;
@@ -42,7 +43,7 @@ pub struct Files {
 }
 
 impl CliExecuter for Files {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Files {
             bin,
             package,
@@ -53,7 +54,7 @@ impl CliExecuter for Files {
             CliMode::Files,
             bin,
             &package,
-            no_progress,
+            config.no_progress(),
             sysroot,
             no_pager,
         )
@@ -81,7 +82,7 @@ pub struct Provides {
 }
 
 impl CliExecuter for Provides {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Provides {
             bin,
             pattern,
@@ -92,7 +93,7 @@ impl CliExecuter for Provides {
             CliMode::Provides,
             bin,
             &pattern,
-            no_progress,
+            config.no_progress(),
             sysroot,
             no_pager,
         )

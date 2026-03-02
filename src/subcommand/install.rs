@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use oma_pm::apt::AptConfig;
@@ -11,7 +9,7 @@ use spdlog::{info, warn};
 
 use crate::HTTP_CLIENT;
 use crate::args::ARG_HELP_HEADING;
-use crate::config::Config;
+use crate::config::OmaConfig;
 use crate::error::OutputError;
 use crate::fl;
 use crate::utils::ExitHandle;
@@ -57,18 +55,6 @@ pub struct Install {
     /// Install debug symbol package
     #[arg(long, help = fl!("clap-install-dbg-help"))]
     install_dbg: bool,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Run oma do not check dbus
-    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
-    no_check_dbus: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
     /// Resolve broken dependencies in the system
     #[arg(short, long, help = fl!("clap-fix-broken-help"))]
     fix_broken: bool,
@@ -103,19 +89,10 @@ pub struct Install {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help"))]
-    download_threads: Option<usize>,
-    /// Run oma do not check battery status
-    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
-    no_check_battery: bool,
-    /// Run oma do not take wake lock
-    #[arg(from_global, help = fl!(clap-no-take-wake-lock-help))]
-    no_take_wake_lock: bool,
 }
 
 impl CliExecuter for Install {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Install {
             packages,
             install_recommends,
@@ -125,10 +102,6 @@ impl CliExecuter for Install {
             no_install_suggests,
             yes,
             install_dbg,
-            dry_run,
-            no_check_dbus,
-            sysroot,
-            apt_options,
             fix_broken,
             force_unsafe_io,
             no_refresh,
@@ -139,46 +112,36 @@ impl CliExecuter for Install {
             autoremove,
             remove_config,
             no_fix_dpkg_status,
-            download_threads,
-            no_check_battery,
-            no_take_wake_lock,
             download_only,
         } = self;
 
-        if !dry_run {
+        if !config.dry_run {
             root()?;
-            lock_oma(&sysroot)?;
+            lock_oma(&config.sysroot)?;
         }
 
-        let _fds = dbus_check(
-            yes,
-            config,
-            no_check_dbus,
-            dry_run,
-            no_take_wake_lock,
-            no_check_battery,
-        )?;
+        let _fds = dbus_check(yes, &config)?;
 
         let apt_config = AptConfig::new();
 
-        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config(&config.sysroot);
         let auth_config = auth_config.as_ref();
 
         if !no_refresh {
-            let sysroot = sysroot.to_string_lossy();
+            let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
                 .client(&HTTP_CLIENT)
-                .dry_run(dry_run)
-                .no_progress(no_progress)
-                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+                .dry_run(config.dry_run)
+                .no_progress(config.no_progress())
+                .network_thread(config.download_threads)
                 .sysroot(&sysroot)
                 .config(&apt_config)
-                .apt_options(apt_options.clone())
+                .apt_options(config.apt_options.clone())
                 .maybe_auth_config(auth_config);
 
             #[cfg(feature = "aosc")]
             let refresh = builder
-                .refresh_topics(!no_refresh_topics && !config.no_refresh_topics())
+                .refresh_topics(!no_refresh_topics && !config.no_refresh_topics)
                 .build();
 
             #[cfg(not(feature = "aosc"))]
@@ -200,7 +163,7 @@ impl CliExecuter for Install {
         let pkgs_unparse = packages.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
         let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(sysroot.to_string_lossy().to_string())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
             .install_recommends(install_recommends)
             .install_suggests(install_suggests)
             .no_install_recommends(no_install_recommends)
@@ -208,22 +171,22 @@ impl CliExecuter for Install {
             .yes(yes)
             .force_yes(force_yes)
             .dpkg_force_confnew(force_confnew)
-            .another_apt_options(apt_options)
+            .another_apt_options(config.apt_options.clone())
             .dpkg_force_unsafe_io(force_unsafe_io)
             .build();
 
-        let mut apt = OmaApt::new(local_debs, oma_apt_args, dry_run, apt_config)?;
+        let mut apt = OmaApt::new(local_debs, oma_apt_args, config.dry_run, apt_config)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .filter_candidate(true)
             .filter_downloadable_candidate(false)
             .select_dbg(install_dbg)
-            .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
             .build();
 
         let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse)?;
 
-        handle_no_result(no_result, no_progress)?;
+        handle_no_result(no_result, config.no_progress())?;
 
         let no_marked_install = apt.install(&pkgs, reinstall)?;
 
@@ -238,15 +201,15 @@ impl CliExecuter for Install {
 
         CommitChanges::builder()
             .apt(apt)
-            .dry_run(dry_run)
+            .dry_run(config.dry_run)
             .no_fixbroken(!fix_broken)
-            .no_progress(no_progress)
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .protect_essential(config.protect_essentials())
+            .no_progress(config.no_progress())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
+            .protect_essential(config.protect_essentials)
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+            .network_thread(config.download_threads)
             .maybe_auth_config(auth_config)
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)

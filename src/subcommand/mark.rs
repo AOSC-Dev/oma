@@ -1,4 +1,4 @@
-use std::{borrow::Cow, path::PathBuf};
+use std::borrow::Cow;
 
 use clap::{Args, ValueEnum};
 use clap_complete::ArgValueCompleter;
@@ -11,7 +11,7 @@ use spdlog::info;
 
 use crate::{
     color_formatter,
-    config::Config,
+    config::OmaConfig,
     error::OutputError,
     success,
     utils::{ExitHandle, pkgnames_completions, root},
@@ -51,48 +51,35 @@ pub struct Mark {
     #[arg(required = true, add = ArgValueCompleter::new(pkgnames_completions), help = fl!("clap-mark-packages-help"))]
     #[arg(help_heading = &**crate::args::ARG_HELP_HEADING_MUST)]
     packages: Vec<String>,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
 }
 
 impl CliExecuter for Mark {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
-        let Mark {
-            action,
-            packages,
-            dry_run,
-            sysroot,
-            apt_options,
-        } = self;
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
+        let Mark { action, packages } = self;
 
-        if !dry_run {
+        if !config.dry_run {
             root()?;
         }
 
+        let no_progress = config.no_progress();
+
         let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .another_apt_options(apt_options)
+            .sysroot(config.sysroot.to_string_lossy().to_string())
+            .another_apt_options(config.apt_options)
             .build();
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
 
         let set = match action {
             MarkAction::Hold | MarkAction::Unhold => apt
-                .mark_version_status(&packages, action == MarkAction::Hold, dry_run)?
+                .mark_version_status(&packages, action == MarkAction::Hold, config.dry_run)?
                 .into_iter()
                 .map(|(x, y)| (Cow::Borrowed(x), y))
                 .collect::<Vec<_>>(),
             MarkAction::Auto | MarkAction::Manual => {
                 let matcher = PackagesMatcher::builder()
                     .cache(&apt.cache)
-                    .native_arch(GetArchMethod::SpecifySysroot(&sysroot))
+                    .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
                     .build();
 
                 let (pkgs, no_result) =
@@ -100,7 +87,7 @@ impl CliExecuter for Mark {
 
                 handle_no_result(no_result, no_progress)?;
 
-                apt.mark_install_status(pkgs, action == MarkAction::Auto, dry_run)?
+                apt.mark_install_status(pkgs, action == MarkAction::Auto, config.dry_run)?
                     .into_iter()
                     .map(|(x, y)| (Cow::Owned(x), y))
                     .collect()

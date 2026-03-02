@@ -1,4 +1,4 @@
-use std::{borrow::Cow, io::stdout, path::PathBuf, sync::atomic::Ordering};
+use std::{borrow::Cow, io::stdout, sync::atomic::Ordering};
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
@@ -10,10 +10,12 @@ use oma_pm::{
 use spdlog::info;
 
 use crate::{
-    NOT_DISPLAY_ABORT, fl,
+    NOT_DISPLAY_ABORT,
+    config::OmaConfig,
+    fl,
     utils::{ExitHandle, pkgnames_completions},
 };
-use crate::{color_formatter, config::Config, error::OutputError, table::PagerPrinter};
+use crate::{color_formatter, error::OutputError, table::PagerPrinter};
 use anyhow::anyhow;
 
 use crate::args::CliExecuter;
@@ -48,16 +50,10 @@ pub struct List {
     /// Set output format as JSON
     #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
 }
 
 impl CliExecuter for List {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let List {
             packages,
             all,
@@ -67,14 +63,12 @@ impl CliExecuter for List {
             automatic,
             autoremovable,
             json,
-            sysroot,
-            apt_options,
             hold,
         } = self;
 
         let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .another_apt_options(apt_options)
+            .sysroot(config.sysroot.to_string_lossy().to_string())
+            .another_apt_options(config.apt_options)
             .build();
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;

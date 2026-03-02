@@ -8,7 +8,7 @@ use crate::{
     GlobalOptions,
     clean::Clean,
     command_not_found::CommandNotFound,
-    config::Config,
+    config::OmaConfig,
     contents_find::{Files, Provides},
     depends::Depends,
     download::Download,
@@ -41,7 +41,7 @@ use crate::topics::Topics;
 
 #[enum_dispatch]
 pub(crate) trait CliExecuter {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError>;
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError>;
 }
 
 pub static HELP_HEADING: LazyLock<String> = LazyLock::new(|| fl!("clap-command"));
@@ -239,7 +239,7 @@ pub enum SubCmd {
 pub struct Version;
 
 impl CliExecuter for Version {
-    fn execute(self, _config: &Config, _no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, _config: OmaConfig) -> Result<ExitHandle, OutputError> {
         print_version();
         Ok(ExitHandle::default())
     }

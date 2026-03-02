@@ -1,231 +1,156 @@
-use crate::fl;
-use serde::Deserialize;
-use spdlog::{error, warn};
+use std::path::PathBuf;
 
-#[derive(Debug, Deserialize)]
-pub struct Config {
-    pub general: Option<GeneralConfig>,
-    pub network: Option<NetworkConfig>,
-}
+use clap::ColorChoice;
+use once_cell::sync::OnceCell;
 
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            general: Some(GeneralConfig {
-                protect_essentials: GeneralConfig::default_protect_essentials(),
-                no_check_dbus: GeneralConfig::default_no_check_dbus(),
-                check_battery: GeneralConfig::default_check_battery(),
-                take_wake_lock: GeneralConfig::default_take_wake_lock(),
-                no_refresh_topics: GeneralConfig::default_no_refresh_topics(),
-                follow_terminal_color: GeneralConfig::default_follow_terminal_color(),
-                search_contents_println: GeneralConfig::default_search_contents_println(),
-                bell: GeneralConfig::default_bell(),
-                search_engine: GeneralConfig::default_search_engine(),
-                save_log_count: GeneralConfig::default_save_log_count(),
-            }),
-            network: Some(NetworkConfig {
-                network_threads: NetworkConfig::default_network_thread(),
-            }),
-        }
-    }
-}
+use crate::{
+    GlobalOptions,
+    config_file::{BatteryTristate, ConfigFile, GeneralConfig, SearchEngine, TakeWakeLockTristate},
+    subcommand::utils::is_terminal,
+};
 
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-pub struct GeneralConfig {
-    #[serde(default = "GeneralConfig::default_protect_essentials")]
-    pub protect_essentials: bool,
-    #[serde(default = "GeneralConfig::default_no_check_dbus")]
-    pub no_check_dbus: bool,
-    #[serde(default = "GeneralConfig::default_check_battery")]
-    pub check_battery: BatteryTristate,
-    #[serde(default = "GeneralConfig::default_take_wake_lock")]
-    pub take_wake_lock: TakeWakeLockTristate,
-    #[serde(default = "GeneralConfig::default_no_refresh_topics")]
-    pub no_refresh_topics: bool,
-    #[serde(default = "GeneralConfig::default_follow_terminal_color")]
+#[derive(Debug)]
+pub struct OmaConfig {
+    pub dry_run: bool,
+    pub debug: bool,
+    pub color: ColorChoice,
     pub follow_terminal_color: bool,
-    #[serde(default = "GeneralConfig::default_search_contents_println")]
+    no_progress: bool,
+    pub no_check_dbus: bool,
+    pub check_battery: BatteryTristate,
+    pub take_wake_lock: TakeWakeLockTristate,
+    pub sysroot: PathBuf,
+    pub apt_options: Vec<String>,
+    pub no_bell: bool,
+    pub download_threads: usize,
+    #[cfg(feature = "aosc")]
+    pub no_refresh_topics: bool,
+    pub protect_essentials: bool,
     pub search_contents_println: bool,
-    #[serde(default = "GeneralConfig::default_bell")]
-    pub bell: bool,
-    #[serde(default = "GeneralConfig::default_search_engine")]
     pub search_engine: SearchEngine,
-    #[serde(default = "GeneralConfig::default_save_log_count")]
+    no_progress_oncecell: OnceCell<bool>,
     pub save_log_count: usize,
 }
 
-#[derive(Deserialize, Debug, Clone, Copy)]
-#[serde(rename_all = "lowercase")]
-pub enum BatteryTristate {
-    Ask,
-    Warn,
-    Ignore,
-}
-
-#[derive(Deserialize, Debug, Clone, Copy)]
-#[serde(rename_all = "lowercase")]
-pub enum SearchEngine {
-    Indicium,
-    StrSim,
-    Text,
-}
-
-#[derive(Deserialize, Debug, Clone, Copy)]
-#[serde(rename_all = "lowercase")]
-pub enum TakeWakeLockTristate {
-    Yes,
-    Warn,
-    Ignore,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct NetworkConfig {
-    #[serde(default = "NetworkConfig::default_network_thread")]
-    pub network_threads: usize,
-}
-
-impl NetworkConfig {
-    pub const fn default_network_thread() -> usize {
-        4
-    }
-}
-
-impl GeneralConfig {
-    pub const fn default_protect_essentials() -> bool {
-        true
-    }
-
-    pub const fn default_no_check_dbus() -> bool {
-        false
-    }
-
-    pub const fn default_no_refresh_topics() -> bool {
-        false
-    }
-
-    pub const fn default_follow_terminal_color() -> bool {
-        false
-    }
-
-    pub const fn default_search_contents_println() -> bool {
-        false
-    }
-
-    pub const fn default_bell() -> bool {
-        true
-    }
-
-    pub const fn default_check_battery() -> BatteryTristate {
-        BatteryTristate::Ask
-    }
-
-    pub const fn default_take_wake_lock() -> TakeWakeLockTristate {
-        TakeWakeLockTristate::Yes
-    }
-
-    pub const fn default_search_engine() -> SearchEngine {
-        if cfg!(feature = "aosc") {
-            SearchEngine::Indicium
-        } else {
-            SearchEngine::StrSim
+impl Default for OmaConfig {
+    fn default() -> Self {
+        Self {
+            dry_run: false,
+            debug: false,
+            color: ColorChoice::Auto,
+            follow_terminal_color: false,
+            no_progress: false,
+            no_check_dbus: false,
+            check_battery: BatteryTristate::Ask,
+            take_wake_lock: TakeWakeLockTristate::Yes,
+            sysroot: PathBuf::from("/"),
+            apt_options: Vec::new(),
+            no_bell: false,
+            download_threads: 4,
+            #[cfg(feature = "aosc")]
+            no_refresh_topics: false,
+            protect_essentials: true,
+            search_contents_println: false,
+            search_engine: if cfg!(feature = "aosc") {
+                SearchEngine::Indicium
+            } else {
+                SearchEngine::StrSim
+            },
+            no_progress_oncecell: OnceCell::new(),
+            save_log_count: 10,
         }
     }
-
-    pub const fn default_save_log_count() -> usize {
-        10
-    }
 }
 
-impl Config {
-    pub fn read() -> Self {
-        let Ok(s) = std::fs::read_to_string("/etc/oma.toml") else {
-            warn!("{}", fl!("config-invalid"));
-            return Self::default();
+impl OmaConfig {
+    pub fn from_config_file(config: ConfigFile) -> Self {
+        let mut oma_config = Self::default();
+
+        let ConfigFile { general, network } = config;
+
+        if let Some(general) = general {
+            let GeneralConfig {
+                no_check_dbus,
+                no_refresh_topics,
+                follow_terminal_color,
+                protect_essentials,
+                search_contents_println,
+                search_engine,
+                ..
+            } = general;
+
+            oma_config.no_check_dbus = no_check_dbus;
+
+            #[cfg(feature = "aosc")]
+            {
+                oma_config.no_refresh_topics = no_refresh_topics;
+            }
+
+            oma_config.follow_terminal_color = follow_terminal_color;
+            oma_config.protect_essentials = protect_essentials;
+            oma_config.search_contents_println = search_contents_println;
+            oma_config.search_engine = search_engine;
+        }
+
+        if let Some(network) = network {
+            oma_config.download_threads = network.network_threads;
+        }
+
+        oma_config
+    }
+
+    pub fn update_from_cli(&mut self, global_options: &GlobalOptions) {
+        let GlobalOptions {
+            dry_run,
+            debug,
+            color,
+            follow_terminal_color,
+            no_progress,
+            no_check_dbus,
+            no_check_battery,
+            no_take_wake_lock,
+            sysroot,
+            apt_options,
+            no_bell,
+            download_threads,
+            ..
+        } = global_options;
+
+        self.dry_run = *dry_run;
+        self.debug = *debug;
+        self.color = *color;
+        self.sysroot = sysroot.clone();
+        self.apt_options = apt_options.clone();
+        self.no_bell = *no_bell;
+        self.follow_terminal_color = *follow_terminal_color;
+        self.no_check_dbus = *no_check_dbus;
+
+        if let Some(download_threads) = download_threads {
+            self.download_threads = *download_threads;
+        }
+
+        self.no_progress = *no_progress;
+        self.check_battery = if *no_check_battery {
+            BatteryTristate::Ignore
+        } else {
+            BatteryTristate::Ask
         };
 
-        toml::from_str(&s).unwrap_or_else(|e| {
-            error!("Failed to read config: {e}");
-            warn!("{}", fl!("config-invalid"));
-            Self::default()
+        self.take_wake_lock = if *no_take_wake_lock {
+            TakeWakeLockTristate::Warn
+        } else {
+            TakeWakeLockTristate::Yes
+        };
+    }
+
+    #[inline]
+    pub fn no_progress(&self) -> bool {
+        *self.no_progress_oncecell.get_or_init(|| {
+            self.no_progress
+                || !is_terminal()
+                || self.debug
+                || self.dry_run
+                || std::env::var("OMA_LOG").is_ok()
         })
-    }
-
-    pub fn protect_essentials(&self) -> bool {
-        self.general
-            .as_ref()
-            .map(|x| x.protect_essentials)
-            .unwrap_or_else(GeneralConfig::default_protect_essentials)
-    }
-
-    pub fn network_thread(&self) -> usize {
-        self.network
-            .as_ref()
-            .map(|x| x.network_threads)
-            .unwrap_or_else(NetworkConfig::default_network_thread)
-    }
-
-    pub fn no_check_dbus(&self) -> bool {
-        self.general
-            .as_ref()
-            .map(|x| x.no_check_dbus)
-            .unwrap_or_else(GeneralConfig::default_no_check_dbus)
-    }
-
-    pub fn check_battery(&self) -> BatteryTristate {
-        self.general
-            .as_ref()
-            .map(|x| x.check_battery)
-            .unwrap_or_else(GeneralConfig::default_check_battery)
-    }
-
-    pub fn take_wake_lock(&self) -> TakeWakeLockTristate {
-        self.general
-            .as_ref()
-            .map(|x| x.take_wake_lock)
-            .unwrap_or_else(GeneralConfig::default_take_wake_lock)
-    }
-
-    #[cfg(feature = "aosc")]
-    pub fn no_refresh_topics(&self) -> bool {
-        self.general
-            .as_ref()
-            .map(|x| x.no_refresh_topics)
-            .unwrap_or_else(GeneralConfig::default_no_refresh_topics)
-    }
-
-    pub fn follow_terminal_color(&self) -> bool {
-        self.general
-            .as_ref()
-            .map(|x| x.follow_terminal_color)
-            .unwrap_or_else(GeneralConfig::default_follow_terminal_color)
-    }
-
-    pub fn search_contents_println(&self) -> bool {
-        self.general
-            .as_ref()
-            .map(|x| x.search_contents_println)
-            .unwrap_or_else(GeneralConfig::default_search_contents_println)
-    }
-
-    pub fn search_engine(&self) -> SearchEngine {
-        self.general
-            .as_ref()
-            .map(|x| x.search_engine)
-            .unwrap_or_else(GeneralConfig::default_search_engine)
-    }
-
-    pub fn bell(&self) -> bool {
-        self.general
-            .as_ref()
-            .map(|x| x.bell)
-            .unwrap_or_else(GeneralConfig::default_bell)
-    }
-
-    pub fn save_log_count(&self) -> usize {
-        self.general
-            .as_ref()
-            .map(|x| x.save_log_count)
-            .unwrap_or_else(GeneralConfig::default_save_log_count)
     }
 }

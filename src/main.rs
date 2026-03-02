@@ -10,6 +10,7 @@ use std::time::Duration;
 
 mod args;
 mod config;
+mod config_file;
 mod error;
 mod install_progress;
 mod lang;
@@ -58,7 +59,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
 
-use crate::config::Config;
+use crate::config::OmaConfig;
+use crate::config_file::ConfigFile;
 use crate::error::Chain;
 use crate::install_progress::osc94_progress;
 use crate::subcommand::*;
@@ -157,7 +159,7 @@ pub struct GlobalOptions {
     /// Set apt options
     #[arg(long, short = 'o', global = true, action = ArgAction::Append, help = fl!("clap-apt-options-help"))]
     apt_options: Vec<String>,
-    /// Don't ring if oma completes the transaction
+    /// Don't ring if oma completes the transactionf
     #[arg(long, global = true, env = "OMA_NO_BELL", help = fl!("clap-no-bell-help"), value_parser = FalseyValueParser::new()
 )]
     no_bell: bool,
@@ -197,14 +199,6 @@ fn main() {
     #[cfg(not(feature = "tokio-console"))]
     let file = init_logger(&oma);
 
-    // Init config file
-    let config = if oma.global.no_config {
-        warn!("{}", fl!("no-config-warning"));
-        Config::default()
-    } else {
-        Config::read()
-    };
-
     debug!(
         "Run oma with args: {} (pid: {})",
         args().collect::<Vec<_>>().join(" "),
@@ -212,11 +206,13 @@ fn main() {
     );
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
 
+    let config_ctx = read_config_from_file_and_cli(&oma);
+
     debug!("OS: {:?}", OsRelease::new());
-    if oma.global.sysroot.to_string_lossy() != "/" {
+    if config_ctx.sysroot.to_string_lossy() != "/" {
         debug!(
             "--sysroot OS: {:?}",
-            OsRelease::new_from(oma.global.sysroot.join("etc/os-release"))
+            OsRelease::new_from(config_ctx.sysroot.join("etc/os-release"))
         );
     }
 
@@ -225,7 +221,7 @@ fn main() {
             debug!("Log file: {}", file.display());
             std::thread::scope(|s| {
                 s.spawn(|| {
-                    remove_old_log_file(&config, &file);
+                    remove_old_log_file(config_ctx.save_log_count, &file);
                 });
             });
         }
@@ -236,12 +232,12 @@ fn main() {
 
     init_apt_config(&oma);
 
-    let oma_no_bell = oma.global.no_bell;
+    let no_bell = config_ctx.no_bell;
 
-    let code = match try_main(oma, &config, matches) {
+    let code = match try_main(oma, config_ctx, matches) {
         Ok(exit_code) => {
             unlock_oma().ok();
-            exit_code.handle(config.bell() && !oma_no_bell)
+            exit_code.handle(!no_bell)
         }
         Err(e) => {
             match display_error_and_can_unlock(e) {
@@ -254,7 +250,7 @@ fn main() {
                 }
             }
 
-            if !oma_no_bell && config.bell() {
+            if !no_bell {
                 terminal_ring();
             }
 
@@ -263,6 +259,23 @@ fn main() {
     };
 
     exit(code);
+}
+
+fn read_config_from_file_and_cli(oma: &OhManagerAilurus) -> OmaConfig {
+    // Init config file
+    let config_file = if oma.global.no_config {
+        warn!("{}", fl!("no-config-warning"));
+        ConfigFile::default()
+    } else {
+        ConfigFile::read()
+    };
+
+    let mut config_ctx = OmaConfig::from_config_file(config_file);
+    debug!("Config file: {:#?}", config_ctx);
+    config_ctx.update_from_cli(&oma.global);
+    debug!("Config: {:#?}", config_ctx);
+
+    config_ctx
 }
 
 fn init_apt_config(oma: &OhManagerAilurus) {
@@ -421,7 +434,7 @@ fn debug_formatter(oma: &OhManagerAilurus) -> OmaFormatter {
         .with_debug(true)
 }
 
-fn remove_old_log_file(config: &Config, log_file: &Path) {
+fn remove_old_log_file(save_log_count: usize, log_file: &Path) {
     let mut v = vec![];
     let log_dir = log_file.parent().unwrap();
     let dirs = std::fs::read_dir(log_dir)
@@ -450,10 +463,10 @@ fn remove_old_log_file(config: &Config, log_file: &Path) {
         v.push(timestamp);
     }
 
-    if v.len() > config.save_log_count() {
+    if v.len() > save_log_count {
         v.sort_unstable_by(|a, b| b.cmp(a));
 
-        for _ in 1..=(v.len() - config.save_log_count()) {
+        for _ in 1..=(v.len() - save_log_count) {
             let Some(pop) = v.pop() else {
                 break;
             };
@@ -474,19 +487,13 @@ fn enable_ansi(oma: &OhManagerAilurus) -> bool {
 
 fn try_main(
     oma: OhManagerAilurus,
-    config: &Config,
+    config: OmaConfig,
     matches: ArgMatches,
 ) -> Result<ExitHandle, OutputError> {
-    init_color_formatter(&oma, config);
-
-    let no_progress = oma.global.no_progress
-        || !is_terminal()
-        || oma.global.debug
-        || oma.global.dry_run
-        || env::var("OMA_LOG").is_ok();
+    init_color_formatter(&oma, &config);
 
     match oma.subcmd {
-        Some(subcmd) => subcmd.execute(config, no_progress),
+        Some(subcmd) => subcmd.execute(config),
         None => {
             if let Some((subcommand, args)) = matches.subcommand() {
                 let mut plugin = Path::new("/usr/local/libexec").join(format!("oma-{subcommand}"));
@@ -517,7 +524,7 @@ fn try_main(
                     .ring(true)
                     .status(utils::ExitStatus::Other(status)))
             } else {
-                Tui::from(&oma.global).execute(config, no_progress)
+                Tui::default().execute(config)
             }
         }
     }
@@ -532,8 +539,8 @@ fn init_tls_config() {
         .expect("Failed to install rustls crypto provider");
 }
 
-fn init_color_formatter(oma: &OhManagerAilurus, config: &Config) {
-    let mut follow_term_color = oma.global.follow_terminal_color || config.follow_terminal_color();
+fn init_color_formatter(oma: &OhManagerAilurus, config: &OmaConfig) {
+    let mut follow_term_color = config.follow_terminal_color;
     let no_color = oma.global.color == ColorChoice::Never;
 
     if no_color {

@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::{Select, theme::ColorfulTheme};
@@ -10,7 +8,7 @@ use oma_pm::{
 
 use crate::{
     HTTP_CLIENT,
-    config::Config,
+    config::OmaConfig,
     error::OutputError,
     utils::{dbus_check, pkgnames_completions, root},
 };
@@ -47,10 +45,6 @@ pub struct Pick {
     /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
     #[arg(long, help = fl!("clap-force-confnew-help"))]
     force_confnew: bool,
-    #[cfg(feature = "aosc")]
-    /// Do not refresh topics manifest.json file
-    #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
-    no_refresh_topics: bool,
     /// Auto remove unnecessary package(s)
     #[arg(long, help = fl!("clap-autoremove-help"))]
     autoremove: bool,
@@ -60,31 +54,10 @@ pub struct Pick {
     /// Only download dependencies, not install
     #[arg(long, short, help = fl!("clap-download-only-help"))]
     download_only: bool,
-    /// Run oma in "dry-run" mode. Useful for testing changes and operations without making changes to the system
-    #[arg(from_global, help = fl!("clap-dry-run-help"), long_help = fl!("clap-dry-run-long-help"))]
-    dry_run: bool,
-    /// Run oma do not check dbus
-    #[arg(from_global, help = fl!("clap-no-check-dbus-help"))]
-    no_check_dbus: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
-    /// Setup download threads (default as 4)
-    #[arg(from_global, help = fl!("clap-download-threads-help"))]
-    download_threads: Option<usize>,
-    /// Run oma do not check battery status
-    #[arg(from_global, help = fl!("clap-no-check-battery-help"))]
-    no_check_battery: bool,
-    /// Run oma do not take wake lock
-    #[arg(from_global, help = fl!("clap-no-take-wake-lock-help"))]
-    no_take_wake_lock: bool,
 }
 
 impl CliExecuter for Pick {
-    fn execute(self, config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Pick {
             package,
             fix_broken,
@@ -92,56 +65,38 @@ impl CliExecuter for Pick {
             no_refresh,
             force_yes,
             force_confnew,
-            #[cfg(feature = "aosc")]
-            no_refresh_topics,
             autoremove,
             remove_config,
-            dry_run,
-            no_check_dbus,
-            sysroot,
-            apt_options,
             no_fix_dpkg_status,
-            download_threads,
-            no_check_battery,
-            no_take_wake_lock,
             download_only,
         } = self;
 
-        if !dry_run {
+        if !config.dry_run {
             root()?;
-            lock_oma(&sysroot)?;
+            lock_oma(&config.sysroot)?;
         }
 
-        let _fds = dbus_check(
-            false,
-            config,
-            no_check_dbus,
-            dry_run,
-            no_take_wake_lock,
-            no_check_battery,
-        )?;
+        let _fds = dbus_check(false, &config)?;
 
         let apt_config = AptConfig::new();
 
-        let auth_config = auth_config(&sysroot);
+        let auth_config = auth_config(&config.sysroot);
         let auth_config = auth_config.as_ref();
 
         if !no_refresh {
-            let sysroot = sysroot.to_string_lossy();
+            let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
                 .client(&HTTP_CLIENT)
-                .dry_run(dry_run)
-                .no_progress(no_progress)
-                .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+                .dry_run(config.dry_run)
+                .no_progress(config.no_progress())
+                .network_thread(config.download_threads)
                 .sysroot(&sysroot)
                 .config(&apt_config)
-                .apt_options(apt_options.clone())
+                .apt_options(config.apt_options.clone())
                 .maybe_auth_config(auth_config);
 
             #[cfg(feature = "aosc")]
-            let refresh = builder
-                .refresh_topics(!no_refresh_topics && !config.no_refresh_topics())
-                .build();
+            let refresh = builder.refresh_topics(!config.no_refresh_topics).build();
 
             #[cfg(not(feature = "aosc"))]
             let refresh = builder.build();
@@ -150,13 +105,13 @@ impl CliExecuter for Pick {
         }
 
         let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(sysroot.to_string_lossy().to_string())
-            .another_apt_options(apt_options)
+            .sysroot(config.sysroot.to_string_lossy().to_string())
+            .another_apt_options(config.apt_options.clone())
             .dpkg_force_confnew(force_confnew)
             .dpkg_force_unsafe_io(force_unsafe_io)
             .force_yes(force_yes)
             .build();
-        let mut apt = OmaApt::new(vec![], oma_apt_args, dry_run, apt_config)?;
+        let mut apt = OmaApt::new(vec![], oma_apt_args, config.dry_run, apt_config)?;
 
         let pkg = apt
             .cache
@@ -224,16 +179,16 @@ impl CliExecuter for Pick {
 
         CommitChanges::builder()
             .apt(apt)
-            .dry_run(dry_run)
+            .dry_run(config.dry_run)
             .no_fixbroken(fix_broken)
-            .no_progress(no_progress)
-            .sysroot(sysroot.to_string_lossy().to_string())
+            .no_progress(config.no_progress())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
             .fix_dpkg_status(!no_fix_dpkg_status)
-            .protect_essential(config.protect_essentials())
+            .protect_essential(config.protect_essentials)
             .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .network_thread(download_threads.unwrap_or_else(|| config.network_thread()))
+            .network_thread(config.download_threads)
             .maybe_auth_config(auth_config)
             .download_only(download_only)
             .build()

@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     io::{Write, stdout},
-    path::PathBuf,
 };
 
 use clap::Args;
@@ -12,7 +11,7 @@ use oma_pm::{
 };
 
 use crate::{
-    config::Config,
+    config::OmaConfig,
     error::OutputError,
     fl,
     utils::{ExitHandle, pkgnames_and_path_completions},
@@ -31,22 +30,19 @@ pub struct Depends {
     /// Set output format as JSON
     #[arg(long, help = fl!("clap-json-help"))]
     json: bool,
-    /// Set sysroot target directory
-    #[arg(from_global, help = fl!("clap-sysroot-help"))]
-    sysroot: PathBuf,
-    /// Set apt options
-    #[arg(from_global, help = fl!("clap-apt-options-help"))]
-    apt_options: Vec<String>,
 }
 
 impl CliExecuter for Depends {
-    fn execute(self, _config: &Config, no_progress: bool) -> Result<ExitHandle, OutputError> {
-        let Depends {
-            packages,
-            json,
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
+        let Depends { packages, json } = self;
+
+        let no_progress = config.no_progress();
+
+        let OmaConfig {
             sysroot,
             apt_options,
-        } = self;
+            ..
+        } = config;
 
         let local_debs = packages
             .iter()
