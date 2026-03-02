@@ -423,7 +423,12 @@ fn set_order(
     Ok(ExitHandle::default().ring(true))
 }
 
-fn get_latency(timeout: f64, no_progress: bool, json: bool, user_agent: &str) -> Result<ExitHandle, OutputError> {
+fn get_latency(
+    timeout: f64,
+    no_progress: bool,
+    json: bool,
+    user_agent: &str,
+) -> Result<ExitHandle, OutputError> {
     let mm = MirrorManager::new("/")?;
 
     let client = client(timeout, user_agent)?;
@@ -641,7 +646,7 @@ fn speedtest(
     no_refresh: bool,
     apt_options: Vec<String>,
     timeout: f64,
-    user_agent: &str
+    user_agent: &str,
 ) -> Result<ExitHandle, OutputError> {
     if set_fastest {
         root()?;

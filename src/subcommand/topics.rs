@@ -149,8 +149,12 @@ impl CliExecuter for Topics {
         let _fds = dbus_check(false, &config)?;
 
         let dpkg_arch = dpkg_arch(&config.sysroot)?;
-        let mut tm =
-            TopicManager::new_blocking(HTTP_CLIENT.get().unwrap(), &config.sysroot, &dpkg_arch, config.dry_run)?;
+        let mut tm = TopicManager::new_blocking(
+            HTTP_CLIENT.get().unwrap(),
+            &config.sysroot,
+            &dpkg_arch,
+            config.dry_run,
+        )?;
 
         let topics_changed = RT.block_on(topics_inner(
             &mut opt_in,
