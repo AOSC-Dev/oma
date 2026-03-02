@@ -163,12 +163,17 @@ fn pkexec_oma() -> Result<()> {
 }
 
 fn systemd_run_oma() -> Result<()> {
+    let oma_envs_args = std::env::vars()
+        .filter(|(k, _)| k.starts_with("OMA_"))
+        .map(|(k, v)| format!("--setenv={k}={v}"));
+
     let out = Command::new("systemd-run")
         .env("SYSTEMD_ADJUST_TERMINAL_TITLE", "0")
         .arg("--same-dir")
         .arg("--pty")
         .arg("--quiet")
         .arg("--unit=oma")
+        .args(oma_envs_args)
         .arg("--collect")
         .args(std::env::args())
         .spawn()
