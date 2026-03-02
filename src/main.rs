@@ -70,7 +70,7 @@ use crate::utils::ExitHandle;
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static NOT_ALLOW_CTRLC: AtomicBool = AtomicBool::new(false);
-static APP_USER_AGENT: &str = concat!("oma/", env!("CARGO_PKG_VERSION"));
+static DEFAULT_USER_AGENT: &str = concat!("oma/", env!("CARGO_PKG_VERSION"));
 static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
 static RT: LazyLock<Runtime> = LazyLock::new(|| {
     tokio::runtime::Builder::new_multi_thread()
@@ -79,14 +79,7 @@ static RT: LazyLock<Runtime> = LazyLock::new(|| {
         .expect("Failed to init async runtime")
 });
 
-static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
-    init_tls_config();
-
-    Client::builder()
-        .user_agent(APP_USER_AGENT)
-        .build()
-        .unwrap()
-});
+static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 
 static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
 static LOCK: OnceLock<PathBuf> = OnceLock::new();
@@ -173,6 +166,8 @@ pub struct GlobalOptions {
     /// No use config
     #[arg(long, global = true, env = "OMA_NO_CONFIG", help = fl!("clap-no-config-help"), value_parser = FalseyValueParser::new())]
     no_config: bool,
+    #[arg(long, global = true, env = "OMA_USER_AGENT", default_value = DEFAULT_USER_AGENT)]
+    user_agent: Cow<'static, str>,
 }
 
 fn main() {
@@ -208,6 +203,8 @@ fn main() {
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
 
     let (config_ctx, subcmd) = read_config_from_file_and_cli(oma);
+
+    init_http_client(&config_ctx.user_agent);
 
     debug!("OS: {:?}", OsRelease::new());
     if config_ctx.sysroot.to_string_lossy() != "/" {
@@ -260,6 +257,14 @@ fn main() {
     };
 
     exit(code);
+}
+
+fn init_http_client(user_agent: &str) -> &'static Client {
+    HTTP_CLIENT.get_or_init(|| {
+        init_tls_config();
+
+        Client::builder().user_agent(user_agent).build().unwrap()
+    })
 }
 
 fn read_config_from_file_and_cli(oma: OhManagerAilurus) -> (OmaConfig, Option<SubCmd>) {

@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use std::{borrow::Cow, path::PathBuf};
 
 use clap::ColorChoice;
 use once_cell::sync::OnceCell;
 
 use crate::{
-    GlobalOptions,
+    DEFAULT_USER_AGENT, GlobalOptions,
     config_file::{BatteryTristate, ConfigFile, GeneralConfig, SearchEngine, TakeWakeLockTristate},
     subcommand::utils::is_terminal,
 };
@@ -30,6 +30,7 @@ pub struct OmaConfig {
     pub search_engine: SearchEngine,
     no_progress_oncecell: OnceCell<bool>,
     pub save_log_count: usize,
+    pub user_agent: Cow<'static, str>,
 }
 
 impl Default for OmaConfig {
@@ -58,6 +59,7 @@ impl Default for OmaConfig {
             },
             no_progress_oncecell: OnceCell::new(),
             save_log_count: 10,
+            user_agent: DEFAULT_USER_AGENT.into(),
         }
     }
 }
@@ -113,6 +115,7 @@ impl OmaConfig {
             apt_options,
             no_bell,
             download_threads,
+            user_agent,
             ..
         } = global_options;
 
@@ -141,6 +144,8 @@ impl OmaConfig {
         } else {
             TakeWakeLockTristate::Yes
         };
+
+        self.user_agent = user_agent;
     }
 
     #[inline]

@@ -127,7 +127,7 @@ impl CliExecuter for Tui {
         if !no_refresh {
             let sysroot = sysroot.to_string_lossy();
             let builder = Refresh::builder()
-                .client(&HTTP_CLIENT)
+                .client(HTTP_CLIENT.get().unwrap())
                 .dry_run(false)
                 .no_progress(config.no_progress())
                 .network_thread(config.download_threads)

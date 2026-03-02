@@ -126,13 +126,14 @@ impl CliExecuter for Install {
 
         let auth_config = auth_config(&config.sysroot);
         let auth_config = auth_config.as_ref();
+        let no_progress = config.no_progress();
 
         if !no_refresh {
             let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
-                .client(&HTTP_CLIENT)
+                .client(HTTP_CLIENT.get().unwrap())
                 .dry_run(config.dry_run)
-                .no_progress(config.no_progress())
+                .no_progress(no_progress)
                 .network_thread(config.download_threads)
                 .sysroot(&sysroot)
                 .config(&apt_config)
@@ -186,7 +187,7 @@ impl CliExecuter for Install {
 
         let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse)?;
 
-        handle_no_result(no_result, config.no_progress())?;
+        handle_no_result(no_result, no_progress)?;
 
         let no_marked_install = apt.install(&pkgs, reinstall)?;
 
@@ -203,7 +204,7 @@ impl CliExecuter for Install {
             .apt(apt)
             .dry_run(config.dry_run)
             .no_fixbroken(!fix_broken)
-            .no_progress(config.no_progress())
+            .no_progress(no_progress)
             .sysroot(config.sysroot.to_string_lossy().to_string())
             .protect_essential(config.protect_essentials)
             .yes(yes)

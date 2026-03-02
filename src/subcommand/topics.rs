@@ -150,7 +150,7 @@ impl CliExecuter for Topics {
 
         let dpkg_arch = dpkg_arch(&config.sysroot)?;
         let mut tm =
-            TopicManager::new_blocking(&HTTP_CLIENT, &config.sysroot, &dpkg_arch, config.dry_run)?;
+            TopicManager::new_blocking(HTTP_CLIENT.get().unwrap(), &config.sysroot, &dpkg_arch, config.dry_run)?;
 
         let topics_changed = RT.block_on(topics_inner(
             &mut opt_in,
@@ -386,7 +386,7 @@ fn refresh<'a>(
     apt_options: Vec<String>,
 ) -> Result<(), OutputError> {
     Refresh::builder()
-        .client(&HTTP_CLIENT)
+        .client(HTTP_CLIENT.get().unwrap())
         .dry_run(dry_run)
         .no_progress(no_progress)
         .network_thread(network_threads)
