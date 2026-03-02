@@ -168,7 +168,7 @@ pub struct GlobalOptions {
     #[arg(long, short, global = true, action = ArgAction::Help, help = fl!("clap-help"))]
     help: Option<bool>,
     /// No use config
-    #[arg(long, global = true, env = "OMA_NO_CONFIG", help = fl!("clap-no-config-help"))]
+    #[arg(long, global = true, env = "OMA_NO_CONFIG", help = fl!("clap-no-config-help"), value_parser = FalseyValueParser::new())]
     no_config: bool,
 }
 
