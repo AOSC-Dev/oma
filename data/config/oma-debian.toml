@@ -46,5 +46,5 @@ take_wake_lock = "yes"
 # Note: It is not advised to set this value to more than 4 to avoid flooding
 # remote servers.
 network_threads = 4
-# User agent string to use for HTTP requests.
+# User-Agent string to use for HTTP requests.
 # user_agent = "MY_USER_AGENT"
