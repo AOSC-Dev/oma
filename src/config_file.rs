@@ -1,4 +1,6 @@
-use crate::fl;
+use std::borrow::Cow;
+
+use crate::{DEFAULT_USER_AGENT, fl};
 use serde::Deserialize;
 use spdlog::{error, warn};
 
@@ -25,6 +27,7 @@ impl Default for ConfigFile {
             }),
             network: Some(NetworkConfig {
                 network_threads: NetworkConfig::default_network_thread(),
+                user_agent: NetworkConfig::default_user_agent(),
             }),
         }
     }
@@ -83,11 +86,17 @@ pub enum TakeWakeLockTristate {
 pub struct NetworkConfig {
     #[serde(default = "NetworkConfig::default_network_thread")]
     pub network_threads: usize,
+    #[serde(default = "NetworkConfig::default_user_agent")]
+    pub user_agent: Cow<'static, str>,
 }
 
 impl NetworkConfig {
     pub const fn default_network_thread() -> usize {
         4
+    }
+
+    pub const fn default_user_agent() -> Cow<'static, str> {
+        Cow::Borrowed(DEFAULT_USER_AGENT)
     }
 }
 

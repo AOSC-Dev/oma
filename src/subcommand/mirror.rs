@@ -45,7 +45,6 @@ use spdlog::{error, info, warn};
 use std::io::Write;
 use tabled::Tabled;
 
-use crate::APP_USER_AGENT;
 use crate::HTTP_CLIENT;
 use crate::RT;
 use crate::args::HELP_TEMPLATE;
@@ -215,6 +214,7 @@ impl CliExecuter for CliMirror {
                     no_refresh,
                     config.apt_options,
                     timeout,
+                    &config.user_agent,
                 ),
                 MirrorSubCmd::Add { names, no_refresh } => operate(
                     config.no_progress(),
@@ -244,7 +244,7 @@ impl CliExecuter for CliMirror {
                     config.apt_options,
                 ),
                 MirrorSubCmd::Latency { timeout, json } => {
-                    get_latency(timeout, config.no_progress(), json)
+                    get_latency(timeout, config.no_progress(), json, &config.user_agent)
                 }
             }
         } else {
@@ -423,10 +423,15 @@ fn set_order(
     Ok(ExitHandle::default().ring(true))
 }
 
-fn get_latency(timeout: f64, no_progress: bool, json: bool) -> Result<ExitHandle, OutputError> {
+fn get_latency(
+    timeout: f64,
+    no_progress: bool,
+    json: bool,
+    user_agent: &str,
+) -> Result<ExitHandle, OutputError> {
     let mm = MirrorManager::new("/")?;
 
-    let client = client(timeout)?;
+    let client = client(timeout, user_agent)?;
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
@@ -632,6 +637,7 @@ struct MirrorLatencyDisplay<'a> {
     secs: i64,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn speedtest(
     no_progress: bool,
     mut set_fastest: bool,
@@ -640,6 +646,7 @@ fn speedtest(
     no_refresh: bool,
     apt_options: Vec<String>,
     timeout: f64,
+    user_agent: &str,
 ) -> Result<ExitHandle, OutputError> {
     if set_fastest {
         root()?;
@@ -655,7 +662,7 @@ fn speedtest(
         None
     };
 
-    let client = client(timeout)?;
+    let client = client(timeout, user_agent)?;
 
     let mut score_map = HashMap::with_hasher(ahash::RandomState::new());
 
@@ -769,11 +776,11 @@ fn speedtest(
     Ok(ExitHandle::default().ring(true))
 }
 
-fn client(timeout: f64) -> Result<blocking::Client, OutputError> {
+fn client(timeout: f64, user_agent: &str) -> Result<blocking::Client, OutputError> {
     init_tls_config();
 
     let client = blocking::ClientBuilder::new()
-        .user_agent(APP_USER_AGENT)
+        .user_agent(user_agent)
         .timeout(Duration::from_secs_f64(timeout))
         .build()?;
 
@@ -801,7 +808,7 @@ fn refresh(
     let auth_config = auth_config.as_ref();
 
     Refresh::builder()
-        .client(&HTTP_CLIENT)
+        .client(HTTP_CLIENT.get().unwrap())
         .dry_run(false)
         .no_progress(no_progress)
         .network_thread(network_threads)
@@ -837,7 +844,7 @@ fn refresh_enabled_topics_sources_list(no_progress: bool) -> Result<(), OutputEr
 
     let try_refresh = Ok(()).and_then(|_| -> Result<(), OutputError> {
         let arch = dpkg_arch("/")?;
-        let mut tm = TopicManager::new_blocking(&HTTP_CLIENT, "/", &arch, false)?;
+        let mut tm = TopicManager::new_blocking(HTTP_CLIENT.get().unwrap(), "/", &arch, false)?;
         RT.block_on(tm.refresh())?;
         tm.remove_closed_topics()?;
         RT.block_on(tm.write_sources_list(

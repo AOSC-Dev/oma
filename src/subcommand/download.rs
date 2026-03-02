@@ -66,7 +66,7 @@ impl CliExecuter for Download {
         });
 
         let summary = apt.download(
-            &HTTP_CLIENT,
+            HTTP_CLIENT.get().unwrap(),
             pkgs,
             DownloadConfig {
                 network_thread: Some(config.download_threads),

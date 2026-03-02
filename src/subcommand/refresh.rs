@@ -28,7 +28,7 @@ impl CliExecuter for Refresh {
 
         let sysroot_str = config.sysroot.to_string_lossy();
         let builder = RefreshInner::builder()
-            .client(&HTTP_CLIENT)
+            .client(HTTP_CLIENT.get().unwrap())
             .dry_run(false)
             .no_progress(config.no_progress())
             .network_thread(config.download_threads)

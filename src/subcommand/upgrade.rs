@@ -103,7 +103,7 @@ impl CliExecuter for Upgrade {
         if !no_refresh {
             let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
-                .client(&HTTP_CLIENT)
+                .client(HTTP_CLIENT.get().unwrap())
                 .dry_run(config.dry_run)
                 .no_progress(config.no_progress())
                 .network_thread(config.download_threads)

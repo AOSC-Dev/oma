@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use std::{borrow::Cow, path::PathBuf};
 
 use clap::ColorChoice;
 use once_cell::sync::OnceCell;
 
 use crate::{
-    GlobalOptions,
+    DEFAULT_USER_AGENT, GlobalOptions,
     config_file::{BatteryTristate, ConfigFile, GeneralConfig, SearchEngine, TakeWakeLockTristate},
     subcommand::utils::is_terminal,
 };
@@ -30,6 +30,7 @@ pub struct OmaConfig {
     pub search_engine: SearchEngine,
     no_progress_oncecell: OnceCell<bool>,
     pub save_log_count: usize,
+    pub user_agent: Cow<'static, str>,
 }
 
 impl Default for OmaConfig {
@@ -58,6 +59,7 @@ impl Default for OmaConfig {
             },
             no_progress_oncecell: OnceCell::new(),
             save_log_count: 10,
+            user_agent: DEFAULT_USER_AGENT.into(),
         }
     }
 }
@@ -94,12 +96,13 @@ impl OmaConfig {
 
         if let Some(network) = network {
             oma_config.download_threads = network.network_threads;
+            oma_config.user_agent = network.user_agent;
         }
 
         oma_config
     }
 
-    pub fn update_from_cli(&mut self, global_options: &GlobalOptions) {
+    pub fn update_from_cli(&mut self, global_options: GlobalOptions) {
         let GlobalOptions {
             dry_run,
             debug,
@@ -113,34 +116,39 @@ impl OmaConfig {
             apt_options,
             no_bell,
             download_threads,
+            user_agent,
             ..
         } = global_options;
 
-        self.dry_run = *dry_run;
-        self.debug = *debug;
-        self.color = *color;
-        self.sysroot = sysroot.clone();
-        self.apt_options = apt_options.clone();
-        self.no_bell = *no_bell;
-        self.follow_terminal_color = *follow_terminal_color;
-        self.no_check_dbus = *no_check_dbus;
+        self.dry_run = dry_run;
+        self.debug = debug;
+        self.color = color;
+        self.sysroot = sysroot;
+        self.apt_options = apt_options;
+        self.no_bell = no_bell;
+        self.follow_terminal_color = follow_terminal_color;
+        self.no_check_dbus = no_check_dbus;
 
         if let Some(download_threads) = download_threads {
-            self.download_threads = *download_threads;
+            self.download_threads = download_threads;
         }
 
-        self.no_progress = *no_progress;
-        self.check_battery = if *no_check_battery {
+        self.no_progress = no_progress;
+        self.check_battery = if no_check_battery {
             BatteryTristate::Ignore
         } else {
             BatteryTristate::Ask
         };
 
-        self.take_wake_lock = if *no_take_wake_lock {
+        self.take_wake_lock = if no_take_wake_lock {
             TakeWakeLockTristate::Warn
         } else {
             TakeWakeLockTristate::Yes
         };
+
+        if let Some(user_agent) = user_agent {
+            self.user_agent = user_agent.into();
+        }
     }
 
     #[inline]

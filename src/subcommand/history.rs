@@ -145,7 +145,7 @@ impl CliExecuter for Undo {
         if !no_refresh {
             let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
-                .client(&HTTP_CLIENT)
+                .client(HTTP_CLIENT.get().unwrap())
                 .dry_run(config.dry_run)
                 .no_progress(config.no_progress())
                 .network_thread(config.download_threads)
@@ -274,7 +274,7 @@ impl CliExecuter for Undo {
 
             let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(
-                &crate::HTTP_CLIENT,
+                HTTP_CLIENT.get().unwrap(),
                 config.sysroot,
                 &arch,
                 config.dry_run,

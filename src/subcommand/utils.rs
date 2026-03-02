@@ -443,7 +443,7 @@ impl CommitChanges<'_> {
                 Box::new(OmaInstallProgressManager::new(yes))
             }),
             &op,
-            &HTTP_CLIENT,
+            HTTP_CLIENT.get().unwrap(),
             CommitConfig {
                 network_thread: Some(network_thread),
                 auth_config,

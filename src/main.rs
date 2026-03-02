@@ -59,6 +59,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
 
+use crate::args::SubCmd;
 use crate::config::OmaConfig;
 use crate::config_file::ConfigFile;
 use crate::error::Chain;
@@ -69,7 +70,7 @@ use crate::utils::ExitHandle;
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static LOCKED: AtomicBool = AtomicBool::new(false);
 static NOT_ALLOW_CTRLC: AtomicBool = AtomicBool::new(false);
-static APP_USER_AGENT: &str = concat!("oma/", env!("CARGO_PKG_VERSION"));
+static DEFAULT_USER_AGENT: &str = concat!("oma/", env!("CARGO_PKG_VERSION"));
 static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
 static RT: LazyLock<Runtime> = LazyLock::new(|| {
     tokio::runtime::Builder::new_multi_thread()
@@ -78,14 +79,7 @@ static RT: LazyLock<Runtime> = LazyLock::new(|| {
         .expect("Failed to init async runtime")
 });
 
-static HTTP_CLIENT: LazyLock<Client> = LazyLock::new(|| {
-    init_tls_config();
-
-    Client::builder()
-        .user_agent(APP_USER_AGENT)
-        .build()
-        .unwrap()
-});
+static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 
 static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
 static LOCK: OnceLock<PathBuf> = OnceLock::new();
@@ -172,6 +166,9 @@ pub struct GlobalOptions {
     /// No use config
     #[arg(long, global = true, env = "OMA_NO_CONFIG", help = fl!("clap-no-config-help"), value_parser = FalseyValueParser::new())]
     no_config: bool,
+    /// User agent string to use for HTTP requests.
+    #[arg(long, global = true, env = "OMA_USER_AGENT", help = fl!("clap-user-agent-help"))]
+    user_agent: Option<String>,
 }
 
 fn main() {
@@ -206,7 +203,9 @@ fn main() {
     );
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
 
-    let config_ctx = read_config_from_file_and_cli(&oma);
+    let (config_ctx, subcmd) = read_config_from_file_and_cli(oma);
+
+    init_http_client(&config_ctx.user_agent);
 
     debug!("OS: {:?}", OsRelease::new());
     if config_ctx.sysroot.to_string_lossy() != "/" {
@@ -230,11 +229,11 @@ fn main() {
         }
     }
 
-    init_apt_config(&oma);
+    init_apt_config(&config_ctx);
 
     let no_bell = config_ctx.no_bell;
 
-    let code = match try_main(oma, config_ctx, matches) {
+    let code = match try_main(subcmd, config_ctx, matches) {
         Ok(exit_code) => {
             unlock_oma().ok();
             exit_code.handle(!no_bell)
@@ -261,7 +260,15 @@ fn main() {
     exit(code);
 }
 
-fn read_config_from_file_and_cli(oma: &OhManagerAilurus) -> OmaConfig {
+fn init_http_client(user_agent: &str) -> &'static Client {
+    HTTP_CLIENT.get_or_init(|| {
+        init_tls_config();
+
+        Client::builder().user_agent(user_agent).build().unwrap()
+    })
+}
+
+fn read_config_from_file_and_cli(oma: OhManagerAilurus) -> (OmaConfig, Option<SubCmd>) {
     // Init config file
     let config_file = if oma.global.no_config {
         warn!("{}", fl!("no-config-warning"));
@@ -270,22 +277,24 @@ fn read_config_from_file_and_cli(oma: &OhManagerAilurus) -> OmaConfig {
         ConfigFile::read()
     };
 
+    let subcmd = oma.subcmd;
+
     let mut config_ctx = OmaConfig::from_config_file(config_file);
     debug!("Config file: {:#?}", config_ctx);
-    config_ctx.update_from_cli(&oma.global);
+    config_ctx.update_from_cli(oma.global);
     debug!("Config: {:#?}", config_ctx);
 
-    config_ctx
+    (config_ctx, subcmd)
 }
 
-fn init_apt_config(oma: &OhManagerAilurus) {
+fn init_apt_config(config: &OmaConfig) {
     let apt_config = AptConfig::new();
 
     if !is_termux() {
-        apt_config.set("Dir", &oma.global.sysroot.to_string_lossy());
+        apt_config.set("Dir", &config.sysroot.to_string_lossy());
     }
 
-    for kv in &oma.global.apt_options {
+    for kv in &config.apt_options {
         let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
         debug!("Set apt option: {k}={v}");
         apt_config.set(k, v);
@@ -486,13 +495,13 @@ fn enable_ansi(oma: &OhManagerAilurus) -> bool {
 }
 
 fn try_main(
-    oma: OhManagerAilurus,
+    subcmd: Option<SubCmd>,
     config: OmaConfig,
     matches: ArgMatches,
 ) -> Result<ExitHandle, OutputError> {
-    init_color_formatter(&oma, &config);
+    init_color_formatter(&config);
 
-    match oma.subcmd {
+    match subcmd {
         Some(subcmd) => subcmd.execute(config),
         None => {
             if let Some((subcommand, args)) = matches.subcommand() {
@@ -539,9 +548,9 @@ fn init_tls_config() {
         .expect("Failed to install rustls crypto provider");
 }
 
-fn init_color_formatter(oma: &OhManagerAilurus, config: &OmaConfig) {
+fn init_color_formatter(config: &OmaConfig) {
     let mut follow_term_color = config.follow_terminal_color;
-    let no_color = oma.global.color == ColorChoice::Never;
+    let no_color = config.color == ColorChoice::Never;
 
     if no_color {
         unsafe { env::set_var("NO_COLOR", "1") };
