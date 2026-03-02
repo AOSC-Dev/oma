@@ -263,6 +263,7 @@ impl CliExecuter for Undo {
             .network_thread(config.download_threads)
             .maybe_auth_config(auth_config.as_ref())
             .download_only(download_only)
+            .yn_mode(config.yn_mode)
             .build()
             .run()?;
 

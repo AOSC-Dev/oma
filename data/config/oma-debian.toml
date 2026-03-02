@@ -39,6 +39,7 @@ check_battery = "ask"
 # - warn:    Do not take session lock, but warn about potential risks.
 # - ignore:  Do not take session lock and say nothing (not recommended).
 take_wake_lock = "yes"
+yn_mode = false
 
 [network]
 # Number of network threads to use when downloading metadata and packages.

@@ -336,6 +336,7 @@ impl CliExecuter for Topics {
                 .topics_enabled(opt_in)
                 .topics_disabled(opt_out)
                 .download_only(download_only)
+                .yn_mode(config.yn_mode)
                 .build()
                 .run()?;
 

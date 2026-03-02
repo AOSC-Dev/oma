@@ -44,12 +44,13 @@ impl<'a> Pager<'a> {
         ui_text: Box<dyn PagerUIText>,
         title: Option<String>,
         color_format: &'a OmaColorFormat,
+        yn_mode: bool,
     ) -> io::Result<Self> {
         if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
             return Ok(Pager::Plain);
         }
 
-        let app = OmaPager::new(title, color_format, ui_text);
+        let app = OmaPager::new(title, color_format, ui_text, yn_mode);
         let res = Pager::External(Box::new(app));
 
         Ok(res)
@@ -149,6 +150,8 @@ pub struct OmaPager<'a> {
     ui_text: Box<dyn PagerUIText>,
     /// A terminal writer to print oma-style message
     writer: Writer,
+    /// Use y/n to replace 'q' to confirm/cancel if is question mode
+    yn_mode: bool,
 }
 
 impl Write for OmaPager<'_> {
@@ -169,7 +172,7 @@ impl Write for OmaPager<'_> {
 }
 
 pub trait PagerUIText {
-    fn normal_tips(&self) -> String;
+    fn normal_tips(&self, yn_mode: bool) -> String;
     fn search_tips_with_result(&self) -> String;
     fn searct_tips_with_query(&self, query: &str) -> String;
     fn search_tips_with_empty(&self) -> String;
@@ -204,6 +207,7 @@ impl<'a> OmaPager<'a> {
         title: Option<String>,
         theme: &'a OmaColorFormat,
         ui_text: Box<dyn PagerUIText>,
+        yn_mode: bool,
     ) -> Self {
         Self {
             inner: PagerInner::Working(vec![]),
@@ -213,7 +217,7 @@ impl<'a> OmaPager<'a> {
             horizontal_scroll: 0,
             area_height: 0,
             max_width: 0,
-            tips: ui_text.normal_tips(),
+            tips: ui_text.normal_tips(yn_mode),
             title,
             inner_len: 0,
             theme,
@@ -222,6 +226,7 @@ impl<'a> OmaPager<'a> {
             mode: TuiMode::Normal,
             ui_text,
             writer: Writer::default(),
+            yn_mode,
         }
     }
     /// Run the pager
@@ -289,7 +294,11 @@ impl<'a> OmaPager<'a> {
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
                                     continue;
                                 }
-                                return Ok(PagerExit::NormalExit);
+                                if !self.yn_mode {
+                                    return Ok(PagerExit::NormalExit);
+                                } else {
+                                    return Ok(PagerExit::Sigint);
+                                }
                             }
                             KeyCode::Down => {
                                 self.down();
@@ -303,13 +312,29 @@ impl<'a> OmaPager<'a> {
                             KeyCode::Right => {
                                 self.right();
                             }
-                            KeyCode::Char('y') => {
+                            KeyCode::Char('y') if !self.yn_mode => {
                                 if self.mode == TuiMode::SearchInputText {
                                     query.push('y');
                                     self.tips = self.ui_text.searct_tips_with_query(&query);
                                     continue;
                                 }
                                 self.up();
+                            }
+                            KeyCode::Char('y') => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('y');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                return Ok(PagerExit::NormalExit);
+                            }
+                            KeyCode::Char('n') if self.yn_mode => {
+                                if self.mode == TuiMode::SearchInputText {
+                                    query.push('n');
+                                    self.tips = self.ui_text.searct_tips_with_query(&query);
+                                    continue;
+                                }
+                                return Ok(PagerExit::Sigint);
                             }
                             KeyCode::Char('j') => {
                                 if self.mode == TuiMode::SearchInputText {
@@ -387,7 +412,7 @@ impl<'a> OmaPager<'a> {
                                 // clear highlight
                                 self.clear_highlight();
                                 // clear search tips
-                                self.tips = self.ui_text.normal_tips();
+                                self.tips = self.ui_text.normal_tips(self.yn_mode);
                             }
                             KeyCode::Backspace => {
                                 if self.mode == TuiMode::SearchInputText {

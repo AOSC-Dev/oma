@@ -24,6 +24,7 @@ impl Default for ConfigFile {
                 bell: GeneralConfig::default_bell(),
                 search_engine: GeneralConfig::default_search_engine(),
                 save_log_count: GeneralConfig::default_save_log_count(),
+                yn_mode: GeneralConfig::default_yn_mode(),
             }),
             network: Some(NetworkConfig {
                 network_threads: NetworkConfig::default_network_thread(),
@@ -56,6 +57,8 @@ pub struct GeneralConfig {
     pub search_engine: SearchEngine,
     #[serde(default = "GeneralConfig::default_save_log_count")]
     pub save_log_count: usize,
+    #[serde(default = "GeneralConfig::default_yn_mode")]
+    pub yn_mode: bool,
 }
 
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,6 +146,10 @@ impl GeneralConfig {
 
     pub const fn default_save_log_count() -> usize {
         10
+    }
+
+    pub const fn default_yn_mode() -> bool {
+        false
     }
 }
 

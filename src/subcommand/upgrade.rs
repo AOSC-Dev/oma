@@ -196,6 +196,7 @@ impl CliExecuter for Upgrade {
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .is_upgrade(true)
+            .yn_mode(config.yn_mode)
             .build()
             .run()?;
 

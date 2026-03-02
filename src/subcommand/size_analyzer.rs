@@ -185,6 +185,7 @@ impl CliExecuter for SizeAnalyzer {
                 .network_thread(config.download_threads)
                 .maybe_auth_config(auth_config)
                 .fix_dpkg_status(!no_fix_dpkg_status)
+                .yn_mode(config.yn_mode)
                 .build()
                 .run()?;
         }

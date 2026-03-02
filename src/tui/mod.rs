@@ -258,6 +258,7 @@ impl CliExecuter for Tui {
                 .network_thread(config.download_threads)
                 .check_tum(upgrade)
                 .is_upgrade(upgrade)
+                .yn_mode(config.yn_mode)
                 .build()
                 .run()?;
         }

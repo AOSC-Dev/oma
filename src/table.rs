@@ -223,6 +223,7 @@ pub fn oma_display_with_normal_output(
             }),
             None,
             color_formatter(),
+            false,
         )
         .map_err(|e| OutputError {
             description: "Failed to get pager".to_string(),
@@ -239,7 +240,7 @@ struct OmaPagerUIText {
 }
 
 impl PagerUIText for OmaPagerUIText {
-    fn normal_tips(&self) -> String {
+    fn normal_tips(&self, yn_mode: bool) -> String {
         if let Some((download_size, install_size)) = self.download_and_install_size {
             let (symbol, abs_install_size_change) = if install_size >= 0 {
                 ("+", install_size as u64)
@@ -254,10 +255,10 @@ impl PagerUIText for OmaPagerUIText {
                 fl!("change-storage-usage"),
                 symbol,
                 HumanBytes(abs_install_size_change),
-                tips(self.is_question)
+                tips(self.is_question, yn_mode)
             )
         } else {
-            tips(self.is_question)
+            tips(self.is_question, yn_mode)
         }
     }
 
@@ -278,16 +279,22 @@ impl PagerUIText for OmaPagerUIText {
     }
 }
 
-fn tips(is_question: bool) -> String {
+fn tips(is_question: bool, yn_mode: bool) -> String {
     let has_x11 = std::env::var("DISPLAY");
     let has_wayland = std::env::var("WAYLAND_DISPLAY");
     let has_gui = has_x11.is_ok() || has_wayland.is_ok();
 
     if is_question {
-        if has_gui {
-            fl!("question-tips-with-gui")
+        if !yn_mode {
+            if has_gui {
+                fl!("question-tips-with-gui")
+            } else {
+                fl!("question-tips")
+            }
+        } else if has_gui {
+            fl!("question-tips-with-gui-yn-mode")
         } else {
-            fl!("question-tips")
+            fl!("question-tips-yn-mode")
         }
     } else if has_gui {
         fl!("normal-tips-with-gui")
@@ -375,6 +382,7 @@ pub fn table_for_install_pending(
     tum: Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
     is_pager: bool,
     dry_run: bool,
+    yn_mode: bool,
 ) -> Result<PagerExit, OutputError> {
     if dry_run {
         return Ok(PagerExit::DryRun);
@@ -401,6 +409,7 @@ pub fn table_for_install_pending(
             }),
             Some(fl!("pending-op")),
             color_formatter(),
+            yn_mode,
         )
         .map_err(|e| OutputError {
             description: "Failed to get pager".to_string(),
@@ -473,6 +482,7 @@ pub fn table_for_history_pending(
         }),
         Some(fl!("pending-op")),
         color_formatter(),
+        false,
     )
     .map_err(|e| OutputError {
         description: "Failed to get pager".to_string(),

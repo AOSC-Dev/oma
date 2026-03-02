@@ -214,6 +214,7 @@ impl CliExecuter for Install {
             .maybe_auth_config(auth_config)
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
+            .yn_mode(config.yn_mode)
             .build()
             .run()
     }

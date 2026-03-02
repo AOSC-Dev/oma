@@ -8,7 +8,7 @@ use std::{io, time::Duration};
 struct OmaPagerUIText;
 
 impl PagerUIText for OmaPagerUIText {
-    fn normal_tips(&self) -> String {
+    fn normal_tips(&self, _yn_mode: bool) -> String {
         "QAQ".to_string()
     }
 
@@ -31,7 +31,12 @@ impl PagerUIText for OmaPagerUIText {
 
 fn main() -> io::Result<()> {
     let cf = OmaColorFormat::new(true, Duration::from_millis(100));
-    let pager = OmaPager::new(Some("QAQ".to_string()), &cf, Box::new(OmaPagerUIText));
+    let pager = OmaPager::new(
+        Some("QAQ".to_string()),
+        &cf,
+        Box::new(OmaPagerUIText),
+        false,
+    );
     let mut p = Pager::External(Box::new(pager));
     let mut w = p.get_writer()?;
     w.write_all("QAQ\n".cyan().to_string().as_bytes()).ok();
