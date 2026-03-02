@@ -166,8 +166,8 @@ pub struct GlobalOptions {
     /// No use config
     #[arg(long, global = true, env = "OMA_NO_CONFIG", help = fl!("clap-no-config-help"), value_parser = FalseyValueParser::new())]
     no_config: bool,
-    #[arg(long, global = true, env = "OMA_USER_AGENT", default_value = DEFAULT_USER_AGENT)]
-    user_agent: Cow<'static, str>,
+    #[arg(long, global = true, env = "OMA_USER_AGENT")]
+    user_agent: Option<String>,
 }
 
 fn main() {

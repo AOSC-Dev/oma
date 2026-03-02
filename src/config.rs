@@ -96,6 +96,7 @@ impl OmaConfig {
 
         if let Some(network) = network {
             oma_config.download_threads = network.network_threads;
+            oma_config.user_agent = network.user_agent;
         }
 
         oma_config
@@ -145,7 +146,9 @@ impl OmaConfig {
             TakeWakeLockTristate::Yes
         };
 
-        self.user_agent = user_agent;
+        if let Some(user_agent) = user_agent {
+            self.user_agent = user_agent.into();
+        }
     }
 
     #[inline]
