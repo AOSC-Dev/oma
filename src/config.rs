@@ -99,7 +99,7 @@ impl OmaConfig {
         oma_config
     }
 
-    pub fn update_from_cli(&mut self, global_options: &GlobalOptions) {
+    pub fn update_from_cli(&mut self, global_options: GlobalOptions) {
         let GlobalOptions {
             dry_run,
             debug,
@@ -116,27 +116,27 @@ impl OmaConfig {
             ..
         } = global_options;
 
-        self.dry_run = *dry_run;
-        self.debug = *debug;
-        self.color = *color;
-        self.sysroot = sysroot.clone();
-        self.apt_options = apt_options.clone();
-        self.no_bell = *no_bell;
-        self.follow_terminal_color = *follow_terminal_color;
-        self.no_check_dbus = *no_check_dbus;
+        self.dry_run = dry_run;
+        self.debug = debug;
+        self.color = color;
+        self.sysroot = sysroot;
+        self.apt_options = apt_options;
+        self.no_bell = no_bell;
+        self.follow_terminal_color = follow_terminal_color;
+        self.no_check_dbus = no_check_dbus;
 
         if let Some(download_threads) = download_threads {
-            self.download_threads = *download_threads;
+            self.download_threads = download_threads;
         }
 
-        self.no_progress = *no_progress;
-        self.check_battery = if *no_check_battery {
+        self.no_progress = no_progress;
+        self.check_battery = if no_check_battery {
             BatteryTristate::Ignore
         } else {
             BatteryTristate::Ask
         };
 
-        self.take_wake_lock = if *no_take_wake_lock {
+        self.take_wake_lock = if no_take_wake_lock {
             TakeWakeLockTristate::Warn
         } else {
             TakeWakeLockTristate::Yes
