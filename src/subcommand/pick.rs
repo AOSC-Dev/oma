@@ -191,6 +191,7 @@ impl CliExecuter for Pick {
             .network_thread(config.download_threads)
             .maybe_auth_config(auth_config)
             .download_only(download_only)
+            .yn_mode(config.yn_mode)
             .build()
             .run()
     }

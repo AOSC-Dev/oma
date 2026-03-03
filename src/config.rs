@@ -31,6 +31,7 @@ pub struct OmaConfig {
     no_progress_oncecell: OnceCell<bool>,
     pub save_log_count: usize,
     pub user_agent: Cow<'static, str>,
+    pub yn_mode: bool,
 }
 
 impl Default for OmaConfig {
@@ -60,6 +61,7 @@ impl Default for OmaConfig {
             no_progress_oncecell: OnceCell::new(),
             save_log_count: 10,
             user_agent: DEFAULT_USER_AGENT.into(),
+            yn_mode: false,
         }
     }
 }
@@ -78,6 +80,7 @@ impl OmaConfig {
                 protect_essentials,
                 search_contents_println,
                 search_engine,
+                yn_mode,
                 ..
             } = general;
 
@@ -92,6 +95,7 @@ impl OmaConfig {
             oma_config.protect_essentials = protect_essentials;
             oma_config.search_contents_println = search_contents_println;
             oma_config.search_engine = search_engine;
+            oma_config.yn_mode = yn_mode;
         }
 
         if let Some(network) = network {

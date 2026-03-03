@@ -27,6 +27,8 @@ pkg-no-checksum = oma is unable to repair { $name }: unable find checksum for th
 pkg-unavailable = Version { $ver } of { $pkg } is not available from any configured repository.
 # pager
 question-tips-with-gui = [q] => Apply Changes, [Ctrl-c] => Abort, [PgUp/Dn]/[↑↓←→]/[wheel] => Scroll
+question-tips-with-gui-yn-mode = [y] => Apply Changes, [n]/[q]/[Ctrl-c] => Abort, [PgUp/Dn]/[↑↓←→]/[wheel] => Scroll
+question-tips-yn-mode = [y] => Apply Changes, [n]/[q]/[Ctrl-c] => Abort, [PgUp/Dn]/[↑↓←→] => Scroll
 normal-tips-with-gui = [q]/[Ctrl-c] => Exit, [PgUp/Dn]/[↑↓←→]/[wheel] => Scroll
 question-tips = [q] => Apply Changes, [Ctrl-c] => Abort, [PgUp/Dn]/[↑↓←→] => Scroll
 normal-tips = [q]/[Ctrl-c] => Exit, [PgUp/Dn]/[↑↓←→] => Scroll

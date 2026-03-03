@@ -322,6 +322,7 @@ pub(crate) struct CommitChanges<'a> {
     download_only: bool,
     #[builder(default)]
     is_upgrade: bool,
+    yn_mode: bool,
 }
 
 impl CommitChanges<'_> {
@@ -346,6 +347,7 @@ impl CommitChanges<'_> {
             topics_disabled,
             download_only,
             is_upgrade,
+            yn_mode,
         } = self;
 
         fix_broken(
@@ -412,12 +414,15 @@ impl CommitChanges<'_> {
                 matches_tum,
                 !yes,
                 dry_run,
+                yn_mode,
             )? {
                 PagerExit::NormalExit => {}
                 x => return Ok(ExitHandle::default().status(ExitStatus::Other(x.into()))),
             }
         } else {
-            match table_for_install_pending(install, remove, *disk_size, None, !yes, dry_run)? {
+            match table_for_install_pending(
+                install, remove, *disk_size, None, !yes, dry_run, yn_mode,
+            )? {
                 PagerExit::NormalExit => {}
                 x => return Ok(ExitHandle::default().status(ExitStatus::Other(x.into()))),
             }

@@ -210,6 +210,7 @@ impl CliExecuter for Remove {
             .network_thread(config.download_threads)
             .maybe_auth_config(auth_config)
             .fix_dpkg_status(fix_dpkg_status)
+            .yn_mode(config.yn_mode)
             .build()
             .run()
     }

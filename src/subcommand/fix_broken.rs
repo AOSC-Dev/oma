@@ -79,6 +79,7 @@ impl CliExecuter for FixBroken {
             .remove_config(remove_config)
             .maybe_auth_config(auth_config)
             .network_thread(config.download_threads)
+            .yn_mode(config.yn_mode)
             .build()
             .run()
     }

@@ -26,9 +26,11 @@ pkg-is-essential = 軟體套件 { $name } 是不允許移除的關鍵組件。
 pkg-no-checksum = oma 無法修復軟體套件 { $name }：找不到該本地或第三方軟體套件的雜湊值。
 pkg-unavailable = 軟體庫中找不到 { $ver } 版本的軟體套件 { $pkg }。
 # pager
-question-tips-with-x11 = 按 [q] 結束檢閱並套用更改，按 [Ctrl-c] 中止操作，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
-normal-tips-with-x11 = 按 [q] 或 [Ctrl-c] 結束，按 [PgUp/Dn]、方向鍵或使用滑鼠滾輪翻頁。
-question-tips = { "[" }q] => 套用變更，[Ctrl-c] => 中止操作，[PgUp/Dn]/[↑↓←→] => 翻頁
+question-tips-with-gui = { "[" }q] => 套用更改, [Ctrl-c] => 中止操作, [PgUp/Dn]/[↑↓←→]/[滑鼠滾輪] => 翻頁
+question-tips-with-gui-yn-mode = { "[" }y] => 套用更改, [n]/[q]/[Ctrl-c] => 中止操作, [PgUp/Dn]/[↑↓←→]/[滑鼠滾輪] => 翻頁
+question-tips-yn-mode = { "[" }y] => 套用更改, [n]/[q]/[Ctrl-c] => 中止操作, [PgUp/Dn]/[↑↓←→] => 翻頁
+normal-tips-with-gui = { "[" }q]/[Ctrl-c] => 結束，[PgUp/Dn]/[↑↓←→]/[滑鼠滾輪] => 翻頁
+question-tips = { "[" }q] => 套用更改, [Ctrl-c] => 結束, [PgUp/Dn]/[↑↓←→] => 翻頁
 normal-tips = { "[" }q]/[Ctrl-c] => 結束，[PgUp/Dn]/[↑↓←→] => 翻頁
 # oma
 no-need-to-do-anything = 無需進行任何操作。
