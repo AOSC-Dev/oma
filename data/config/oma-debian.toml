@@ -39,8 +39,10 @@ check_battery = "ask"
 # - warn:    Do not take session lock, but warn about potential risks.
 # - ignore:  Do not take session lock and say nothing (not recommended).
 take_wake_lock = "yes"
-# Whether oma should allow y/n for confirmation prompts (instead of
-# [q]/Ctrl-C) during install/remove and upgrade/downgrade operations.
+# Whether oma should allow [y]/[n] for confirmation prompts (instead of
+# [q]/[Ctrl-c]) during install/remove and upgrade/downgrade operations.
+#
+# [q] will be used as equivalent to [n]/[Ctrl-c] if set to true.
 yn_mode = false
 
 [network]
