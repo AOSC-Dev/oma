@@ -169,9 +169,6 @@ table-size = 大小
 table-detail = 註記
 reading-database = 正在為軟體套件資料庫構建索引……
 has-error-on-top = 您指定的操作未成功完成，請參閱上方輸出取得更多資訊。
-# pager
-question-tips-with-gui = { "[" }q] => 套用變更，[Ctrl-c] => 中止操作，[PgUp/Dn]/[↑↓←→]/[滾輪] => 翻頁
-normal-tips-with-gui = { "[" }q]/[Ctrl-c] => 退出，[PgUp/Dn]/[↑↓←→]/[滾輪] => 翻頁
 mirror-is-not-trusted = 鏡像源 { $mirror } 未簽署或未受信任，請檢查您的軟體庫設定。
 please-run-me-as-root = oma 需執行系統管理操作，請使用管理者權限執行 oma 指令。
 topic-not-in-mirror = 測試庫 { $topic } 在鏡像源 { $mirror } 上無法使用。
