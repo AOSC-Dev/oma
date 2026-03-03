@@ -11,10 +11,14 @@ license = "MIT"
 thiserror = "2"
 number_prefix = { version = "0.4", optional = true }
 os-release = "0.1"
-zbus = { version = "5.1", optional = true, default-features = false, features = ["tokio"] }
+zbus = { version = "5.1", optional = true, default-features = false, features = [
+    "tokio",
+] }
 url-escape = { version = "0.1", optional = true }
 spdlog-rs = "0.5"
-logind-zbus = { version = "5.1", optional = true, default-features = false, features = ["tokio"], package = "logind-zbus-tokio" }
+logind-zbus = { version = "5.1", optional = true, default-features = false, features = [
+    "tokio",
+], package = "logind-zbus-tokio" }
 nix = { version = "0.31", features = ["fs"] }
 sysinfo = "0.38"
 

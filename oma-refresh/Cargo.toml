@@ -11,7 +11,11 @@ license = "GPL-3.0-or-later"
 oma-fetch = { version = "^0.36.0", path = "../oma-fetch", default-features = false }
 thiserror = "2"
 url = "2.3"
-tokio = { version = "1.28", default-features = false, features = ["fs", "process", "macros"] }
+tokio = { version = "1.28", default-features = false, features = [
+    "fs",
+    "process",
+    "macros",
+] }
 futures = "0.3"
 oma-apt-sources-lists = "0.9"
 chrono = { version = "0.4", features = ["unstable-locales"] }
@@ -19,7 +23,7 @@ oma-topics = { version = "^0.26.0", path = "../oma-topics", optional = true, def
 spdlog-rs = "0.5"
 oma-repo-verify = { version = "^0.10.0", path = "../oma-repo-verify", default-features = false }
 ahash = "0.8.11"
-oma-apt = { version = "0.13", optional = true}
+oma-apt = { version = "0.13", optional = true }
 aho-corasick = "1.1.3"
 bon = "3"
 once_cell = "1.19"
@@ -40,7 +44,9 @@ blocking = ["tokio/rt", "tokio/rt-multi-thread"]
 default = ["aosc", "sequoia-nettle-backend", "rustls", "apt"]
 
 [dev-dependencies]
-tokio = { version = "1.28", default-features = false, features = ["rt-multi-thread"] }
+tokio = { version = "1.28", default-features = false, features = [
+    "rt-multi-thread",
+] }
 flume = "0.12"
 oma-utils = { version = "^0.13.0", path = "../oma-utils", features = ["dpkg"] }
 
