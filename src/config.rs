@@ -75,6 +75,7 @@ impl OmaConfig {
         if let Some(general) = general {
             let GeneralConfig {
                 no_check_dbus,
+                #[cfg(feature = "aosc")]
                 no_refresh_topics,
                 follow_terminal_color,
                 protect_essentials,
