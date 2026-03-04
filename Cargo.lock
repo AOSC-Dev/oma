@@ -3050,6 +3050,7 @@ dependencies = [
  "strsim",
  "sysinfo",
  "tabled",
+ "terminfo",
  "termtree",
  "textwrap",
  "tokio",
