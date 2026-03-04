@@ -10,8 +10,8 @@ use oma_utils::{
     dbus::{InhibitTypeUnion, take_wake_lock},
     is_termux,
 };
+use render::{Task, Tui as TuiInner};
 use spdlog::info;
-use tui_inner::{Task, Tui as TuiInner};
 
 use crate::{
     HTTP_CLIENT, RT,
@@ -25,15 +25,17 @@ use crate::{
     config::OmaConfig,
     config_file::{BatteryTristate, TakeWakeLockTristate},
     subcommand::utils::{auth_config, create_progress_spinner, no_check_dbus_warn},
-    tui::tui_inner::PackageStatus,
+    tui::render::PackageStatus,
     utils::{
         ExitHandle, check_battery_disabled_warn, connect_dbus_impl, is_battery,
         no_take_wake_lock_warn,
     },
 };
 
+mod key_binding;
+mod render;
 mod state;
-mod tui_inner;
+mod window;
 
 #[derive(Debug, Args, Default)]
 pub struct Tui {
