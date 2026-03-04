@@ -69,6 +69,7 @@ which = "8"
 rayon = "1.11.0"
 humantime = "2.3"
 env_filter = "0.1.4"
+terminfo = "0.9.0"
 
 # oma crates
 oma-utils = { path = "./oma-utils", features = ["dbus", "human-bytes"] }

@@ -27,6 +27,8 @@ use ratatui::{
         ScrollbarState,
     },
 };
+use spdlog::debug;
+use terminfo::{Database, capability::MaxColors};
 
 use crate::{WRITER, fl, subcommand::search::SearchResultDisplay};
 
@@ -64,6 +66,7 @@ pub struct Tui<'a> {
     upgrade: bool,
     autoremove: bool,
     popup: Option<String>,
+    true_colors: bool,
 }
 
 impl Display for Operation {
@@ -116,6 +119,12 @@ impl<'a> Tui<'a> {
     pub fn new(apt: &'a OmaApt, status: PackageStatus, searcher: IndiciumSearch<'a>) -> Self {
         let pkg_results = vec![];
         let pkg_result_state = StatefulList::with_items(vec![]);
+        let true_colors = Database::from_env()
+            .inspect_err(|e| debug!("Failed to get terminfo: {e}"))
+            .ok()
+            .and_then(|terminfo| terminfo.get::<MaxColors>())
+            .inspect(|MaxColors(n)| debug!("Terminal max colors: {n}"))
+            .is_some_and(|MaxColors(n)| n >= 256);
 
         Self {
             apt,
@@ -134,6 +143,7 @@ impl<'a> Tui<'a> {
             upgrade: false,
             autoremove: false,
             popup: None,
+            true_colors,
         }
     }
 
@@ -759,9 +769,12 @@ impl<'a> Tui<'a> {
                 main_layout[2]
             },
             self.status,
+            self.true_colors,
         );
 
         if self.display_pending_detail {
+            let color = select_bg_color(self.true_colors);
+
             f.render_stateful_widget(
                 List::new(self.pending_result_state.items.clone())
                     .block(
@@ -770,7 +783,7 @@ impl<'a> Tui<'a> {
                             .title(fl!("tui-pending"))
                             .style(highlight_window(&self.mode, &Mode::Pending)),
                     )
-                    .highlight_style(Style::default().bg(Color::Rgb(59, 64, 70))),
+                    .highlight_style(Style::default().bg(color)),
                 chunks[1],
                 &mut self.pending_result_state.state,
             );
@@ -895,10 +908,13 @@ fn show_packages(
     mode: &Mode,
     area: Rect,
     status: PackageStatus,
+    true_colors: bool,
 ) {
     let u = status.available_upgrade_package_count();
 
     if !result.is_empty() {
+        let color = select_bg_color(true_colors);
+
         frame.render_stateful_widget(
             List::new(display_list.items.clone())
                 .block(
@@ -912,7 +928,7 @@ fn show_packages(
                         ))
                         .style(highlight_window(mode, &Mode::Packages)),
                 )
-                .highlight_style(Style::default().bg(Color::Rgb(59, 64, 70))),
+                .highlight_style(Style::default().bg(color)),
             area,
             &mut display_list.state,
         );
@@ -973,6 +989,16 @@ fn show_packages(
     }
 }
 
+#[inline]
+fn select_bg_color(true_colors: bool) -> Color {
+    if true_colors {
+        Color::Rgb(59, 64, 70)
+    } else {
+        Color::Blue
+    }
+}
+
+#[inline]
 fn highlight_window(mode: &Mode, right: &Mode) -> Style {
     if mode == right {
         Style::default().bold()
