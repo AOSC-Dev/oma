@@ -83,6 +83,7 @@ static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 
 static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
 static LOCK: OnceLock<PathBuf> = OnceLock::new();
+static RUSTLS_CRYPTO_PROVIDER: OnceLock<()> = OnceLock::new();
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {
@@ -542,10 +543,12 @@ fn try_main(
 /// Initialize ring TLS config for HTTP client
 #[inline]
 fn init_tls_config() {
-    #[cfg(feature = "rustls")]
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .expect("Failed to install rustls crypto provider");
+    RUSTLS_CRYPTO_PROVIDER.get_or_init(|| {
+        #[cfg(feature = "rustls")]
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .expect("Failed to install rustls crypto provider");
+    });
 }
 
 fn init_color_formatter(config: &OmaConfig) {

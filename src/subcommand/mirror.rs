@@ -51,7 +51,6 @@ use crate::args::HELP_TEMPLATE;
 use crate::config::OmaConfig;
 use crate::error::OutputError;
 use crate::fl;
-use crate::init_tls_config;
 use crate::lang::SYSTEM_LANG;
 use crate::pb::OmaProgressBar;
 use crate::pb::Print;
@@ -777,8 +776,6 @@ fn speedtest(
 }
 
 fn client(timeout: f64, user_agent: &str) -> Result<blocking::Client, OutputError> {
-    init_tls_config();
-
     let client = blocking::ClientBuilder::new()
         .user_agent(user_agent)
         .timeout(Duration::from_secs_f64(timeout))
