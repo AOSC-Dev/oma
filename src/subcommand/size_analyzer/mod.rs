@@ -22,12 +22,13 @@ use tabled::builder::Builder;
 use tabled::settings::{Alignment, Settings};
 
 use crate::config::OmaConfig;
-use crate::fl;
 use crate::subcommand::size_analyzer::pkg::PkgWrapper;
 use crate::subcommand::size_analyzer::tui::PkgSizeAnalyzer;
 use crate::subcommand::utils::{CommitChanges, auth_config};
+use crate::table::table_no_color;
 use crate::utils::{ExitHandle, dbus_check, is_root};
 use crate::{CliExecuter, error::OutputError};
+use crate::{NO_COLOR, fl};
 
 #[derive(Debug, Args)]
 pub struct SizeAnalyzer {
@@ -115,15 +116,17 @@ impl CliExecuter for SizeAnalyzer {
 
             let table_settings = Settings::default().with(tabled::settings::style::Style::blank());
 
-            writeln!(
-                stdout(),
-                "{}",
-                table.build().with(table_settings).modify(
-                    tabled::settings::object::Columns::new(..1),
-                    Alignment::right()
-                )
-            )
-            .ok();
+            let mut table = table.build();
+            table.with(table_settings).modify(
+                tabled::settings::object::Columns::new(..1),
+                Alignment::right(),
+            );
+
+            if NO_COLOR.load(std::sync::atomic::Ordering::Relaxed) {
+                table_no_color(&mut table);
+            }
+
+            writeln!(stdout(), "{table}").ok();
             writeln!(stdout()).ok();
             info!("{}", fl!("psa-without-root-tips"));
         } else {
