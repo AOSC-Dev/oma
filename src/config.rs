@@ -164,6 +164,7 @@ impl OmaConfig {
                 || self.debug
                 || self.dry_run
                 || std::env::var("OMA_LOG").is_ok()
+                || self.color == ColorChoice::Never
         })
     }
 }
