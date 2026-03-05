@@ -7,9 +7,10 @@ use std::sync::atomic::Ordering;
 use crate::console::style;
 use crate::error::OutputError;
 use crate::subcommand::utils::is_terminal;
-use crate::{NOT_DISPLAY_ABORT, WRITER, color_formatter, fl};
+use crate::{NO_COLOR, NOT_DISPLAY_ABORT, WRITER, color_formatter, fl};
 use ahash::HashMap;
 use ahash::HashSet;
+use dialoguer::console;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{Pager, PagerExit, PagerUIText};
 use oma_console::print::Action;
@@ -18,9 +19,9 @@ use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 
 #[cfg(feature = "aosc")]
 use oma_tum::TopicUpdateEntryRef;
-use tabled::settings::object::Columns;
+use tabled::settings::object::{Columns, Segment};
 use tabled::settings::peaker::PriorityMax;
-use tabled::settings::{Alignment, Padding, Style, Width};
+use tabled::settings::{Alignment, Format, Modify, Padding, Style, Width};
 use tabled::{Table, Tabled};
 
 #[cfg(not(feature = "aosc"))]
@@ -338,6 +339,8 @@ impl<W: Write> PagerPrinter<W> {
         I: IntoIterator<Item = T>,
         T: Tabled,
     {
+        let no_color = NO_COLOR.load(Ordering::Relaxed);
+
         let mut table = {
             let mut t = Table::builder(table);
             t.remove_record(0);
@@ -371,8 +374,19 @@ impl<W: Write> PagerPrinter<W> {
                     .keep_words(true),
             );
 
+        if no_color {
+            table_no_color(&mut table);
+        }
+
         writeln!(self.writer, "{table}")
     }
+}
+
+#[inline]
+pub fn table_no_color(table: &mut Table) {
+    table.with(Modify::new(Segment::all()).with(Format::content(|s| {
+        console::strip_ansi_codes(s).to_string()
+    })));
 }
 
 pub fn table_for_install_pending(
