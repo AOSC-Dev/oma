@@ -84,7 +84,8 @@ static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
 static LOCK: OnceLock<PathBuf> = OnceLock::new();
 static RUSTLS_CRYPTO_PROVIDER: OnceLock<()> = OnceLock::new();
-static NO_COLOR: AtomicBool = AtomicBool::new(false);
+static NO_COLOR: LazyLock<bool> =
+    LazyLock::new(|| env::var("NO_COLOR").is_ok_and(|res| res == "true" || res == "1"));
 
 #[derive(Debug, Args)]
 pub struct GlobalOptions {
@@ -558,7 +559,6 @@ fn init_color_formatter(config: &OmaConfig) {
 
     if no_color {
         unsafe { env::set_var("NO_COLOR", "1") };
-        NO_COLOR.store(true, Ordering::Relaxed);
     }
 
     COLOR_FORMATTER.get_or_init(|| {
