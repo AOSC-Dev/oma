@@ -122,7 +122,7 @@ impl CliExecuter for SizeAnalyzer {
                 Alignment::right(),
             );
 
-            if NO_COLOR.load(std::sync::atomic::Ordering::Relaxed) {
+            if *NO_COLOR {
                 table_no_color(&mut table);
             }
 

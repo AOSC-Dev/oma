@@ -339,8 +339,6 @@ impl<W: Write> PagerPrinter<W> {
         I: IntoIterator<Item = T>,
         T: Tabled,
     {
-        let no_color = NO_COLOR.load(Ordering::Relaxed);
-
         let mut table = {
             let mut t = Table::builder(table);
             t.remove_record(0);
@@ -374,7 +372,7 @@ impl<W: Write> PagerPrinter<W> {
                     .keep_words(true),
             );
 
-        if no_color {
+        if *NO_COLOR {
             table_no_color(&mut table);
         }
 
