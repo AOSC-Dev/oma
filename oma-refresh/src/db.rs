@@ -13,7 +13,7 @@ use chrono::Utc;
 use oma_apt::config::Config;
 use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
-    CompressFile, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
+    CompressType, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
     checksum::{Checksum, ChecksumError},
     download::{BuilderError, SuccessSummary},
     reqwest::{
@@ -776,7 +776,7 @@ fn collect_flat_repo_no_release(
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
         .msg(msg.into())
-        .file_type(CompressFile::Nothing)
+        .file_type(CompressType::None)
         .build();
 
     tasks.push(task);
@@ -868,16 +868,16 @@ fn collect_download_task(
         .msg(msg.into())
         .file_type({
             if c.keep_compress {
-                CompressFile::Nothing
+                CompressType::None
             } else {
                 match Path::new(&c.item.name).extension().and_then(|x| x.to_str()) {
-                    Some("gz") => CompressFile::Gzip,
-                    Some("xz") => CompressFile::Xz,
-                    Some("bz2") => CompressFile::Bz2,
-                    Some("zst") => CompressFile::Zstd,
-                    Some("lzma") => CompressFile::Lzma,
-                    Some("lz4") => CompressFile::Lz4,
-                    _ => CompressFile::Nothing,
+                    Some("gz") => CompressType::Gzip,
+                    Some("xz") => CompressType::Xz,
+                    Some("bz2") => CompressType::Bz2,
+                    Some("zst") => CompressType::Zstd,
+                    Some("lzma") => CompressType::Lzma,
+                    Some("lz4") => CompressType::Lz4,
+                    _ => CompressType::None,
                 }
             }
         })
