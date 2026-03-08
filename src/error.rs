@@ -32,7 +32,6 @@ use oma_utils::dpkg::DpkgError;
 use oma_topics::OmaTopicsError;
 use spdlog::{debug, error, info};
 
-use crate::subcommand::utils::LockError;
 use crate::{due_to, fl, msg};
 
 use self::ChainState::*;
@@ -173,15 +172,6 @@ impl Error for OutputError {
 impl From<OmaAptError> for OutputError {
     fn from(value: OmaAptError) -> Self {
         oma_apt_error_to_output(value)
-    }
-}
-
-impl From<LockError> for OutputError {
-    fn from(value: LockError) -> Self {
-        Self {
-            description: "".to_string(),
-            source: Some(Box::new(value)),
-        }
     }
 }
 

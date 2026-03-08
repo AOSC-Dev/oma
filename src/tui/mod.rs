@@ -230,7 +230,7 @@ impl CliExecuter for Tui {
                 None
             };
 
-            lock_oma(sysroot)?;
+            let _lock_fd = lock_oma(sysroot)?;
 
             if upgrade {
                 apt.upgrade(Upgrade::FullUpgrade)?;

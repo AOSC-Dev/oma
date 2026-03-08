@@ -49,7 +49,7 @@ impl CliExecuter for FixBroken {
             no_fix_dpkg_status,
         } = self;
 
-        lock_oma(&config.sysroot)?;
+        let _lock_fd = lock_oma(&config.sysroot)?;
 
         let mut _fds = dbus_check(false, &config)?;
 

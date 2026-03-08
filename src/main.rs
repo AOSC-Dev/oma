@@ -50,7 +50,7 @@ use spdlog::{
     sink::{AsyncPoolSink, StdStreamSink},
     warn,
 };
-use subcommand::utils::{LockError, is_terminal};
+use subcommand::utils::is_terminal;
 use tokio::runtime::Runtime;
 use tui::Tui;
 use utils::{is_root, is_ssh_from_loginctl};
@@ -68,7 +68,6 @@ use crate::subcommand::*;
 use crate::utils::ExitHandle;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
-static LOCKED: AtomicBool = AtomicBool::new(false);
 static NOT_ALLOW_CTRLC: AtomicBool = AtomicBool::new(false);
 static DEFAULT_USER_AGENT: &str = concat!("oma/", env!("CARGO_PKG_VERSION"));
 static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
@@ -236,19 +235,10 @@ fn main() {
     let no_bell = config_ctx.no_bell;
 
     let code = match try_main(subcmd, config_ctx, matches) {
-        Ok(exit_code) => {
-            unlock_oma().ok();
-            exit_code.handle(!no_bell)
-        }
+        Ok(exit_code) => exit_code.handle(!no_bell),
         Err(e) => {
-            match display_error_and_can_unlock(e) {
-                Ok(true) => {
-                    unlock_oma().ok();
-                }
-                Ok(false) => {}
-                Err(e) => {
-                    eprintln!("Failed to display error, kind: {e}");
-                }
+            if let Err(e) = display_error(e) {
+                eprintln!("Failed to display error: {e}");
             }
 
             if !no_bell {
@@ -625,8 +615,7 @@ fn color_formatter() -> &'static OmaColorFormat {
     COLOR_FORMATTER.get().unwrap()
 }
 
-fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
-    let mut unlock = true;
+fn display_error(e: OutputError) -> io::Result<()> {
     if !e.description.is_empty() {
         log_error!("{e}");
 
@@ -666,21 +655,9 @@ fn display_error_and_can_unlock(e: OutputError) -> io::Result<bool> {
                 }
             }
         }
-    } else {
-        // 单独处理例外情况的错误
-        let errs = Chain::new(&e);
-        for e in errs {
-            if e.downcast_ref::<LockError>().is_some() {
-                unlock = false;
-                if let Err(e) = find_another_oma() {
-                    debug!("{e}");
-                    log_error!("{}", fl!("failed-to-lock-oma"));
-                }
-            }
-        }
     }
 
-    Ok(unlock)
+    Ok(())
 }
 
 fn find_another_oma() -> Result<(), OutputError> {
@@ -705,33 +682,6 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
 #[inline]
 pub fn get_lock(sysroot: &Path) -> &Path {
     LOCK.get_or_init(|| sysroot.join("run/lock/oma.lock"))
-}
-
-/// lock oma
-pub fn lock_oma_inner(sysroot: &Path) -> io::Result<()> {
-    let lock = get_lock(sysroot);
-
-    if !lock.is_file() {
-        std::fs::create_dir_all(
-            lock.parent()
-                .ok_or_else(|| io::Error::other(format!("Path {} is root", lock.display())))?,
-        )?;
-        std::fs::File::create(lock)?;
-        return Ok(());
-    }
-
-    Err(io::Error::other(""))
-}
-
-/// Unlock oma
-pub fn unlock_oma() -> io::Result<()> {
-    if let Some(lock) = LOCK.get()
-        && lock.exists()
-    {
-        std::fs::remove_file(lock)?;
-    }
-
-    Ok(())
 }
 
 /// terminal bell character
@@ -760,11 +710,6 @@ fn signal_handler() {
     osc94_progress(0.0, true);
 
     let not_display_abort = NOT_DISPLAY_ABORT.load(Ordering::Relaxed);
-
-    // Dealing with lock
-    if LOCKED.load(Ordering::Relaxed) {
-        unlock_oma().expect("Failed to unlock instance.");
-    }
 
     // Show cursor before exiting.
     // This is not a big deal so we won't panic on this.
