@@ -134,10 +134,12 @@ impl CliExecuter for Remove {
             fix_dpkg_status,
         } = self;
 
-        if !config.dry_run {
+        let _lock_fd = if !config.dry_run {
             root()?;
-            lock_oma(&config.sysroot)?;
-        }
+            Some(lock_oma(&config.sysroot)?)
+        } else {
+            None
+        };
 
         let _fds = dbus_check(yes, &config)?;
 

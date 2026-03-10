@@ -115,10 +115,12 @@ impl CliExecuter for Install {
             download_only,
         } = self;
 
-        if !config.dry_run {
+        let _lock_fd = if !config.dry_run {
             root()?;
-            lock_oma(&config.sysroot)?;
-        }
+            Some(lock_oma(&config.sysroot)?)
+        } else {
+            None
+        };
 
         let _fds = dbus_check(yes, &config)?;
 

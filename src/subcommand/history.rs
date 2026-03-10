@@ -115,7 +115,7 @@ impl CliExecuter for Undo {
             download_only,
         } = self;
 
-        lock_oma(&config.sysroot)?;
+        let _lock_fd = lock_oma(&config.sysroot)?;
 
         let _fds = dbus_check(false, &config)?;
 

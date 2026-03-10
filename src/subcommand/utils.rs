@@ -1,14 +1,13 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fmt::Debug;
 use std::fs;
-use std::io;
 use std::io::IsTerminal;
 use std::io::Write;
 use std::io::stderr;
 use std::io::stdin;
 use std::io::stdout;
+use std::os::fd::OwnedFd;
 use std::panic;
 use std::path::Path;
 use std::path::PathBuf;
@@ -16,19 +15,19 @@ use std::sync::atomic::Ordering;
 use std::thread;
 
 use crate::HTTP_CLIENT;
-use crate::LOCKED;
 use crate::NOT_ALLOW_CTRLC;
 use crate::RT;
 use crate::WRITER;
 use crate::color_formatter;
 use crate::error::OutputError;
+use crate::find_another_oma;
 use crate::fl;
+use crate::get_lock;
 use crate::install_progress::NoInstallProgressManager;
 use crate::install_progress::OmaInstallProgressManager;
 use crate::install_progress::osc94_progress;
 use crate::lang::DEFAULT_LANGUAGE;
 use crate::lang::SYSTEM_LANG;
-use crate::lock_oma_inner;
 use crate::msg;
 use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
@@ -37,11 +36,11 @@ use crate::pb::RenderPackagesDownloadProgress;
 use crate::pb::RenderRefreshProgress;
 use crate::success;
 use crate::table::table_for_install_pending;
-use crate::unlock_oma;
 use crate::utils::ExitHandle;
 use crate::utils::ExitStatus;
 use crate::utils::get_lists_dir;
 use ahash::HashSet;
+use anyhow::Context;
 use apt_auth_config::AuthConfig;
 use bon::Builder;
 use chrono::Local;
@@ -75,7 +74,9 @@ use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_pm::oma_apt::PackageSort;
 use oma_pm::sort::SummarySort;
 use oma_refresh::db::OmaRefresh;
+use oma_utils::GetLockError;
 use oma_utils::dpkg::dpkg_arch;
+use oma_utils::get_file_lock;
 use reqwest::Client;
 use spdlog::{debug, error, info, warn};
 use std::fmt::Display;
@@ -155,35 +156,33 @@ pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Resul
     })
 }
 
-#[derive(Debug)]
-pub struct LockError {
-    source: io::Error,
-}
+pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<OwnedFd, OutputError> {
+    let lock = get_lock(sysroot.as_ref());
+    std::fs::create_dir_all(
+        lock.parent()
+            .ok_or_else(|| anyhow::anyhow!("Path {} is root", lock.display()))?,
+    )
+    .context("Failed to create lock dir")?;
 
-impl Display for LockError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Failed to lock oma")
-    }
-}
+    let lock = get_file_lock(lock).map_err(|e| match e {
+        GetLockError::SetLock(errno) => OutputError {
+            description: fl!("failed-to-lock-oma"),
+            source: Some(Box::new(errno)),
+        },
+        GetLockError::SetLockWithProcess(_, pid) => {
+            let error_str = match find_another_oma() {
+                Ok(()) => "".to_string(),
+                Err(_) => format!("Failed to unlock oma (Pid: {pid}"),
+            };
 
-impl Error for LockError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.source)
-    }
-}
+            OutputError {
+                description: error_str,
+                source: None,
+            }
+        }
+    })?;
 
-pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<(), LockError> {
-    lock_oma_inner(sysroot.as_ref()).map_err(|e| LockError { source: e })?;
-    let hook = std::panic::take_hook();
-
-    panic::set_hook(Box::new(move |info| {
-        unlock_oma().ok();
-        hook(info);
-    }));
-
-    LOCKED.store(true, Ordering::Relaxed);
-
-    Ok(())
+    Ok(lock)
 }
 
 #[derive(Debug, Builder)]

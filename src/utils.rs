@@ -13,7 +13,7 @@ use crate::{
     error::OutputError,
     path_completions::PathCompleter,
     subcommand::utils::no_check_dbus_warn,
-    terminal_ring, unlock_oma,
+    terminal_ring,
 };
 use crate::{RT, fl};
 
@@ -311,14 +311,12 @@ fn handle_dialoguer_question_result(res: std::result::Result<bool, dialoguer::Er
     match res {
         Ok(b) => {
             if !b {
-                unlock_oma().ok();
                 exit(0);
             }
         }
         Err(e) => {
             let dialoguer::Error::IO(e) = e;
             if e.kind() != ErrorKind::Interrupted {
-                unlock_oma().ok();
                 error!("{e}");
                 exit(1);
             } else {
