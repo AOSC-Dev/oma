@@ -660,11 +660,11 @@ fn display_error(e: OutputError) -> io::Result<()> {
     Ok(())
 }
 
-fn find_another_oma() -> Result<(), OutputError> {
+fn find_another_oma() -> Result<String, OutputError> {
     RT.block_on(async { find_another_oma_inner().await })
 }
 
-async fn find_another_oma_inner() -> Result<(), OutputError> {
+async fn find_another_oma_inner() -> Result<String, OutputError> {
     let conn = create_dbus_connection().await?;
     let status = get_another_oma_status(&conn).await?;
 
@@ -674,9 +674,7 @@ async fn find_another_oma_inner() -> Result<(), OutputError> {
         pkg => fl!("status-package", pkg = pkg),
     };
 
-    log_error!("{}", fl!("another-oma-is-running", s = status));
-
-    Ok(())
+    Ok(status)
 }
 
 #[inline]

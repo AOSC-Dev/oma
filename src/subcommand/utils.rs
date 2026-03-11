@@ -171,8 +171,8 @@ pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<OwnedFd, OutputError
         },
         GetLockError::SetLockWithProcess(_, pid) => {
             let error_str = match find_another_oma() {
-                Ok(()) => "".to_string(),
-                Err(_) => format!("Failed to unlock oma (Pid: {pid}"),
+                Ok(status) => fl!("another-oma-is-running", s = status, pid = pid),
+                Err(_) => fl!("another-oma-is-running-without-status", pid = pid),
             };
 
             OutputError {
