@@ -1,4 +1,4 @@
-use std::{path::Path, time::Duration};
+use std::time::Duration;
 
 use clap::Args;
 use oma_console::pager::{exit_tui, prepare_create_tui};
@@ -6,30 +6,22 @@ use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs, Upgrade},
     search::IndiciumSearch,
 };
-use oma_utils::{
-    dbus::{InhibitTypeUnion, take_wake_lock},
-    is_termux,
-};
 use render::{Task, Tui as TuiInner};
 use spdlog::info;
 
 use crate::{
-    HTTP_CLIENT, RT,
+    HTTP_CLIENT,
     error::OutputError,
-    find_another_oma, fl,
+    fl,
     subcommand::utils::{CommitChanges, Refresh, lock_oma},
-    utils::{ask_continue_no_use_battery, root},
+    utils::{dbus_check, root},
 };
 use crate::{
     args::CliExecuter,
     config::OmaConfig,
-    config_file::{BatteryTristate, TakeWakeLockTristate},
-    subcommand::utils::{auth_config, create_progress_spinner, no_check_dbus_warn},
+    subcommand::utils::{auth_config, create_progress_spinner},
     tui::render::PackageStatus,
-    utils::{
-        ExitHandle, check_battery_disabled_warn, connect_dbus_impl, is_battery,
-        no_take_wake_lock_warn,
-    },
+    utils::ExitHandle,
 };
 
 mod key_binding;
@@ -79,47 +71,9 @@ impl CliExecuter for Tui {
             return Ok(ExitHandle::default());
         }
 
-        if find_another_oma().is_ok() {
-            return Err(OutputError {
-                description: "".to_string(),
-                source: None,
-            });
-        }
-
-        if Path::new("/run/lock/oma.lock").exists() {
-            return Err(OutputError {
-                description: fl!("failed-to-lock-oma"),
-                source: None,
-            });
-        }
-
         root()?;
-
-        let conn = if config.no_check_dbus {
-            let conn = connect_dbus_impl();
-
-            if !is_termux() {
-                match config.check_battery {
-                    BatteryTristate::Ask => {
-                        if let Some(conn) = conn.as_ref() {
-                            ask_continue_no_use_battery(conn, false)
-                        }
-                    }
-                    BatteryTristate::Warn => {
-                        if let Some(conn) = conn.as_ref()
-                            && is_battery(conn)
-                        {
-                            check_battery_disabled_warn();
-                        }
-                    }
-                    BatteryTristate::Ignore => {}
-                }
-            }
-
-            conn
-        } else {
-            None
-        };
+        let _lock_fd = lock_oma(&config.sysroot)?;
+        let _fds = dbus_check(false, &config)?;
 
         let apt_config = AptConfig::new();
         let sysroot = &config.sysroot;
@@ -206,32 +160,6 @@ impl CliExecuter for Tui {
         let mut exit = ExitHandle::default();
 
         if execute_apt {
-            let _fds = if !config.no_check_dbus && !config.dry_run && !is_termux() {
-                match config.take_wake_lock {
-                    TakeWakeLockTristate::Yes => conn.map(|conn| {
-                        RT.block_on(take_wake_lock(
-                            &conn,
-                            InhibitTypeUnion::all(),
-                            &fl!("changing-system"),
-                            "oma",
-                        ))
-                        .ok()
-                    }),
-                    TakeWakeLockTristate::Warn => {
-                        no_take_wake_lock_warn();
-                        None
-                    }
-                    TakeWakeLockTristate::Ignore => None,
-                }
-            } else {
-                if !is_termux() {
-                    no_check_dbus_warn();
-                }
-                None
-            };
-
-            let _lock_fd = lock_oma(sysroot)?;
-
             if upgrade {
                 apt.upgrade(Upgrade::FullUpgrade)?;
             }
