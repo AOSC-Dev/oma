@@ -3060,7 +3060,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.30.0"
+version = "0.31.0"
 dependencies = [
  "aho-corasick",
  "ansi-to-tui",
@@ -3075,7 +3075,7 @@ dependencies = [
 
 [[package]]
 name = "oma-contents"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "flate2",
  "lzzzz",
@@ -3091,7 +3091,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.36.0"
+version = "0.36.1"
 dependencies = [
  "async-compression",
  "bon",
@@ -3141,7 +3141,7 @@ dependencies = [
 
 [[package]]
 name = "oma-mirror"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "ahash",
  "indexmap",
@@ -3254,7 +3254,7 @@ dependencies = [
 
 [[package]]
 name = "oma-tum"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "ahash",
  "debversion",
