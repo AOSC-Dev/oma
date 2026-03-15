@@ -76,7 +76,7 @@ pub struct Undo {
     /// Install package(s) without fsync(2)
     #[arg(
         long,
-        help = &**crate::args::FORCE_UNSAGE_IO_TRANSLATE
+        help = &**crate::args::FORCE_UNSAFE_IO_TRANSLATE
     )]
     force_unsafe_io: bool,
     /// Ignore repository and package dependency issues

@@ -60,7 +60,7 @@ pub static HELP_TEMPLATE: LazyLock<String> = LazyLock::new(|| {
         Styles::default().get_usage().render_reset()
     )
 });
-pub static FORCE_UNSAGE_IO_TRANSLATE: LazyLock<String> = LazyLock::new(|| {
+pub static FORCE_UNSAFE_IO_TRANSLATE: LazyLock<String> = LazyLock::new(|| {
     fl!(
         "clap-force-unsafe-io-help",
         dangerous = dangerous_color(fl!("clap-dangerous"))

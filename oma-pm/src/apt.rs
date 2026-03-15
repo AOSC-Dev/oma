@@ -113,7 +113,7 @@ pub enum OmaAptError {
     MarkReinstallError(String, String),
     #[error("Dependencies unmet")]
     DependencyIssue {
-        broken_depndencies: Vec<Vec<BrokenPackage>>,
+        broken_dependencies: Vec<Vec<BrokenPackage>>,
         is_solver3: bool,
         apt_errors: AptErrors,
     },
@@ -712,7 +712,7 @@ impl OmaApt {
                 }
             }
             return Err(OmaAptError::DependencyIssue {
-                broken_depndencies: self.unmet.to_vec(),
+                broken_dependencies: self.unmet.to_vec(),
                 is_solver3: self.config.get("APT::Solver").is_some_and(|v| v == "3.0"),
                 apt_errors: e,
             });
