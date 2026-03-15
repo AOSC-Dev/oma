@@ -655,7 +655,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             source: None,
         },
         OmaAptError::DependencyIssue {
-            broken_depndencies: broken_deps,
+            broken_dependencies: broken_deps,
             is_solver3,
             apt_errors,
         } => {
