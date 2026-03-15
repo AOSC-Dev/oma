@@ -357,7 +357,7 @@ impl<'a> SingleDownloader<'a> {
             let mut req = self.build_request_with_basic_auth(&source.url, Method::GET, auth);
             if downloaded_size != 0 {
                 // request for resume
-                // assume reqwest's automatical decompression is disabled
+                // assume reqwest's automatic decompression is disabled
                 debug!("sending partial request ...");
                 req = req.header(RANGE, format!("bytes={downloaded_size}-"));
             } else {
