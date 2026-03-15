@@ -711,7 +711,12 @@ impl<'a> SingleDownloader<'a> {
             self.entry.dir.join(&*self.entry.filename).display()
         );
 
-        let mut v = self.entry.hash.as_ref().map(|v| v.get_validator());
+        let mut v = self
+            .entry
+            .hash
+            .as_ref()
+            .map(|v| v.get_validator())
+            .unwrap_or(ChecksumValidator::None);
 
         let mut buf = vec![0u8; READ_FILE_BUFSIZE];
         let mut self_progress = 0;
@@ -732,14 +737,11 @@ impl<'a> SingleDownloader<'a> {
             })
             .await;
 
-            if let Some(ref mut v) = v {
-                v.update(&buf[..size]);
-            }
-
+            v.update(&buf[..size]);
             callback(Event::GlobalProgressAdd(size as u64)).await;
         }
 
-        if v.is_some_and(|v| !v.finish()) {
+        if !v.finish() {
             callback(Event::GlobalProgressSub(self_progress as u64)).await;
             callback(Event::ProgressDone(self.download_list_index)).await;
             return Err(SingleDownloadError::ChecksumMismatch);
