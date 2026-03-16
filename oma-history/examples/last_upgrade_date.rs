@@ -1,8 +1,8 @@
-use oma_history::{connect_db, last_upgrade_timestamp};
+use oma_history::History;
 
 fn main() {
-    let conn = connect_db("/var/lib/oma/history.db", false).unwrap();
-    let n = last_upgrade_timestamp(&conn).unwrap();
+    let conn = History::new("/var/lib/oma/history.db", false, false).unwrap();
+    let n = conn.last_upgrade_timestamp().unwrap();
 
     println!(
         "Last upgrade system date: {}",

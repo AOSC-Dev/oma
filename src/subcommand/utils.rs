@@ -59,10 +59,8 @@ use oma_console::print::Action;
 use oma_console::writer::Writeln;
 use oma_contents::searcher::Mode;
 use oma_contents::searcher::search;
+use oma_history::DATABASE_PATH;
 use oma_history::HistoryInfo;
-use oma_history::connect_db;
-use oma_history::create_db_file;
-use oma_history::write_history_entry;
 use oma_pm::CommitConfig;
 use oma_pm::CustomDownloadMessage;
 use oma_pm::apt::AptConfig;
@@ -463,6 +461,9 @@ impl CommitChanges<'_> {
 
         osc94_progress(100.0, true);
 
+        let history =
+            oma_history::History::new(Path::new(&sysroot).join(DATABASE_PATH), true, self.dry_run);
+
         match res {
             Ok(_) => {
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
@@ -489,29 +490,21 @@ impl CommitChanges<'_> {
                 }
 
                 write_oma_installed_status(&apt, &sysroot)?;
-
                 autoremovable_tips(ar_count, ar_size);
 
-                write_history_entry(
-                    {
-                        let db = create_db_file(&sysroot)?;
-                        connect_db(db, true)?
-                    },
-                    dry_run,
-                    HistoryInfo {
-                        summary: &op,
-                        start_time,
-                        success: true,
-                        is_fix_broken: is_fixbroken,
-                        is_undo,
-                        topics_enabled,
-                        topics_disabled,
-                    },
-                )?;
+                let mut history = history?;
+                history.write(HistoryInfo {
+                    summary: &op,
+                    start_time,
+                    success: true,
+                    is_fix_broken: is_fixbroken,
+                    is_undo,
+                    topics_enabled,
+                    topics_disabled,
+                })?;
 
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
-
                 space_tips(&apt, sysroot);
 
                 Ok(ExitHandle::default().ring(true))
@@ -534,22 +527,18 @@ impl CommitChanges<'_> {
 
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 undo_tips();
-                write_history_entry(
-                    {
-                        let db = create_db_file(&sysroot)?;
-                        connect_db(db, true)?
-                    },
-                    dry_run,
-                    HistoryInfo {
-                        summary: &op,
-                        start_time,
-                        success: false,
-                        is_fix_broken: is_fixbroken,
-                        is_undo,
-                        topics_enabled,
-                        topics_disabled,
-                    },
-                )?;
+
+                let mut history = history?;
+                history.write(HistoryInfo {
+                    summary: &op,
+                    start_time,
+                    success: true,
+                    is_fix_broken: is_fixbroken,
+                    is_undo,
+                    topics_enabled,
+                    topics_disabled,
+                })?;
+
                 space_tips(&apt, sysroot);
                 Err(e.into())
             }
