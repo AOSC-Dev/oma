@@ -141,7 +141,7 @@ members = [
 ]
 
 [package.metadata.deb]
-copyright = "2025, AOSC Dev <maintainers@aosc.io>"
+copyright = "2026, AOSC Dev <maintainers@aosc.io>"
 maintainer = "eatradish <sakiiily@aosc.io>"
 license-file = ["COPYING", "4"]
 extended-description = "User-friendly and performant package manager for APT repositories"
