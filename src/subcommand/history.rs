@@ -3,7 +3,7 @@ use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
 use dialoguer::{Select, theme::ColorfulTheme};
-use oma_history::{DATABASE_PATH, HistoryEntry, connect_db, find_history_by_id, list_history};
+use oma_history::{DATABASE_PATH, HistoryEntry};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::oma_apt::PackageSort;
@@ -36,9 +36,10 @@ pub struct History;
 
 impl CliExecuter for History {
     fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
-        let conn = connect_db(config.sysroot.join(DATABASE_PATH), false)?;
+        let history =
+            oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
 
-        let list = list_history(&conn)?;
+        let list = history.list()?;
         let display_list = format_summary_log(&list, false)
             .into_iter()
             .map(|x| x.0)
@@ -55,7 +56,7 @@ impl CliExecuter for History {
 
             let selected = &list[selected];
             let id = selected.id;
-            let op = find_history_by_id(&conn, id)?;
+            let op = history.find_history_by_id(id)?;
             let install = &op.install;
             let remove = &op.remove;
             let disk_size = op.disk_size;
@@ -119,9 +120,10 @@ impl CliExecuter for Undo {
 
         let _fds = dbus_check(false, &config)?;
 
-        let conn = connect_db(config.sysroot.join(DATABASE_PATH), false)?;
+        let history =
+            oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
 
-        let list = list_history(&conn)?;
+        let list = history.list()?;
         let display_list = format_summary_log(&list, true);
         let selected = dialoguer_select_history(
             &display_list
@@ -134,10 +136,10 @@ impl CliExecuter for Undo {
 
         let selected = &list[display_list[selected].1];
         let id = selected.id;
-        let op = find_history_by_id(&conn, id)?;
+        let op = history.find_history_by_id(id)?;
 
         #[cfg(feature = "aosc")]
-        let (opt_in, opt_out) = oma_history::find_history_topics_status_by_id(&conn, id)?;
+        let (opt_in, opt_out) = history.find_history_topics_status_by_id(id)?;
 
         let apt_config = AptConfig::new();
         let auth_config = auth_config(&config.sysroot);
