@@ -125,31 +125,29 @@ impl OmaConfig {
             ..
         } = global_options;
 
-        self.dry_run = dry_run;
-        self.debug = debug;
+        self.dry_run |= dry_run;
+        self.debug |= debug;
         self.color = color;
         self.sysroot = sysroot;
         self.apt_options = apt_options;
-        self.no_bell = no_bell;
-        self.follow_terminal_color = follow_terminal_color;
-        self.no_check_dbus = no_check_dbus;
+
+        self.no_bell |= no_bell;
+        self.follow_terminal_color |= follow_terminal_color;
+        self.no_check_dbus |= no_check_dbus;
 
         if let Some(download_threads) = download_threads {
             self.download_threads = download_threads;
         }
 
         self.no_progress = no_progress;
-        self.check_battery = if no_check_battery {
-            BatteryTristate::Ignore
-        } else {
-            BatteryTristate::Ask
-        };
 
-        self.take_wake_lock = if no_take_wake_lock {
-            TakeWakeLockTristate::Warn
-        } else {
-            TakeWakeLockTristate::Yes
-        };
+        if no_check_battery {
+            self.check_battery = BatteryTristate::Ignore
+        }
+
+        if no_take_wake_lock {
+            self.take_wake_lock = TakeWakeLockTristate::Warn
+        }
 
         if let Some(user_agent) = user_agent {
             self.user_agent = user_agent.into();
