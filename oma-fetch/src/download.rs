@@ -428,10 +428,6 @@ impl<'a> SingleDownloader<'a> {
                 }
             };
 
-            if file_size > 0 {
-                callback(Event::GlobalProgressSub(file_size)).await;
-            }
-
             if let Err(e) = f.set_len(0).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(SingleDownloadError::Create { source: e });
