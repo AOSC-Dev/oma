@@ -1,14 +1,10 @@
-use std::borrow::Cow;
 use std::io::IsTerminal;
-use std::io::Write;
 use std::io::stderr;
 use std::io::stdin;
 use std::io::stdout;
 use std::os::fd::OwnedFd;
-use std::panic;
 use std::path::Path;
 
-use crate::WRITER;
 use crate::color_formatter;
 use crate::error::OutputError;
 use crate::find_another_oma;
@@ -23,8 +19,6 @@ use dialoguer::console;
 use dialoguer::console::style;
 use fs_extra::dir::get_size as get_dir_size;
 use indexmap::IndexSet;
-use inquire::MultiSelect;
-use inquire::ui::RenderConfig;
 use oma_console::indicatif::HumanBytes;
 use oma_console::print::Action;
 use oma_console::writer::Writeln;
@@ -36,7 +30,6 @@ use oma_pm::apt::OmaApt;
 use oma_utils::GetLockError;
 use oma_utils::get_file_lock;
 use spdlog::{debug, error, info, warn};
-use std::fmt::Display;
 
 pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Result<(), OutputError> {
     if no_result.is_empty() {
@@ -197,32 +190,6 @@ pub fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {
     }
 }
 
-#[allow(dead_code)]
-#[inline]
-pub fn multiselect<T: Display>(
-    msg: &str,
-    opts: Vec<T>,
-    formatter: &dyn Fn(&[inquire::list_option::ListOption<&T>]) -> String,
-    render_config: RenderConfig<'_>,
-    page_size: u16,
-    default: Vec<usize>,
-) -> Result<Vec<T>, anyhow::Error> {
-    MultiSelect::new(msg, opts)
-        .with_help_message(&fl!("tips"))
-        .with_formatter(formatter)
-        .with_default(&default)
-        .with_page_size(page_size as usize)
-        .with_render_config(render_config)
-        .prompt()
-        .map_err(|e| match e {
-            inquire::InquireError::OperationInterrupted => {
-                stderr().write_all(b"\n").ok();
-                anyhow::anyhow!("")
-            }
-            e => e.into(),
-        })
-}
-
 pub fn create_progress_spinner(no_progress: bool, msg: String) -> Option<OmaProgressBar> {
     if !no_progress {
         OmaProgressBar::new_spinner(Some(msg)).into()
@@ -233,30 +200,6 @@ pub fn create_progress_spinner(no_progress: bool, msg: String) -> Option<OmaProg
 
 pub(crate) fn no_check_dbus_warn() {
     warn!("{}", fl!("no-check-dbus-tips"));
-}
-
-pub fn tui_select_list_size() -> u16 {
-    match WRITER.get_height() {
-        0 => panic!("Terminal height must be greater than 0"),
-        1..=6 => 1,
-        x @ 7..=25 => x - 6,
-        26.. => 20,
-    }
-}
-
-pub fn select_tui_display_msg(s: &str, is_inquire: bool) -> Cow<'_, str> {
-    let term_width = WRITER.get_length() as usize;
-
-    // 4 是 inquire 前面有四个空格缩进
-    // 2 是 dialoguer 的保留字符长度
-    let indent = if is_inquire { 4 } else { 2 };
-
-    // 3 是 ... 的长度
-    if console::measure_text_width(s) + indent > term_width {
-        console::truncate_str(s, term_width - indent - 3, "...")
-    } else {
-        s.into()
-    }
 }
 
 pub fn is_terminal() -> bool {

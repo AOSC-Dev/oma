@@ -16,6 +16,7 @@ use crate::HTTP_CLIENT;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
+use crate::menu::{select_tui_display_msg, tui_select_list_size};
 use crate::utils::ExitHandle;
 #[cfg(feature = "aosc")]
 use crate::utils::ExitStatus;
@@ -27,9 +28,7 @@ use crate::{
     utils::{dbus_check, root},
 };
 
-use super::utils::{
-    auth_config, handle_no_result, lock_oma, select_tui_display_msg, tui_select_list_size,
-};
+use super::utils::{auth_config, handle_no_result, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]

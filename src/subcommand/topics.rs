@@ -24,13 +24,11 @@ use crate::{
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
     error::OutputError,
-    subcommand::utils::multiselect,
+    menu::{multiselect, select_tui_display_msg, tui_select_list_size},
     utils::{ExitHandle, ExitStatus, dbus_check, root},
 };
 
-use super::utils::{
-    auth_config, create_progress_spinner, lock_oma, select_tui_display_msg, tui_select_list_size,
-};
+use super::utils::{auth_config, create_progress_spinner, lock_oma};
 
 use crate::args::CliExecuter;
 

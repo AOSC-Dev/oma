@@ -15,6 +15,7 @@ mod core;
 mod error;
 mod install_progress;
 mod lang;
+mod menu;
 mod path_completions;
 mod pb;
 mod subcommand;

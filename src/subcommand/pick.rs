@@ -11,12 +11,13 @@ use crate::{
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
     error::OutputError,
+    menu::tui_select_list_size,
     utils::{dbus_check, pkgnames_completions, root},
 };
 use crate::{fl, utils::ExitHandle};
 use anyhow::anyhow;
 
-use super::utils::{auth_config, lock_oma, tui_select_list_size};
+use super::utils::{auth_config, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
