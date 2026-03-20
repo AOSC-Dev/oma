@@ -57,7 +57,6 @@ use spdlog::{
     sink::{AsyncPoolSink, StdStreamSink},
     warn,
 };
-use subcommand::utils::is_terminal;
 use tokio::runtime::Runtime;
 use tui::Tui;
 
@@ -342,7 +341,7 @@ fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
 
     init_log_crate_proxy().unwrap();
 
-    let debug_formatter = debug_formatter(oma);
+    let debug_formatter = oma.debug_formatter();
 
     let (level_filter, formatter, filter) = if !debug && !dry_run && env::var("OMA_LOG").is_err() {
         let no_i18n_embd = env_filter::Builder::new()
@@ -352,7 +351,7 @@ fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
 
         let level_filter = LevelFilter::MoreSevereEqual(Level::Info);
 
-        let formatter = OmaFormatter::new().with_ansi(enable_ansi(oma));
+        let formatter = OmaFormatter::new().with_ansi(oma.enable_ansi());
 
         (level_filter, formatter, no_i18n_embd)
     } else {
@@ -432,15 +431,6 @@ fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
     }
 }
 
-#[inline]
-fn debug_formatter(oma: &OhManagerAilurus) -> OmaFormatter {
-    OmaFormatter::new()
-        .with_ansi(enable_ansi(oma))
-        .with_file(true)
-        .with_time(true)
-        .with_debug(true)
-}
-
 fn remove_old_log_file(save_log_count: usize, log_file: &Path) {
     let mut v = vec![];
     let log_dir = log_file.parent().unwrap();
@@ -484,12 +474,6 @@ fn remove_old_log_file(save_log_count: usize, log_file: &Path) {
             }
         }
     }
-}
-
-#[inline]
-fn enable_ansi(oma: &OhManagerAilurus) -> bool {
-    (oma.global.color != ColorChoice::Never && is_terminal())
-        || oma.global.color == ColorChoice::Always
 }
 
 fn try_main(

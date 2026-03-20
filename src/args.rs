@@ -1,8 +1,11 @@
 use std::{env, ffi::OsStr, fmt::Display, path::Path, sync::LazyLock};
 
-use clap::{Arg, Args, Command, Parser, Subcommand, builder::Styles, crate_name, crate_version};
+use clap::{
+    Arg, Args, ColorChoice, Command, Parser, Subcommand, builder::Styles, crate_name, crate_version,
+};
 use enum_dispatch::enum_dispatch;
 use itertools::Itertools;
+use oma_console::OmaFormatter;
 
 use crate::{
     GlobalOptions,
@@ -31,6 +34,7 @@ use crate::{
         generate::GenerateManpages,
         size_analyzer::SizeAnalyzer,
         tree::{Tree, Why},
+        utils::is_terminal,
     },
     tui::Tui,
     upgrade::Upgrade,
@@ -100,6 +104,22 @@ pub struct OhManagerAilurus {
     pub global: GlobalOptions,
     #[command(subcommand)]
     pub subcmd: Option<SubCmd>,
+}
+
+impl OhManagerAilurus {
+    pub fn debug_formatter(&self) -> OmaFormatter {
+        OmaFormatter::new()
+            .with_ansi(self.enable_ansi())
+            .with_file(true)
+            .with_time(true)
+            .with_debug(true)
+    }
+
+    #[inline]
+    pub fn enable_ansi(&self) -> bool {
+        (self.global.color != ColorChoice::Never && is_terminal())
+            || self.global.color == ColorChoice::Always
+    }
 }
 
 #[enum_dispatch(CliExecuter)]
