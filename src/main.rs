@@ -248,7 +248,7 @@ fn main() {
             }
 
             if !no_bell {
-                terminal_ring();
+                exit_handle::terminal_ring();
             }
 
             1
@@ -686,15 +686,6 @@ async fn find_another_oma_inner() -> Result<String, OutputError> {
 #[inline]
 pub fn get_lock(sysroot: &Path) -> &Path {
     LOCK.get_or_init(|| sysroot.join("run/lock/oma.lock"))
-}
-
-/// terminal bell character
-pub fn terminal_ring() {
-    if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
-        return;
-    }
-
-    eprint!("\x07"); // bell character
 }
 
 fn sysroot_default_value() -> &'static str {

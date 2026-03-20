@@ -64,7 +64,7 @@ impl ExitHandle {
     }
 }
 
-fn terminal_ring() {
+pub fn terminal_ring() {
     if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
         return;
     }
