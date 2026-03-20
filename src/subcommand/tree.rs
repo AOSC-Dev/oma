@@ -19,7 +19,7 @@ use spdlog::{debug, trace};
 
 use crate::{
     CliExecuter, config::OmaConfig, error::OutputError, exit_handle::ExitHandle, fl,
-    table::oma_display_with_normal_output, utils::pkgnames_completions,
+    path_completions::pkgnames_completions, table::oma_display_with_normal_output,
 };
 
 use super::utils::{create_progress_spinner, handle_no_result};

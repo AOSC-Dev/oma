@@ -12,6 +12,7 @@ mod args;
 mod config;
 mod config_file;
 mod core;
+mod dbus;
 mod error;
 mod exit_handle;
 mod install_progress;
@@ -30,6 +31,7 @@ use clap::builder::FalseyValueParser;
 use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches};
 use clap_complete::CompleteEnv;
 use clap_i18n_richformatter::CommandI18nExt;
+use dbus::is_ssh_from_loginctl;
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
@@ -58,7 +60,6 @@ use spdlog::{
 use subcommand::utils::is_terminal;
 use tokio::runtime::Runtime;
 use tui::Tui;
-use utils::is_ssh_from_loginctl;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 

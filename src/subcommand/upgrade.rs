@@ -2,7 +2,7 @@ use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
 use crate::exit_handle::ExitHandle;
-use crate::utils::pkgnames_and_path_completions;
+use crate::path_completions::pkgnames_and_path_completions;
 use clap_complete::ArgValueCompleter;
 use spdlog::{debug, info, warn};
 
@@ -17,10 +17,10 @@ use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
 
 use crate::HTTP_CLIENT;
+use crate::dbus::dbus_check;
 use crate::error::OutputError;
 use crate::fl;
 use crate::root::root;
-use crate::utils::dbus_check;
 
 use super::utils::handle_no_result;
 use super::utils::lock_oma;

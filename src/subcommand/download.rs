@@ -10,8 +10,8 @@ use spdlog::error;
 
 use crate::config::OmaConfig;
 use crate::exit_handle::ExitHandle;
+use crate::path_completions::pkgnames_completions;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress};
-use crate::utils::pkgnames_completions;
 use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 

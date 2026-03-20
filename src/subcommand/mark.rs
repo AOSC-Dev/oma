@@ -10,8 +10,8 @@ use oma_pm::{
 use spdlog::info;
 
 use crate::{
-    color_formatter, config::OmaConfig, error::OutputError, exit_handle::ExitHandle, root::root,
-    success, utils::pkgnames_completions,
+    color_formatter, config::OmaConfig, error::OutputError, exit_handle::ExitHandle,
+    path_completions::pkgnames_completions, root::root, success,
 };
 
 use super::utils::handle_no_result;

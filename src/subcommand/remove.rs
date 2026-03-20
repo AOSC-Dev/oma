@@ -12,8 +12,8 @@ use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
-use crate::utils::pkgnames_remove_completions;
-use crate::{error::OutputError, root::root, utils::dbus_check};
+use crate::path_completions::pkgnames_remove_completions;
+use crate::{dbus::dbus_check, error::OutputError, root::root};
 
 use super::utils::{auth_config, create_progress_spinner, handle_no_result, lock_oma};
 use crate::args::CliExecuter;

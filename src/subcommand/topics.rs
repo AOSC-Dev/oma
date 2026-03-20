@@ -23,11 +23,11 @@ use crate::{
     HTTP_CLIENT, NOT_ALLOW_CTRLC, RT,
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
+    dbus::dbus_check,
     error::OutputError,
     exit_handle::{ExitHandle, ExitStatus},
     menu::{multiselect, select_tui_display_msg, tui_select_list_size},
     root::root,
-    utils::dbus_check,
 };
 
 use super::utils::{auth_config, create_progress_spinner, lock_oma};

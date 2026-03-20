@@ -10,10 +10,11 @@ use crate::{
     HTTP_CLIENT,
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
+    dbus::dbus_check,
     error::OutputError,
     exit_handle::ExitHandle,
     menu::tui_select_list_size,
-    utils::{dbus_check, pkgnames_completions},
+    path_completions::pkgnames_completions,
 };
 use crate::{fl, root::root};
 use anyhow::anyhow;
