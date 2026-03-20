@@ -14,8 +14,9 @@ use crate::{
     core::{commit_changes::CommitChanges, refresh::Refresh},
     error::OutputError,
     fl,
+    root::root,
     subcommand::utils::lock_oma,
-    utils::{dbus_check, root},
+    utils::dbus_check,
 };
 use crate::{
     args::CliExecuter,

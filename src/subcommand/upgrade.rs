@@ -19,8 +19,8 @@ use oma_pm::matches::PackagesMatcher;
 use crate::HTTP_CLIENT;
 use crate::error::OutputError;
 use crate::fl;
+use crate::root::root;
 use crate::utils::dbus_check;
-use crate::utils::root;
 
 use super::utils::handle_no_result;
 use super::utils::lock_oma;

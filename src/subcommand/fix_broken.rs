@@ -2,12 +2,8 @@ use clap::Args;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
 use crate::{
-    config::OmaConfig,
-    core::commit_changes::CommitChanges,
-    error::OutputError,
-    exit_handle::ExitHandle,
-    fl,
-    utils::{dbus_check, root},
+    config::OmaConfig, core::commit_changes::CommitChanges, error::OutputError,
+    exit_handle::ExitHandle, fl, root::root, utils::dbus_check,
 };
 
 use super::utils::{auth_config, lock_oma};

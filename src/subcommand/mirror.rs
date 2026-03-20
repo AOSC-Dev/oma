@@ -59,9 +59,9 @@ use crate::menu::select_tui_display_msg;
 use crate::menu::tui_select_list_size;
 use crate::pb::OmaProgressBar;
 use crate::pb::Print;
+use crate::root::root;
 use crate::success;
 use crate::table::PagerPrinter;
-use crate::utils::root;
 
 use super::utils::auth_config;
 use super::utils::create_progress_spinner;

@@ -15,9 +15,9 @@ use crate::core::refresh::Refresh;
 use crate::error::OutputError;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
+use crate::root::root;
 use crate::utils::dbus_check;
 use crate::utils::pkgnames_and_path_completions;
-use crate::utils::root;
 
 use super::utils::auth_config;
 use super::utils::handle_no_result;

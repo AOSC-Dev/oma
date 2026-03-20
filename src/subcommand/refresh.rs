@@ -6,7 +6,7 @@ use crate::config::OmaConfig;
 use crate::core::space_tips;
 use crate::exit_handle::ExitHandle;
 use crate::{HTTP_CLIENT, fl, success};
-use crate::{error::OutputError, utils::root};
+use crate::{error::OutputError, root::root};
 
 use super::utils::{auth_config, create_progress_spinner};
 use crate::args::CliExecuter;

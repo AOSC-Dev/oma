@@ -19,6 +19,7 @@ mod lang;
 mod menu;
 mod path_completions;
 mod pb;
+mod root;
 mod subcommand;
 mod table;
 mod tui;
@@ -42,6 +43,7 @@ use oma_pm::apt::AptConfig;
 use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
+use root::is_root;
 use rustix::stdio::stdout;
 use spdlog::sink::FileSink;
 use spdlog::{
@@ -56,7 +58,7 @@ use spdlog::{
 use subcommand::utils::is_terminal;
 use tokio::runtime::Runtime;
 use tui::Tui;
-use utils::{is_root, is_ssh_from_loginctl};
+use utils::is_ssh_from_loginctl;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 

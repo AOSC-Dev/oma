@@ -21,11 +21,8 @@ use crate::exit_handle::ExitHandle;
 use crate::exit_handle::ExitStatus;
 use crate::menu::{select_tui_display_msg, tui_select_list_size};
 use crate::{
-    NOT_DISPLAY_ABORT,
-    error::OutputError,
-    fl,
-    table::table_for_history_pending,
-    utils::{dbus_check, root},
+    NOT_DISPLAY_ABORT, error::OutputError, fl, root::root, table::table_for_history_pending,
+    utils::dbus_check,
 };
 
 use super::utils::{auth_config, handle_no_result, lock_oma};

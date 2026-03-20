@@ -14,7 +14,7 @@ use oma_console::indicatif::HumanBytes;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use spdlog::{debug, error, info};
 
-use crate::{error::OutputError, utils::root};
+use crate::{error::OutputError, root::root};
 
 use crate::args::CliExecuter;
 
