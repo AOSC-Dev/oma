@@ -22,6 +22,7 @@ use spdlog::{debug, error, info, warn};
 use crate::utils::get_lists_dir;
 use crate::{
     HTTP_CLIENT, NOT_ALLOW_CTRLC, color_formatter,
+    core::space_tips,
     error::OutputError,
     fl,
     install_progress::{NoInstallProgressManager, OmaInstallProgressManager, osc94_progress},
@@ -30,7 +31,7 @@ use crate::{
     pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress},
     subcommand::{
         remove::ask_user_do_as_i_say,
-        utils::{create_progress_spinner, download_message, space_tips},
+        utils::{create_progress_spinner, download_message},
     },
     success,
     table::table_for_install_pending,
