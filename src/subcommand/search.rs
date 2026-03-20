@@ -11,11 +11,8 @@ use oma_pm::{
 };
 
 use crate::{
-    WRITER, color_formatter,
-    config::OmaConfig,
-    config_file::SearchEngine as ConfigSearchEngine,
-    fl,
-    utils::{ExitHandle, pkgnames_completions},
+    WRITER, color_formatter, config::OmaConfig, config_file::SearchEngine as ConfigSearchEngine,
+    exit_handle::ExitHandle, fl, utils::pkgnames_completions,
 };
 use crate::{error::OutputError, table::oma_display_with_normal_output};
 

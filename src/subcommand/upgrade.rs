@@ -1,7 +1,7 @@
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
-use crate::utils::ExitHandle;
+use crate::exit_handle::ExitHandle;
 use crate::utils::pkgnames_and_path_completions;
 use clap_complete::ArgValueCompleter;
 use spdlog::{debug, info, warn};

@@ -5,9 +5,9 @@ use std::path::Path;
 use crate::config::OmaConfig;
 use crate::subcommand::utils::create_progress_spinner;
 
+use crate::exit_handle::ExitHandle;
 use crate::fl;
 use crate::success;
-use crate::utils::ExitHandle;
 use clap::Args;
 use fs_extra::dir::get_size;
 use oma_console::indicatif::HumanBytes;

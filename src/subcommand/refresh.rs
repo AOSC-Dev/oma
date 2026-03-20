@@ -3,8 +3,8 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use spdlog::info;
 
 use crate::config::OmaConfig;
-use crate::subcommand::utils::space_tips;
-use crate::utils::ExitHandle;
+use crate::core::space_tips;
+use crate::exit_handle::ExitHandle;
 use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, utils::root};
 

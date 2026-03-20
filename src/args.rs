@@ -13,6 +13,7 @@ use crate::{
     depends::Depends,
     download::Download,
     error::OutputError,
+    exit_handle::ExitHandle,
     fix_broken::FixBroken,
     fl,
     history::{History, Undo},
@@ -33,7 +34,6 @@ use crate::{
     },
     tui::Tui,
     upgrade::Upgrade,
-    utils::ExitHandle,
 };
 
 #[cfg(feature = "aosc")]

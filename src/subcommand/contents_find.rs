@@ -1,9 +1,10 @@
 use crate::config::OmaConfig;
 use crate::error::OutputError;
+use crate::exit_handle::ExitHandle;
 use crate::fl;
 use crate::subcommand::utils::handle_no_result;
 use crate::table::oma_display_with_normal_output;
-use crate::utils::{ExitHandle, pkgnames_completions};
+use crate::utils::pkgnames_completions;
 use clap::Args;
 use clap_complete::{ArgValueCompleter, PathCompleter};
 use indexmap::IndexSet;

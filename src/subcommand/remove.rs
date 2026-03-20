@@ -10,8 +10,9 @@ use spdlog::{info, warn};
 
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
+use crate::exit_handle::ExitHandle;
 use crate::fl;
-use crate::utils::{ExitHandle, pkgnames_remove_completions};
+use crate::utils::pkgnames_remove_completions;
 use crate::{
     error::OutputError,
     utils::{dbus_check, root},

@@ -24,6 +24,7 @@ use crate::{
     HTTP_CLIENT, NOT_ALLOW_CTRLC, color_formatter,
     core::space_tips,
     error::OutputError,
+    exit_handle::{ExitHandle, ExitStatus},
     fl,
     install_progress::{NoInstallProgressManager, OmaInstallProgressManager, osc94_progress},
     lang::{DEFAULT_LANGUAGE, SYSTEM_LANG},
@@ -35,7 +36,6 @@ use crate::{
     },
     success,
     table::table_for_install_pending,
-    utils::{ExitHandle, ExitStatus},
 };
 
 #[derive(Builder)]

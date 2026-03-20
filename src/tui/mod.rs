@@ -20,9 +20,9 @@ use crate::{
 use crate::{
     args::CliExecuter,
     config::OmaConfig,
+    exit_handle::ExitHandle,
     subcommand::utils::{auth_config, create_progress_spinner},
     tui::render::PackageStatus,
-    utils::ExitHandle,
 };
 
 mod key_binding;

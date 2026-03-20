@@ -6,15 +6,16 @@ use oma_pm::{
     pkginfo::OmaPackage,
 };
 
+use crate::fl;
 use crate::{
     HTTP_CLIENT,
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
     error::OutputError,
+    exit_handle::ExitHandle,
     menu::tui_select_list_size,
     utils::{dbus_check, pkgnames_completions, root},
 };
-use crate::{fl, utils::ExitHandle};
 use anyhow::anyhow;
 
 use super::utils::{auth_config, lock_oma};

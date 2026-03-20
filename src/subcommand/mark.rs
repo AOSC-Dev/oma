@@ -13,8 +13,9 @@ use crate::{
     color_formatter,
     config::OmaConfig,
     error::OutputError,
+    exit_handle::ExitHandle,
     success,
-    utils::{ExitHandle, pkgnames_completions, root},
+    utils::{pkgnames_completions, root},
 };
 
 use super::utils::handle_no_result;

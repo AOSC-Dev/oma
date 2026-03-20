@@ -16,10 +16,10 @@ use crate::HTTP_CLIENT;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
-use crate::menu::{select_tui_display_msg, tui_select_list_size};
-use crate::utils::ExitHandle;
+use crate::exit_handle::ExitHandle;
 #[cfg(feature = "aosc")]
-use crate::utils::ExitStatus;
+use crate::exit_handle::ExitStatus;
+use crate::menu::{select_tui_display_msg, tui_select_list_size};
 use crate::{
     NOT_DISPLAY_ABORT,
     error::OutputError,

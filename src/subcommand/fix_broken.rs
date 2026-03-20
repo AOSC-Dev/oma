@@ -5,8 +5,9 @@ use crate::{
     config::OmaConfig,
     core::commit_changes::CommitChanges,
     error::OutputError,
+    exit_handle::ExitHandle,
     fl,
-    utils::{ExitHandle, dbus_check, root},
+    utils::{dbus_check, root},
 };
 
 use super::utils::{auth_config, lock_oma};

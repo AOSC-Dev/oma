@@ -8,8 +8,8 @@ use crate::{
     args::{CliExecuter, OhManagerAilurus},
     config::OmaConfig,
     error::OutputError,
+    exit_handle::ExitHandle,
     lang::SYSTEM_LANG,
-    utils::ExitHandle,
 };
 
 #[derive(Debug, Args)]

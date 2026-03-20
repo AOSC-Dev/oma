@@ -13,9 +13,8 @@ use oma_pm::{
 use spdlog::info;
 
 use crate::{
-    config::OmaConfig,
-    error::OutputError,
-    utils::{ExitHandle, pkgnames_and_path_completions},
+    config::OmaConfig, error::OutputError, exit_handle::ExitHandle,
+    utils::pkgnames_and_path_completions,
 };
 
 use super::utils::handle_no_result;

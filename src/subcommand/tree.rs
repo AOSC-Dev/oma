@@ -18,12 +18,8 @@ use oma_pm::{
 use spdlog::{debug, trace};
 
 use crate::{
-    CliExecuter,
-    config::OmaConfig,
-    error::OutputError,
-    fl,
-    table::oma_display_with_normal_output,
-    utils::{ExitHandle, pkgnames_completions},
+    CliExecuter, config::OmaConfig, error::OutputError, exit_handle::ExitHandle, fl,
+    table::oma_display_with_normal_output, utils::pkgnames_completions,
 };
 
 use super::utils::{create_progress_spinner, handle_no_result};

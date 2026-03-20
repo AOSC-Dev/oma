@@ -51,6 +51,7 @@ use crate::args::HELP_TEMPLATE;
 use crate::config::OmaConfig;
 use crate::core::refresh::Refresh;
 use crate::error::OutputError;
+use crate::exit_handle::ExitHandle;
 use crate::fl;
 use crate::lang::SYSTEM_LANG;
 use crate::menu::multiselect;
@@ -60,7 +61,6 @@ use crate::pb::OmaProgressBar;
 use crate::pb::Print;
 use crate::success;
 use crate::table::PagerPrinter;
-use crate::utils::ExitHandle;
 use crate::utils::root;
 
 use super::utils::auth_config;

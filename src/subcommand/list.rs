@@ -10,10 +10,7 @@ use oma_pm::{
 use spdlog::info;
 
 use crate::{
-    NOT_DISPLAY_ABORT,
-    config::OmaConfig,
-    fl,
-    utils::{ExitHandle, pkgnames_completions},
+    NOT_DISPLAY_ABORT, config::OmaConfig, exit_handle::ExitHandle, fl, utils::pkgnames_completions,
 };
 use crate::{color_formatter, error::OutputError, table::PagerPrinter};
 use anyhow::anyhow;

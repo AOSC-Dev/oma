@@ -9,10 +9,8 @@ use oma_pm::{
 use std::io::Write;
 
 use crate::{
-    config::OmaConfig,
-    error::OutputError,
-    fl,
-    utils::{ExitHandle, pkgnames_and_path_completions},
+    config::OmaConfig, error::OutputError, exit_handle::ExitHandle, fl,
+    utils::pkgnames_and_path_completions,
 };
 
 use super::utils::handle_no_result;

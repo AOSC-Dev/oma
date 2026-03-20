@@ -11,8 +11,9 @@ use spdlog::error;
 
 use crate::config::OmaConfig;
 use crate::error::OutputError;
+use crate::exit_handle::{ExitHandle, ExitStatus};
 use crate::table::PagerPrinter;
-use crate::utils::{ExitHandle, ExitStatus, get_lists_dir};
+use crate::utils::get_lists_dir;
 use crate::{color_formatter, due_to, fl};
 
 use crate::args::CliExecuter;

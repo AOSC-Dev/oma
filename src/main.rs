@@ -13,6 +13,7 @@ mod config;
 mod config_file;
 mod core;
 mod error;
+mod exit_handle;
 mod install_progress;
 mod lang;
 mod menu;
@@ -65,9 +66,9 @@ use crate::args::SubCmd;
 use crate::config::OmaConfig;
 use crate::config_file::ConfigFile;
 use crate::error::Chain;
+use crate::exit_handle::ExitHandle;
 use crate::install_progress::osc94_progress;
 use crate::subcommand::*;
-use crate::utils::ExitHandle;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static NOT_ALLOW_CTRLC: AtomicBool = AtomicBool::new(false);
@@ -508,7 +509,7 @@ fn try_main(
                         log_error!("{}", fl!("custom-command-unknown", subcmd = subcommand));
                         return Ok(ExitHandle::default()
                             .ring(true)
-                            .status(utils::ExitStatus::Fail));
+                            .status(exit_handle::ExitStatus::Fail));
                     }
                 }
 
@@ -525,7 +526,7 @@ fn try_main(
 
                 Ok(ExitHandle::default()
                     .ring(true)
-                    .status(utils::ExitStatus::Other(status)))
+                    .status(exit_handle::ExitStatus::Other(status)))
             } else {
                 Tui::default().execute(config)
             }

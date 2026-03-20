@@ -24,8 +24,9 @@ use crate::{
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
     error::OutputError,
+    exit_handle::{ExitHandle, ExitStatus},
     menu::{multiselect, select_tui_display_msg, tui_select_list_size},
-    utils::{ExitHandle, ExitStatus, dbus_check, root},
+    utils::{dbus_check, root},
 };
 
 use super::utils::{auth_config, create_progress_spinner, lock_oma};
