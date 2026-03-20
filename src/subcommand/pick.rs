@@ -9,14 +9,14 @@ use oma_pm::{
 use crate::{
     HTTP_CLIENT,
     config::OmaConfig,
-    core::refresh::Refresh,
+    core::{commit_changes::CommitChanges, refresh::Refresh},
     error::OutputError,
     utils::{dbus_check, pkgnames_completions, root},
 };
 use crate::{fl, utils::ExitHandle};
 use anyhow::anyhow;
 
-use super::utils::{CommitChanges, auth_config, lock_oma, tui_select_list_size};
+use super::utils::{auth_config, lock_oma, tui_select_list_size};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]

@@ -22,9 +22,10 @@ use tabled::builder::Builder;
 use tabled::settings::{Alignment, Settings};
 
 use crate::config::OmaConfig;
+use crate::core::commit_changes::CommitChanges;
 use crate::subcommand::size_analyzer::pkg::PkgWrapper;
 use crate::subcommand::size_analyzer::tui::PkgSizeAnalyzer;
-use crate::subcommand::utils::{CommitChanges, auth_config};
+use crate::subcommand::utils::auth_config;
 use crate::table::table_no_color;
 use crate::utils::{ExitHandle, dbus_check, is_root};
 use crate::{CliExecuter, error::OutputError};

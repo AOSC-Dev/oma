@@ -9,6 +9,7 @@ use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use spdlog::{info, warn};
 
 use crate::config::OmaConfig;
+use crate::core::commit_changes::CommitChanges;
 use crate::fl;
 use crate::utils::{ExitHandle, pkgnames_remove_completions};
 use crate::{
@@ -16,9 +17,7 @@ use crate::{
     utils::{dbus_check, root},
 };
 
-use super::utils::{
-    CommitChanges, auth_config, create_progress_spinner, handle_no_result, lock_oma,
-};
+use super::utils::{auth_config, create_progress_spinner, handle_no_result, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
