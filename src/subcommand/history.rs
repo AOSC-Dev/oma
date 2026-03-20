@@ -14,6 +14,7 @@ use std::sync::atomic::Ordering;
 
 use crate::HTTP_CLIENT;
 use crate::config::OmaConfig;
+use crate::core::refresh::Refresh;
 use crate::utils::ExitHandle;
 #[cfg(feature = "aosc")]
 use crate::utils::ExitStatus;
@@ -26,7 +27,7 @@ use crate::{
 };
 
 use super::utils::{
-    CommitChanges, Refresh, auth_config, handle_no_result, lock_oma, select_tui_display_msg,
+    CommitChanges, auth_config, handle_no_result, lock_oma, select_tui_display_msg,
     tui_select_list_size,
 };
 use crate::args::CliExecuter;

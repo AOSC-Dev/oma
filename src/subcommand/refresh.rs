@@ -7,8 +7,9 @@ use crate::utils::ExitHandle;
 use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, utils::root};
 
-use super::utils::{Refresh as RefreshInner, auth_config, create_progress_spinner, space_tips};
+use super::utils::{auth_config, create_progress_spinner, space_tips};
 use crate::args::CliExecuter;
+use crate::core::refresh::Refresh as RefreshInner;
 
 #[derive(Debug, Args)]
 pub struct Refresh;

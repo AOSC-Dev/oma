@@ -1,4 +1,5 @@
 use crate::config::OmaConfig;
+use crate::core::refresh::Refresh;
 use crate::subcommand::utils::CommitChanges;
 use crate::utils::ExitHandle;
 use crate::utils::pkgnames_and_path_completions;
@@ -21,7 +22,6 @@ use crate::fl;
 use crate::utils::dbus_check;
 use crate::utils::root;
 
-use super::utils::Refresh;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
 use crate::args::CliExecuter;

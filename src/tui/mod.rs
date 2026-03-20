@@ -11,9 +11,10 @@ use spdlog::info;
 
 use crate::{
     HTTP_CLIENT,
+    core::refresh::Refresh,
     error::OutputError,
     fl,
-    subcommand::utils::{CommitChanges, Refresh, lock_oma},
+    subcommand::utils::{CommitChanges, lock_oma},
     utils::{dbus_check, root},
 };
 use crate::{

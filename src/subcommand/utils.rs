@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fmt::Debug;
 use std::fs;
 use std::io::IsTerminal;
 use std::io::Write;
@@ -10,13 +9,11 @@ use std::io::stdout;
 use std::os::fd::OwnedFd;
 use std::panic;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::thread;
 
 use crate::HTTP_CLIENT;
 use crate::NOT_ALLOW_CTRLC;
-use crate::RT;
 use crate::WRITER;
 use crate::color_formatter;
 use crate::error::OutputError;
@@ -33,7 +30,6 @@ use crate::pb::NoProgressBar;
 use crate::pb::OmaMultiProgressBar;
 use crate::pb::OmaProgressBar;
 use crate::pb::RenderPackagesDownloadProgress;
-use crate::pb::RenderRefreshProgress;
 use crate::success;
 use crate::table::table_for_install_pending;
 use crate::utils::ExitHandle;
@@ -71,11 +67,8 @@ use oma_pm::apt::OmaAptError;
 use oma_pm::apt::{InstallEntry, RemoveEntry};
 use oma_pm::oma_apt::PackageSort;
 use oma_pm::sort::SummarySort;
-use oma_refresh::db::OmaRefresh;
 use oma_utils::GetLockError;
-use oma_utils::dpkg::dpkg_arch;
 use oma_utils::get_file_lock;
-use reqwest::Client;
 use spdlog::{debug, error, info, warn};
 use std::fmt::Display;
 
@@ -181,98 +174,6 @@ pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<OwnedFd, OutputError
     })?;
 
     Ok(lock)
-}
-
-#[derive(Debug, Builder)]
-pub struct Refresh<'a> {
-    client: &'a Client,
-    #[builder(default)]
-    dry_run: bool,
-    #[builder(default)]
-    no_progress: bool,
-    #[builder(default = 4)]
-    network_thread: usize,
-    #[builder(default = "/")]
-    sysroot: &'a str,
-    #[builder(default = true)]
-    refresh_topics: bool,
-    config: &'a AptConfig,
-    auth_config: Option<&'a AuthConfig>,
-    apt_options: Vec<String>,
-}
-
-impl Refresh<'_> {
-    pub(crate) fn run(self) -> Result<(), OutputError> {
-        let Refresh {
-            client,
-            dry_run,
-            no_progress,
-            network_thread,
-            sysroot,
-            refresh_topics,
-            config,
-            auth_config,
-            apt_options,
-        } = self;
-
-        #[cfg(not(feature = "aosc"))]
-        let _ = refresh_topics;
-
-        if dry_run {
-            return Ok(());
-        }
-
-        info!("{}", fl!("refreshing-repo-metadata"));
-
-        let sysroot = PathBuf::from(sysroot);
-
-        let arch = dpkg_arch(&sysroot)?;
-
-        let refresh = OmaRefresh::builder()
-            .download_dir(get_lists_dir(config))
-            .source(sysroot)
-            .threads(network_thread)
-            .arch(arch)
-            .apt_config(config)
-            .client(client)
-            .another_apt_options(apt_options)
-            .maybe_auth_config(auth_config);
-
-        #[cfg(feature = "aosc")]
-        let msg = fl!("do-not-edit-topic-sources-list");
-
-        #[cfg(feature = "aosc")]
-        let refresh = refresh
-            .refresh_topics(refresh_topics)
-            .topic_msg(&msg)
-            .build();
-
-        #[cfg(not(feature = "aosc"))]
-        let refresh = refresh.build();
-
-        let (tx, rx) = unbounded();
-
-        thread::spawn(move || {
-            let mut pb: Box<dyn RenderRefreshProgress> = if no_progress {
-                Box::new(NoProgressBar::default())
-            } else {
-                Box::new(OmaMultiProgressBar::default())
-            };
-            pb.render_refresh_progress(&rx);
-        });
-
-        RT.block_on(async move {
-            refresh
-                .start(async |event| {
-                    if let Err(e) = tx.send_async(event).await {
-                        debug!("{}", e);
-                    }
-                })
-                .await
-        })?;
-
-        Ok(())
-    }
 }
 
 pub fn auth_config(sysroot: impl AsRef<Path>) -> Option<AuthConfig> {

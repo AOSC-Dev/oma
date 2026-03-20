@@ -11,6 +11,7 @@ use std::time::Duration;
 mod args;
 mod config;
 mod config_file;
+mod core;
 mod error;
 mod install_progress;
 mod lang;

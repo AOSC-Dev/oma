@@ -49,6 +49,7 @@ use crate::HTTP_CLIENT;
 use crate::RT;
 use crate::args::HELP_TEMPLATE;
 use crate::config::OmaConfig;
+use crate::core::refresh::Refresh;
 use crate::error::OutputError;
 use crate::fl;
 use crate::lang::SYSTEM_LANG;
@@ -60,7 +61,6 @@ use crate::table::PagerPrinter;
 use crate::utils::ExitHandle;
 use crate::utils::root;
 
-use super::utils::Refresh;
 use super::utils::auth_config;
 use super::utils::create_progress_spinner;
 use super::utils::select_tui_display_msg;
