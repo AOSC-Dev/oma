@@ -1,11 +1,10 @@
-use std::borrow::Cow;
 use std::env::{self, args};
 use std::ffi::CString;
 use std::io::{self, IsTerminal, stderr, stdin};
 use std::path::{Path, PathBuf};
 
 use std::process::{Command, exit};
-use std::sync::{Arc, LazyLock, OnceLock};
+use std::sync::{LazyLock, OnceLock};
 use std::time::Duration;
 
 mod args;
@@ -18,6 +17,7 @@ mod error;
 mod exit_handle;
 mod install_progress;
 mod lang;
+mod logger;
 mod menu;
 mod pb;
 mod root;
@@ -36,7 +36,6 @@ use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
 use oma_console::{
-    OmaFormatter,
     print::{OmaColorFormat, termbg},
     terminal::wrap_content,
     writer::Writer,
@@ -44,18 +43,8 @@ use oma_console::{
 use oma_pm::apt::AptConfig;
 use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
-use root::is_root;
 use rustix::stdio::stdout;
-use spdlog::sink::FileSink;
-use spdlog::{
-    Level, LevelFilter, Logger, debug,
-    error::SendToChannelError,
-    info, init_log_crate_proxy, log_crate_proxy,
-    prelude::error as log_error,
-    set_default_logger,
-    sink::{AsyncPoolSink, StdStreamSink},
-    warn,
-};
+use spdlog::{debug, info, prelude::error as log_error, warn};
 use tokio::runtime::Runtime;
 use tui::Tui;
 
@@ -68,7 +57,9 @@ use crate::config::OmaConfig;
 use crate::config_file::ConfigFile;
 use crate::error::Chain;
 use crate::exit_handle::ExitHandle;
-use crate::install_progress::osc94_progress;
+#[cfg(not(feature = "tokio-console"))]
+use crate::logger::init_logger;
+use crate::logger::remove_old_log_file_impl;
 use crate::subcommand::*;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
@@ -221,19 +212,7 @@ fn main() {
         );
     }
 
-    match file {
-        Ok(file) => {
-            debug!("Log file: {}", file.display());
-            std::thread::scope(|s| {
-                s.spawn(|| {
-                    remove_old_log_file(config_ctx.save_log_count, &file);
-                });
-            });
-        }
-        Err(e) => {
-            warn!("Failed to write log to file: {e}");
-        }
-    }
+    let _remove_old_log_worker = remove_old_log_file_impl(file, &config_ctx);
 
     init_apt_config(&config_ctx);
 
@@ -324,156 +303,6 @@ fn init_localizer() {
     // This is a temporary workaround for https://github.com/microsoft/terminal/issues/16574
     // TODO: this might break BiDi text, though we don't support any writing system depends on that.
     LANGUAGE_LOADER.set_use_isolating(false);
-}
-
-fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
-    let debug = oma.global.debug;
-    let dry_run = oma.global.dry_run;
-
-    let log_file = (if is_root() {
-        PathBuf::from(&oma.global.sysroot).join("var/log/oma")
-    } else {
-        dirs::state_dir()
-            .expect("Failed to get state dir")
-            .join("oma")
-    })
-    .join(format!("oma.log.{}", chrono::Local::now().timestamp()));
-
-    init_log_crate_proxy().unwrap();
-
-    let debug_formatter = oma.debug_formatter();
-
-    let (level_filter, formatter, filter) = if !debug && !dry_run && env::var("OMA_LOG").is_err() {
-        let no_i18n_embd = env_filter::Builder::new()
-            .try_parse("i18n_embed=off,info")
-            .unwrap()
-            .build();
-
-        let level_filter = LevelFilter::MoreSevereEqual(Level::Info);
-
-        let formatter = OmaFormatter::new().with_ansi(oma.enable_ansi());
-
-        (level_filter, formatter, no_i18n_embd)
-    } else {
-        let filter = env_filter::Builder::new()
-            .try_parse(
-                &env::var("OMA_LOG")
-                    .or_else(|_| env::var("RUST_LOG"))
-                    .map(Cow::Owned)
-                    .unwrap_or(Cow::Borrowed("hyper=off,rustls=off,debug")),
-            )
-            .unwrap()
-            .build();
-
-        let level_filter = LevelFilter::MoreSevereEqual(Level::Debug);
-
-        (level_filter, debug_formatter.clone(), filter)
-    };
-
-    log_crate_proxy().set_filter(Some(filter));
-
-    let file_sink = FileSink::builder()
-        .path(&log_file)
-        .formatter(debug_formatter)
-        .level_filter(LevelFilter::MoreSevereEqual(Level::Debug))
-        .build();
-
-    let mut file_sink_error = None;
-
-    let file_sink = match file_sink {
-        Ok(file_sink) => Some(
-            AsyncPoolSink::builder()
-                .sink(Arc::new(file_sink))
-                .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
-                .build()
-                .unwrap(),
-        ),
-        Err(e) => {
-            file_sink_error = Some(e);
-            None
-        }
-    };
-
-    let stream_sink = StdStreamSink::builder()
-        .formatter(formatter)
-        .level_filter(level_filter)
-        .stderr()
-        .build()
-        .unwrap();
-
-    let mut logger_builder = Logger::builder();
-
-    logger_builder
-        .level_filter(LevelFilter::All)
-        .flush_level_filter(LevelFilter::All)
-        .error_handler(|err| {
-            match err {
-                spdlog::Error::SendToChannel(SendToChannelError::Full, _) => {
-                    // Ignore, the async pool sink is dropping logs
-                }
-                err => spdlog::ErrorHandler::default().call(err),
-            }
-        })
-        .sink(Arc::new(stream_sink));
-
-    if let Some(file_sink) = file_sink {
-        logger_builder.sink(Arc::new(file_sink));
-    }
-
-    let logger = logger_builder.build().unwrap();
-
-    set_default_logger(Arc::new(logger));
-
-    if let Some(e) = file_sink_error {
-        Err(e.into())
-    } else {
-        Ok(log_file)
-    }
-}
-
-fn remove_old_log_file(save_log_count: usize, log_file: &Path) {
-    let mut v = vec![];
-    let log_dir = log_file.parent().unwrap();
-    let dirs = std::fs::read_dir(log_dir)
-        .expect("Failed to read log dir")
-        .collect::<Vec<_>>();
-
-    for p in &dirs {
-        let Ok(p) = p else {
-            continue;
-        };
-
-        let file_name = p.file_name();
-        let file_name = file_name.to_string_lossy();
-        let Some((prefix, timestamp)) = file_name.rsplit_once('.') else {
-            continue;
-        };
-
-        if prefix != "oma.log" {
-            continue;
-        }
-
-        let Ok(timestamp) = timestamp.parse::<usize>() else {
-            continue;
-        };
-
-        v.push(timestamp);
-    }
-
-    if v.len() > save_log_count {
-        v.sort_unstable_by(|a, b| b.cmp(a));
-
-        for _ in 1..=(v.len() - save_log_count) {
-            let Some(pop) = v.pop() else {
-                break;
-            };
-
-            let log_path = log_dir.join(format!("oma.log.{pop}"));
-            if let Err(e) = std::fs::remove_file(&log_path) {
-                debug!("Failed to remove file {}: {}", log_path.display(), e);
-            }
-        }
-    }
 }
 
 fn try_main(

@@ -1,6 +1,7 @@
 use std::{
     io::{IsTerminal, stderr, stdin, stdout},
-    process::exit, sync::atomic::Ordering,
+    process::exit,
+    sync::atomic::Ordering,
 };
 
 use oma_console::pager::PagerExit;
