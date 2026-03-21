@@ -42,7 +42,6 @@ use oma_console::{
     writer::Writer,
 };
 use oma_pm::apt::AptConfig;
-use oma_utils::dbus::{create_dbus_connection, get_another_oma_status};
 use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
 use root::is_root;
@@ -648,23 +647,6 @@ fn display_error(e: OutputError) -> io::Result<()> {
     }
 
     Ok(())
-}
-
-fn find_another_oma() -> Result<String, OutputError> {
-    RT.block_on(async { find_another_oma_inner().await })
-}
-
-async fn find_another_oma_inner() -> Result<String, OutputError> {
-    let conn = create_dbus_connection().await?;
-    let status = get_another_oma_status(&conn).await?;
-
-    let status = match status.as_str() {
-        "Pending" => fl!("status-pending"),
-        "Downloading" => fl!("status-downloading"),
-        pkg => fl!("status-package", pkg = pkg),
-    };
-
-    Ok(status)
 }
 
 #[inline]

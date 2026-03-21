@@ -6,8 +6,8 @@ use std::os::fd::OwnedFd;
 use std::path::Path;
 
 use crate::color_formatter;
+use crate::dbus::find_another_oma;
 use crate::error::OutputError;
-use crate::find_another_oma;
 use crate::fl;
 use crate::get_lock;
 use crate::msg;

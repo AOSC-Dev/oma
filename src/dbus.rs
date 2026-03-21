@@ -3,7 +3,8 @@ use std::{io::ErrorKind, process::exit};
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use oma_utils::{
     dbus::{
-        InhibitTypeUnion, create_dbus_connection, is_using_battery, session_name, take_wake_lock,
+        InhibitTypeUnion, create_dbus_connection, get_another_oma_status, is_using_battery,
+        session_name, take_wake_lock,
     },
     is_termux,
     zbus::{Connection, zvariant::OwnedFd},
@@ -153,4 +154,21 @@ fn handle_dialoguer_question_result(res: std::result::Result<bool, dialoguer::Er
 
 fn is_battery(conn: &Connection) -> bool {
     RT.block_on(is_using_battery(conn)).unwrap_or(false)
+}
+
+pub fn find_another_oma() -> Result<String> {
+    RT.block_on(async { find_another_oma_inner().await })
+}
+
+async fn find_another_oma_inner() -> Result<String> {
+    let conn = create_dbus_connection().await?;
+    let status = get_another_oma_status(&conn).await?;
+
+    let status = match status.as_str() {
+        "Pending" => fl!("status-pending"),
+        "Downloading" => fl!("status-downloading"),
+        pkg => fl!("status-package", pkg = pkg),
+    };
+
+    Ok(status)
 }
