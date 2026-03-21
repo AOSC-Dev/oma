@@ -190,7 +190,8 @@ fn main() {
         .completer("oma")
         .complete();
 
-    ctrlc::set_handler(signal_handler).expect("oma could not initialize SIGINT handler.");
+    ctrlc::set_handler(exit_handle::signal_handler)
+        .expect("oma could not initialize SIGINT handler.");
 
     // 要适配额外的插件子命令，所以这里要保留 matches
     let (matches, oma) = parse_args();
@@ -660,25 +661,4 @@ fn sysroot_default_value() -> &'static str {
     } else {
         "/"
     }
-}
-
-fn signal_handler() {
-    if NOT_ALLOW_CTRLC.load(Ordering::Relaxed) {
-        return;
-    }
-
-    // Force drop osc94 progress
-    osc94_progress(0.0, true);
-
-    let not_display_abort = NOT_DISPLAY_ABORT.load(Ordering::Relaxed);
-
-    // Show cursor before exiting.
-    // This is not a big deal so we won't panic on this.
-    let _ = WRITER.show_cursor();
-
-    if !not_display_abort {
-        info!("{}", fl!("user-aborted-op"));
-    }
-
-    std::process::exit(130);
 }

@@ -1,9 +1,12 @@
 use std::{
     io::{IsTerminal, stderr, stdin, stdout},
-    process::exit,
+    process::exit, sync::atomic::Ordering,
 };
 
 use oma_console::pager::PagerExit;
+use spdlog::info;
+
+use crate::{NOT_ALLOW_CTRLC, NOT_DISPLAY_ABORT, WRITER, fl, install_progress::osc94_progress};
 
 pub struct ExitHandle {
     ring: bool,
@@ -70,4 +73,25 @@ pub fn terminal_ring() {
     }
 
     eprint!("\x07"); // bell character
+}
+
+pub fn signal_handler() {
+    if NOT_ALLOW_CTRLC.load(Ordering::Relaxed) {
+        return;
+    }
+
+    // Force drop osc94 progress
+    osc94_progress(0.0, true);
+
+    let not_display_abort = NOT_DISPLAY_ABORT.load(Ordering::Relaxed);
+
+    // Show cursor before exiting.
+    // This is not a big deal so we won't panic on this.
+    let _ = WRITER.show_cursor();
+
+    if !not_display_abort {
+        info!("{}", fl!("user-aborted-op"));
+    }
+
+    std::process::exit(130);
 }
