@@ -218,7 +218,7 @@ fn main() {
 
     let no_bell = config_ctx.no_bell;
 
-    let code = match try_main(subcmd, config_ctx, matches) {
+    match try_main(subcmd, config_ctx, matches) {
         Ok(exit_code) => exit_code.handle(!no_bell),
         Err(e) => {
             if let Err(e) = display_error(e) {
@@ -229,11 +229,9 @@ fn main() {
                 exit_handle::terminal_ring();
             }
 
-            1
+            exit(1)
         }
-    };
-
-    exit(code);
+    }
 }
 
 fn init_http_client(user_agent: &str) -> &'static Client {
