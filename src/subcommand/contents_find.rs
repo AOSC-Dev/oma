@@ -1,8 +1,8 @@
+use crate::completions::pkgnames_completions;
 use crate::config::OmaConfig;
 use crate::error::OutputError;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
-use crate::path_completions::pkgnames_completions;
 use crate::subcommand::utils::handle_no_result;
 use crate::table::oma_display_with_normal_output;
 use clap::Args;

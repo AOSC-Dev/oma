@@ -9,6 +9,7 @@ use spdlog::{info, warn};
 
 use crate::HTTP_CLIENT;
 use crate::args::ARG_HELP_HEADING;
+use crate::completions::pkgnames_and_path_completions;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
@@ -16,7 +17,6 @@ use crate::dbus::dbus_check;
 use crate::error::OutputError;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
-use crate::path_completions::pkgnames_and_path_completions;
 use crate::root::root;
 
 use super::utils::auth_config;

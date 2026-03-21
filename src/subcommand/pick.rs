@@ -8,13 +8,13 @@ use oma_pm::{
 
 use crate::{
     HTTP_CLIENT,
+    completions::pkgnames_completions,
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
     dbus::dbus_check,
     error::OutputError,
     exit_handle::ExitHandle,
     menu::tui_select_list_size,
-    path_completions::pkgnames_completions,
 };
 use crate::{fl, root::root};
 use anyhow::anyhow;

@@ -8,9 +8,9 @@ use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
 use spdlog::error;
 
+use crate::completions::pkgnames_completions;
 use crate::config::OmaConfig;
 use crate::exit_handle::ExitHandle;
-use crate::path_completions::pkgnames_completions;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress};
 use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};

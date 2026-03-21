@@ -9,6 +9,7 @@ use std::sync::{Arc, LazyLock, OnceLock};
 use std::time::Duration;
 
 mod args;
+mod completions;
 mod config;
 mod config_file;
 mod core;
@@ -18,7 +19,6 @@ mod exit_handle;
 mod install_progress;
 mod lang;
 mod menu;
-mod path_completions;
 mod pb;
 mod root;
 mod subcommand;

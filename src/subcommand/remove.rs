@@ -8,11 +8,11 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use spdlog::{info, warn};
 
+use crate::completions::pkgnames_remove_completions;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
-use crate::path_completions::pkgnames_remove_completions;
 use crate::{dbus::dbus_check, error::OutputError, root::root};
 
 use super::utils::{auth_config, create_progress_spinner, handle_no_result, lock_oma};
