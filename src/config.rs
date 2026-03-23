@@ -1,10 +1,14 @@
 use std::{borrow::Cow, path::PathBuf};
 
 use clap::ColorChoice;
+use oma_pm::apt::AptConfig;
+use oma_utils::is_termux;
 use once_cell::sync::OnceCell;
+use spdlog::debug;
 
 use crate::{
     DEFAULT_USER_AGENT, GlobalOptions,
+    args::{OhManagerAilurus, SubCmd},
     config_file::{BatteryTristate, ConfigFile, GeneralConfig, SearchEngine, TakeWakeLockTristate},
     subcommand::utils::is_terminal,
 };
@@ -15,7 +19,7 @@ pub struct OmaConfig {
     pub debug: bool,
     pub color: ColorChoice,
     pub follow_terminal_color: bool,
-    no_progress: bool,
+    cli_no_progress: bool,
     pub no_check_dbus: bool,
     pub check_battery: BatteryTristate,
     pub take_wake_lock: TakeWakeLockTristate,
@@ -28,10 +32,11 @@ pub struct OmaConfig {
     pub protect_essentials: bool,
     pub search_contents_println: bool,
     pub search_engine: SearchEngine,
-    no_progress_oncecell: OnceCell<bool>,
+    no_progress: OnceCell<bool>,
     pub save_log_count: usize,
     pub user_agent: Cow<'static, str>,
     pub yn_mode: bool,
+    subcmd: Option<SubCmd>,
 }
 
 impl Default for OmaConfig {
@@ -41,7 +46,7 @@ impl Default for OmaConfig {
             debug: false,
             color: ColorChoice::Auto,
             follow_terminal_color: false,
-            no_progress: false,
+            cli_no_progress: false,
             no_check_dbus: false,
             check_battery: BatteryTristate::Ask,
             take_wake_lock: TakeWakeLockTristate::Yes,
@@ -58,10 +63,11 @@ impl Default for OmaConfig {
             } else {
                 SearchEngine::StrSim
             },
-            no_progress_oncecell: OnceCell::new(),
+            no_progress: OnceCell::new(),
             save_log_count: 10,
             user_agent: DEFAULT_USER_AGENT.into(),
             yn_mode: false,
+            subcmd: None,
         }
     }
 }
@@ -107,7 +113,9 @@ impl OmaConfig {
         oma_config
     }
 
-    pub fn update_from_cli(&mut self, global_options: GlobalOptions) {
+    pub fn update_from_cli(&mut self, oma: OhManagerAilurus) {
+        let OhManagerAilurus { global, subcmd } = oma;
+
         let GlobalOptions {
             dry_run,
             debug,
@@ -123,7 +131,7 @@ impl OmaConfig {
             download_threads,
             user_agent,
             ..
-        } = global_options;
+        } = global;
 
         self.dry_run |= dry_run;
         self.debug |= debug;
@@ -139,7 +147,7 @@ impl OmaConfig {
             self.download_threads = download_threads;
         }
 
-        self.no_progress = no_progress;
+        self.cli_no_progress = no_progress;
 
         if no_check_battery {
             self.check_battery = BatteryTristate::Ignore
@@ -152,17 +160,38 @@ impl OmaConfig {
         if let Some(user_agent) = user_agent {
             self.user_agent = user_agent.into();
         }
+
+        self.subcmd = subcmd;
     }
 
     #[inline]
     pub fn no_progress(&self) -> bool {
-        *self.no_progress_oncecell.get_or_init(|| {
-            self.no_progress
+        *self.no_progress.get_or_init(|| {
+            self.cli_no_progress
                 || !is_terminal()
                 || self.debug
                 || self.dry_run
                 || std::env::var("OMA_LOG").is_ok()
                 || self.color == ColorChoice::Never
         })
+    }
+
+    #[inline]
+    pub fn take_subcmd(&mut self) -> Option<SubCmd> {
+        self.subcmd.take()
+    }
+
+    pub fn init_apt_config(&self) {
+        let apt_config = AptConfig::new();
+
+        if !is_termux() {
+            apt_config.set("Dir", &self.sysroot.to_string_lossy());
+        }
+
+        for kv in &self.apt_options {
+            let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
+            debug!("Set apt option: {k}={v}");
+            apt_config.set(k, v);
+        }
     }
 }
