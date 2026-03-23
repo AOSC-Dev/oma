@@ -3,12 +3,14 @@ use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 use spdlog::info;
 
 use crate::config::OmaConfig;
-use crate::utils::ExitHandle;
+use crate::core::space_tips;
+use crate::exit_handle::ExitHandle;
 use crate::{HTTP_CLIENT, fl, success};
-use crate::{error::OutputError, utils::root};
+use crate::{error::OutputError, root::root};
 
-use super::utils::{Refresh as RefreshInner, auth_config, create_progress_spinner, space_tips};
+use super::utils::{auth_config, create_progress_spinner};
 use crate::args::CliExecuter;
+use crate::core::refresh::Refresh as RefreshInner;
 
 #[derive(Debug, Args)]
 pub struct Refresh;

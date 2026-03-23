@@ -16,7 +16,7 @@ use oma_console::{
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
-use crate::{WRITER, error::Chain, fl, install_progress::osc94_progress, msg, utils::is_root};
+use crate::{WRITER, error::Chain, fl, install_progress::osc94_progress, msg, root::is_root};
 use crate::{color_formatter, error::OutputError};
 use oma_refresh::db::Event as RefreshEvent;
 use oma_utils::human_bytes::HumanBytes;

@@ -11,17 +11,19 @@ use spdlog::info;
 
 use crate::{
     HTTP_CLIENT,
+    core::{commit_changes::CommitChanges, refresh::Refresh},
+    dbus::dbus_check,
     error::OutputError,
     fl,
-    subcommand::utils::{CommitChanges, Refresh, lock_oma},
-    utils::{dbus_check, root},
+    root::root,
+    subcommand::utils::lock_oma,
 };
 use crate::{
     args::CliExecuter,
     config::OmaConfig,
+    exit_handle::ExitHandle,
     subcommand::utils::{auth_config, create_progress_spinner},
     tui::render::PackageStatus,
-    utils::ExitHandle,
 };
 
 mod key_binding;

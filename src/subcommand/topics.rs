@@ -22,15 +22,15 @@ use tokio::task::spawn_blocking;
 use crate::{
     HTTP_CLIENT, NOT_ALLOW_CTRLC, RT,
     config::OmaConfig,
+    core::{commit_changes::CommitChanges, refresh::Refresh},
+    dbus::dbus_check,
     error::OutputError,
-    subcommand::utils::multiselect,
-    utils::{ExitHandle, ExitStatus, dbus_check, root},
+    exit_handle::{ExitHandle, ExitStatus},
+    menu::{multiselect, select_tui_display_msg, tui_select_list_size},
+    root::root,
 };
 
-use super::utils::{
-    CommitChanges, Refresh, auth_config, create_progress_spinner, lock_oma, select_tui_display_msg,
-    tui_select_list_size,
-};
+use super::utils::{auth_config, create_progress_spinner, lock_oma};
 
 use crate::args::CliExecuter;
 

@@ -9,16 +9,16 @@ use spdlog::{info, warn};
 
 use crate::HTTP_CLIENT;
 use crate::args::ARG_HELP_HEADING;
+use crate::completions::pkgnames_and_path_completions;
 use crate::config::OmaConfig;
+use crate::core::commit_changes::CommitChanges;
+use crate::core::refresh::Refresh;
+use crate::dbus::dbus_check;
 use crate::error::OutputError;
+use crate::exit_handle::ExitHandle;
 use crate::fl;
-use crate::utils::ExitHandle;
-use crate::utils::dbus_check;
-use crate::utils::pkgnames_and_path_completions;
-use crate::utils::root;
+use crate::root::root;
 
-use super::utils::CommitChanges;
-use super::utils::Refresh;
 use super::utils::auth_config;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;

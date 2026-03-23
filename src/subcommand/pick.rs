@@ -8,14 +8,18 @@ use oma_pm::{
 
 use crate::{
     HTTP_CLIENT,
+    completions::pkgnames_completions,
     config::OmaConfig,
+    core::{commit_changes::CommitChanges, refresh::Refresh},
+    dbus::dbus_check,
     error::OutputError,
-    utils::{dbus_check, pkgnames_completions, root},
+    exit_handle::ExitHandle,
+    menu::tui_select_list_size,
 };
-use crate::{fl, utils::ExitHandle};
+use crate::{fl, root::root};
 use anyhow::anyhow;
 
-use super::utils::{CommitChanges, Refresh, auth_config, lock_oma, tui_select_list_size};
+use super::utils::{auth_config, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]

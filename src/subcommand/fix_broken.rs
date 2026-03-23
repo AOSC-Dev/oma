@@ -2,13 +2,11 @@ use clap::Args;
 use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
 
 use crate::{
-    config::OmaConfig,
-    error::OutputError,
-    fl,
-    utils::{ExitHandle, dbus_check, root},
+    config::OmaConfig, core::commit_changes::CommitChanges, dbus::dbus_check, error::OutputError,
+    exit_handle::ExitHandle, fl, root::root,
 };
 
-use super::utils::{CommitChanges, auth_config, lock_oma};
+use super::utils::{auth_config, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]

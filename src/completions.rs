@@ -5,6 +5,10 @@ use std::ffi::OsStr;
 use clap_complete::{CompletionCandidate, engine::ValueCompleter};
 use clap_lex::OsStrExt;
 use dirs::home_dir;
+use oma_pm::{
+    apt::{AptConfig, OmaApt, OmaAptArgs},
+    oma_apt::PackageSort,
+};
 use rustix::path::Arg;
 use spdlog::debug;
 
@@ -167,4 +171,70 @@ fn path_has_name(path: &std::path::Path) -> bool {
     };
     let trailing = *trailing as char;
     !std::path::is_separator(trailing) && path.file_name().is_some()
+}
+
+pub fn pkgnames_and_path_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let path_completions = PathCompleter::file()
+        .filter(|x| x.extension().is_some_and(|y| y == "deb"))
+        .complete(current);
+
+    let mut completions = vec![];
+    let current = &current.to_string_lossy();
+    pkgnames_complete_impl(&mut completions, current, PackageSort::default().names());
+
+    completions.extend(path_completions);
+
+    completions
+}
+
+pub fn pkgnames_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let mut completions = vec![];
+    let current = &current.to_string_lossy();
+    pkgnames_complete_impl(&mut completions, current, PackageSort::default().names());
+
+    completions
+}
+
+fn pkgnames_complete_impl(
+    completions: &mut Vec<CompletionCandidate>,
+    current: &str,
+    sort: PackageSort,
+) {
+    let Ok(apt) = OmaApt::new(
+        vec![],
+        OmaAptArgs::builder().build(),
+        false,
+        AptConfig::new(),
+    ) else {
+        return;
+    };
+
+    let pkgs = apt.cache.packages(&sort);
+
+    if current.is_empty() {
+        for pkg in pkgs {
+            completions.push(pkg.fullname(true).into());
+        }
+    } else {
+        for pkg in pkgs {
+            let pkgname = pkg.fullname(true);
+            if !pkgname.starts_with(current) {
+                continue;
+            }
+            completions.push(pkgname.into());
+        }
+    }
+}
+
+pub fn pkgnames_remove_completions(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let mut completions = vec![];
+    let current = current.to_string_lossy();
+
+    pkgnames_complete_impl(
+        &mut completions,
+        &current,
+        PackageSort::default().names().installed(),
+    );
+
+    completions
 }

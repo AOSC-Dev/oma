@@ -14,21 +14,18 @@ use std::sync::atomic::Ordering;
 
 use crate::HTTP_CLIENT;
 use crate::config::OmaConfig;
-use crate::utils::ExitHandle;
+use crate::core::commit_changes::CommitChanges;
+use crate::core::refresh::Refresh;
+use crate::exit_handle::ExitHandle;
 #[cfg(feature = "aosc")]
-use crate::utils::ExitStatus;
+use crate::exit_handle::ExitStatus;
+use crate::menu::{select_tui_display_msg, tui_select_list_size};
 use crate::{
-    NOT_DISPLAY_ABORT,
-    error::OutputError,
-    fl,
+    NOT_DISPLAY_ABORT, dbus::dbus_check, error::OutputError, fl, root::root,
     table::table_for_history_pending,
-    utils::{dbus_check, root},
 };
 
-use super::utils::{
-    CommitChanges, Refresh, auth_config, handle_no_result, lock_oma, select_tui_display_msg,
-    tui_select_list_size,
-};
+use super::utils::{auth_config, handle_no_result, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]

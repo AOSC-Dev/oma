@@ -11,10 +11,8 @@ use oma_pm::{
 };
 
 use crate::{
-    config::OmaConfig,
-    error::OutputError,
-    fl,
-    utils::{ExitHandle, pkgnames_and_path_completions},
+    completions::pkgnames_and_path_completions, config::OmaConfig, error::OutputError,
+    exit_handle::ExitHandle, fl,
 };
 
 use super::utils::handle_no_result;
