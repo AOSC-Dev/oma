@@ -285,10 +285,7 @@ fn init_localizer() {
     LANGUAGE_LOADER.set_use_isolating(false);
 }
 
-fn try_main(
-    mut config: OmaConfig,
-    matches: ArgMatches,
-) -> Result<ExitHandle, OutputError> {
+fn try_main(mut config: OmaConfig, matches: ArgMatches) -> Result<ExitHandle, OutputError> {
     init_color_formatter(&config);
     let subcmd = config.take_subcmd();
 

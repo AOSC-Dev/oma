@@ -19,7 +19,7 @@ pub struct OmaConfig {
     pub debug: bool,
     pub color: ColorChoice,
     pub follow_terminal_color: bool,
-    no_progress: bool,
+    cli_no_progress: bool,
     pub no_check_dbus: bool,
     pub check_battery: BatteryTristate,
     pub take_wake_lock: TakeWakeLockTristate,
@@ -32,7 +32,7 @@ pub struct OmaConfig {
     pub protect_essentials: bool,
     pub search_contents_println: bool,
     pub search_engine: SearchEngine,
-    no_progress_oncecell: OnceCell<bool>,
+    no_progress: OnceCell<bool>,
     pub save_log_count: usize,
     pub user_agent: Cow<'static, str>,
     pub yn_mode: bool,
@@ -46,7 +46,7 @@ impl Default for OmaConfig {
             debug: false,
             color: ColorChoice::Auto,
             follow_terminal_color: false,
-            no_progress: false,
+            cli_no_progress: false,
             no_check_dbus: false,
             check_battery: BatteryTristate::Ask,
             take_wake_lock: TakeWakeLockTristate::Yes,
@@ -63,7 +63,7 @@ impl Default for OmaConfig {
             } else {
                 SearchEngine::StrSim
             },
-            no_progress_oncecell: OnceCell::new(),
+            no_progress: OnceCell::new(),
             save_log_count: 10,
             user_agent: DEFAULT_USER_AGENT.into(),
             yn_mode: false,
@@ -147,7 +147,7 @@ impl OmaConfig {
             self.download_threads = download_threads;
         }
 
-        self.no_progress = no_progress;
+        self.cli_no_progress = no_progress;
 
         if no_check_battery {
             self.check_battery = BatteryTristate::Ignore
@@ -166,8 +166,8 @@ impl OmaConfig {
 
     #[inline]
     pub fn no_progress(&self) -> bool {
-        *self.no_progress_oncecell.get_or_init(|| {
-            self.no_progress
+        *self.no_progress.get_or_init(|| {
+            self.cli_no_progress
                 || !is_terminal()
                 || self.debug
                 || self.dry_run
