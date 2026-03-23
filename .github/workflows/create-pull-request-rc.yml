@@ -32,6 +32,7 @@ jobs:
       - name: Update version
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          BUILDIT_TOKEN: ${{ secrets.BUILDIT_TOKEN }}
         run: |
           cd ./aosc-os-abbs/app-admin/oma
           git config user.name "eatradish"
@@ -75,4 +76,5 @@ jobs:
           curl --header "Content-Type: application/json" \
             --request POST \
             --data "{\"pr\": ${num}}" \
+            --header "Authorization: Bearer ${BUILDIT_TOKEN}" \
             https://buildit.aosc.io/api/pipeline/new_pr
