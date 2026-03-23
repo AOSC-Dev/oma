@@ -5,6 +5,7 @@ use once_cell::sync::OnceCell;
 
 use crate::{
     DEFAULT_USER_AGENT, GlobalOptions,
+    args::{OhManagerAilurus, SubCmd},
     config_file::{BatteryTristate, ConfigFile, GeneralConfig, SearchEngine, TakeWakeLockTristate},
     subcommand::utils::is_terminal,
 };
@@ -32,6 +33,7 @@ pub struct OmaConfig {
     pub save_log_count: usize,
     pub user_agent: Cow<'static, str>,
     pub yn_mode: bool,
+    subcmd: Option<SubCmd>,
 }
 
 impl Default for OmaConfig {
@@ -62,6 +64,7 @@ impl Default for OmaConfig {
             save_log_count: 10,
             user_agent: DEFAULT_USER_AGENT.into(),
             yn_mode: false,
+            subcmd: None,
         }
     }
 }
@@ -107,7 +110,9 @@ impl OmaConfig {
         oma_config
     }
 
-    pub fn update_from_cli(&mut self, global_options: GlobalOptions) {
+    pub fn update_from_cli(&mut self, oma: OhManagerAilurus) {
+        let OhManagerAilurus { global, subcmd } = oma;
+
         let GlobalOptions {
             dry_run,
             debug,
@@ -123,7 +128,7 @@ impl OmaConfig {
             download_threads,
             user_agent,
             ..
-        } = global_options;
+        } = global;
 
         self.dry_run |= dry_run;
         self.debug |= debug;
@@ -152,6 +157,8 @@ impl OmaConfig {
         if let Some(user_agent) = user_agent {
             self.user_agent = user_agent.into();
         }
+
+        self.subcmd = subcmd;
     }
 
     #[inline]
@@ -164,5 +171,10 @@ impl OmaConfig {
                 || std::env::var("OMA_LOG").is_ok()
                 || self.color == ColorChoice::Never
         })
+    }
+
+    #[inline]
+    pub fn take_subcmd(&mut self) -> Option<SubCmd> {
+        self.subcmd.take()
     }
 }

@@ -52,7 +52,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use oma_console::console;
 
-use crate::args::SubCmd;
 use crate::config::OmaConfig;
 use crate::config_file::ConfigFile;
 use crate::error::Chain;
@@ -200,7 +199,7 @@ fn main() {
     );
     debug!("oma version: {}", env!("CARGO_PKG_VERSION"));
 
-    let (config_ctx, subcmd) = read_config_from_file_and_cli(oma);
+    let config_ctx = read_config_from_file_and_cli(oma);
 
     init_http_client(&config_ctx.user_agent);
 
@@ -218,7 +217,7 @@ fn main() {
 
     let no_bell = config_ctx.no_bell;
 
-    match try_main(subcmd, config_ctx, matches) {
+    match try_main(config_ctx, matches) {
         Ok(exit_code) => exit_code.handle(!no_bell),
         Err(e) => {
             if let Err(e) = display_error(e) {
@@ -242,7 +241,7 @@ fn init_http_client(user_agent: &str) -> &'static Client {
     })
 }
 
-fn read_config_from_file_and_cli(oma: OhManagerAilurus) -> (OmaConfig, Option<SubCmd>) {
+fn read_config_from_file_and_cli(oma: OhManagerAilurus) -> OmaConfig {
     // Init config file
     let config_file = if oma.global.no_config {
         warn!("{}", fl!("no-config-warning"));
@@ -251,14 +250,12 @@ fn read_config_from_file_and_cli(oma: OhManagerAilurus) -> (OmaConfig, Option<Su
         ConfigFile::read()
     };
 
-    let subcmd = oma.subcmd;
-
     let mut config_ctx = OmaConfig::from_config_file(config_file);
     debug!("Config file: {:#?}", config_ctx);
-    config_ctx.update_from_cli(oma.global);
+    config_ctx.update_from_cli(oma);
     debug!("Config: {:#?}", config_ctx);
 
-    (config_ctx, subcmd)
+    config_ctx
 }
 
 fn init_apt_config(config: &OmaConfig) {
@@ -304,11 +301,11 @@ fn init_localizer() {
 }
 
 fn try_main(
-    subcmd: Option<SubCmd>,
-    config: OmaConfig,
+    mut config: OmaConfig,
     matches: ArgMatches,
 ) -> Result<ExitHandle, OutputError> {
     init_color_formatter(&config);
+    let subcmd = config.take_subcmd();
 
     match subcmd {
         Some(subcmd) => subcmd.execute(config),
