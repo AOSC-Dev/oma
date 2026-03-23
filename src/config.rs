@@ -1,7 +1,10 @@
 use std::{borrow::Cow, path::PathBuf};
 
 use clap::ColorChoice;
+use oma_pm::apt::AptConfig;
+use oma_utils::is_termux;
 use once_cell::sync::OnceCell;
+use spdlog::debug;
 
 use crate::{
     DEFAULT_USER_AGENT, GlobalOptions,
@@ -176,5 +179,19 @@ impl OmaConfig {
     #[inline]
     pub fn take_subcmd(&mut self) -> Option<SubCmd> {
         self.subcmd.take()
+    }
+
+    pub fn init_apt_config(&self) {
+        let apt_config = AptConfig::new();
+
+        if !is_termux() {
+            apt_config.set("Dir", &self.sysroot.to_string_lossy());
+        }
+
+        for kv in &self.apt_options {
+            let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
+            debug!("Set apt option: {k}={v}");
+            apt_config.set(k, v);
+        }
     }
 }

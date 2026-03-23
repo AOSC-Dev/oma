@@ -40,7 +40,6 @@ use oma_console::{
     terminal::wrap_content,
     writer::Writer,
 };
-use oma_pm::apt::AptConfig;
 use oma_utils::{OsRelease, is_termux};
 use reqwest::Client;
 use rustix::stdio::stdout;
@@ -213,7 +212,7 @@ fn main() {
 
     let _remove_old_log_worker = remove_old_log_file_impl(file, &config_ctx);
 
-    init_apt_config(&config_ctx);
+    config_ctx.init_apt_config();
 
     let no_bell = config_ctx.no_bell;
 
@@ -256,20 +255,6 @@ fn read_config_from_file_and_cli(oma: OhManagerAilurus) -> OmaConfig {
     debug!("Config: {:#?}", config_ctx);
 
     config_ctx
-}
-
-fn init_apt_config(config: &OmaConfig) {
-    let apt_config = AptConfig::new();
-
-    if !is_termux() {
-        apt_config.set("Dir", &config.sysroot.to_string_lossy());
-    }
-
-    for kv in &config.apt_options {
-        let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
-        debug!("Set apt option: {k}={v}");
-        apt_config.set(k, v);
-    }
 }
 
 fn parse_args() -> (ArgMatches, OhManagerAilurus) {
