@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::io::stdout;
-use std::path::PathBuf;
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -37,6 +37,7 @@ use oma_utils::concat_url;
 use oma_utils::dpkg::dpkg_arch;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
+use reqwest::Client;
 use reqwest::Url;
 use reqwest::blocking;
 use sha2::Digest;
@@ -45,7 +46,6 @@ use spdlog::{error, info, warn};
 use std::io::Write;
 use tabled::Tabled;
 
-use crate::HTTP_CLIENT;
 use crate::RT;
 use crate::args::HELP_TEMPLATE;
 use crate::config::OmaConfig;
@@ -197,9 +197,10 @@ impl CliExecuter for CliMirror {
                     config.download_threads,
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-                    config.sysroot,
+                    &config.sysroot,
                     Operate::Set,
-                    config.apt_options,
+                    &config.apt_options,
+                    config.http_client()?,
                 ),
                 MirrorSubCmd::Speedtest {
                     set_fastest,
@@ -211,9 +212,10 @@ impl CliExecuter for CliMirror {
                     !config.no_refresh_topics,
                     config.download_threads,
                     no_refresh,
-                    config.apt_options,
+                    &config.apt_options,
                     timeout,
-                    &config.user_agent,
+                    config.http_client()?,
+                    config.http_client_blocking()?,
                 ),
                 MirrorSubCmd::Add { names, no_refresh } => operate(
                     config.no_progress(),
@@ -221,9 +223,10 @@ impl CliExecuter for CliMirror {
                     config.download_threads,
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-                    config.sysroot,
+                    &config.sysroot,
                     Operate::Add,
-                    config.apt_options,
+                    &config.apt_options,
+                    config.http_client()?,
                 ),
                 MirrorSubCmd::Remove { names, no_refresh } => operate(
                     config.no_progress(),
@@ -231,16 +234,18 @@ impl CliExecuter for CliMirror {
                     config.download_threads,
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-                    config.sysroot,
+                    &config.sysroot,
                     Operate::Remove,
-                    config.apt_options,
+                    &config.apt_options,
+                    config.http_client()?,
                 ),
                 MirrorSubCmd::SortMirrors { no_refresh } => set_order(
                     config.no_progress(),
                     !config.no_refresh_topics,
                     config.download_threads,
                     no_refresh,
-                    config.apt_options,
+                    &config.apt_options,
+                    config.http_client()?,
                 ),
                 MirrorSubCmd::Latency { timeout, json } => {
                     get_latency(timeout, config.no_progress(), json, &config.user_agent)
@@ -252,7 +257,8 @@ impl CliExecuter for CliMirror {
                 !config.no_refresh_topics,
                 config.download_threads,
                 no_refresh,
-                config.apt_options,
+                &config.apt_options,
+                config.http_client()?,
             )
         }
     }
@@ -263,7 +269,8 @@ pub fn tui(
     refresh_topic: bool,
     network_threads: usize,
     no_refresh: bool,
-    apt_options: Vec<String>,
+    apt_options: &[String],
+    client: &Client,
 ) -> Result<ExitHandle, OutputError> {
     root()?;
 
@@ -331,8 +338,14 @@ pub fn tui(
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
-        refresh_enabled_topics_sources_list(no_progress)?;
-        refresh(no_progress, network_threads, refresh_topic, apt_options)?;
+        refresh_enabled_topics_sources_list(client, no_progress)?;
+        refresh(
+            no_progress,
+            network_threads,
+            refresh_topic,
+            apt_options,
+            client,
+        )?;
     }
 
     Ok(ExitHandle::default().ring(true))
@@ -351,9 +364,10 @@ fn operate(
     network_threads: usize,
     no_refresh: bool,
     args: Vec<&str>,
-    sysroot: PathBuf,
+    sysroot: &Path,
     subcmd: Operate,
-    apt_options: Vec<String>,
+    apt_options: &[String],
+    client: &Client,
 ) -> Result<ExitHandle, OutputError> {
     root()?;
 
@@ -378,8 +392,14 @@ fn operate(
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
-        refresh_enabled_topics_sources_list(no_progress)?;
-        refresh(no_progress, network_threads, refresh_topic, apt_options)?;
+        refresh_enabled_topics_sources_list(client, no_progress)?;
+        refresh(
+            no_progress,
+            network_threads,
+            refresh_topic,
+            apt_options,
+            client,
+        )?;
     }
 
     Ok(ExitHandle::default().ring(true))
@@ -390,7 +410,8 @@ fn set_order(
     refresh_topic: bool,
     network_threads: usize,
     no_refresh: bool,
-    apt_options: Vec<String>,
+    apt_options: &[String],
+    client: &Client,
 ) -> Result<ExitHandle, OutputError> {
     root()?;
 
@@ -415,8 +436,14 @@ fn set_order(
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
-        refresh_enabled_topics_sources_list(no_progress)?;
-        refresh(no_progress, network_threads, refresh_topic, apt_options)?;
+        refresh_enabled_topics_sources_list(client, no_progress)?;
+        refresh(
+            no_progress,
+            network_threads,
+            refresh_topic,
+            apt_options,
+            client,
+        )?;
     }
 
     Ok(ExitHandle::default().ring(true))
@@ -643,9 +670,10 @@ fn speedtest(
     refresh_topic: bool,
     network_threads: usize,
     no_refresh: bool,
-    apt_options: Vec<String>,
+    apt_options: &[String],
     timeout: f64,
-    user_agent: &str,
+    client: &Client,
+    blocking_client: &reqwest::blocking::Client,
 ) -> Result<ExitHandle, OutputError> {
     if set_fastest {
         root()?;
@@ -661,8 +689,6 @@ fn speedtest(
         None
     };
 
-    let client = client(timeout, user_agent)?;
-
     let mut score_map = HashMap::with_hasher(ahash::RandomState::new());
 
     if let Some(ref pb) = pb {
@@ -672,8 +698,9 @@ fn speedtest(
     for (name, mirror) in mirrors {
         let mut sha256 = Sha256::new();
         let timer = Instant::now();
-        let res = client
+        let res = blocking_client
             .get(format!("{}{}", mirror.url, TEST_FILE_PREFIX))
+            .timeout(Duration::from_secs_f64(timeout))
             .send()
             .and_then(|x| x.error_for_status())
             .and_then(|mut x| x.copy_to(&mut sha256));
@@ -767,8 +794,14 @@ fn speedtest(
         mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
         if !no_refresh {
-            refresh_enabled_topics_sources_list(no_progress)?;
-            refresh(no_progress, network_threads, refresh_topic, apt_options)?;
+            refresh_enabled_topics_sources_list(client, no_progress)?;
+            refresh(
+                no_progress,
+                network_threads,
+                refresh_topic,
+                apt_options,
+                client,
+            )?;
         }
     }
 
@@ -799,20 +832,21 @@ fn refresh(
     no_progress: bool,
     network_threads: usize,
     refresh_topic: bool,
-    apt_options: Vec<String>,
+    apt_options: &[String],
+    client: &Client,
 ) -> Result<(), OutputError> {
     let auth_config = auth_config("/");
     let auth_config = auth_config.as_ref();
 
     Refresh::builder()
-        .client(HTTP_CLIENT.get().unwrap())
+        .client(client)
         .dry_run(false)
         .no_progress(no_progress)
         .network_thread(network_threads)
         .refresh_topics(refresh_topic)
         .config(&AptConfig::new())
         .maybe_auth_config(auth_config)
-        .apt_options(apt_options.clone())
+        .apt_options(apt_options.to_vec())
         .build()
         .run()?;
 
@@ -836,12 +870,15 @@ fn sort_mirrors(
     });
 }
 
-fn refresh_enabled_topics_sources_list(no_progress: bool) -> Result<(), OutputError> {
+fn refresh_enabled_topics_sources_list(
+    client: &Client,
+    no_progress: bool,
+) -> Result<(), OutputError> {
     let pb = create_progress_spinner(no_progress, fl!("refreshing-topic-metadata"));
 
     let try_refresh = Ok(()).and_then(|_| -> Result<(), OutputError> {
         let arch = dpkg_arch("/")?;
-        let mut tm = TopicManager::new_blocking(HTTP_CLIENT.get().unwrap(), "/", &arch, false)?;
+        let mut tm = TopicManager::new_blocking(client, "/", &arch, false)?;
         RT.block_on(tm.refresh())?;
         tm.remove_closed_topics()?;
         RT.block_on(tm.write_sources_list(

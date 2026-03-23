@@ -16,7 +16,6 @@ use oma_pm::apt::Upgrade as AptUpgrade;
 use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
 
-use crate::HTTP_CLIENT;
 use crate::dbus::dbus_check;
 use crate::error::OutputError;
 use crate::fl;
@@ -105,7 +104,7 @@ impl CliExecuter for Upgrade {
         if !no_refresh {
             let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
-                .client(HTTP_CLIENT.get().unwrap())
+                .client(config.http_client()?)
                 .dry_run(config.dry_run)
                 .no_progress(config.no_progress())
                 .network_thread(config.download_threads)
@@ -199,6 +198,7 @@ impl CliExecuter for Upgrade {
             .download_only(download_only)
             .is_upgrade(true)
             .yn_mode(config.yn_mode)
+            .client(config.http_client()?)
             .build()
             .run()?;
 

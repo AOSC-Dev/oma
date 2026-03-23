@@ -78,6 +78,7 @@ impl CliExecuter for FixBroken {
             .maybe_auth_config(auth_config)
             .network_thread(config.download_threads)
             .yn_mode(config.yn_mode)
+            .client(config.http_client()?)
             .build()
             .run()
     }

@@ -15,12 +15,13 @@ use oma_pm::{
 };
 use oma_utils::dpkg::dpkg_arch;
 use once_cell::sync::OnceCell;
+use reqwest::Client;
 use spdlog::{debug, error, info, warn};
 use sysinfo::System;
 use tokio::task::spawn_blocking;
 
 use crate::{
-    HTTP_CLIENT, NOT_ALLOW_CTRLC, RT,
+    NOT_ALLOW_CTRLC, RT,
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
     dbus::dbus_check,
@@ -152,7 +153,7 @@ impl CliExecuter for Topics {
 
         let dpkg_arch = dpkg_arch(&config.sysroot)?;
         let mut tm = TopicManager::new_blocking(
-            HTTP_CLIENT.get().unwrap(),
+            config.http_client()?,
             &config.sysroot,
             &dpkg_arch,
             config.dry_run,
@@ -200,6 +201,7 @@ impl CliExecuter for Topics {
                 &apt_config,
                 auth_config,
                 config.apt_options.clone(),
+                config.http_client()?,
             )?;
 
             if only_apply_sources_list {
@@ -339,6 +341,7 @@ impl CliExecuter for Topics {
                 .topics_disabled(opt_out)
                 .download_only(download_only)
                 .yn_mode(config.yn_mode)
+                .client(config.http_client()?)
                 .build()
                 .run()?;
 
@@ -366,6 +369,7 @@ impl CliExecuter for Topics {
                         &AptConfig::new(),
                         auth_config,
                         config.apt_options.clone(),
+                        config.http_client()?,
                     )?;
                 }
             }
@@ -383,6 +387,7 @@ impl CliExecuter for Topics {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn refresh<'a>(
     network_threads: usize,
     no_progress: bool,
@@ -391,9 +396,10 @@ fn refresh<'a>(
     apt_config: &'a AptConfig,
     auth_config: Option<&'a apt_auth_config::AuthConfig>,
     apt_options: Vec<String>,
+    client: &Client,
 ) -> Result<(), OutputError> {
     Refresh::builder()
-        .client(HTTP_CLIENT.get().unwrap())
+        .client(client)
         .dry_run(dry_run)
         .no_progress(no_progress)
         .network_thread(network_threads)

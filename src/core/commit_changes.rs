@@ -16,12 +16,13 @@ use oma_pm::{
     oma_apt::PackageSort,
     sort::SummarySort,
 };
+use reqwest::Client;
 use spdlog::{debug, error, info, warn};
 
 #[cfg(feature = "aosc")]
 use crate::utils::get_lists_dir;
 use crate::{
-    HTTP_CLIENT, NOT_ALLOW_CTRLC, color_formatter,
+    NOT_ALLOW_CTRLC, color_formatter,
     core::space_tips,
     error::OutputError,
     exit_handle::{ExitHandle, ExitStatus},
@@ -76,6 +77,7 @@ pub(crate) struct CommitChanges<'a> {
     #[builder(default)]
     is_upgrade: bool,
     yn_mode: bool,
+    client: &'a Client,
 }
 
 impl CommitChanges<'_> {
@@ -101,6 +103,7 @@ impl CommitChanges<'_> {
             download_only,
             is_upgrade,
             yn_mode,
+            client,
         } = self;
 
         fix_broken(
@@ -201,7 +204,7 @@ impl CommitChanges<'_> {
                 Box::new(OmaInstallProgressManager::new(yes))
             }),
             &op,
-            HTTP_CLIENT.get().unwrap(),
+            client,
             CommitConfig {
                 network_thread: Some(network_thread),
                 auth_config,
