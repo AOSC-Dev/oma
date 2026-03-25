@@ -66,7 +66,7 @@ impl CliExecuter for List {
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(config.sysroot.to_string_lossy().to_string())
-            .another_apt_options(config.apt_options)
+            .another_apt_options(&config.apt_options)
             .build();
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;

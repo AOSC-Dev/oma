@@ -51,7 +51,7 @@ pub enum InstallProgressOpt {
 }
 
 #[derive(Debug, Clone, Builder)]
-pub struct OmaAptArgs {
+pub struct OmaAptArgs<'a> {
     #[builder(default = true)]
     install_recommends: bool,
     #[builder(default)]
@@ -71,7 +71,7 @@ pub struct OmaAptArgs {
     #[builder(default)]
     dpkg_force_unsafe_io: bool,
     #[builder(default)]
-    another_apt_options: Vec<String>,
+    another_apt_options: &'a [String],
 }
 
 pub struct OmaApt {
@@ -316,7 +316,7 @@ impl OmaApt {
         config.set_vector("Dpkg::Options::", &dpkg_args);
         debug!("dpkg args: {dpkg_args:?}");
 
-        for kv in &another_apt_options {
+        for kv in another_apt_options {
             let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
             config.set(k, v);
             debug!("{k}={v} is set");

@@ -127,7 +127,7 @@ impl CliExecuter for Search {
         let no_pager = no_pager || config.search_contents_println;
 
         let oma_apt_args = OmaAptArgs::builder()
-            .another_apt_options(config.apt_options.clone())
+            .another_apt_options(&config.apt_options)
             .sysroot(config.sysroot.to_string_lossy().to_string())
             .build();
 

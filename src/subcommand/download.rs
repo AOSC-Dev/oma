@@ -40,7 +40,9 @@ impl CliExecuter for Download {
         })?;
 
         let apt_config = AptConfig::new();
-        let oma_apt_args = OmaAptArgs::builder().build();
+        let oma_apt_args = OmaAptArgs::builder()
+            .another_apt_options(&config.apt_options)
+            .build();
         let apt = OmaApt::new(vec![], oma_apt_args, config.dry_run, apt_config)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)

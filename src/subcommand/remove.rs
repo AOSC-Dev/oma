@@ -148,7 +148,7 @@ impl CliExecuter for Remove {
             .yes(yes)
             .force_yes(force_yes)
             .sysroot(config.sysroot.to_string_lossy().to_string())
-            .another_apt_options(config.apt_options.clone())
+            .another_apt_options(&config.apt_options)
             .dpkg_force_unsafe_io(force_unsafe_io)
             .dpkg_force_confnew(force_confnew)
             .build();
