@@ -165,19 +165,13 @@ impl CliExecuter for SizeAnalyzer {
 
             exit_code = CommitChanges::builder()
                 .apt(apt)
-                .dry_run(config.dry_run)
                 .no_fixbroken(!fix_broken)
-                .no_progress(config.no_progress())
-                .sysroot(config.sysroot.to_string_lossy().to_string())
-                .protect_essential(config.protect_essentials)
                 .yes(false)
                 .remove_config(remove_config)
                 .autoremove(!no_autoremove)
-                .network_thread(config.download_threads)
                 .maybe_auth_config(auth_config)
                 .fix_dpkg_status(!no_fix_dpkg_status)
-                .yn_mode(config.yn_mode)
-                .client(config.http_client()?)
+                .config(&config)
                 .build()
                 .run()?;
         }
