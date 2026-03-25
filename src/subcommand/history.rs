@@ -151,7 +151,7 @@ impl CliExecuter for Undo {
                 .sysroot(&sysroot)
                 .config(&apt_config)
                 .maybe_auth_config(auth_config.as_ref())
-                .apt_options(config.apt_options.clone());
+                .apt_options(&config.apt_options);
 
             #[cfg(feature = "aosc")]
             let refresh = builder.refresh_topics(config.no_refresh_topics).build();

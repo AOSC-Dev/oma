@@ -846,7 +846,7 @@ fn refresh(
         .refresh_topics(refresh_topic)
         .config(&AptConfig::new())
         .maybe_auth_config(auth_config)
-        .apt_options(apt_options.to_vec())
+        .apt_options(apt_options)
         .build()
         .run()?;
 

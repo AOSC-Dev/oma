@@ -117,7 +117,7 @@ pub struct OmaRefresh<'a> {
     sources_lists_paths: Option<Vec<PathBuf>>,
     #[cfg(feature = "apt")]
     #[builder(default)]
-    another_apt_options: Vec<String>,
+    another_apt_options: &'a [String],
 }
 
 #[derive(Debug)]
@@ -273,7 +273,7 @@ impl<'a> OmaRefresh<'a> {
             self.apt_config.set("Dir", &self.source.to_string_lossy());
         }
 
-        for i in &self.another_apt_options {
+        for i in self.another_apt_options {
             let (k, v) = i.split_once('=').unwrap_or((i.as_str(), ""));
             debug!("Setting apt opt: {k}={v}");
             self.apt_config.set(k, v);

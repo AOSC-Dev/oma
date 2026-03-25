@@ -36,7 +36,7 @@ impl CliExecuter for Refresh {
             .network_thread(config.download_threads)
             .sysroot(&sysroot_str)
             .config(&apt_config)
-            .apt_options(config.apt_options.clone())
+            .apt_options(&config.apt_options)
             .maybe_auth_config(auth_config);
 
         #[cfg(feature = "aosc")]
