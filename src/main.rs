@@ -237,7 +237,7 @@ fn read_config_from_file_and_cli(oma: OhManagerAilurus) -> OmaConfig {
 
     let mut config_ctx = OmaConfig::from_config_file(config_file);
     debug!("Config file: {:#?}", config_ctx);
-    config_ctx.update_from_cli(oma);
+    config_ctx.update_from_global_cli_opts(oma);
     debug!("Config: {:#?}", config_ctx);
 
     config_ctx

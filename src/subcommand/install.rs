@@ -114,6 +114,11 @@ impl CliExecuter for Install {
             download_only,
         } = self;
 
+        let mut config = config;
+
+        #[cfg(feature = "aosc")]
+        config.update_from_cli_no_refresh_topics(no_refresh_topics);
+
         let _lock_fd = if !config.dry_run {
             root()?;
             Some(lock_oma(&config.sysroot)?)
@@ -130,26 +135,12 @@ impl CliExecuter for Install {
         let no_progress = config.no_progress();
 
         if !no_refresh {
-            let sysroot = config.sysroot.to_string_lossy();
-            let builder = Refresh::builder()
-                .client(config.http_client()?)
-                .dry_run(config.dry_run)
-                .no_progress(no_progress)
-                .network_thread(config.download_threads)
-                .sysroot(&sysroot)
-                .config(&apt_config)
-                .apt_options(&config.apt_options)
-                .maybe_auth_config(auth_config);
-
-            #[cfg(feature = "aosc")]
-            let refresh = builder
-                .refresh_topics(!no_refresh_topics && !config.no_refresh_topics)
-                .build();
-
-            #[cfg(not(feature = "aosc"))]
-            let refresh = builder.build();
-
-            refresh.run()?;
+            Refresh::builder()
+                .config(&config)
+                .apt_config(&apt_config)
+                .maybe_auth_config(auth_config)
+                .build()
+                .run()?;
         }
 
         if yes {

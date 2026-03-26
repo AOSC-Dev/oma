@@ -1,7 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::io::stdout;
-use std::path::Path;
 use std::str::FromStr;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -192,86 +191,40 @@ impl CliExecuter for CliMirror {
         if let Some(subcmd) = mirror_subcmd {
             match subcmd {
                 MirrorSubCmd::Set { names, no_refresh } => operate(
-                    config.no_progress(),
-                    !config.no_refresh_topics,
-                    config.download_threads,
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-                    &config.sysroot,
                     Operate::Set,
-                    &config.apt_options,
-                    config.http_client()?,
+                    &config,
                 ),
                 MirrorSubCmd::Speedtest {
                     set_fastest,
                     no_refresh,
                     timeout,
-                } => speedtest(
-                    config.no_progress(),
-                    set_fastest,
-                    !config.no_refresh_topics,
-                    config.download_threads,
-                    no_refresh,
-                    &config.apt_options,
-                    timeout,
-                    config.http_client()?,
-                    config.http_client_blocking()?,
-                ),
+                } => speedtest(set_fastest, timeout, no_refresh, &config),
                 MirrorSubCmd::Add { names, no_refresh } => operate(
-                    config.no_progress(),
-                    !config.no_refresh_topics,
-                    config.download_threads,
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-                    &config.sysroot,
                     Operate::Add,
-                    &config.apt_options,
-                    config.http_client()?,
+                    &config,
                 ),
                 MirrorSubCmd::Remove { names, no_refresh } => operate(
-                    config.no_progress(),
-                    !config.no_refresh_topics,
-                    config.download_threads,
                     no_refresh,
                     names.iter().map(|x| x.as_str()).collect::<Vec<_>>(),
-                    &config.sysroot,
                     Operate::Remove,
-                    &config.apt_options,
-                    config.http_client()?,
+                    &config,
                 ),
-                MirrorSubCmd::SortMirrors { no_refresh } => set_order(
-                    config.no_progress(),
-                    !config.no_refresh_topics,
-                    config.download_threads,
-                    no_refresh,
-                    &config.apt_options,
-                    config.http_client()?,
-                ),
+                MirrorSubCmd::SortMirrors { no_refresh } => set_order(no_refresh, &config),
                 MirrorSubCmd::Latency { timeout, json } => {
                     get_latency(timeout, config.no_progress(), json, &config.user_agent)
                 }
             }
         } else {
-            tui(
-                config.no_progress(),
-                !config.no_refresh_topics,
-                config.download_threads,
-                no_refresh,
-                &config.apt_options,
-                config.http_client()?,
-            )
+            tui(no_refresh, &config)
         }
     }
 }
 
-pub fn tui(
-    no_progress: bool,
-    refresh_topic: bool,
-    network_threads: usize,
-    no_refresh: bool,
-    apt_options: &[String],
-    client: &Client,
-) -> Result<ExitHandle, OutputError> {
+pub fn tui(no_refresh: bool, config: &OmaConfig) -> Result<ExitHandle, OutputError> {
     root()?;
 
     let mut mm = MirrorManager::new("/")?;
@@ -338,14 +291,8 @@ pub fn tui(
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
-        refresh_enabled_topics_sources_list(client, no_progress)?;
-        refresh(
-            no_progress,
-            network_threads,
-            refresh_topic,
-            apt_options,
-            client,
-        )?;
+        refresh_enabled_topics_sources_list(config.http_client()?, config.no_progress())?;
+        refresh(config)?;
     }
 
     Ok(ExitHandle::default().ring(true))
@@ -359,19 +306,14 @@ enum Operate {
 
 #[allow(clippy::too_many_arguments)]
 fn operate(
-    no_progress: bool,
-    refresh_topic: bool,
-    network_threads: usize,
     no_refresh: bool,
     args: Vec<&str>,
-    sysroot: &Path,
     subcmd: Operate,
-    apt_options: &[String],
-    client: &Client,
+    config: &OmaConfig,
 ) -> Result<ExitHandle, OutputError> {
     root()?;
 
-    let mut mm = MirrorManager::new(sysroot)?;
+    let mut mm = MirrorManager::new(&config.sysroot)?;
 
     match subcmd {
         Operate::Set => {
@@ -392,27 +334,14 @@ fn operate(
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
-        refresh_enabled_topics_sources_list(client, no_progress)?;
-        refresh(
-            no_progress,
-            network_threads,
-            refresh_topic,
-            apt_options,
-            client,
-        )?;
+        refresh_enabled_topics_sources_list(config.http_client()?, config.no_progress())?;
+        refresh(config)?;
     }
 
     Ok(ExitHandle::default().ring(true))
 }
 
-fn set_order(
-    no_progress: bool,
-    refresh_topic: bool,
-    network_threads: usize,
-    no_refresh: bool,
-    apt_options: &[String],
-    client: &Client,
-) -> Result<ExitHandle, OutputError> {
+fn set_order(no_refresh: bool, config: &OmaConfig) -> Result<ExitHandle, OutputError> {
     root()?;
 
     let mut mm = MirrorManager::new("/")?;
@@ -436,14 +365,8 @@ fn set_order(
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
-        refresh_enabled_topics_sources_list(client, no_progress)?;
-        refresh(
-            no_progress,
-            network_threads,
-            refresh_topic,
-            apt_options,
-            client,
-        )?;
+        refresh_enabled_topics_sources_list(config.http_client()?, config.no_progress())?;
+        refresh(config)?;
     }
 
     Ok(ExitHandle::default().ring(true))
@@ -663,17 +586,11 @@ struct MirrorLatencyDisplay<'a> {
     secs: i64,
 }
 
-#[allow(clippy::too_many_arguments)]
 fn speedtest(
-    no_progress: bool,
     mut set_fastest: bool,
-    refresh_topic: bool,
-    network_threads: usize,
-    no_refresh: bool,
-    apt_options: &[String],
     timeout: f64,
-    client: &Client,
-    blocking_client: &reqwest::blocking::Client,
+    no_refresh: bool,
+    config: &OmaConfig,
 ) -> Result<ExitHandle, OutputError> {
     if set_fastest {
         root()?;
@@ -683,7 +600,7 @@ fn speedtest(
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
-    let pb = if !no_progress {
+    let pb = if !config.no_progress() {
         Some(progress_bar(mirrors.len() as u64))
     } else {
         None
@@ -698,7 +615,8 @@ fn speedtest(
     for (name, mirror) in mirrors {
         let mut sha256 = Sha256::new();
         let timer = Instant::now();
-        let res = blocking_client
+        let res = config
+            .http_client_blocking()?
             .get(format!("{}{}", mirror.url, TEST_FILE_PREFIX))
             .timeout(Duration::from_secs_f64(timeout))
             .send()
@@ -794,14 +712,8 @@ fn speedtest(
         mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
         if !no_refresh {
-            refresh_enabled_topics_sources_list(client, no_progress)?;
-            refresh(
-                no_progress,
-                network_threads,
-                refresh_topic,
-                apt_options,
-                client,
-            )?;
+            refresh_enabled_topics_sources_list(config.http_client()?, config.no_progress())?;
+            refresh(config)?;
         }
     }
 
@@ -828,25 +740,14 @@ fn progress_bar(mirrors_len: u64) -> OmaProgressBar {
     )
 }
 
-fn refresh(
-    no_progress: bool,
-    network_threads: usize,
-    refresh_topic: bool,
-    apt_options: &[String],
-    client: &Client,
-) -> Result<(), OutputError> {
-    let auth_config = auth_config("/");
+fn refresh(config: &OmaConfig) -> Result<(), OutputError> {
+    let auth_config = auth_config(&config.sysroot);
     let auth_config = auth_config.as_ref();
 
     Refresh::builder()
-        .client(client)
-        .dry_run(false)
-        .no_progress(no_progress)
-        .network_thread(network_threads)
-        .refresh_topics(refresh_topic)
-        .config(&AptConfig::new())
+        .config(config)
+        .apt_config(&AptConfig::new())
         .maybe_auth_config(auth_config)
-        .apt_options(apt_options)
         .build()
         .run()?;
 
