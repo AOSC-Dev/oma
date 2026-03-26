@@ -176,21 +176,15 @@ impl CliExecuter for Tui {
 
             exit = CommitChanges::builder()
                 .apt(apt)
-                .dry_run(config.dry_run)
                 .no_fixbroken(!fix_broken)
-                .no_progress(config.no_progress())
-                .sysroot(sysroot.to_string_lossy().to_string())
                 .fix_dpkg_status(!no_fix_dpkg_status)
-                .protect_essential(config.protect_essentials)
                 .yes(false)
                 .remove_config(remove_config)
                 .autoremove(autoremove)
                 .maybe_auth_config(auth_config)
-                .network_thread(config.download_threads)
                 .check_tum(upgrade)
                 .is_upgrade(upgrade)
-                .yn_mode(config.yn_mode)
-                .client(config.http_client()?)
+                .config(&config)
                 .build()
                 .run()?;
         }

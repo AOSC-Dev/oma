@@ -249,21 +249,15 @@ impl CliExecuter for Undo {
 
         let exit = CommitChanges::builder()
             .apt(apt)
-            .dry_run(config.dry_run)
             .is_undo(true)
             .no_fixbroken(no_fixbroken)
-            .no_progress(no_progress)
-            .sysroot(config.sysroot.to_string_lossy().to_string())
             .fix_dpkg_status(!no_fix_dpkg_status)
-            .protect_essential(config.protect_essentials)
             .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .network_thread(config.download_threads)
             .maybe_auth_config(auth_config.as_ref())
             .download_only(download_only)
-            .yn_mode(config.yn_mode)
-            .client(config.http_client()?)
+            .config(&config)
             .build()
             .run()?;
 

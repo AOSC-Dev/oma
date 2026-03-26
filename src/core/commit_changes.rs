@@ -16,13 +16,13 @@ use oma_pm::{
     oma_apt::PackageSort,
     sort::SummarySort,
 };
-use reqwest::Client;
 use spdlog::{debug, error, info, warn};
 
 #[cfg(feature = "aosc")]
 use crate::utils::get_lists_dir;
 use crate::{
     NOT_ALLOW_CTRLC, color_formatter,
+    config::OmaConfig,
     core::space_tips,
     error::OutputError,
     exit_handle::{ExitHandle, ExitStatus},
@@ -42,22 +42,14 @@ use crate::{
 #[derive(Builder)]
 pub(crate) struct CommitChanges<'a> {
     apt: OmaApt,
-    #[builder(default = true)]
-    dry_run: bool,
     #[builder(default)]
     is_fixbroken: bool,
     #[builder(default)]
     is_undo: bool,
     #[builder(default = true)]
     no_fixbroken: bool,
-    #[builder(default)]
-    no_progress: bool,
-    #[builder(default = "/".into())]
-    sysroot: String,
     #[builder(default = true)]
     fix_dpkg_status: bool,
-    #[builder(default = true)]
-    protect_essential: bool,
     #[builder(default)]
     yes: bool,
     #[builder(default)]
@@ -65,7 +57,6 @@ pub(crate) struct CommitChanges<'a> {
     #[builder(default)]
     autoremove: bool,
     auth_config: Option<&'a AuthConfig>,
-    network_thread: usize,
     #[builder(default)]
     check_tum: bool,
     #[builder(default)]
@@ -76,52 +67,47 @@ pub(crate) struct CommitChanges<'a> {
     download_only: bool,
     #[builder(default)]
     is_upgrade: bool,
-    yn_mode: bool,
-    client: &'a Client,
+    config: &'a OmaConfig,
 }
 
 impl CommitChanges<'_> {
     pub fn run(self) -> Result<ExitHandle, OutputError> {
         let CommitChanges {
             mut apt,
-            dry_run,
             is_fixbroken,
             is_undo,
             no_fixbroken,
-            no_progress,
-            sysroot,
             fix_dpkg_status,
-            protect_essential,
             yes,
             remove_config,
             autoremove,
             auth_config,
-            network_thread,
             check_tum,
             topics_enabled,
             topics_disabled,
             download_only,
             is_upgrade,
-            yn_mode,
-            client,
+            config,
         } = self;
 
         fix_broken(
             &mut apt,
             no_fixbroken,
-            no_progress,
+            config.no_progress(),
             fix_dpkg_status,
             remove_config,
             autoremove,
             is_upgrade,
         )?;
 
+        let dry_run = config.dry_run;
+
         let op = apt.summary(
             SummarySort::default().names().operation(),
             |pkg| {
                 if dry_run {
                     true
-                } else if protect_essential {
+                } else if config.protect_essentials {
                     false
                 } else {
                     ask_user_do_as_i_say(pkg).unwrap_or(false)
@@ -131,7 +117,7 @@ impl CommitChanges<'_> {
                 if dry_run {
                     true
                 } else {
-                    handle_features(features, protect_essential).unwrap_or(false)
+                    handle_features(features, config.protect_essentials).unwrap_or(false)
                 }
             },
         )?;
@@ -170,14 +156,20 @@ impl CommitChanges<'_> {
                 matches_tum,
                 !yes,
                 dry_run,
-                yn_mode,
+                config.yn_mode,
             )? {
                 PagerExit::NormalExit => {}
                 x => return Ok(ExitHandle::default().status(ExitStatus::Other(x.into()))),
             }
         } else {
             match table_for_install_pending(
-                install, remove, *disk_size, None, !yes, dry_run, yn_mode,
+                install,
+                remove,
+                *disk_size,
+                None,
+                !yes,
+                dry_run,
+                config.yn_mode,
             )? {
                 PagerExit::NormalExit => {}
                 x => return Ok(ExitHandle::default().status(ExitStatus::Other(x.into()))),
@@ -187,6 +179,8 @@ impl CommitChanges<'_> {
         let start_time = Local::now().timestamp();
 
         let (tx, rx) = unbounded();
+
+        let no_progress = config.no_progress();
 
         thread::spawn(move || {
             let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
@@ -198,15 +192,15 @@ impl CommitChanges<'_> {
         });
 
         let res = apt.commit(
-            InstallProgressOpt::TermLike(if no_progress {
+            InstallProgressOpt::TermLike(if config.no_progress() {
                 Box::new(NoInstallProgressManager)
             } else {
                 Box::new(OmaInstallProgressManager::new(yes))
             }),
             &op,
-            client,
+            config.http_client()?,
             CommitConfig {
-                network_thread: Some(network_thread),
+                network_thread: Some(config.download_threads),
                 auth_config,
                 download_only,
             },
@@ -220,8 +214,11 @@ impl CommitChanges<'_> {
 
         osc94_progress(100.0, true);
 
-        let history =
-            oma_history::History::new(Path::new(&sysroot).join(DATABASE_PATH), true, self.dry_run);
+        let history = oma_history::History::new(
+            config.sysroot.join(DATABASE_PATH),
+            true,
+            self.config.dry_run,
+        );
 
         match res {
             Ok(_) => {
@@ -229,13 +226,15 @@ impl CommitChanges<'_> {
 
                 let apt = OmaApt::new(
                     vec![],
-                    OmaAptArgs::builder().sysroot(sysroot.clone()).build(),
+                    OmaAptArgs::builder()
+                        .sysroot(config.sysroot.to_string_lossy().to_string())
+                        .build(),
                     false,
                     AptConfig::new(),
                 )?;
 
                 if download_only {
-                    space_tips(&apt, sysroot);
+                    space_tips(&apt, &config.sysroot);
 
                     let len = op.install.len();
                     let path = apt.get_archive_dir().to_string_lossy();
@@ -248,7 +247,7 @@ impl CommitChanges<'_> {
                     return Ok(ExitHandle::default().ring(true));
                 }
 
-                write_oma_installed_status(&apt, &sysroot)?;
+                write_oma_installed_status(&apt, &config.sysroot)?;
                 autoremovable_tips(ar_count, ar_size);
 
                 let mut history = history?;
@@ -264,7 +263,7 @@ impl CommitChanges<'_> {
 
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
-                space_tips(&apt, sysroot);
+                space_tips(&apt, &config.sysroot);
 
                 Ok(ExitHandle::default().ring(true))
             }
@@ -298,7 +297,7 @@ impl CommitChanges<'_> {
                     topics_disabled,
                 })?;
 
-                space_tips(&apt, sysroot);
+                space_tips(&apt, &config.sysroot);
                 Err(e.into())
             }
         }

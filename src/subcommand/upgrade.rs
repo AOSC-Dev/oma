@@ -183,22 +183,16 @@ impl CliExecuter for Upgrade {
 
         let exit = CommitChanges::builder()
             .apt(apt)
-            .dry_run(config.dry_run)
             .no_fixbroken(no_fixbroken)
             .check_tum(true)
-            .no_progress(config.no_progress())
-            .sysroot(config.sysroot.to_string_lossy().to_string())
-            .protect_essential(config.protect_essentials)
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .network_thread(config.download_threads)
             .maybe_auth_config(Some(&auth_config))
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .is_upgrade(true)
-            .yn_mode(config.yn_mode)
-            .client(config.http_client()?)
+            .config(&config)
             .build()
             .run()?;
 
