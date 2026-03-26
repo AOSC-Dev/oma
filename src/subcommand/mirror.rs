@@ -703,7 +703,8 @@ fn speedtest(
             .timeout(Duration::from_secs_f64(timeout))
             .send()
             .and_then(|x| x.error_for_status())
-            .and_then(|mut x| x.copy_to(&mut sha256));
+            .and_then(|x| x.bytes())
+            .map(|x| sha256.update(&x));
 
         let dur = timer.elapsed();
 
