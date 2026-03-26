@@ -1,7 +1,8 @@
+use digest_io::IoWrapper;
 use faster_hex::{hex_decode, hex_string};
-use md5::{Digest, Md5};
+use md5::{Digest as _, Md5};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest as _, Sha256, Sha512};
+use sha2::{Sha256, Sha512};
 use snafu::ResultExt;
 use std::{fmt::Display, fs::File, io, path::Path};
 
@@ -69,16 +70,9 @@ impl Checksum {
             path: Box::from(path),
         })?;
 
-        let mut hasher = Sha256::new();
-        let mut buffer = [0; 8192];
-        loop {
-            let n = io::Read::read(&mut file, &mut buffer).context(CopySnafu)?;
-            if n == 0 {
-                break;
-            }
-            hasher.update(&buffer[..n]);
-        }
-        let hash = hasher.finalize().to_vec();
+        let mut hasher = IoWrapper(Sha256::new());
+        io::copy(&mut file, &mut hasher).context(CopySnafu)?;
+        let hash = hasher.0.finalize().to_vec();
 
         Ok(Self::Sha256(hash))
     }
@@ -136,42 +130,21 @@ impl Checksum {
     pub fn cmp_read(&self, mut r: Box<dyn std::io::Read>) -> Result<bool> {
         match self {
             Checksum::Sha256(hex) => {
-                let mut hasher = Sha256::new();
-                let mut buffer = [0; 8192];
-                loop {
-                    let n = io::Read::read(&mut r, &mut buffer).context(CopySnafu)?;
-                    if n == 0 {
-                        break;
-                    }
-                    hasher.update(&buffer[..n]);
-                }
-                let hash = hasher.finalize().to_vec();
+                let mut hasher = IoWrapper(Sha256::new());
+                io::copy(&mut r, &mut hasher).context(CopySnafu)?;
+                let hash = hasher.0.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Sha512(hex) => {
-                let mut hasher = Sha512::new();
-                let mut buffer = [0; 8192];
-                loop {
-                    let n = io::Read::read(&mut r, &mut buffer).context(CopySnafu)?;
-                    if n == 0 {
-                        break;
-                    }
-                    hasher.update(&buffer[..n]);
-                }
-                let hash = hasher.finalize().to_vec();
+                let mut hasher = IoWrapper(Sha512::new());
+                io::copy(&mut r, &mut hasher).context(CopySnafu)?;
+                let hash = hasher.0.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Md5(hex) => {
-                let mut hasher = Md5::new();
-                let mut buffer = [0; 8192];
-                loop {
-                    let n = io::Read::read(&mut r, &mut buffer).context(CopySnafu)?;
-                    if n == 0 {
-                        break;
-                    }
-                    hasher.update(&buffer[..n]);
-                }
-                let hash = hasher.finalize().to_vec();
+                let mut hasher = IoWrapper(Md5::new());
+                io::copy(&mut r, &mut hasher).context(CopySnafu)?;
+                let hash = hasher.0.finalize().to_vec();
                 Ok(hex == &hash)
             }
         }
