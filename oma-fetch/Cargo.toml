@@ -40,6 +40,7 @@ md-5 = "0.10.6"
 bon = "3"
 snafu = "0.9"
 headers = "0.4.1"
+digest-io = { git = "https://github.com/RustCrypto/utils/", version = "0.1", package = "digest-io"}
 
 [dev-dependencies]
 tokio = { version = "1.42", features = ["macros", "rt-multi-thread"] }
