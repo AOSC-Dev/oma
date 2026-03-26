@@ -151,7 +151,7 @@ impl CliExecuter for Undo {
                 .sysroot(&sysroot)
                 .config(&apt_config)
                 .maybe_auth_config(auth_config.as_ref())
-                .apt_options(config.apt_options.clone());
+                .apt_options(&config.apt_options);
 
             #[cfg(feature = "aosc")]
             let refresh = builder.refresh_topics(config.no_refresh_topics).build();
@@ -166,7 +166,7 @@ impl CliExecuter for Undo {
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(config.sysroot.to_string_lossy().to_string())
-            .another_apt_options(config.apt_options.clone())
+            .another_apt_options(&config.apt_options)
             .dpkg_force_confnew(force_confnew)
             .dpkg_force_unsafe_io(force_unsafe_io)
             .force_yes(force_yes)

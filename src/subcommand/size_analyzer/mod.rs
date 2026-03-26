@@ -86,7 +86,7 @@ impl CliExecuter for SizeAnalyzer {
         let mut apt = OmaApt::new(
             vec![],
             OmaAptArgs::builder()
-                .another_apt_options(config.apt_options.clone())
+                .another_apt_options(&config.apt_options)
                 .dpkg_force_unsafe_io(force_unsafe_io)
                 .force_yes(force_yes)
                 .dpkg_force_confnew(force_confnew)

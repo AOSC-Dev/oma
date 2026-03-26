@@ -200,7 +200,7 @@ impl CliExecuter for Topics {
                 &config.sysroot,
                 &apt_config,
                 auth_config,
-                config.apt_options.clone(),
+                &config.apt_options,
                 config.http_client()?,
             )?;
 
@@ -210,7 +210,7 @@ impl CliExecuter for Topics {
 
             let oma_apt_args = OmaAptArgs::builder()
                 .sysroot(config.sysroot.to_string_lossy().to_string())
-                .another_apt_options(config.apt_options.clone())
+                .another_apt_options(&config.apt_options)
                 .dpkg_force_unsafe_io(force_unsafe_io)
                 .dpkg_force_confnew(force_confnew)
                 .force_yes(force_yes)
@@ -368,7 +368,7 @@ impl CliExecuter for Topics {
                         &config.sysroot,
                         &AptConfig::new(),
                         auth_config,
-                        config.apt_options.clone(),
+                        &config.apt_options,
                         config.http_client()?,
                     )?;
                 }
@@ -395,8 +395,8 @@ fn refresh<'a>(
     sysroot: &'a Path,
     apt_config: &'a AptConfig,
     auth_config: Option<&'a apt_auth_config::AuthConfig>,
-    apt_options: Vec<String>,
-    client: &Client,
+    apt_options: &'a [String],
+    client: &'a Client,
 ) -> Result<(), OutputError> {
     Refresh::builder()
         .client(client)

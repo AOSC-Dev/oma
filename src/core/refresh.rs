@@ -32,7 +32,7 @@ pub struct Refresh<'a> {
     refresh_topics: bool,
     config: &'a AptConfig,
     auth_config: Option<&'a AuthConfig>,
-    apt_options: Vec<String>,
+    apt_options: &'a [String],
 }
 
 impl Refresh<'_> {

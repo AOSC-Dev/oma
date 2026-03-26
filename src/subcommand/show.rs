@@ -64,7 +64,7 @@ impl CliExecuter for Show {
         } = self;
 
         let oma_apt_args = OmaAptArgs::builder()
-            .another_apt_options(config.apt_options.clone())
+            .another_apt_options(&config.apt_options)
             .sysroot(config.sysroot.to_string_lossy().to_string())
             .build();
 

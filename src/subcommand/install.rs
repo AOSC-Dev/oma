@@ -138,7 +138,7 @@ impl CliExecuter for Install {
                 .network_thread(config.download_threads)
                 .sysroot(&sysroot)
                 .config(&apt_config)
-                .apt_options(config.apt_options.clone())
+                .apt_options(&config.apt_options)
                 .maybe_auth_config(auth_config);
 
             #[cfg(feature = "aosc")]
@@ -173,7 +173,7 @@ impl CliExecuter for Install {
             .yes(yes)
             .force_yes(force_yes)
             .dpkg_force_confnew(force_confnew)
-            .another_apt_options(config.apt_options.clone())
+            .another_apt_options(&config.apt_options)
             .dpkg_force_unsafe_io(force_unsafe_io)
             .build();
 

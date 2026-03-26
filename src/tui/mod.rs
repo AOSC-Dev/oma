@@ -90,7 +90,7 @@ impl CliExecuter for Tui {
                 .network_thread(config.download_threads)
                 .sysroot(&sysroot)
                 .config(&apt_config)
-                .apt_options(config.apt_options.clone())
+                .apt_options(&config.apt_options)
                 .maybe_auth_config(auth_config);
 
             #[cfg(feature = "aosc")]
@@ -104,7 +104,7 @@ impl CliExecuter for Tui {
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
-            .another_apt_options(config.apt_options.clone())
+            .another_apt_options(&config.apt_options)
             .dpkg_force_confnew(force_confnew)
             .dpkg_force_unsafe_io(force_unsafe_io)
             .force_yes(force_yes)

@@ -58,7 +58,7 @@ impl CliExecuter for Clean {
         let apt_config = AptConfig::new();
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
-            .another_apt_options(apt_options)
+            .another_apt_options(&apt_options)
             .build();
 
         let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;

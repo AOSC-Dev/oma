@@ -59,7 +59,7 @@ impl CliExecuter for FixBroken {
             .dpkg_force_unsafe_io(force_unsafe_io)
             .force_yes(force_yes)
             .dpkg_force_confnew(force_confnew)
-            .another_apt_options(config.apt_options.clone())
+            .another_apt_options(&config.apt_options)
             .build();
         let apt = OmaApt::new(vec![], oma_apt_args, config.dry_run, AptConfig::new())?;
 
