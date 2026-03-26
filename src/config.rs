@@ -8,9 +8,12 @@ use reqwest::Client;
 use spdlog::debug;
 
 use crate::{
-    DEFAULT_USER_AGENT, GlobalOptions,
+    GlobalOptions,
     args::{OhManagerAilurus, SubCmd},
-    config_file::{BatteryTristate, ConfigFile, GeneralConfig, SearchEngine, TakeWakeLockTristate},
+    config_file::{
+        BatteryTristate, ConfigFile, GeneralConfig, NetworkConfig, SearchEngine,
+        TakeWakeLockTristate,
+    },
     subcommand::utils::is_terminal,
 };
 
@@ -50,28 +53,24 @@ impl Default for OmaConfig {
             dry_run: false,
             debug: false,
             color: ColorChoice::Auto,
-            follow_terminal_color: false,
+            follow_terminal_color: GeneralConfig::default_follow_terminal_color(),
             cli_no_progress: false,
-            no_check_dbus: false,
-            check_battery: BatteryTristate::Ask,
-            take_wake_lock: TakeWakeLockTristate::Yes,
+            no_check_dbus: GeneralConfig::default_no_check_dbus(),
+            check_battery: GeneralConfig::default_check_battery(),
+            take_wake_lock: GeneralConfig::default_take_wake_lock(),
             sysroot: PathBuf::from("/"),
             apt_options: Vec::new(),
-            no_bell: false,
-            download_threads: 4,
+            no_bell: !GeneralConfig::default_bell(),
+            download_threads: NetworkConfig::default_network_thread(),
             #[cfg(feature = "aosc")]
-            no_refresh_topics: false,
-            protect_essentials: true,
-            search_contents_println: false,
-            search_engine: if cfg!(feature = "aosc") {
-                SearchEngine::Indicium
-            } else {
-                SearchEngine::StrSim
-            },
+            no_refresh_topics: GeneralConfig::default_no_refresh_topics(),
+            protect_essentials: GeneralConfig::default_protect_essentials(),
+            search_contents_println: GeneralConfig::default_search_contents_println(),
+            search_engine: GeneralConfig::default_search_engine(),
             no_progress: OnceCell::new(),
-            save_log_count: 10,
-            user_agent: DEFAULT_USER_AGENT.into(),
-            yn_mode: false,
+            save_log_count: GeneralConfig::default_save_log_count(),
+            user_agent: NetworkConfig::default_user_agent(),
+            yn_mode: GeneralConfig::default_yn_mode(),
             subcmd: None,
             http_client: OnceCell::new(),
             rustls_crypto_provider: OnceCell::new(),
