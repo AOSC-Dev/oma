@@ -17,6 +17,7 @@ use clap::Subcommand;
 use dialoguer::Sort;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
+use digest_io::IoWrapper;
 use faster_hex::hex_string;
 use humantime::format_duration;
 use inquire::formatter::MultiOptionFormatter;
@@ -613,7 +614,7 @@ fn speedtest(
     }
 
     for (name, mirror) in mirrors {
-        let mut sha256 = Sha256::new();
+        let mut sha256 = IoWrapper(Sha256::new());
         let timer = Instant::now();
         let res = config
             .http_client_blocking()?
@@ -627,7 +628,7 @@ fn speedtest(
 
         match res {
             Ok(_) => {
-                if REPO_TEST_SHA256 == hex_string(&sha256.finalize()) {
+                if REPO_TEST_SHA256 == hex_string(&sha256.0.finalize()) {
                     score_map.insert(name, dur);
                     let msg = format!(
                         "{}: {}/s",
