@@ -5,8 +5,8 @@ use spdlog::info;
 use crate::config::OmaConfig;
 use crate::core::space_tips;
 use crate::exit_handle::ExitHandle;
-use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, root::root};
+use crate::{fl, success};
 
 use super::utils::{auth_config, create_progress_spinner};
 use crate::args::CliExecuter;
@@ -30,7 +30,7 @@ impl CliExecuter for Refresh {
 
         let sysroot_str = config.sysroot.to_string_lossy();
         let builder = RefreshInner::builder()
-            .client(HTTP_CLIENT.get().unwrap())
+            .client(config.http_client()?)
             .dry_run(false)
             .no_progress(config.no_progress())
             .network_thread(config.download_threads)

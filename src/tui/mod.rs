@@ -10,20 +10,19 @@ use render::{Task, Tui as TuiInner};
 use spdlog::info;
 
 use crate::{
-    HTTP_CLIENT,
+    args::CliExecuter,
+    config::OmaConfig,
+    exit_handle::ExitHandle,
+    subcommand::utils::{auth_config, create_progress_spinner},
+    tui::render::PackageStatus,
+};
+use crate::{
     core::{commit_changes::CommitChanges, refresh::Refresh},
     dbus::dbus_check,
     error::OutputError,
     fl,
     root::root,
     subcommand::utils::lock_oma,
-};
-use crate::{
-    args::CliExecuter,
-    config::OmaConfig,
-    exit_handle::ExitHandle,
-    subcommand::utils::{auth_config, create_progress_spinner},
-    tui::render::PackageStatus,
 };
 
 mod key_binding;
@@ -85,7 +84,7 @@ impl CliExecuter for Tui {
         if !no_refresh {
             let sysroot = sysroot.to_string_lossy();
             let builder = Refresh::builder()
-                .client(HTTP_CLIENT.get().unwrap())
+                .client(config.http_client()?)
                 .dry_run(false)
                 .no_progress(config.no_progress())
                 .network_thread(config.download_threads)
@@ -191,6 +190,7 @@ impl CliExecuter for Tui {
                 .check_tum(upgrade)
                 .is_upgrade(upgrade)
                 .yn_mode(config.yn_mode)
+                .client(config.http_client()?)
                 .build()
                 .run()?;
         }

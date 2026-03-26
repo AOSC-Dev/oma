@@ -12,8 +12,8 @@ use crate::completions::pkgnames_completions;
 use crate::config::OmaConfig;
 use crate::exit_handle::ExitHandle;
 use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress};
-use crate::{HTTP_CLIENT, fl, success};
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
+use crate::{fl, success};
 
 use crate::args::CliExecuter;
 
@@ -67,7 +67,7 @@ impl CliExecuter for Download {
         });
 
         let summary = apt.download(
-            HTTP_CLIENT.get().unwrap(),
+            config.http_client()?,
             pkgs,
             DownloadConfig {
                 network_thread: Some(config.download_threads),

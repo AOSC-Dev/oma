@@ -7,7 +7,6 @@ use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
 use spdlog::{info, warn};
 
-use crate::HTTP_CLIENT;
 use crate::args::ARG_HELP_HEADING;
 use crate::completions::pkgnames_and_path_completions;
 use crate::config::OmaConfig;
@@ -133,7 +132,7 @@ impl CliExecuter for Install {
         if !no_refresh {
             let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
-                .client(HTTP_CLIENT.get().unwrap())
+                .client(config.http_client()?)
                 .dry_run(config.dry_run)
                 .no_progress(no_progress)
                 .network_thread(config.download_threads)
@@ -217,6 +216,7 @@ impl CliExecuter for Install {
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .yn_mode(config.yn_mode)
+            .client(config.http_client()?)
             .build()
             .run()
     }

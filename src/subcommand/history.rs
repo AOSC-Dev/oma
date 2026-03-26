@@ -12,7 +12,6 @@ use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
 use spdlog::warn;
 use std::sync::atomic::Ordering;
 
-use crate::HTTP_CLIENT;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
@@ -140,11 +139,12 @@ impl CliExecuter for Undo {
 
         let apt_config = AptConfig::new();
         let auth_config = auth_config(&config.sysroot);
+        let client = config.http_client()?;
 
         if !no_refresh {
             let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
-                .client(HTTP_CLIENT.get().unwrap())
+                .client(client)
                 .dry_run(config.dry_run)
                 .no_progress(config.no_progress())
                 .network_thread(config.download_threads)
@@ -166,7 +166,7 @@ impl CliExecuter for Undo {
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(config.sysroot.to_string_lossy().to_string())
-            .another_apt_options(config.apt_options)
+            .another_apt_options(config.apt_options.clone())
             .dpkg_force_confnew(force_confnew)
             .dpkg_force_unsafe_io(force_unsafe_io)
             .force_yes(force_yes)
@@ -263,6 +263,7 @@ impl CliExecuter for Undo {
             .maybe_auth_config(auth_config.as_ref())
             .download_only(download_only)
             .yn_mode(config.yn_mode)
+            .client(config.http_client()?)
             .build()
             .run()?;
 
@@ -274,8 +275,8 @@ impl CliExecuter for Undo {
 
             let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(
-                HTTP_CLIENT.get().unwrap(),
-                config.sysroot,
+                client,
+                &config.sysroot,
                 &arch,
                 config.dry_run,
             )?;

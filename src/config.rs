@@ -4,6 +4,7 @@ use clap::ColorChoice;
 use oma_pm::apt::AptConfig;
 use oma_utils::is_termux;
 use once_cell::sync::OnceCell;
+use reqwest::Client;
 use spdlog::debug;
 
 use crate::{
@@ -37,6 +38,10 @@ pub struct OmaConfig {
     pub user_agent: Cow<'static, str>,
     pub yn_mode: bool,
     subcmd: Option<SubCmd>,
+    http_client: OnceCell<Client>,
+    #[cfg(feature = "aosc")]
+    http_client_blocking: OnceCell<reqwest::blocking::Client>,
+    rustls_crypto_provider: OnceCell<()>,
 }
 
 impl Default for OmaConfig {
@@ -68,6 +73,10 @@ impl Default for OmaConfig {
             user_agent: DEFAULT_USER_AGENT.into(),
             yn_mode: false,
             subcmd: None,
+            http_client: OnceCell::new(),
+            rustls_crypto_provider: OnceCell::new(),
+            #[cfg(feature = "aosc")]
+            http_client_blocking: OnceCell::new(),
         }
     }
 }
@@ -193,5 +202,33 @@ impl OmaConfig {
             debug!("Set apt option: {k}={v}");
             apt_config.set(k, v);
         }
+    }
+
+    fn init_tls_config(&self) {
+        self.rustls_crypto_provider.get_or_init(|| {
+            #[cfg(feature = "rustls")]
+            rustls::crypto::ring::default_provider()
+                .install_default()
+                .expect("Failed to install rustls crypto provider");
+        });
+    }
+
+    pub fn http_client(&self) -> Result<&Client, reqwest::Error> {
+        self.http_client.get_or_try_init(|| {
+            self.init_tls_config();
+            Client::builder()
+                .user_agent(self.user_agent.as_ref())
+                .build()
+        })
+    }
+
+    #[cfg(feature = "aosc")]
+    pub fn http_client_blocking(&self) -> Result<&reqwest::blocking::Client, reqwest::Error> {
+        self.http_client_blocking.get_or_try_init(|| {
+            self.init_tls_config();
+            reqwest::blocking::Client::builder()
+                .user_agent(self.user_agent.as_ref())
+                .build()
+        })
     }
 }

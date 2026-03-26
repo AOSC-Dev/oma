@@ -41,7 +41,6 @@ use oma_console::{
     writer::Writer,
 };
 use oma_utils::{OsRelease, is_termux};
-use reqwest::Client;
 use rustix::stdio::stdout;
 use spdlog::{debug, info, prelude::error as log_error, warn};
 use tokio::runtime::Runtime;
@@ -71,11 +70,8 @@ static RT: LazyLock<Runtime> = LazyLock::new(|| {
         .expect("Failed to init async runtime")
 });
 
-static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
-
 static WRITER: LazyLock<Writer> = LazyLock::new(Writer::default);
 static LOCK: OnceLock<PathBuf> = OnceLock::new();
-static RUSTLS_CRYPTO_PROVIDER: OnceLock<()> = OnceLock::new();
 static NO_COLOR: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Args)]
@@ -200,8 +196,6 @@ fn main() {
 
     let config_ctx = read_config_from_file_and_cli(oma);
 
-    init_http_client(&config_ctx.user_agent);
-
     debug!("OS: {:?}", OsRelease::new());
     if config_ctx.sysroot.to_string_lossy() != "/" {
         debug!(
@@ -230,14 +224,6 @@ fn main() {
             exit(1)
         }
     }
-}
-
-fn init_http_client(user_agent: &str) -> &'static Client {
-    HTTP_CLIENT.get_or_init(|| {
-        init_tls_config();
-
-        Client::builder().user_agent(user_agent).build().unwrap()
-    })
 }
 
 fn read_config_from_file_and_cli(oma: OhManagerAilurus) -> OmaConfig {
@@ -325,17 +311,6 @@ fn try_main(mut config: OmaConfig, matches: ArgMatches) -> Result<ExitHandle, Ou
             }
         }
     }
-}
-
-/// Initialize ring TLS config for HTTP client
-#[inline]
-fn init_tls_config() {
-    RUSTLS_CRYPTO_PROVIDER.get_or_init(|| {
-        #[cfg(feature = "rustls")]
-        rustls::crypto::ring::default_provider()
-            .install_default()
-            .expect("Failed to install rustls crypto provider");
-    });
 }
 
 fn init_color_formatter(config: &OmaConfig) {

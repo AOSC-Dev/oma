@@ -7,7 +7,6 @@ use oma_pm::{
 };
 
 use crate::{
-    HTTP_CLIENT,
     completions::pkgnames_completions,
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
@@ -92,7 +91,7 @@ impl CliExecuter for Pick {
         if !no_refresh {
             let sysroot = config.sysroot.to_string_lossy();
             let builder = Refresh::builder()
-                .client(HTTP_CLIENT.get().unwrap())
+                .client(config.http_client()?)
                 .dry_run(config.dry_run)
                 .no_progress(config.no_progress())
                 .network_thread(config.download_threads)
@@ -198,6 +197,7 @@ impl CliExecuter for Pick {
             .maybe_auth_config(auth_config)
             .download_only(download_only)
             .yn_mode(config.yn_mode)
+            .client(config.http_client()?)
             .build()
             .run()
     }
