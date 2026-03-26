@@ -142,24 +142,12 @@ impl CliExecuter for Undo {
         let client = config.http_client()?;
 
         if !no_refresh {
-            let sysroot = config.sysroot.to_string_lossy();
-            let builder = Refresh::builder()
-                .client(client)
-                .dry_run(config.dry_run)
-                .no_progress(config.no_progress())
-                .network_thread(config.download_threads)
-                .sysroot(&sysroot)
-                .config(&apt_config)
+            Refresh::builder()
+                .config(&config)
+                .apt_config(&apt_config)
                 .maybe_auth_config(auth_config.as_ref())
-                .apt_options(&config.apt_options);
-
-            #[cfg(feature = "aosc")]
-            let refresh = builder.refresh_topics(config.no_refresh_topics).build();
-
-            #[cfg(not(feature = "aosc"))]
-            let refresh = builder.build();
-
-            refresh.run()?;
+                .build()
+                .run()?;
         }
 
         let no_progress = config.no_progress();

@@ -82,24 +82,12 @@ impl CliExecuter for Tui {
         let auth_config = auth_config.as_ref();
 
         if !no_refresh {
-            let sysroot = sysroot.to_string_lossy();
-            let builder = Refresh::builder()
-                .client(config.http_client()?)
-                .dry_run(false)
-                .no_progress(config.no_progress())
-                .network_thread(config.download_threads)
-                .sysroot(&sysroot)
-                .config(&apt_config)
-                .apt_options(&config.apt_options)
-                .maybe_auth_config(auth_config);
-
-            #[cfg(feature = "aosc")]
-            let refresh = builder.refresh_topics(!config.no_refresh_topics).build();
-
-            #[cfg(not(feature = "aosc"))]
-            let refresh = builder.build();
-
-            refresh.run()?;
+            Refresh::builder()
+                .config(&config)
+                .apt_config(&apt_config)
+                .maybe_auth_config(auth_config)
+                .build()
+                .run()?;
         }
 
         let oma_apt_args = OmaAptArgs::builder()

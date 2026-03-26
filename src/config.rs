@@ -121,7 +121,7 @@ impl OmaConfig {
         oma_config
     }
 
-    pub fn update_from_cli(&mut self, oma: OhManagerAilurus) {
+    pub fn update_from_global_cli_opts(&mut self, oma: OhManagerAilurus) {
         let OhManagerAilurus { global, subcmd } = oma;
 
         let GlobalOptions {
@@ -229,5 +229,10 @@ impl OmaConfig {
                 .user_agent(self.user_agent.as_ref())
                 .build()
         })
+    }
+
+    #[cfg(feature = "aosc")]
+    pub fn update_from_cli_no_refresh_topics(&mut self, cli_no_refresh_topics: bool) {
+        self.no_refresh_topics |= cli_no_refresh_topics;
     }
 }

@@ -1,5 +1,6 @@
-use std::{fmt::Display, path::Path, sync::atomic::Ordering};
+use std::{fmt::Display, sync::atomic::Ordering};
 
+use apt_auth_config::AuthConfig;
 use clap::{ArgAction, ArgGroup, Args};
 use dialoguer::console::style;
 use inquire::{
@@ -15,7 +16,6 @@ use oma_pm::{
 };
 use oma_utils::dpkg::dpkg_arch;
 use once_cell::sync::OnceCell;
-use reqwest::Client;
 use spdlog::{debug, error, info, warn};
 use sysinfo::System;
 use tokio::task::spawn_blocking;
@@ -193,16 +193,7 @@ impl CliExecuter for Topics {
         let apt_config = AptConfig::new();
 
         let code = Ok(()).and_then(|_| -> Result<ExitHandle, OutputError> {
-            refresh(
-                config.download_threads,
-                config.no_progress(),
-                config.dry_run,
-                &config.sysroot,
-                &apt_config,
-                auth_config,
-                &config.apt_options,
-                config.http_client()?,
-            )?;
+            refresh(&config, &apt_config, auth_config)?;
 
             if only_apply_sources_list {
                 return Ok(ExitHandle::default().ring(true));
@@ -355,16 +346,7 @@ impl CliExecuter for Topics {
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
                     RT.block_on(tm.write_enabled(true))?;
-                    refresh(
-                        config.download_threads,
-                        config.no_progress(),
-                        config.dry_run,
-                        &config.sysroot,
-                        &AptConfig::new(),
-                        auth_config,
-                        &config.apt_options,
-                        config.http_client()?,
-                    )?;
+                    refresh(&config, &AptConfig::new(), auth_config)?;
                 }
             }
             Err(e) => {
@@ -381,27 +363,15 @@ impl CliExecuter for Topics {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn refresh<'a>(
-    network_threads: usize,
-    no_progress: bool,
-    dry_run: bool,
-    sysroot: &'a Path,
-    apt_config: &'a AptConfig,
-    auth_config: Option<&'a apt_auth_config::AuthConfig>,
-    apt_options: &'a [String],
-    client: &'a Client,
+fn refresh(
+    config: &OmaConfig,
+    apt_config: &AptConfig,
+    auth_config: Option<&AuthConfig>,
 ) -> Result<(), OutputError> {
     Refresh::builder()
-        .client(client)
-        .dry_run(dry_run)
-        .no_progress(no_progress)
-        .network_thread(network_threads)
-        .sysroot(&sysroot.to_string_lossy())
-        .refresh_topics(true)
-        .config(apt_config)
+        .config(config)
+        .apt_config(apt_config)
         .maybe_auth_config(auth_config)
-        .apt_options(apt_options)
         .build()
         .run()
 }

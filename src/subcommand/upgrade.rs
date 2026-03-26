@@ -102,24 +102,12 @@ impl CliExecuter for Upgrade {
         let auth_config = AuthConfig::system(&config.sysroot)?;
 
         if !no_refresh {
-            let sysroot = config.sysroot.to_string_lossy();
-            let builder = Refresh::builder()
-                .client(config.http_client()?)
-                .dry_run(config.dry_run)
-                .no_progress(config.no_progress())
-                .network_thread(config.download_threads)
-                .sysroot(&sysroot)
-                .config(&apt_config)
-                .apt_options(&config.apt_options)
-                .auth_config(&auth_config);
-
-            #[cfg(feature = "aosc")]
-            let refresh = builder.refresh_topics(!config.no_refresh_topics).build();
-
-            #[cfg(not(feature = "aosc"))]
-            let refresh = builder.build();
-
-            refresh.run()?;
+            Refresh::builder()
+                .config(&config)
+                .apt_config(&apt_config)
+                .auth_config(&auth_config)
+                .build()
+                .run()?;
         }
 
         if yes {
