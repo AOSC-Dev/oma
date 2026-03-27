@@ -214,7 +214,7 @@ impl OmaRefresh {
             })?;
         }
 
-        let download_dir: Box<Path> = Box::from(self.download_dir.as_path());
+        let download_dir = self.download_dir.clone();
 
         // Create `apt update` file lock
         let _fd = spawn_blocking(move || get_file_lock(&download_dir.join("lock")))
@@ -483,7 +483,7 @@ impl OmaRefresh {
         &self,
         _callback: &impl AsyncFn(Event),
         _not_found: Vec<url::Url>,
-        _sources: &mut MirrorSources<'_>,
+        _sources: &mut MirrorSources,
     ) -> Result<()> {
         Ok(())
     }
