@@ -96,7 +96,7 @@ pub fn ignores(config: &oma_apt::config::Config) -> Vec<Regex> {
 pub async fn scan_sources_list_from_paths(
     paths: &[impl AsRef<Path>],
     arch: Arc<String>,
-    ignores: &[Regex],
+    ignores: Vec<Regex>,
     cb: &impl AsyncFn(Event),
 ) -> Result<Vec<OmaSourceEntry>, SourcesListError> {
     let mut res = vec![];
@@ -276,16 +276,16 @@ impl OmaSourceEntry {
 }
 
 #[derive(Debug)]
-pub struct MirrorSources<'a>(pub Vec<MirrorSource<'a>>);
+pub struct MirrorSources(pub Vec<MirrorSource>);
 
 #[derive(Debug)]
-pub struct MirrorSource<'a> {
-    pub sources: Vec<&'a OmaSourceEntry>,
+pub struct MirrorSource {
+    pub sources: Vec<OmaSourceEntry>,
     release_file_name: OnceCell<String>,
-    auth: Option<&'a Authenticator>,
+    auth: Option<Authenticator>,
 }
 
-impl<'a> MirrorSource<'a> {
+impl MirrorSource {
     pub fn set_release_file_name(&self, file_name: String) {
         self.release_file_name
             .set(file_name)
@@ -355,7 +355,7 @@ impl<'a> MirrorSource<'a> {
     }
 
     pub fn auth(&self) -> Option<&Authenticator> {
-        self.auth
+        self.auth.as_ref()
     }
 
     pub async fn fetch(
@@ -621,13 +621,13 @@ impl<'a> MirrorSource<'a> {
     }
 }
 
-impl<'a> MirrorSources<'a> {
+impl MirrorSources {
     pub fn from_sourcelist(
-        sourcelist: &'a [OmaSourceEntry],
+        sourcelist: Vec<OmaSourceEntry>,
         replacer: &DatabaseFilenameReplacer,
-        auth_config: Option<&'a AuthConfig>,
+        auth_config: Option<&AuthConfig>,
     ) -> Result<Self, RefreshError> {
-        let mut map: HashMap<String, Vec<&OmaSourceEntry>> =
+        let mut map: HashMap<String, Vec<OmaSourceEntry>> =
             HashMap::with_hasher(ahash::RandomState::new());
 
         if sourcelist.is_empty() {
@@ -649,7 +649,7 @@ impl<'a> MirrorSources<'a> {
             res.push(MirrorSource {
                 sources: v,
                 release_file_name: OnceCell::new(),
-                auth,
+                auth: auth.cloned(),
             });
         }
 

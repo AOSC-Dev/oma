@@ -204,7 +204,7 @@ impl OmaRefresh {
 
         let arch: Arc<String> = self.arch.clone().into();
 
-        let sourcelist = scan_sources_list_from_paths(&paths, arch, &ignores, &callback)
+        let sourcelist = scan_sources_list_from_paths(&paths, arch, ignores, &callback)
             .await
             .map_err(RefreshError::ScanSourceError)?;
 
@@ -228,7 +228,7 @@ impl OmaRefresh {
 
         let replacer = DatabaseFilenameReplacer::new()?;
         let mirror_sources = self
-            .download_releases(&sourcelist, &replacer, &callback)
+            .download_releases(sourcelist, &replacer, &callback)
             .await?;
 
         download_list.extend(
@@ -372,12 +372,12 @@ impl OmaRefresh {
         }
     }
 
-    async fn download_releases<'a>(
-        &'a self,
-        sourcelist: &'a [OmaSourceEntry],
+    async fn download_releases(
+        &self,
+        sourcelist: Vec<OmaSourceEntry>,
         replacer: &DatabaseFilenameReplacer,
         callback: &impl AsyncFn(Event),
-    ) -> Result<MirrorSources<'a>> {
+    ) -> Result<MirrorSources> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
@@ -436,7 +436,7 @@ impl OmaRefresh {
         &self,
         callback: &impl AsyncFn(Event),
         not_found: Vec<url::Url>,
-        sources: &mut MirrorSources<'_>,
+        sources: &mut MirrorSources,
     ) -> Result<()> {
         if !self.refresh_topics || not_found.is_empty() {
             return Ok(());
@@ -491,7 +491,7 @@ impl OmaRefresh {
     async fn collect_all_release_entry(
         &self,
         replacer: &DatabaseFilenameReplacer,
-        mirror_sources: &MirrorSources<'_>,
+        mirror_sources: &MirrorSources,
     ) -> Result<(Vec<DownloadEntry>, u64, HashSet<String>)> {
         let mut total = 0;
         let mut tasks = vec![];
@@ -791,7 +791,7 @@ fn collect_flat_repo_no_release(
 
 fn collect_download_task(
     c: &ChecksumDownloadEntry,
-    mirror_source: &MirrorSource<'_>,
+    mirror_source: &MirrorSource,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     release: &Release,
