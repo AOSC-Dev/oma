@@ -94,7 +94,7 @@ pub fn ignores(config: &oma_apt::config::Config) -> Vec<Regex> {
 }
 
 pub async fn scan_sources_list_from_paths(
-    paths: &[impl AsRef<Path>],
+    paths: Vec<PathBuf>,
     arch: Arc<String>,
     ignores: Vec<Regex>,
     cb: &impl AsyncFn(Event),

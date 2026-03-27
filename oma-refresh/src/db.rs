@@ -204,7 +204,7 @@ impl OmaRefresh {
 
         let arch: Arc<String> = self.arch.clone().into();
 
-        let sourcelist = scan_sources_list_from_paths(&paths, arch, ignores, &callback)
+        let sourcelist = scan_sources_list_from_paths(paths, arch, ignores, &callback)
             .await
             .map_err(RefreshError::ScanSourceError)?;
 
