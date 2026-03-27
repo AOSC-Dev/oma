@@ -161,7 +161,6 @@ impl CliExecuter for SizeAnalyzer {
             )?;
 
             let auth_config = auth_config(&config.sysroot);
-            let auth_config = auth_config.as_ref();
 
             exit_code = CommitChanges::builder()
                 .apt(apt)
@@ -169,7 +168,7 @@ impl CliExecuter for SizeAnalyzer {
                 .yes(false)
                 .remove_config(remove_config)
                 .autoremove(!no_autoremove)
-                .maybe_auth_config(auth_config)
+                .maybe_auth_config(auth_config.as_ref().as_ref())
                 .fix_dpkg_status(!no_fix_dpkg_status)
                 .config(&config)
                 .build()

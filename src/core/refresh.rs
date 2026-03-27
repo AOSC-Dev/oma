@@ -1,4 +1,4 @@
-use std::thread;
+use std::{sync::Arc, thread};
 
 use apt_auth_config::AuthConfig;
 use bon::Builder;
@@ -20,15 +20,13 @@ use crate::{
 #[derive(Debug, Builder)]
 pub struct Refresh<'a> {
     config: &'a OmaConfig,
-    apt_config: &'a AptConfig,
-    auth_config: Option<&'a AuthConfig>,
+    auth_config: Arc<Option<AuthConfig>>,
 }
 
 impl Refresh<'_> {
     pub fn run(self) -> Result<(), OutputError> {
         let Refresh {
             config,
-            apt_config,
             auth_config,
         } = self;
 
@@ -42,14 +40,13 @@ impl Refresh<'_> {
         let arch = dpkg_arch(sysroot)?;
 
         let refresh = OmaRefresh::builder()
-            .download_dir(get_lists_dir(apt_config))
+            .download_dir(get_lists_dir(&AptConfig::new()))
             .source(sysroot.clone())
             .threads(config.download_threads)
             .arch(arch)
-            .apt_config(apt_config)
-            .client(config.http_client()?)
-            .another_apt_options(&config.apt_options)
-            .maybe_auth_config(auth_config);
+            .client(config.http_client()?.clone())
+            .another_apt_options(unsafe { Arc::from_raw(config.apt_options.as_slice()) })
+            .auth_config(auth_config);
 
         #[cfg(feature = "aosc")]
         let msg = fl!("do-not-edit-topic-sources-list");
@@ -57,7 +54,7 @@ impl Refresh<'_> {
         #[cfg(feature = "aosc")]
         let refresh = refresh
             .refresh_topics(!config.no_refresh_topics)
-            .topic_msg(&msg)
+            .topic_msg(msg.into())
             .build();
 
         #[cfg(not(feature = "aosc"))]

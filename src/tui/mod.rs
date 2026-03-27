@@ -79,13 +79,11 @@ impl CliExecuter for Tui {
         let apt_config = AptConfig::new();
         let sysroot = &config.sysroot;
         let auth_config = auth_config(sysroot);
-        let auth_config = auth_config.as_ref();
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
-                .maybe_auth_config(auth_config)
+                .auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }
@@ -169,7 +167,7 @@ impl CliExecuter for Tui {
                 .yes(false)
                 .remove_config(remove_config)
                 .autoremove(autoremove)
-                .maybe_auth_config(auth_config)
+                .maybe_auth_config(auth_config.as_ref().as_ref())
                 .check_tum(upgrade)
                 .is_upgrade(upgrade)
                 .config(&config)

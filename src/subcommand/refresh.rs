@@ -26,12 +26,10 @@ impl CliExecuter for Refresh {
 
         let apt_config = AptConfig::new();
         let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
 
         RefreshInner::builder()
             .config(&config)
-            .apt_config(&apt_config)
-            .maybe_auth_config(auth_config)
+            .auth_config(auth_config)
             .build()
             .run()?;
 

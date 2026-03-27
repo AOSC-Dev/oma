@@ -4,6 +4,7 @@ use std::io::stdin;
 use std::io::stdout;
 use std::os::fd::OwnedFd;
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::color_formatter;
 use crate::dbus::find_another_oma;
@@ -130,11 +131,13 @@ pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<OwnedFd, OutputError
     Ok(lock)
 }
 
-pub fn auth_config(sysroot: impl AsRef<Path>) -> Option<AuthConfig> {
-    AuthConfig::system(sysroot)
-        .inspect(|res| debug!("Auth config: {res:#?}"))
-        .inspect_err(|e| debug!("Couldn't read auth config: {e}"))
-        .ok()
+pub fn auth_config(sysroot: impl AsRef<Path>) -> Arc<Option<AuthConfig>> {
+    Arc::new(
+        AuthConfig::system(sysroot)
+            .inspect(|res| debug!("Auth config: {res:#?}"))
+            .inspect_err(|e| debug!("Couldn't read auth config: {e}"))
+            .ok(),
+    )
 }
 
 pub fn download_message() -> Option<CustomDownloadMessage> {
