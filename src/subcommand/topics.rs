@@ -1,4 +1,7 @@
-use std::{fmt::Display, sync::atomic::Ordering};
+use std::{
+    fmt::Display,
+    sync::{Arc, atomic::Ordering},
+};
 
 use apt_auth_config::AuthConfig;
 use clap::{ArgAction, ArgGroup, Args};
@@ -189,11 +192,12 @@ impl CliExecuter for Topics {
         }
 
         let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
+        let ac = auth_config.clone();
+
         let apt_config = AptConfig::new();
 
         let code = Ok(()).and_then(|_| -> Result<ExitHandle, OutputError> {
-            refresh(&config, &apt_config, auth_config)?;
+            refresh(&config, auth_config.clone())?;
 
             if only_apply_sources_list {
                 return Ok(ExitHandle::default().ring(true));
@@ -321,7 +325,7 @@ impl CliExecuter for Topics {
                 .yes(yes)
                 .remove_config(remove_config)
                 .autoremove(autoremove)
-                .maybe_auth_config(auth_config)
+                .maybe_auth_config(auth_config.as_ref().as_ref())
                 .check_tum(true)
                 .topics_enabled(opt_in)
                 .topics_disabled(opt_out)
@@ -346,7 +350,7 @@ impl CliExecuter for Topics {
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
                     RT.block_on(tm.write_enabled(true))?;
-                    refresh(&config, &AptConfig::new(), auth_config)?;
+                    refresh(&config, ac)?;
                 }
             }
             Err(e) => {
@@ -363,15 +367,10 @@ impl CliExecuter for Topics {
     }
 }
 
-fn refresh(
-    config: &OmaConfig,
-    apt_config: &AptConfig,
-    auth_config: Option<&AuthConfig>,
-) -> Result<(), OutputError> {
+fn refresh(config: &OmaConfig, auth_config: Arc<Option<AuthConfig>>) -> Result<(), OutputError> {
     Refresh::builder()
         .config(config)
-        .apt_config(apt_config)
-        .maybe_auth_config(auth_config)
+        .auth_config(auth_config)
         .build()
         .run()
 }

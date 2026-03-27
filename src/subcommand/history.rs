@@ -137,15 +137,12 @@ impl CliExecuter for Undo {
         #[cfg(feature = "aosc")]
         let (opt_in, opt_out) = history.find_history_topics_status_by_id(id)?;
 
-        let apt_config = AptConfig::new();
         let auth_config = auth_config(&config.sysroot);
-        let client = config.http_client()?;
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
-                .maybe_auth_config(auth_config.as_ref())
+                .auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }
@@ -243,7 +240,7 @@ impl CliExecuter for Undo {
             .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(auth_config.as_ref())
+            .maybe_auth_config(auth_config.as_ref().as_ref())
             .download_only(download_only)
             .config(&config)
             .build()
@@ -257,7 +254,7 @@ impl CliExecuter for Undo {
 
             let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(
-                client,
+                config.http_client()?,
                 &config.sysroot,
                 &arch,
                 config.dry_run,

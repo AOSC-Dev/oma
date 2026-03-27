@@ -114,6 +114,7 @@ impl CliExecuter for Install {
             download_only,
         } = self;
 
+        #[cfg(feature = "aosc")]
         let mut config = config;
 
         #[cfg(feature = "aosc")]
@@ -131,14 +132,12 @@ impl CliExecuter for Install {
         let apt_config = AptConfig::new();
 
         let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
         let no_progress = config.no_progress();
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
-                .maybe_auth_config(auth_config)
+                .auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }
@@ -198,7 +197,7 @@ impl CliExecuter for Install {
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(auth_config)
+            .maybe_auth_config(auth_config.as_ref().as_ref())
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .config(&config)
