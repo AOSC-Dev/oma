@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     fmt::Debug,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use ahash::HashMap;
@@ -31,16 +32,16 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct OmaSourceEntry<'a> {
+pub struct OmaSourceEntry {
     source: SourceEntry,
-    arch: &'a str,
+    arch: Arc<String>,
     url: OnceCell<String>,
     suite: OnceCell<String>,
     dist_path: OnceCell<String>,
     from: OnceCell<OmaSourceEntryFrom>,
 }
 
-impl Debug for OmaSourceEntry<'_> {
+impl Debug for OmaSourceEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OmaSourceEntry")
             .field("url", &self.url)
@@ -92,12 +93,12 @@ pub fn ignores(config: &oma_apt::config::Config) -> Vec<Regex> {
         .collect::<Vec<_>>()
 }
 
-pub async fn scan_sources_list_from_paths<'a>(
+pub async fn scan_sources_list_from_paths(
     paths: &[impl AsRef<Path>],
-    arch: &'a str,
+    arch: Arc<String>,
     ignores: &[Regex],
-    cb: &'a impl AsyncFn(Event),
-) -> Result<Vec<OmaSourceEntry<'a>>, SourcesListError> {
+    cb: &impl AsyncFn(Event),
+) -> Result<Vec<OmaSourceEntry>, SourcesListError> {
     let mut res = vec![];
 
     for p in paths {
@@ -108,13 +109,13 @@ pub async fn scan_sources_list_from_paths<'a>(
                         if let SourceLine::Entry(entry) = source
                             && entry.enabled
                         {
-                            res.push(OmaSourceEntry::new(entry, arch));
+                            res.push(OmaSourceEntry::new(entry, arch.clone()));
                         }
                     }
                 }
                 SourceListType::Deb822(source_list_deb822) => {
                     for source in source_list_deb822.entries.into_iter().filter(|s| s.enabled) {
-                        res.push(OmaSourceEntry::new(source, arch));
+                        res.push(OmaSourceEntry::new(source, arch.clone()));
                     }
                 }
             },
@@ -149,8 +150,8 @@ pub enum OmaSourceEntryFrom {
     Local,
 }
 
-impl<'a> OmaSourceEntry<'a> {
-    pub fn new(source: SourceEntry, arch: &'a str) -> Self {
+impl OmaSourceEntry {
+    pub fn new(source: SourceEntry, arch: Arc<String>) -> Self {
         Self {
             source,
             arch,
@@ -192,7 +193,7 @@ impl<'a> OmaSourceEntry<'a> {
 
     pub fn url(&self) -> &str {
         self.url
-            .get_or_init(|| self.source.url.replace("$(ARCH)", self.arch))
+            .get_or_init(|| self.source.url.replace("$(ARCH)", &self.arch))
     }
 
     pub fn is_flat(&self) -> bool {
@@ -201,7 +202,7 @@ impl<'a> OmaSourceEntry<'a> {
 
     pub fn suite(&self) -> &str {
         self.suite
-            .get_or_init(|| self.source.suite.replace("$(ARCH)", self.arch))
+            .get_or_init(|| self.source.suite.replace("$(ARCH)", &self.arch))
     }
 
     pub fn is_source(&self) -> bool {
@@ -279,12 +280,12 @@ pub struct MirrorSources<'a>(pub Vec<MirrorSource<'a>>);
 
 #[derive(Debug)]
 pub struct MirrorSource<'a> {
-    pub sources: Vec<&'a OmaSourceEntry<'a>>,
+    pub sources: Vec<&'a OmaSourceEntry>,
     release_file_name: OnceCell<String>,
     auth: Option<&'a Authenticator>,
 }
 
-impl MirrorSource<'_> {
+impl<'a> MirrorSource<'a> {
     pub fn set_release_file_name(&self, file_name: String) {
         self.release_file_name
             .set(file_name)
@@ -622,7 +623,7 @@ impl MirrorSource<'_> {
 
 impl<'a> MirrorSources<'a> {
     pub fn from_sourcelist(
-        sourcelist: &'a [OmaSourceEntry<'a>],
+        sourcelist: &'a [OmaSourceEntry],
         replacer: &DatabaseFilenameReplacer,
         auth_config: Option<&'a AuthConfig>,
     ) -> Result<Self, RefreshError> {
@@ -701,7 +702,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     assert_eq!(ose.url(), "file:///debs/");
     assert_eq!(ose.dist_path(), "file:///debs/");
 
@@ -720,7 +721,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     assert_eq!(ose.url(), "file:///debs/");
     assert_eq!(ose.dist_path(), "file:///debs/./");
 
@@ -739,7 +740,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     assert_eq!(ose.url(), "file:/debs/");
     assert_eq!(ose.dist_path(), "file:/debs/");
 
@@ -760,7 +761,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     assert_eq!(ose.url(), "file:/debs");
     assert_eq!(ose.dist_path(), "file:/debs/");
 
@@ -779,7 +780,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     assert_eq!(ose.url(), "file:/debs/");
     assert_eq!(ose.dist_path(), "file:/debs/./././");
 
@@ -802,7 +803,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     assert_eq!(ose.url(), "file:/debs/");
     assert_eq!(ose.dist_path(), "file:/debs/.//");
 
@@ -825,7 +826,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     assert_eq!(ose.url(), "file:/debs/");
     assert_eq!(ose.dist_path(), "file:/debs///");
 
@@ -844,7 +845,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     assert_eq!(ose.url(), "file:/./debs/");
     assert_eq!(ose.dist_path(), "file:/./debs/./");
 
@@ -863,7 +864,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     assert_eq!(ose.url(), "file:/usr/../debs/");
     assert_eq!(ose.dist_path(), "file:/usr/../debs/./");
 }
@@ -887,7 +888,7 @@ fn test_url_encode_plus() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     let file_name = ose
         .get_download_file_name(Some("InRelease"), &replacer)
         .unwrap();
@@ -916,7 +917,7 @@ fn test_dot() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
     let file_name = ose
         .get_download_file_name(Some("Packages"), &replacer)
         .unwrap();
@@ -946,7 +947,7 @@ fn test_encode_underline() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
 
     let file_name = ose
         .get_download_file_name(Some("InRelease"), &replacer)
@@ -990,7 +991,7 @@ fn test_flat_repo_file_name_1() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
 
     let file_name = ose
         .get_download_file_name(Some("Packages"), &replacer)
@@ -1018,7 +1019,7 @@ fn test_flat_repo_file_name_2() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
 
     let file_name = ose
         .get_download_file_name(Some("Packages"), &replacer)
@@ -1046,7 +1047,7 @@ fn test_flat_repo_file_name_3() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, Arc::new(arch));
 
     let file_name = ose
         .get_download_file_name(Some("Packages"), &replacer)
@@ -1074,7 +1075,8 @@ fn test_flat_repo_file_name_4() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let arch = Arc::new(arch);
+    let ose = OmaSourceEntry::new(entry, arch.clone());
     let res = ose
         .get_download_file_name(Some("Packages"), &replacer)
         .unwrap();
@@ -1093,7 +1095,7 @@ fn test_flat_repo_file_name_4() {
         trusted: false,
     };
 
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.clone());
     let res = ose
         .get_download_file_name(Some("Packages"), &replacer)
         .unwrap();

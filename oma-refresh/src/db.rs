@@ -202,7 +202,9 @@ impl OmaRefresh {
         #[cfg(not(feature = "apt"))]
         let ignores = vec![];
 
-        let sourcelist = scan_sources_list_from_paths(&paths, &self.arch, &ignores, &callback)
+        let arch: Arc<String> = self.arch.clone().into();
+
+        let sourcelist = scan_sources_list_from_paths(&paths, arch, &ignores, &callback)
             .await
             .map_err(RefreshError::ScanSourceError)?;
 
@@ -372,7 +374,7 @@ impl OmaRefresh {
 
     async fn download_releases<'a>(
         &'a self,
-        sourcelist: &'a [OmaSourceEntry<'a>],
+        sourcelist: &'a [OmaSourceEntry],
         replacer: &DatabaseFilenameReplacer,
         callback: &impl AsyncFn(Event),
     ) -> Result<MirrorSources<'a>> {
@@ -650,7 +652,7 @@ pub fn content_length(resp: &Response) -> u64 {
         .unwrap_or_default()
 }
 
-fn detect_duplicate_repositories(sourcelist: &[OmaSourceEntry<'_>]) -> Result<()> {
+fn detect_duplicate_repositories(sourcelist: &[OmaSourceEntry]) -> Result<()> {
     let mut map = AHashMap::new();
 
     for i in sourcelist {
