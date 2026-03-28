@@ -410,7 +410,6 @@ fn display_error(e: OutputError) -> io::Result<()> {
                         cause_writer.get_max_len(),
                         cause_writer.get_prefix_len() + WRITER.get_prefix_len(),
                     )
-                    .into_iter()
                     .map(|(_, s)| s)
                     .collect::<Vec<_>>();
 
