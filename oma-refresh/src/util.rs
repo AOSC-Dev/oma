@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fmt::Display};
 
 use aho_corasick::AhoCorasick;
-use url::Url;
+use url::{Host, Url};
 
 use crate::db::RefreshError;
 
@@ -39,7 +39,11 @@ impl DatabaseFilenameReplacer {
         };
 
         let url = if let Some(host) = host {
-            Cow::Owned(format!("{host}{path}"))
+            if let Some(Host::Ipv6(addr)) = url_parsed.host() {
+                Cow::Owned(format!("{addr}{path}"))
+            } else {
+                Cow::Owned(format!("{host}{path}"))
+            }
         } else {
             Cow::Borrowed(path)
         };
