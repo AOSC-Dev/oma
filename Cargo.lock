@@ -3194,7 +3194,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.54.4"
+version = "0.54.5"
 dependencies = [
  "ahash",
  "aho-corasick",
