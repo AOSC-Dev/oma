@@ -31,10 +31,12 @@ pub fn root() -> Result<()> {
         Err(_) => {}
     }
 
+    let is_wsl = is_wsl();
+
     // Fix issue https://github.com/AOSC-Dev/oma/issues/609
-    if which::which("systemd-run").is_ok() {
+    if which::which("systemd-run").is_ok() && !is_wsl {
         systemd_run_oma()?;
-    } else if is_desktop_env() && !is_wsl() && which::which("pkexec").is_ok() {
+    } else if is_desktop_env() && !is_wsl && which::which("pkexec").is_ok() {
         // 检测是否有 DISPLAY，如果有，则在提权时使用 pkexec
         // 通常情况下 SSH 连接不会有 DISPLAY 环境变量，除非开启 X11 Forwarding
         pkexec_oma()?;
@@ -112,12 +114,11 @@ pub fn is_root() -> bool {
 
 // From `is_wsl` crate
 fn is_wsl() -> bool {
-    if let Ok(b) = std::fs::read("/proc/sys/kernel/osrelease")
-        && let Ok(s) = std::str::from_utf8(&b)
-    {
-        let a = s.to_ascii_lowercase();
-        return a.contains("microsoft") || a.contains("wsl");
-    }
+    let Ok(kernel_info) = std::fs::read_to_string("/proc/sys/kernel/osrelease") else {
+        return false;
+    };
 
-    false
+    let kernel_info = kernel_info.to_ascii_lowercase();
+
+    kernel_info.contains("microsoft") || kernel_info.contains("wsl")
 }
