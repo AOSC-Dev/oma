@@ -284,7 +284,6 @@ psa-total = 總佔用
 loading-tree = 正在分析依賴樹
 mirrors-setting-empty = 未指定任何鏡像源，不儲存設定。
 packages-can-be-upgrade-has-manual-held = 有 { $len } 個可升級的軟體套件（其中 { $held_count } 個被標記為版本鎖定）
-packages-can-be-upgrade-has-resolver-held = { $len } package(s) can be upgraded ({ $held_count } were marked for version hold by the dependency resolver).
 upgrade-manual-held-tips = { $count } package(s) were marked as manual and were not upgraded.
 upgrade-resolver-held-tips = { $count } package(s) were not upgraded as specified by the dependency resolver.
 battery-check-disabled = 電源監測功能已被停用，oma 在執行系統變更時若發生意外斷電等情況，可能導致系統故障和資料丟失。

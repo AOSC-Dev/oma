@@ -41,7 +41,6 @@ could-not-find-pkg-from-keyword = Could not find any package for keyword { $c }.
 no-need-to-remove = Package { $name } is not installed. No need to remove.
 packages-can-be-upgrade = { $len } package(s) can be upgraded.
 packages-can-be-upgrade-has-manual-held = { $len } package(s) can be upgraded ({ $held_count } were marked for version hold).
-packages-can-be-upgrade-has-resolver-held = { $len } package(s) can be upgraded ({ $held_count } were marked for version hold by the dependency resolver).
 upgrade-manual-held-tips = { $count } package(s) were marked as manual and were not upgraded.
 upgrade-resolver-held-tips = { $count } package(s) were not upgraded as specified by the dependency resolver.
 packages-can-be-removed = { $len } package(s) can be removed.
