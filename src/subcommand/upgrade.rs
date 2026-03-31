@@ -4,6 +4,7 @@ use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
 use crate::exit_handle::ExitHandle;
 use clap_complete::ArgValueCompleter;
+use oma_pm::oma_apt::PackageSort;
 use spdlog::{debug, info, warn};
 
 use apt_auth_config::AuthConfig;
@@ -169,6 +170,12 @@ impl CliExecuter for Upgrade {
         debug!("Upgrade mode is using: {:?}", mode);
         apt.upgrade(mode)?;
 
+        let held_count = apt
+            .cache
+            .packages(&PackageSort::default().upgradable())
+            .filter(|pkg| !pkg.marked_upgrade())
+            .count();
+
         let exit = CommitChanges::builder()
             .apt(apt)
             .no_fixbroken(no_fixbroken)
@@ -191,12 +198,17 @@ impl CliExecuter for Upgrade {
             AptConfig::new(),
         )?;
 
-        let (_, upgradable_but_held) = apt.count_pending_upgradable_pkgs();
+        let (_, manual_held) = apt.count_pending_upgradable_pkgs();
 
-        if upgradable_but_held != 0 {
+        if manual_held != 0 {
+            info!("{}", fl!("upgrade-manual-held-tips", count = manual_held));
+        }
+
+        if held_count != manual_held {
+            let resolver_held = held_count - manual_held;
             info!(
                 "{}",
-                fl!("upgrade-after-held-tips", count = upgradable_but_held)
+                fl!("upgrade-resolver-held-tips", count = resolver_held)
             );
         }
 

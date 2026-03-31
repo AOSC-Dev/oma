@@ -56,7 +56,7 @@ impl CliExecuter for Refresh {
             s.push(fl!("packages-can-be-upgrade", len = upgradable));
         } else if upgradable != 0 {
             s.push(fl!(
-                "packages-can-be-upgrade-has-held",
+                "packages-can-be-upgrade-has-manual-held",
                 len = upgradable,
                 held_count = upgradable_but_held
             ));
