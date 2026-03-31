@@ -206,7 +206,10 @@ impl CliExecuter for Upgrade {
 
         if held_count != manual_held {
             let resolver_held = held_count - manual_held;
-            info!("{}", fl!("upgrade-resolver-held-tips", count = resolver_held));
+            info!(
+                "{}",
+                fl!("upgrade-resolver-held-tips", count = resolver_held)
+            );
         }
 
         Ok(exit)
