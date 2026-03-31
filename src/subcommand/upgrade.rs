@@ -205,8 +205,8 @@ impl CliExecuter for Upgrade {
         }
 
         if held_count != manual_held {
-            let auto_held = held_count - manual_held;
-            info!("{}", fl!("upgrade-after-held-tips", count = auto_held));
+            let resolver_held = held_count - manual_held;
+            info!("{}", fl!("upgrade-after-held-tips", count = resolver_held));
         }
 
         Ok(exit)
