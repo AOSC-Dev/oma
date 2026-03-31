@@ -201,12 +201,12 @@ impl CliExecuter for Upgrade {
         let (_, manual_held) = apt.count_pending_upgradable_pkgs();
 
         if manual_held != 0 {
-            info!("{}", fl!("upgrade-after-held-tips", count = manual_held));
+            info!("{}", fl!("upgrade-manual-held-tips", count = manual_held));
         }
 
         if held_count != manual_held {
             let resolver_held = held_count - manual_held;
-            info!("{}", fl!("upgrade-after-held-tips", count = resolver_held));
+            info!("{}", fl!("upgrade-resolver-held-tips", count = resolver_held));
         }
 
         Ok(exit)
