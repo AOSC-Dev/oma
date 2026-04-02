@@ -2,7 +2,7 @@ name: deb-build
 
 on:
   push:
-    tags: [ "v*" ]
+    tags: ["v*"]
 
 jobs:
   package:
@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           apt-get update
-          env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync libbz2-dev liblzma-dev libzstd-dev locales
+          env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync libbz2-dev liblzma-dev libzstd-dev locales ca-certificates
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
