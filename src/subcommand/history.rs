@@ -139,7 +139,6 @@ impl CliExecuter for Undo {
 
         let apt_config = AptConfig::new();
         let auth_config = auth_config(&config.sysroot);
-        let client = config.http_client()?;
 
         if !no_refresh {
             Refresh::builder()
@@ -257,7 +256,7 @@ impl CliExecuter for Undo {
 
             let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(
-                client,
+                config.http_client()?,
                 &config.sysroot,
                 &arch,
                 config.dry_run,

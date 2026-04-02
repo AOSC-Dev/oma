@@ -114,6 +114,7 @@ impl CliExecuter for Install {
             download_only,
         } = self;
 
+        #[cfg(feature = "aosc")]
         let mut config = config;
 
         #[cfg(feature = "aosc")]
