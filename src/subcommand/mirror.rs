@@ -29,7 +29,6 @@ use oma_console::indicatif::ProgressBar;
 use oma_console::indicatif::ProgressStyle;
 use oma_mirror::MirrorManager;
 use oma_mirror::parser::MirrorConfig;
-use oma_pm::apt::AptConfig;
 use oma_refresh::inrelease::Release;
 use oma_topics::TopicManager;
 use oma_utils::concat_url;
@@ -742,12 +741,10 @@ fn progress_bar(mirrors_len: u64) -> OmaProgressBar {
 
 fn refresh(config: &OmaConfig) -> Result<(), OutputError> {
     let auth_config = auth_config(&config.sysroot);
-    let auth_config = auth_config.as_ref();
 
     Refresh::builder()
         .config(config)
-        .apt_config(&AptConfig::new())
-        .maybe_auth_config(auth_config)
+        .auth_config(auth_config)
         .build()
         .run()?;
 

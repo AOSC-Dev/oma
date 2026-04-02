@@ -74,7 +74,7 @@ impl CliExecuter for Download {
             DownloadConfig {
                 network_thread: Some(config.download_threads),
                 download_dir: Some(&path),
-                auth: auth_config("/").as_ref(),
+                auth: auth_config("/").as_ref().as_ref(),
             },
             download_message(),
             |event| async {
