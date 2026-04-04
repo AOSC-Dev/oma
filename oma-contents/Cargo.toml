@@ -10,7 +10,7 @@ license = "MIT"
 [dependencies]
 regex = "1.8"
 thiserror = "2.0"
-winnow = "0.7"
+winnow = "1"
 flate2 = "1.0"
 rayon = "1.8"
 lzzzz = "2.0"
