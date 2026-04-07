@@ -137,6 +137,7 @@ failed-to-read-decode-inrelease = 無法讀取解密後的 InRelease 檔案。
 failed-to-operate-path = 無法在路徑 { $p } 中執行檔案操作。
 failed-to-get-parent-path = 無法取得路徑 { $p } 的上層目錄。
 failed-to-read-file-metadata = 無法讀取 { $p } 的檔案後設資料。
+illegal-topic-entry = 測試庫設定項包含無效字元：{ $name }。
 failed-to-get-rg-process-info = 無法取得 `rg' 的行程狀態。
 failed-to-calculate-available-space = 無法計算可用儲存空間。
 failed-to-create-http-client = 無法建立 HTTP 用戶端。

@@ -149,6 +149,7 @@ failed-to-read-decode-inrelease = Failed to read the decoded InRelease file.
 failed-to-operate-path = Failed to perform file operations in { $p }.
 failed-to-get-parent-path = Failed to get parent path of { $p }.
 failed-to-read-file-metadata = Failed to read file metadata for { $p }.
+illegal-topic-entry = Topic entry contains illegal character(s): { $name }.
 failed-to-get-rg-process-info = Failed to get process status for `rg'.
 failed-to-calculate-available-space = Failed to calculate available storage space.
 failed-to-create-http-client = Failed to create an HTTP client.

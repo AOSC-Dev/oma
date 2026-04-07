@@ -568,6 +568,14 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             source: Some(Box::new(e)),
         },
         OmaTopicsError::MirrorError(mirror_error) => OutputError::from(mirror_error),
+
+        OmaTopicsError::IllegalTopicEntry(name) => OutputError {
+            description: fl!(
+                "illegal-topic-entry",
+                name = name.escape_default().to_string()
+            ),
+            source: None,
+        },
     }
 }
 

@@ -144,6 +144,7 @@ failed-to-read-decode-inrelease = 无法读取解密后的 InRelease 文件。
 failed-to-operate-path = 无法在路径 { $p } 中执行文件操作。
 failed-to-get-parent-path = 无法获取路径 { $p } 的父目录。
 failed-to-read-file-metadata = 无法读取 { $p } 的文件元数据。
+illegal-topic-entry = 测试源配置条目包含无效字符：{ $name }。
 failed-to-get-rg-process-info = 无法获取 `rg' 的进程状态。
 failed-to-calculate-available-space = 无法计算可用存储空间。
 failed-to-create-http-client = 无法创建 HTTP 客户端。
