@@ -4,3 +4,4 @@ test
 /*.deb
 /completions
 /man
+.idea/

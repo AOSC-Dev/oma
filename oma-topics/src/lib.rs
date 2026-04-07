@@ -41,6 +41,8 @@ pub enum OmaTopicsError {
     ReadFile(String, serde_json::Error),
     #[error(transparent)]
     MirrorError(#[from] oma_mirror::MirrorError),
+    #[error("Topic entry contains illegal character(s): {0:?}")]
+    IllegalTopicEntry(String),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -220,6 +222,10 @@ impl<'a> TopicManager<'a> {
         debug!("Enabled: {enabled_names:?}");
 
         if let Some(index) = index {
+            // Skip all control characters
+            if index.name.chars().any(|c| c.is_control()) {
+                return Err(OmaTopicsError::IllegalTopicEntry(index.name.clone()));
+            }
             if !enabled_names.contains(&&index.name) {
                 self.enabled.push(index.clone());
             }
@@ -447,6 +453,8 @@ async fn refresh_innter<'a>(
             x.arch
                 .as_ref()
                 .is_some_and(|x| x.contains(&arch.to_string()) || x.contains(&"all".to_string()))
+                // Skip all names with control characters in them
+                && !x.name.chars().any(|c| c.is_control())
         })
         .collect::<Vec<_>>();
 
