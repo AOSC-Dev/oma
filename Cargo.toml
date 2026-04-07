@@ -52,7 +52,7 @@ sha2 = "0.11"
 bon = "3"
 flume = "0.12"
 enum_dispatch = "0.3"
-clap_mangen = "0.2.23"
+clap_mangen = "0.3"
 clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
 clap_lex = "1"
 fs4 = "0.13.1"
