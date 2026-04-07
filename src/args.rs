@@ -217,7 +217,7 @@ pub enum SubCmd {
     Version(Version),
     #[cfg(feature = "aosc")]
     /// Manage testing topics enrollment
-    #[command(visible_alias = "topic", about = fl!("clap-topics-help"), help_template = &*HELP_TEMPLATE)]
+    #[command(visible_alias = "topic", visible_alias = "atm", about = fl!("clap-topics-help"), help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Topics(Topics),
     #[cfg(feature = "aosc")]
