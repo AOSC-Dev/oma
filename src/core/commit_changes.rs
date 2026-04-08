@@ -290,7 +290,7 @@ impl CommitChanges<'_> {
                 history.write(HistoryInfo {
                     summary: &op,
                     start_time,
-                    success: true,
+                    success: false,
                     is_fix_broken: is_fixbroken,
                     is_undo,
                     topics_enabled,
@@ -428,7 +428,7 @@ fn write_oma_installed_status(apt: &OmaApt, sysroot: impl AsRef<Path>) -> anyhow
     }
 
     if status_file_manual.exists() {
-        fs::copy(&status_file, parent.join("installed-manual-old"))?;
+        fs::copy(&status_file_manual, parent.join("installed-manual-old"))?;
     }
 
     fs::write(status_file, pkgs.join("\n"))?;
