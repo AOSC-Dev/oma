@@ -8,13 +8,13 @@ pub enum AptHistoryError {
     #[error("Failed to parse date")]
     DateParseError(#[from] chrono::ParseError),
     #[error(transparent)]
-    Deb822Error(#[from] deb822_fast::Error),
+    ParseFromString(#[from] deb822_fast::Error),
     #[error("Failed to parse AptHistory from deb822: {0}")]
-    Deb822ParseError(String),
+    ParseFromParagraph(String),
     #[error("Failed to read file: {0}")]
     FileReadError(#[from] std::io::Error),
     #[error("Failed to parse Install entry: {0}")]
-    InstallParseError(String),
+    ParseOperationLine(String),
 }
 
 const DATE_FORMAT: &str = "%Y-%m-%d  %H:%M:%S";
@@ -131,13 +131,13 @@ pub fn parse_from_file(path: impl AsRef<Path>) -> Result<Vec<AptHistory>, AptHis
 }
 
 pub fn parse_from_str(s: &str) -> Result<Vec<AptHistory>, AptHistoryError> {
-    let source: deb822_fast::Deb822 = s.parse().map_err(|e| AptHistoryError::Deb822Error(e))?;
+    let source: deb822_fast::Deb822 = s.parse().map_err(|e| AptHistoryError::ParseFromString(e))?;
 
     let mut result = source
         .into_iter()
         .map(|p| {
             AptHistory::from_paragraph(&p)
-                .map_err(|e| AptHistoryError::Deb822ParseError(e.to_string()))
+                .map_err(|e| AptHistoryError::ParseFromParagraph(e.to_string()))
         })
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -165,7 +165,7 @@ fn deserialize_install_and_reinstall(s: &str) -> Result<Vec<Install>, AptHistory
 
         let (pkg, rest) = entry
             .split_once('(')
-            .ok_or_else(|| AptHistoryError::InstallParseError(entry.to_string()))?;
+            .ok_or_else(|| AptHistoryError::ParseOperationLine(entry.to_string()))?;
 
         let (version, auto_flag) = match rest.split_once(", ") {
             Some((v, a)) => (v, Some(a)),
@@ -204,11 +204,11 @@ fn deserialize_upgrade_and_downgrade(vec: &str) -> Result<Vec<Upgrade>, AptHisto
 
         let (pkg, rest) = entry
             .split_once('(')
-            .ok_or_else(|| AptHistoryError::InstallParseError(entry.to_string()))?;
+            .ok_or_else(|| AptHistoryError::ParseOperationLine(entry.to_string()))?;
 
         let (old_version, new_version) = rest
             .split_once(", ")
-            .ok_or_else(|| AptHistoryError::InstallParseError(entry.to_string()))?;
+            .ok_or_else(|| AptHistoryError::ParseOperationLine(entry.to_string()))?;
 
         result.push(Upgrade {
             package: pkg.trim().to_string(),
@@ -236,7 +236,7 @@ fn deserialize_remove_and_purge(vec: &str) -> Result<Vec<Remove>, AptHistoryErro
 
         let (pkg, version) = entry
             .split_once('(')
-            .ok_or_else(|| AptHistoryError::InstallParseError(entry.to_string()))?;
+            .ok_or_else(|| AptHistoryError::ParseOperationLine(entry.to_string()))?;
 
         result.push(Remove {
             package: pkg.trim().to_string(),
