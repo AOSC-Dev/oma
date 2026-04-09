@@ -144,6 +144,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "apt-history"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "deb822-fast",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "arc-swap"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

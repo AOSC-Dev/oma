@@ -139,6 +139,7 @@ members = [
     "oma-mirror",
     "apt-auth-config",
     "oma-tum",
+    "apt-history",
 ]
 
 [package.metadata.deb]

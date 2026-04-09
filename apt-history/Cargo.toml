@@ -1,0 +1,9 @@
+[package]
+name = "apt-history"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+deb822-fast = { version = "0.2", features = ["derive"] }
+chrono = "0.4"
+thiserror = "2"
