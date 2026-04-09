@@ -14,6 +14,8 @@ use dialoguer::console;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{Pager, PagerExit, PagerUIText};
 use oma_console::print::Action;
+
+#[cfg(feature = "oma-history")]
 use oma_history::{InstallHistoryEntry, RemoveHistoryEntry};
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 
@@ -51,6 +53,7 @@ struct RemoveEntryDisplay {
     detail: String,
 }
 
+#[cfg(feature = "oma-history")]
 impl From<&InstallHistoryEntry> for InstallEntryDisplay {
     fn from(value: &InstallHistoryEntry) -> Self {
         let name = match value.operation {
@@ -103,6 +106,7 @@ impl From<&InstallHistoryEntry> for InstallEntryDisplay {
     }
 }
 
+#[cfg(feature = "oma-history")]
 impl From<&RemoveHistoryEntry> for RemoveEntryDisplay {
     fn from(value: &RemoveHistoryEntry) -> Self {
         let name = style(&value.pkg_name).red().bold().to_string();
@@ -484,6 +488,7 @@ pub fn table_for_install_pending(
     }
 }
 
+#[cfg(feature = "oma-history")]
 pub fn table_for_history_pending(
     install: &[InstallHistoryEntry],
     remove: &[RemoveHistoryEntry],

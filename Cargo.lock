@@ -3095,6 +3095,7 @@ dependencies = [
  "ansi-to-tui",
  "anyhow",
  "apt-auth-config",
+ "apt-history",
  "bon",
  "chrono",
  "clap",

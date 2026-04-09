@@ -9,6 +9,7 @@ use oma_contents::OmaContentsError;
 use oma_fetch::SingleDownloadError;
 use oma_fetch::checksum::ChecksumError;
 use oma_fetch::download::BuilderError;
+#[cfg(feature = "oma-history")]
 use oma_history::HistoryError;
 
 #[cfg(feature = "aosc")]
@@ -1013,6 +1014,7 @@ fn oma_database_error(e: MatcherError) -> OutputError {
     }
 }
 
+#[cfg(feature = "oma-history")]
 impl From<HistoryError> for OutputError {
     fn from(value: HistoryError) -> Self {
         debug!("{:?}", value);

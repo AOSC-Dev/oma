@@ -7,6 +7,7 @@ use chrono::Local;
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use flume::unbounded;
 use oma_console::{indicatif::HumanBytes, pager::PagerExit, print::Action};
+#[cfg(feature = "oma-history")]
 use oma_history::{DATABASE_PATH, HistoryInfo};
 use oma_pm::{
     CommitConfig,
@@ -214,6 +215,7 @@ impl CommitChanges<'_> {
 
         osc94_progress(100.0, true);
 
+        #[cfg(feature = "oma-history")]
         let history = oma_history::History::new(
             config.sysroot.join(DATABASE_PATH),
             true,
@@ -250,16 +252,19 @@ impl CommitChanges<'_> {
                 write_oma_installed_status(&apt, &config.sysroot)?;
                 autoremovable_tips(ar_count, ar_size);
 
-                let mut history = history?;
-                history.write(HistoryInfo {
-                    summary: &op,
-                    start_time,
-                    success: true,
-                    is_fix_broken: is_fixbroken,
-                    is_undo,
-                    topics_enabled,
-                    topics_disabled,
-                })?;
+                #[cfg(feature = "oma-history")]
+                {
+                    let mut history = history?;
+                    history.write(HistoryInfo {
+                        summary: &op,
+                        start_time,
+                        success: true,
+                        is_fix_broken: is_fixbroken,
+                        is_undo,
+                        topics_enabled,
+                        topics_disabled,
+                    })?;
+                }
 
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
@@ -286,16 +291,19 @@ impl CommitChanges<'_> {
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 undo_tips();
 
-                let mut history = history?;
-                history.write(HistoryInfo {
-                    summary: &op,
-                    start_time,
-                    success: true,
-                    is_fix_broken: is_fixbroken,
-                    is_undo,
-                    topics_enabled,
-                    topics_disabled,
-                })?;
+                #[cfg(feature = "oma-history")]
+                {
+                    let mut history = history?;
+                    history.write(HistoryInfo {
+                        summary: &op,
+                        start_time,
+                        success: true,
+                        is_fix_broken: is_fixbroken,
+                        is_undo,
+                        topics_enabled,
+                        topics_disabled,
+                    })?;
+                }
 
                 space_tips(&apt, &config.sysroot);
                 Err(e.into())

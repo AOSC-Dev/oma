@@ -3,7 +3,9 @@ use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
 use dialoguer::{Select, theme::ColorfulTheme};
+#[cfg(feature = "oma-history")]
 use oma_history::{DATABASE_PATH, HistoryEntry};
+
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::oma_apt::PackageSort;
@@ -21,8 +23,10 @@ use crate::exit_handle::ExitStatus;
 use crate::menu::{select_tui_display_msg, tui_select_list_size};
 use crate::{
     NOT_DISPLAY_ABORT, dbus::dbus_check, error::OutputError, fl, root::root,
-    table::table_for_history_pending,
 };
+
+#[cfg(feature = "oma-history")]
+use crate::table::table_for_history_pending;
 
 use super::utils::{auth_config, handle_no_result, lock_oma};
 use crate::args::CliExecuter;
@@ -30,6 +34,78 @@ use crate::args::CliExecuter;
 #[derive(Debug, Args)]
 pub struct History;
 
+#[cfg(feature = "apt-history")]
+impl CliExecuter for History {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
+        let mut old_selected = 0;
+        let history = apt_history::parse_from_file(config.sysroot.join("var/log/apt/history.log")).unwrap();
+        let list = history
+            .iter()
+            .enumerate()
+            .map(|(i, h)| {
+                let s = format!(
+                    "{} [{}] {}",
+                    i,
+                    h.start_date.format("%H:%M:%S on %Y-%m-%d"),
+                    h.action()
+                        .iter()
+                        .map(|a| match a {
+                            apt_history::Operation::Install => "I",
+                            apt_history::Operation::Upgrade => "U",
+                            apt_history::Operation::Remove => "R",
+                            apt_history::Operation::Reinstall => "Re",
+                            apt_history::Operation::Downgrade => "D",
+                            apt_history::Operation::Purge => "P",
+                        })
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+                let s = select_tui_display_msg(&s, false).to_string();
+
+                (s, i)
+            })
+            .collect::<Vec<_>>();
+
+        loop {
+            let selected = dialoguer_select_history(
+                &list.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+                old_selected,
+            )?;
+            old_selected = selected;
+
+            let selected = &list[selected];
+            let op = &history[selected.1];
+
+            println!(
+                "Command line: {}, Date and Time: {}, Action: {}, Changes: {}",
+                op.command_line.as_deref().unwrap_or(""),
+                op.start_date.format("%H:%M:%S on %Y-%m-%d"),
+                op.action()
+                    .iter()
+                    .map(|a| match a {
+                        apt_history::Operation::Install => "I",
+                        apt_history::Operation::Upgrade => "U",
+                        apt_history::Operation::Remove => "R",
+                        apt_history::Operation::Reinstall => "Re",
+                        apt_history::Operation::Downgrade => "D",
+                        apt_history::Operation::Purge => "P",
+                    })
+                    .collect::<Vec<_>>()
+                    .join(","),
+                op.changes()
+            );
+        }
+    }
+}
+
+#[cfg(feature = "apt-history")]
+impl CliExecuter for Undo {
+    fn execute(self, _config: OmaConfig) -> Result<ExitHandle, OutputError> {
+        todo!()
+    }
+}
+
+#[cfg(feature = "oma-history")]
 impl CliExecuter for History {
     fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let history =
@@ -96,6 +172,7 @@ pub struct Undo {
     no_refresh: bool,
 }
 
+#[cfg(feature = "oma-history")]
 impl CliExecuter for Undo {
     fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         root()?;
@@ -310,6 +387,7 @@ fn dialoguer_select_history(
     Ok(selected)
 }
 
+#[cfg(feature = "oma-history")]
 fn format_summary_log(list: &[HistoryEntry], undo: bool) -> Vec<(String, usize)> {
     list.iter()
         .enumerate()
