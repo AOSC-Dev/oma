@@ -39,5 +39,10 @@ fn main() {
             entry.changes()
         );
         println!("  Install: {:?}", entry.install);
+        println!("  Upgrade: {:?}", entry.upgrade);
+        println!("  Remove: {:?}", entry.remove);
+        println!("  Reinstall: {:?}", entry.reinstall);
+        println!("  Downgrade: {:?}", entry.downgrade);
+        println!("  Purge: {:?}", entry.purge);
     }
 }

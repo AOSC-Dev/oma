@@ -13,6 +13,8 @@ pub enum AptHistoryError {
     Deb822ParseError(String),
     #[error("Failed to read file: {0}")]
     FileReadError(#[from] std::io::Error),
+    #[error("Failed to parse Install entry: {0}")]
+    InstallParseError(String),
 }
 
 const DATE_FORMAT: &str = "%Y-%m-%d  %H:%M:%S";
@@ -35,18 +37,18 @@ pub struct AptHistory {
     pub command_line: Option<String>,
     #[deb822(field = "Requested-By")]
     pub requested_by: Option<String>,
-    #[deb822(field = "Install", deserialize_with = deserialize_vector, serialize_with = serialize_vector)]
-    pub install: Option<Vec<String>>,
-    #[deb822(field = "Upgrade", deserialize_with = deserialize_vector, serialize_with = serialize_vector)]
-    pub upgrade: Option<Vec<String>>,
-    #[deb822(field = "Remove", deserialize_with = deserialize_vector, serialize_with = serialize_vector)]
-    pub remove: Option<Vec<String>>,
-    #[deb822(field = "Reinstall", deserialize_with = deserialize_vector, serialize_with = serialize_vector)]
-    pub reinstall: Option<Vec<String>>,
-    #[deb822(field = "Downgrade", deserialize_with = deserialize_vector, serialize_with = serialize_vector)]
-    pub downgrade: Option<Vec<String>>,
-    #[deb822(field = "Purge", deserialize_with = deserialize_vector, serialize_with = serialize_vector)]
-    pub purge: Option<Vec<String>>,
+    #[deb822(field = "Install", deserialize_with = deserialize_install_and_reinstall, serialize_with = serialize_install_and_reinstall)]
+    pub install: Option<Vec<Install>>,
+    #[deb822(field = "Upgrade", deserialize_with = deserialize_upgrade_and_downgrade, serialize_with = serialize_upgrade_and_downgrade)]
+    pub upgrade: Option<Vec<Upgrade>>,
+    #[deb822(field = "Remove", deserialize_with = deserialize_remove_and_purge, serialize_with = serialize_remove_and_purge)]
+    pub remove: Option<Vec<Remove>>,
+    #[deb822(field = "Reinstall", deserialize_with = deserialize_install_and_reinstall, serialize_with = serialize_install_and_reinstall)]
+    pub reinstall: Option<Vec<Install>>,
+    #[deb822(field = "Downgrade", deserialize_with = deserialize_upgrade_and_downgrade, serialize_with = serialize_upgrade_and_downgrade)]
+    pub downgrade: Option<Vec<Upgrade>>,
+    #[deb822(field = "Purge", deserialize_with = deserialize_remove_and_purge, serialize_with = serialize_remove_and_purge)]
+    pub purge: Option<Vec<Remove>>,
     #[deb822(field = "Error")]
     pub error: Option<String>,
 }
@@ -59,6 +61,26 @@ pub enum Operation {
     Reinstall,
     Downgrade,
     Purge,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Install {
+    package: String,
+    version: String,
+    auto: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Upgrade {
+    package: String,
+    old_version: String,
+    new_version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Remove {
+    package: String,
+    version: String,
 }
 
 impl AptHistory {
@@ -133,10 +155,100 @@ fn serialize_date(date: &NaiveDateTime) -> String {
     date.format(DATE_FORMAT).to_string()
 }
 
-fn deserialize_vector(vec: &str) -> Result<Vec<String>, AptHistoryError> {
-    Ok(vec.split("), ").map(|s| format!("{s})")).collect())
+fn deserialize_install_and_reinstall(s: &str) -> Result<Vec<Install>, AptHistoryError> {
+    let entries = s.split("), ");
+
+    let mut result = Vec::new();
+    for entry in entries {
+        let entry = entry.trim();
+        let entry = entry.strip_suffix(')').unwrap_or(entry);
+
+        let (pkg, rest) = entry
+            .split_once('(')
+            .ok_or_else(|| AptHistoryError::InstallParseError(entry.to_string()))?;
+
+        let (version, auto_flag) = match rest.split_once(", ") {
+            Some((v, a)) => (v, Some(a)),
+            None => (rest, None),
+        };
+
+        result.push(Install {
+            package: pkg.trim().to_string(),
+            version: version.trim().to_string(),
+            auto: auto_flag.map(|a| a.trim() == "automatic").unwrap_or(false),
+        });
+    }
+    Ok(result)
 }
 
-fn serialize_vector(vec: &[String]) -> String {
-    vec.join(", ")
+fn serialize_install_and_reinstall(vec: &[Install]) -> String {
+    vec.iter()
+        .map(|i| {
+            if i.auto {
+                format!("{} ({}, automatic)", i.package, i.version)
+            } else {
+                format!("{} ({})", i.package, i.version)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn deserialize_upgrade_and_downgrade(vec: &str) -> Result<Vec<Upgrade>, AptHistoryError> {
+    let entries = vec.split("), ");
+    let mut result = vec![];
+
+    for entry in entries {
+        let entry = entry.trim();
+        let entry = entry.strip_suffix(')').unwrap_or(entry);
+
+        let (pkg, rest) = entry
+            .split_once('(')
+            .ok_or_else(|| AptHistoryError::InstallParseError(entry.to_string()))?;
+
+        let (old_version, new_version) = rest
+            .split_once(", ")
+            .ok_or_else(|| AptHistoryError::InstallParseError(entry.to_string()))?;
+
+        result.push(Upgrade {
+            package: pkg.trim().to_string(),
+            old_version: old_version.trim().to_string(),
+            new_version: new_version.trim().to_string(),
+        });
+    }
+    Ok(result)
+}
+
+fn serialize_upgrade_and_downgrade(vec: &[Upgrade]) -> String {
+    vec.iter()
+        .map(|u| format!("{} ({}, {})", u.package, u.old_version, u.new_version))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn deserialize_remove_and_purge(vec: &str) -> Result<Vec<Remove>, AptHistoryError> {
+    let entries = vec.split("), ");
+    let mut result = vec![];
+
+    for entry in entries {
+        let entry = entry.trim();
+        let entry = entry.strip_suffix(')').unwrap_or(entry);
+
+        let (pkg, version) = entry
+            .split_once('(')
+            .ok_or_else(|| AptHistoryError::InstallParseError(entry.to_string()))?;
+
+        result.push(Remove {
+            package: pkg.trim().to_string(),
+            version: version.trim().to_string(),
+        });
+    }
+    Ok(result)
+}
+
+fn serialize_remove_and_purge(vec: &[Remove]) -> String {
+    vec.iter()
+        .map(|r| format!("{} ({})", r.package, r.version))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
