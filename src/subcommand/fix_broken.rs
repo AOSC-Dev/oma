@@ -52,7 +52,6 @@ impl CliExecuter for FixBroken {
         let mut _fds = dbus_check(false, &config)?;
 
         let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(config.sysroot.to_string_lossy().to_string())
@@ -71,7 +70,7 @@ impl CliExecuter for FixBroken {
             .yes(false)
             .autoremove(autoremove)
             .remove_config(remove_config)
-            .maybe_auth_config(auth_config)
+            .maybe_auth_config(auth_config.as_ref().as_ref())
             .config(&config)
             .build()
             .run()

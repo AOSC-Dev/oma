@@ -137,14 +137,12 @@ impl CliExecuter for Undo {
         #[cfg(feature = "aosc")]
         let (opt_in, opt_out) = history.find_history_topics_status_by_id(id)?;
 
-        let apt_config = AptConfig::new();
         let auth_config = auth_config(&config.sysroot);
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
-                .maybe_auth_config(auth_config.as_ref())
+                .auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }
@@ -242,7 +240,7 @@ impl CliExecuter for Undo {
             .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(auth_config.as_ref())
+            .maybe_auth_config(auth_config.as_ref().as_ref())
             .download_only(download_only)
             .config(&config)
             .build()

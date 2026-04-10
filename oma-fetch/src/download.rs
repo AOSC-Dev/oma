@@ -285,11 +285,7 @@ impl<'a> SingleDownloader<'a> {
             if let Some(hash) = &self.entry.hash {
                 trace!("Hash {} exists for the existing file.", hash);
 
-                let mut f = tokio::fs::OpenOptions::new()
-                    .read(true)
-                    .open(&file)
-                    .await
-                    .context(OpenSnafu)?;
+                let mut f = tokio::fs::File::open(&file).await.context(OpenSnafu)?;
 
                 let (read, finish) = checksum(callback, &mut f, &mut validator).await;
 
