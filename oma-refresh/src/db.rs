@@ -241,7 +241,7 @@ impl OmaRefresh {
             mirror_sources
                 .0
                 .iter()
-                .flat_map(|x: &MirrorSource| x.file_name()),
+                .flat_map(|x: &MirrorSource| x.file_name().map(|s| s.to_string())),
         );
 
         let (tasks, total, optional_index_files) = self
@@ -255,13 +255,13 @@ impl OmaRefresh {
         }
 
         for i in &tasks {
-            download_list.push(i.filename.as_str());
+            download_list.push(i.filename.clone());
         }
 
         let dc = self.download_dir.clone();
 
         let (_, res) = tokio::join!(
-            remove_unused_db(&dc, download_list),
+            remove_unused_db(dc, download_list),
             self.download_release_data(&callback, &tasks, total, optional_index_files)
         );
 
@@ -737,14 +737,14 @@ fn get_all_need_db_from_config(
     }
 }
 
-async fn remove_unused_db(download_dir: &Path, download_list: Vec<&str>) -> Result<()> {
+async fn remove_unused_db(download_dir: PathBuf, download_list: Vec<String>) -> Result<()> {
     let mut download_dir = fs::read_dir(&download_dir)
         .await
         .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
 
     while let Ok(Some(x)) = download_dir.next_entry().await {
         if x.path().is_file()
-            && !download_list.contains(&&*x.file_name().to_string_lossy())
+            && !download_list.contains(&x.file_name().to_string_lossy().into_owned())
             && x.file_name() != "lock"
         {
             debug!("Removing {:?}", x.file_name());
