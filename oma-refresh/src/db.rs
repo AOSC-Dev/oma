@@ -245,7 +245,7 @@ impl OmaRefresh {
         );
 
         let (tasks, total, optional_index_files) = self
-            .collect_all_release_entry(&replacer, &mirror_sources)
+            .collect_all_release_entry(replacer, &mirror_sources)
             .await?;
 
         debug!("oma will download source metadata: {tasks:#?}");
@@ -496,7 +496,7 @@ impl OmaRefresh {
 
     async fn collect_all_release_entry(
         &self,
-        replacer: &DatabaseFilenameReplacer,
+        replacer: DatabaseFilenameReplacer,
         mirror_sources: &MirrorSources,
     ) -> Result<(Vec<DownloadEntry>, u64, HashSet<String>)> {
         let mut total = 0;
@@ -624,7 +624,7 @@ impl OmaRefresh {
             }
 
             for i in &flat_repo_no_release {
-                collect_flat_repo_no_release(i, &self.download_dir, &mut tasks, replacer)?;
+                collect_flat_repo_no_release(i, &self.download_dir, &mut tasks, &replacer)?;
             }
 
             for c in &handle {
@@ -634,7 +634,7 @@ impl OmaRefresh {
                     &self.download_dir,
                     &mut tasks,
                     &release,
-                    replacer,
+                    &replacer,
                     &mut optional_index_files,
                 )?;
             }
