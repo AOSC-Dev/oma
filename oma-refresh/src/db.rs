@@ -111,7 +111,7 @@ pub struct OmaRefresh {
     #[cfg(not(feature = "apt"))]
     manifest_config: Vec<std::collections::HashMap<String, String>>,
     #[cfg(feature = "aosc")]
-    topic_msg: Cow<'static, str>,
+    topic_msg: String,
     auth_config: Arc<Option<AuthConfig>>,
     sources_lists_paths: Option<Vec<PathBuf>>,
     #[cfg(feature = "apt")]
