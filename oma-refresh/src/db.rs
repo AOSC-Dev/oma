@@ -242,17 +242,18 @@ impl OmaRefresh {
             Self::download_releases(arc_self.clone(), sourcelist, &replacer, callback.clone())
                 .await?;
 
-        let mirror_sources = mirror_sources.lock().await;
+        let msc = mirror_sources.clone();
+        let mirror_sources_lock = msc.lock().await;
 
         download_list.extend(
-            mirror_sources
+            mirror_sources_lock
                 .0
                 .iter()
                 .flat_map(|x: &MirrorSource| x.file_name().map(|s| s.to_string())),
         );
 
         let (tasks, total, optional_index_files) =
-            Self::collect_all_release_entry(arc_self.clone(), replacer, &mirror_sources).await?;
+            Self::collect_all_release_entry(arc_self.clone(), replacer, mirror_sources).await?;
 
         debug!("oma will download source metadata: {tasks:#?}");
 
@@ -520,7 +521,7 @@ impl OmaRefresh {
     async fn collect_all_release_entry(
         self: Arc<OmaRefresh>,
         replacer: DatabaseFilenameReplacer,
-        mirror_sources: &MirrorSources,
+        mirror_sources: Arc<Mutex<MirrorSources>>,
     ) -> Result<(Vec<DownloadEntry>, u64, HashSet<String>)> {
         let mut total = 0;
         let mut tasks = vec![];
@@ -546,6 +547,8 @@ impl OmaRefresh {
         let mut flat_repo_no_release = vec![];
 
         let mut optional_index_files = HashSet::with_hasher(ahash::RandomState::new());
+
+        let mirror_sources = mirror_sources.lock().await;
 
         for m in &mirror_sources.0 {
             let file_name = match m.file_name() {
