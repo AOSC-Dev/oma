@@ -32,6 +32,8 @@ use oma_fetch::reqwest::StatusCode;
 
 use oma_utils::{GetLockError, get_file_lock, is_termux};
 use spdlog::{debug, warn};
+#[cfg(feature = "aosc")]
+use tokio::sync::Mutex;
 use tokio::{
     fs::{self},
     task::spawn_blocking,
@@ -240,6 +242,8 @@ impl OmaRefresh {
             Self::download_releases(arc_self.clone(), sourcelist, &replacer, callback.clone())
                 .await?;
 
+        let mirror_sources = mirror_sources.lock().await;
+
         download_list.extend(
             mirror_sources
                 .0
@@ -389,14 +393,14 @@ impl OmaRefresh {
         sourcelist: Vec<OmaSourceEntry>,
         replacer: &DatabaseFilenameReplacer,
         callback: Arc<impl AsyncFn(Event)>,
-    ) -> Result<MirrorSources> {
+    ) -> Result<Arc<Mutex<MirrorSources>>> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
         #[cfg(not(feature = "aosc"))]
         let not_found = vec![];
 
-        let mut mirror_sources = MirrorSources::from_sourcelist(
+        let mirror_sources = MirrorSources::from_sourcelist(
             sourcelist,
             replacer,
             self.auth_config.as_ref().as_ref(),
@@ -437,7 +441,9 @@ impl OmaRefresh {
         #[cfg(not(feature = "aosc"))]
         results.into_iter().collect::<Result<Vec<_>>>()?;
 
-        self.refresh_topics(callback.clone(), not_found, &mut mirror_sources)
+        let mirror_sources = Arc::new(Mutex::new(mirror_sources));
+
+        self.refresh_topics(callback.clone(), not_found, mirror_sources.clone())
             .await?;
 
         Ok(mirror_sources)
@@ -448,7 +454,7 @@ impl OmaRefresh {
         &self,
         callback: Arc<impl AsyncFn(Event)>,
         not_found: Vec<url::Url>,
-        sources: &mut MirrorSources,
+        sources: Arc<Mutex<MirrorSources>>,
     ) -> Result<()> {
         if !self.refresh_topics || not_found.is_empty() {
             return Ok(());
@@ -473,8 +479,15 @@ impl OmaRefresh {
                 return Err(RefreshError::NoInReleaseFile(url.to_string()));
             }
 
-            let pos = sources.0.iter().position(|x| x.suite() == suite).unwrap();
-            sources.0.remove(pos);
+            let mut mirror_sources = sources.lock().await;
+
+            let pos = mirror_sources
+                .0
+                .iter()
+                .position(|x| x.suite() == suite)
+                .unwrap();
+
+            mirror_sources.0.remove(pos);
 
             callback(Event::ClosingTopic(suite)).await;
         }
