@@ -233,11 +233,12 @@ impl OmaRefresh {
         let mut download_list = vec![];
 
         let callback = Arc::new(callback);
+        let arc_self = Arc::new(self);
 
         let replacer = DatabaseFilenameReplacer::new()?;
-        let mirror_sources = self
-            .download_releases(sourcelist, &replacer, callback.clone())
-            .await?;
+        let mirror_sources =
+            Self::download_releases(arc_self.clone(), sourcelist, &replacer, callback.clone())
+                .await?;
 
         download_list.extend(
             mirror_sources
@@ -246,9 +247,8 @@ impl OmaRefresh {
                 .flat_map(|x: &MirrorSource| x.file_name().map(|s| s.to_string())),
         );
 
-        let (tasks, total, optional_index_files) = self
-            .collect_all_release_entry(replacer, &mirror_sources)
-            .await?;
+        let (tasks, total, optional_index_files) =
+            Self::collect_all_release_entry(arc_self.clone(), replacer, &mirror_sources).await?;
 
         debug!("oma will download source metadata: {tasks:#?}");
 
@@ -260,12 +260,13 @@ impl OmaRefresh {
             download_list.push(i.filename.clone());
         }
 
-        let dc = self.download_dir.clone();
+        let dc = arc_self.download_dir.clone();
         let cc = callback.clone();
+        let ac = arc_self.clone();
 
         let (_, res) = tokio::join!(
             remove_unused_db(dc, download_list),
-            self.download_release_data(cc, &tasks, total, optional_index_files)
+            Self::download_release_data(ac, cc, &tasks, total, optional_index_files)
         );
 
         // 有元数据更新才执行 success invoke
@@ -275,7 +276,7 @@ impl OmaRefresh {
         if should_run_invoke {
             callback(Event::RunInvokeScript).await;
             #[cfg(feature = "apt")]
-            self.run_success_post_invoke().await;
+            Self::run_success_post_invoke(arc_self).await;
         }
 
         callback(Event::Done).await;
@@ -308,7 +309,7 @@ impl OmaRefresh {
     }
 
     async fn download_release_data(
-        &self,
+        self: Arc<OmaRefresh>,
         callback: Arc<impl AsyncFn(Event)>,
         tasks: &[DownloadEntry],
         total: u64,
@@ -355,7 +356,7 @@ impl OmaRefresh {
     }
 
     #[cfg(feature = "apt")]
-    async fn run_success_post_invoke(&self) {
+    async fn run_success_post_invoke(self: Arc<OmaRefresh>) {
         use spdlog::warn;
         use tokio::process::Command;
 
@@ -384,7 +385,7 @@ impl OmaRefresh {
     }
 
     async fn download_releases(
-        &self,
+        self: Arc<OmaRefresh>,
         sourcelist: Vec<OmaSourceEntry>,
         replacer: &DatabaseFilenameReplacer,
         callback: Arc<impl AsyncFn(Event)>,
@@ -504,7 +505,7 @@ impl OmaRefresh {
     }
 
     async fn collect_all_release_entry(
-        &self,
+        self: Arc<OmaRefresh>,
         replacer: DatabaseFilenameReplacer,
         mirror_sources: &MirrorSources,
     ) -> Result<(Vec<DownloadEntry>, u64, HashSet<String>)> {
