@@ -232,9 +232,11 @@ impl OmaRefresh {
 
         let mut download_list = vec![];
 
+        let callback = Arc::new(callback);
+
         let replacer = DatabaseFilenameReplacer::new()?;
         let mirror_sources = self
-            .download_releases(sourcelist, &replacer, &callback)
+            .download_releases(sourcelist, &replacer, callback.clone())
             .await?;
 
         download_list.extend(
@@ -259,10 +261,11 @@ impl OmaRefresh {
         }
 
         let dc = self.download_dir.clone();
+        let cc = callback.clone();
 
         let (_, res) = tokio::join!(
             remove_unused_db(dc, download_list),
-            self.download_release_data(&callback, &tasks, total, optional_index_files)
+            self.download_release_data(cc, &tasks, total, optional_index_files)
         );
 
         // 有元数据更新才执行 success invoke
@@ -306,7 +309,7 @@ impl OmaRefresh {
 
     async fn download_release_data(
         &self,
-        callback: &impl AsyncFn(Event),
+        callback: Arc<impl AsyncFn(Event)>,
         tasks: &[DownloadEntry],
         total: u64,
         optional_index_files: HashSet<String>,
@@ -384,7 +387,7 @@ impl OmaRefresh {
         &self,
         sourcelist: Vec<OmaSourceEntry>,
         replacer: &DatabaseFilenameReplacer,
-        callback: &impl AsyncFn(Event),
+        callback: Arc<impl AsyncFn(Event)>,
     ) -> Result<MirrorSources> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
@@ -404,7 +407,7 @@ impl OmaRefresh {
                 replacer,
                 &self.download_dir,
                 self.threads,
-                callback,
+                callback.clone(),
             )
             .await;
 
@@ -433,7 +436,7 @@ impl OmaRefresh {
         #[cfg(not(feature = "aosc"))]
         results.into_iter().collect::<Result<Vec<_>>>()?;
 
-        self.refresh_topics(callback, not_found, &mut mirror_sources)
+        self.refresh_topics(callback.clone(), not_found, &mut mirror_sources)
             .await?;
 
         Ok(mirror_sources)
@@ -442,7 +445,7 @@ impl OmaRefresh {
     #[cfg(feature = "aosc")]
     async fn refresh_topics(
         &self,
-        callback: &impl AsyncFn(Event),
+        callback: Arc<impl AsyncFn(Event)>,
         not_found: Vec<url::Url>,
         sources: &mut MirrorSources,
     ) -> Result<()> {
@@ -476,10 +479,12 @@ impl OmaRefresh {
         }
 
         tm.write_enabled(false).await?;
+
+        let cc = callback.clone();
         tm.write_sources_list(
             self.topic_msg.to_string(),
             false,
-            async move |topic, mirror| callback(Event::TopicNotInMirror { topic, mirror }).await,
+            async move |topic, mirror| cc(Event::TopicNotInMirror { topic, mirror }).await,
         )
         .await?;
 

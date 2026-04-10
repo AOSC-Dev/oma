@@ -365,7 +365,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: &impl AsyncFn(Event),
+        callback: Arc<impl AsyncFn(Event)>,
     ) -> Result<(), RefreshError> {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
@@ -386,7 +386,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: impl AsyncFn(Event),
+        callback: Arc<impl AsyncFn(Event)>,
     ) -> Result<(), RefreshError> {
         let msg = self.get_human_download_message(None)?;
 
@@ -432,9 +432,16 @@ impl MirrorSource {
             self.get_download_file_name(Some("InRelease"), replacer)?
         };
 
-        self.download_file(&file_name, resp, index, total, download_dir, &callback)
-            .await
-            .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+        self.download_file(
+            &file_name,
+            resp,
+            index,
+            total,
+            download_dir,
+            callback.clone(),
+        )
+        .await
+        .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
         self.set_release_file_name(file_name);
 
@@ -459,9 +466,16 @@ impl MirrorSource {
 
             let file_name = self.get_download_file_name(Some("Release.gpg"), replacer)?;
 
-            self.download_file(&file_name, resp, index, total, download_dir, &callback)
-                .await
-                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+            self.download_file(
+                &file_name,
+                resp,
+                index,
+                total,
+                download_dir,
+                callback.clone(),
+            )
+            .await
+            .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
         }
 
         Ok(())
@@ -494,7 +508,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: &impl AsyncFn(Event),
+        callback: Arc<impl AsyncFn(Event)>,
     ) -> std::result::Result<(), SingleDownloadError> {
         let total_size = content_length(&resp);
 
@@ -541,7 +555,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: &impl AsyncFn(Event),
+        callback: Arc<impl AsyncFn(Event)>,
     ) -> Result<(), RefreshError> {
         let dist_path_with_protocol = self.dist_path();
         let dist_path = dist_path_with_protocol
@@ -662,7 +676,7 @@ impl MirrorSources {
         replacer: &DatabaseFilenameReplacer,
         download_dir: &Path,
         threads: usize,
-        callback: &impl AsyncFn(Event),
+        callback: Arc<impl AsyncFn(Event)>,
     ) -> Vec<Result<(), RefreshError>> {
         let tasks = self.0.iter().enumerate().map(|(index, m)| {
             m.fetch(
@@ -671,7 +685,7 @@ impl MirrorSources {
                 index,
                 self.0.len(),
                 download_dir,
-                &callback,
+                callback.clone(),
             )
         });
 
