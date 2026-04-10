@@ -220,10 +220,10 @@ impl OmaRefresh {
             })?;
         }
 
-        let download_dir = self.download_dir.clone();
+        let dc = self.download_dir.clone();
 
         // Create `apt update` file lock
-        let _fd = spawn_blocking(move || get_file_lock(&download_dir.join("lock")))
+        let _fd = spawn_blocking(move || get_file_lock(&dc.join("lock")))
             .await
             .unwrap()
             .map_err(RefreshError::SetLock)?;
@@ -258,8 +258,10 @@ impl OmaRefresh {
             download_list.push(i.filename.as_str());
         }
 
+        let dc = self.download_dir.clone();
+
         let (_, res) = tokio::join!(
-            remove_unused_db(&self.download_dir, download_list),
+            remove_unused_db(&dc, download_list),
             self.download_release_data(&callback, &tasks, total, optional_index_files)
         );
 
@@ -474,9 +476,11 @@ impl OmaRefresh {
         }
 
         tm.write_enabled(false).await?;
-        tm.write_sources_list(&self.topic_msg, false, async move |topic, mirror| {
-            callback(Event::TopicNotInMirror { topic, mirror }).await
-        })
+        tm.write_sources_list(
+            self.topic_msg.to_string(),
+            false,
+            async move |topic, mirror| callback(Event::TopicNotInMirror { topic, mirror }).await,
+        )
         .await?;
 
         callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1))).await;

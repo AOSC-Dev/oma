@@ -295,7 +295,7 @@ impl<'a> TopicManager<'a> {
 
     pub async fn write_sources_list(
         &self,
-        source_list_comment: &str,
+        source_list_comment: String,
         revert: bool,
         message_cb: impl AsyncFn(String, String),
     ) -> Result<()> {
