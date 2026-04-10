@@ -132,7 +132,10 @@ pub enum Event {
 
 impl OmaRefresh {
     #[cfg(feature = "blocking")]
-    pub fn start_blocking(self, callback: impl AsyncFn(Event)) -> Result<Vec<SuccessSummary>> {
+    pub fn start_blocking(
+        self,
+        callback: impl AsyncFn(Event) + Send + 'static,
+    ) -> Result<Vec<SuccessSummary>> {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -140,7 +143,10 @@ impl OmaRefresh {
             .block_on(self.start(callback))
     }
 
-    pub async fn start(self, callback: impl AsyncFn(Event)) -> Result<Vec<SuccessSummary>> {
+    pub async fn start(
+        self,
+        callback: impl AsyncFn(Event) + Send + Sync + 'static,
+    ) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }

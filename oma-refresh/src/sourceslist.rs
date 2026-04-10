@@ -97,7 +97,7 @@ pub async fn scan_sources_list_from_paths(
     paths: Vec<PathBuf>,
     arch: Arc<String>,
     ignores: Vec<Regex>,
-    cb: &impl AsyncFn(Event),
+    cb: &(impl AsyncFn(Event) + Send + Sync + 'static),
 ) -> Result<Vec<OmaSourceEntry>, SourcesListError> {
     let mut res = vec![];
 

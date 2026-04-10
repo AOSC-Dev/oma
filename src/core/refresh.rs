@@ -75,7 +75,7 @@ impl Refresh<'_> {
 
         RT.block_on(async move {
             refresh
-                .start(async |event| {
+                .start(async move |event| {
                     if let Err(e) = tx.send_async(event).await {
                         debug!("{}", e);
                     }
