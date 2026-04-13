@@ -444,4 +444,4 @@ clap-no-config-help = Do not load configuration file, use default settings
 no-config-warning = Running oma with default configuration due to --no-config option.
 set-mirror-default = Mirror { $m } seems to be the fastest, set as default?
 clap-user-agent-help = Specify User-Agent string to use for HTTP requests
-clap-noclean-help = No clean downloaded package(s) cache
+clap-noclean-help = Do not clean local package cache
