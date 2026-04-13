@@ -69,6 +69,9 @@ pub(crate) struct Upgrade {
     /// Only download dependencies, not install
     #[arg(long, short, help = fl!("clap-download-only-help"))]
     download_only: bool,
+    /// No clean downloaded package(s) cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 impl CliExecuter for Upgrade {
@@ -87,6 +90,7 @@ impl CliExecuter for Upgrade {
             no_remove,
             no_fix_dpkg_status,
             download_only,
+            no_clean,
         } = self;
 
         let _lock_fd = if !config.dry_run {
@@ -188,6 +192,7 @@ impl CliExecuter for Upgrade {
             .download_only(download_only)
             .is_upgrade(true)
             .config(&config)
+            .no_clean(no_clean)
             .build()
             .run()?;
 

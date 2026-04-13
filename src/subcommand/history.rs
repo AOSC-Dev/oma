@@ -94,6 +94,9 @@ pub struct Undo {
     /// Do not refresh repository metadata
     #[arg(long, help = fl!("clap-no-refresh-help"))]
     no_refresh: bool,
+    /// No clean downloaded package(s) cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 impl CliExecuter for Undo {
@@ -110,6 +113,7 @@ impl CliExecuter for Undo {
             no_fix_dpkg_status,
             no_refresh,
             download_only,
+            no_clean,
         } = self;
 
         let _lock_fd = lock_oma(&config.sysroot)?;
@@ -245,6 +249,7 @@ impl CliExecuter for Undo {
             .maybe_auth_config(auth_config.as_ref())
             .download_only(download_only)
             .config(&config)
+            .no_clean(no_clean)
             .build()
             .run()?;
 

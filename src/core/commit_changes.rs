@@ -69,6 +69,7 @@ pub(crate) struct CommitChanges<'a> {
     #[builder(default)]
     is_upgrade: bool,
     config: &'a OmaConfig,
+    no_clean: bool,
 }
 
 impl CommitChanges<'_> {
@@ -89,6 +90,7 @@ impl CommitChanges<'_> {
             download_only,
             is_upgrade,
             config,
+            no_clean,
         } = self;
 
         fix_broken(
@@ -265,16 +267,18 @@ impl CommitChanges<'_> {
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
 
-                let download_dir = apt.get_archive_dir();
-                if let Err(e) = clean_download_packages_cache(
-                    false,
-                    false,
-                    false,
-                    &apt,
-                    download_dir,
-                    config.no_progress(),
-                ) {
-                    warn!("Failed to clean download packages cache: {}", e);
+                if !no_clean {
+                    let download_dir = apt.get_archive_dir();
+                    if let Err(e) = clean_download_packages_cache(
+                        false,
+                        false,
+                        false,
+                        &apt,
+                        download_dir,
+                        config.no_progress(),
+                    ) {
+                        warn!("Failed to clean download packages cache: {}", e);
+                    }
                 }
 
                 space_tips(&apt, &config.sysroot);

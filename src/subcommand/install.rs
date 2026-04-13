@@ -88,6 +88,9 @@ pub struct Install {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
+    /// No clean downloaded package(s) cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 impl CliExecuter for Install {
@@ -112,6 +115,7 @@ impl CliExecuter for Install {
             remove_config,
             no_fix_dpkg_status,
             download_only,
+            no_clean,
         } = self;
 
         #[cfg(feature = "aosc")]
@@ -203,6 +207,7 @@ impl CliExecuter for Install {
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .config(&config)
+            .no_clean(no_clean)
             .build()
             .run()
     }

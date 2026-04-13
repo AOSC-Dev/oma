@@ -50,6 +50,9 @@ pub struct Remove {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
+    /// No clean downloaded package(s) cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 #[derive(Debug, Args)]
@@ -81,6 +84,9 @@ pub struct Purge {
     /// Do not auto remove unnecessary package(s)
     #[arg(long, help = fl!("clap-no-autoremove-help"))]
     no_autoremove: bool,
+    /// No clean downloaded package(s) cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 impl From<Purge> for Remove {
@@ -94,6 +100,7 @@ impl From<Purge> for Remove {
             force_confnew,
             no_autoremove,
             fix_dpkg_status,
+            no_clean,
         } = value;
 
         Self {
@@ -106,6 +113,7 @@ impl From<Purge> for Remove {
             no_autoremove,
             fix_dpkg_status,
             remove_config: true,
+            no_clean,
         }
     }
 }
@@ -129,6 +137,7 @@ impl CliExecuter for Remove {
             no_autoremove,
             remove_config,
             fix_dpkg_status,
+            no_clean,
         } = self;
 
         let _lock_fd = if !config.dry_run {
@@ -205,6 +214,7 @@ impl CliExecuter for Remove {
             .maybe_auth_config(auth_config)
             .fix_dpkg_status(fix_dpkg_status)
             .config(&config)
+            .no_clean(no_clean)
             .build()
             .run()
     }
