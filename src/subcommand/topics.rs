@@ -93,7 +93,7 @@ pub struct Topics {
     /// Note that this parameter depends on the `--opt-out` or `--opt-in` parameter, otherwise it is invalid.
     #[arg(short, long, requires = "in_or_out", help = fl!("clap-yes-help"), long_help = fl!("clap-topics-yes-long-help"))]
     yes: bool,
-    /// No clean downloaded package(s) cache
+    /// Do not clean local package cache
     #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
     no_clean: bool,
 }

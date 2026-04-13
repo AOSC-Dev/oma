@@ -69,7 +69,7 @@ pub(crate) struct Upgrade {
     /// Only download dependencies, not install
     #[arg(long, short, help = fl!("clap-download-only-help"))]
     download_only: bool,
-    /// No clean downloaded package(s) cache
+    /// Do not clean local package cache
     #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
     no_clean: bool,
 }

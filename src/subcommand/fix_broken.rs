@@ -32,7 +32,7 @@ pub struct FixBroken {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
-    /// No clean downloaded package(s) cache
+    /// Do not clean local package cache
     #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
     no_clean: bool,
 }
