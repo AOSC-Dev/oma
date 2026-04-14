@@ -62,6 +62,9 @@ pub struct SizeAnalyzer {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
+    /// Do not clean local package cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 impl CliExecuter for SizeAnalyzer {
@@ -75,6 +78,7 @@ impl CliExecuter for SizeAnalyzer {
             no_autoremove,
             remove_config,
             details,
+            no_clean,
         } = self;
 
         let detail = if !is_root() && !is_termux() {
@@ -172,6 +176,7 @@ impl CliExecuter for SizeAnalyzer {
                 .maybe_auth_config(auth_config)
                 .fix_dpkg_status(!no_fix_dpkg_status)
                 .config(&config)
+                .no_clean(no_clean)
                 .build()
                 .run()?;
         }

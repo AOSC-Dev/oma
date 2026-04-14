@@ -93,6 +93,9 @@ pub struct Topics {
     /// Note that this parameter depends on the `--opt-out` or `--opt-in` parameter, otherwise it is invalid.
     #[arg(short, long, requires = "in_or_out", help = fl!("clap-yes-help"), long_help = fl!("clap-topics-yes-long-help"))]
     yes: bool,
+    /// Do not clean local package cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 struct TopicChanged {
@@ -140,6 +143,7 @@ impl CliExecuter for Topics {
             only_apply_sources_list,
             yes,
             download_only,
+            no_clean,
         } = self;
 
         let _lock_fd = if !config.dry_run {
@@ -327,6 +331,7 @@ impl CliExecuter for Topics {
                 .topics_disabled(opt_out)
                 .download_only(download_only)
                 .config(&config)
+                .no_clean(no_clean)
                 .build()
                 .run()?;
 

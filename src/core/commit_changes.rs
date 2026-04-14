@@ -32,6 +32,7 @@ use crate::{
     msg,
     pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress},
     subcommand::{
+        clean::clean_download_packages_cache,
         remove::ask_user_do_as_i_say,
         utils::{create_progress_spinner, download_message},
     },
@@ -68,6 +69,7 @@ pub(crate) struct CommitChanges<'a> {
     #[builder(default)]
     is_upgrade: bool,
     config: &'a OmaConfig,
+    no_clean: bool,
 }
 
 impl CommitChanges<'_> {
@@ -88,6 +90,7 @@ impl CommitChanges<'_> {
             download_only,
             is_upgrade,
             config,
+            no_clean,
         } = self;
 
         fix_broken(
@@ -263,6 +266,21 @@ impl CommitChanges<'_> {
 
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
+
+                if !no_clean {
+                    let download_dir = apt.get_archive_dir();
+                    if let Err(e) = clean_download_packages_cache(
+                        false,
+                        false,
+                        false,
+                        &apt,
+                        download_dir,
+                        config.no_progress(),
+                    ) {
+                        warn!("Failed to clean download packages cache: {}", e);
+                    }
+                }
+
                 space_tips(&apt, &config.sysroot);
 
                 Ok(ExitHandle::default().ring(true))

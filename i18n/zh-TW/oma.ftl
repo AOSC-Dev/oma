@@ -424,3 +424,4 @@ oma-mirror-outdated = { $mirror }: outdated - { $duration }
 clap-no-config-help = 不要使用設定檔
 clap-no-config-help = 不使用設定檔，使用預設設定
 no-config-warning = 因執行 oma 時使用了 --no-config 選項，將使用預設設定。
+clap-noclean-help = Do not clean local package cache

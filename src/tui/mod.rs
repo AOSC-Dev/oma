@@ -53,6 +53,9 @@ pub struct Tui {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge")]
     remove_config: bool,
+    /// Do not clean local package cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 impl CliExecuter for Tui {
@@ -65,6 +68,7 @@ impl CliExecuter for Tui {
             force_confnew,
             remove_config,
             no_fix_dpkg_status,
+            no_clean,
         } = self;
 
         if config.dry_run {
@@ -173,6 +177,7 @@ impl CliExecuter for Tui {
                 .check_tum(upgrade)
                 .is_upgrade(upgrade)
                 .config(&config)
+                .no_clean(no_clean)
                 .build()
                 .run()?;
         }

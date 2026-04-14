@@ -32,6 +32,9 @@ pub struct FixBroken {
     /// Remove package(s) also remove configuration file(s), like apt purge
     #[arg(long, visible_alias = "purge", help = fl!("clap-remove-config-help"))]
     remove_config: bool,
+    /// Do not clean local package cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 impl CliExecuter for FixBroken {
@@ -45,6 +48,7 @@ impl CliExecuter for FixBroken {
             autoremove,
             remove_config,
             no_fix_dpkg_status,
+            no_clean,
         } = self;
 
         let _lock_fd = lock_oma(&config.sysroot)?;
@@ -73,6 +77,7 @@ impl CliExecuter for FixBroken {
             .remove_config(remove_config)
             .maybe_auth_config(auth_config)
             .config(&config)
+            .no_clean(no_clean)
             .build()
             .run()
     }

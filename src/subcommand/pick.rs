@@ -57,6 +57,9 @@ pub struct Pick {
     /// Only download dependencies, not install
     #[arg(long, short, help = fl!("clap-download-only-help"))]
     download_only: bool,
+    /// Do not clean local package cache
+    #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
+    no_clean: bool,
 }
 
 impl CliExecuter for Pick {
@@ -72,6 +75,7 @@ impl CliExecuter for Pick {
             remove_config,
             no_fix_dpkg_status,
             download_only,
+            no_clean,
         } = self;
 
         let _lock_fd = if !config.dry_run {
@@ -181,6 +185,7 @@ impl CliExecuter for Pick {
             .maybe_auth_config(auth_config)
             .download_only(download_only)
             .config(&config)
+            .no_clean(no_clean)
             .build()
             .run()
     }
