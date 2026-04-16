@@ -6,7 +6,7 @@ use ahash::{AHashMap, RandomState};
 use cxx::UniquePtr;
 use glob_match::glob_match;
 use indexmap::map::Entry;
-use indicium::simple::{Indexable, SearchIndex};
+use indicium::simple::{Indexable, RapidfuzzMetric, SearchIndex, SearchIndexBuilder};
 use memchr::memmem;
 use oma_apt::{
     Package,
@@ -15,6 +15,8 @@ use oma_apt::{
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+
+pub use indicium::simple::SearchType;
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
 type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
@@ -176,7 +178,11 @@ impl OmaSearch for IndiciumSearch<'_> {
 }
 
 impl<'a> IndiciumSearch<'a> {
-    pub fn new(cache: &'a Cache, progress: impl Fn(usize)) -> OmaSearchResult<Self> {
+    pub fn new(
+        cache: &'a Cache,
+        progress: impl Fn(usize),
+        search_type: SearchType,
+    ) -> OmaSearchResult<Self> {
         let sort = PackageSort::default().include_virtual();
         let packages = cache.packages(&sort);
 
@@ -271,7 +277,12 @@ impl<'a> IndiciumSearch<'a> {
             }
         }
 
-        let mut search_index: SearchIndex<String> = SearchIndex::default();
+        let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
+            .search_type(search_type)
+            .exclude_keywords(None)
+            .rapidfuzz_metric(Some(RapidfuzzMetric::Levenshtein))
+            .fuzzy_minimum_score(0.2)
+            .build();
 
         pkg_map
             .iter()
@@ -560,7 +571,7 @@ fn test() {
         .join("Packages");
     let cache = new_cache!(&[packages.to_string_lossy().to_string()]).unwrap();
 
-    let searcher = IndiciumSearch::new(&cache, |_| {}).unwrap();
+    let searcher = IndiciumSearch::new(&cache, |_| {}, SearchType::And).unwrap();
     let res = searcher.search("windows-nt-kernel").unwrap();
     let res2 = searcher.search("pwp").unwrap();
 
