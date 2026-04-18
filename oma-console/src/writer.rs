@@ -8,7 +8,7 @@ pub trait Writeln {
 
 impl Writeln for Writer {
     fn writeln(&self, prefix: &str, msg: &str) -> io::Result<()> {
-        for (prefix, body) in self.term.wrap_content(prefix, msg).into_iter() {
+        for (prefix, body) in self.term.wrap_content(prefix, msg) {
             self.write_prefix(prefix)?;
             self.term.write_str(&body)?;
         }
@@ -25,7 +25,6 @@ pub struct Writer {
 impl Writer {
     pub fn new(prefix_len: u16) -> Self {
         let mut term = Terminal::new();
-
         term.with_prefix_len(prefix_len);
 
         Self { term }
@@ -33,7 +32,6 @@ impl Writer {
 
     pub fn new_no_limit_length(prefix_len: u16) -> Self {
         let mut writer = Self::new(prefix_len);
-
         writer.term.with_max_len(None);
 
         writer
@@ -78,9 +76,7 @@ impl Writer {
 
     /// Write oma-style message prefix to terminal
     pub fn write_prefix(&self, prefix: &str) -> io::Result<()> {
-        self.term.write_str(&self.term.gen_prefix(prefix))?;
-
-        Ok(())
+        self.term.write_str(&self.term.gen_prefix(prefix))
     }
 
     pub fn get_prefix_len(&self) -> u16 {
