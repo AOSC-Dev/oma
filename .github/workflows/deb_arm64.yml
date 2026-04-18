@@ -14,9 +14,11 @@ jobs:
             "arm64v8/ubuntu:20.04",
             "arm64v8/ubuntu:22.04",
             "arm64v8/ubuntu:24.04",
+            "arm64v8/ubuntu:25.04",
             "arm64v8/debian:11",
             "arm64v8/debian:12",
-            "arm64v8/debian:trixie",
+            "arm64v8/debian:13",
+            "arm64v8/debian:forky",
             "linuxdeepin/deepin:beige-arm64-v1.4.0",
             "chenchongbiao/openkylin:nile-arm64",
           ]
@@ -69,9 +71,12 @@ jobs:
               'arm64v8/debian:12')
                   CODENAME='bookworm'
                   ;;
-              'arm64v8/debian:trixie')
+              'arm64v8/debian:13')
                   CODENAME='trixie'
-                  VER_SUFFIX='debian13'
+                  ;;
+              'arm64v8/debian:forky')
+                  CODENAME='forky'
+                  VER_SUFFIX='debian14'
                   ;;
               'arm64v8/ubuntu:20.04')
                   CODENAME='focal'
@@ -81,6 +86,9 @@ jobs:
                   ;;
               'arm64v8/ubuntu:24.04')
                   CODENAME='noble'
+                  ;;
+              'arm64v8/ubuntu:25.04')
+                  CODENAME='plucky'
                   ;;
               'linuxdeepin/deepin:beige-arm64-v1.4.0')
                   CODENAME='beige'
