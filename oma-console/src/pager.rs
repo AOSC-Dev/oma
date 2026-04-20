@@ -414,12 +414,10 @@ impl<'a> OmaPager<'a> {
                                 // clear search tips
                                 self.tips = self.ui_text.normal_tips(self.yn_mode);
                             }
-                            KeyCode::Backspace => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.pop();
-                                    // update tips with search patterns
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                }
+                            KeyCode::Backspace if self.mode == TuiMode::SearchInputText => {
+                                query.pop();
+                                // update tips with search patterns
+                                self.tips = self.ui_text.searct_tips_with_query(&query);
                             }
                             KeyCode::Char('/') => {
                                 if self.mode != TuiMode::SearchInputText {
@@ -489,12 +487,10 @@ impl<'a> OmaPager<'a> {
                                 }
                                 self.page_down();
                             }
-                            KeyCode::Char(input_char) => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push(input_char);
-                                    // update tips with search patterns
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                }
+                            KeyCode::Char(input_char) if self.mode == TuiMode::SearchInputText => {
+                                query.push(input_char);
+                                // update tips with search patterns
+                                self.tips = self.ui_text.searct_tips_with_query(&query);
                             }
                             KeyCode::PageUp => {
                                 self.page_up();

@@ -172,7 +172,7 @@ fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, Str
         output.push((pkg, file, num));
     }
 
-    output.sort_unstable_by(|a, b| b.2.cmp(&a.2));
+    output.sort_unstable_by_key(|b| std::cmp::Reverse(b.2));
 
     output
 }
