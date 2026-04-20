@@ -854,7 +854,7 @@ fn print_tum(
             }
         }
 
-        tum_display.sort_by(|a, b| b.security.cmp(&a.security));
+        tum_display.sort_by_key(|b| std::cmp::Reverse(b.security));
 
         for i in tum_display {
             printer.print(i).ok();

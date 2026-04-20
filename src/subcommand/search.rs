@@ -208,8 +208,8 @@ pub fn search(
             }
 
             if keywords.len() > 1 {
-                result.sort_by(|a, b| b.status.cmp(&a.status));
-                result.sort_by(|a, b| b.full_match.cmp(&a.full_match));
+                result.sort_by_key(|b| std::cmp::Reverse(b.status));
+                result.sort_by_key(|b| std::cmp::Reverse(b.full_match));
             }
 
             Ok(result)

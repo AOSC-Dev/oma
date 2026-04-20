@@ -162,7 +162,7 @@ impl OmaSearch for IndiciumSearch<'_> {
             search_res.push(entry);
         }
 
-        search_res.sort_by(|a, b| b.status.cmp(&a.status));
+        search_res.sort_by_key(|b| std::cmp::Reverse(b.status));
 
         for i in 0..search_res.len() {
             if search_res[i].full_match {
@@ -450,7 +450,7 @@ impl OmaSearch for StrSimSearch<'_> {
             });
         }
 
-        v.sort_by(|a, b| b.status.cmp(&a.status));
+        v.sort_by_key(|b| std::cmp::Reverse(b.status));
 
         for i in 0..v.len() {
             if v[i].full_match {
@@ -536,7 +536,7 @@ impl OmaSearch for TextSearch<'_> {
             }
         }
 
-        res.sort_by(|a, b| b.status.cmp(&a.status));
+        res.sort_by_key(|b| std::cmp::Reverse(b.status));
 
         for i in 0..res.len() {
             if res[i].full_match {

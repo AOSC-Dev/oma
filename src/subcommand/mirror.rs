@@ -504,7 +504,7 @@ fn get_latency(
             })
             .collect::<Vec<_>>();
 
-        score_table.sort_unstable_by(|a, b| a.secs.cmp(&b.secs));
+        score_table.sort_unstable_by_key(|a| a.secs);
 
         let mut printer = PagerPrinter::new(stdout());
 
