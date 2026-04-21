@@ -7,7 +7,7 @@ use oma_pm::{
     PackageStatus,
     apt::{AptConfig, OmaApt, OmaAptArgs},
     matches::SearchEngine,
-    search::{IndiciumSearch, OmaSearch, SearchResult, StrSimSearch, TextSearch},
+    search::{IndiciumSearch, OmaSearch, SearchResult, SearchType, StrSimSearch, TextSearch},
 };
 
 use crate::{
@@ -192,7 +192,7 @@ pub fn search(
 ) -> Result<Vec<SearchResult>, OutputError> {
     match engine {
         SearchEngine::Indicium(f) => {
-            let searcher = IndiciumSearch::new(&apt.cache, f)?;
+            let searcher = IndiciumSearch::new(&apt.cache, f, SearchType::Live)?;
             Ok(searcher.search(&keywords.join(" "))?)
         }
         SearchEngine::Strsim => {
