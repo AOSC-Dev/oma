@@ -1,0 +1,41 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-size-analyzer 1  "size-analyzer " 
+.SH NAME
+size\-analyzer \- 分析軟體套件磁碟佔用
+.SH SYNOPSIS
+\fBsize\-analyzer\fR [\fB\-d\fR|\fB\-\-details\fR] [\fB\-f\fR|\fB\-\-fix\-broken\fR] [\fB\-n\fR|\fB\-\-no\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-no\-autoremove\fR] [\fB\-\-remove\-config\fR] [\fB\-\-no\-clean\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+分析軟體套件磁碟佔用
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 選項
+.TP
+\fB\-d\fR, \fB\-\-details\fR
+僅顯示軟體套件大小資訊
+.TP
+\fB\-f\fR, \fB\-\-fix\-broken\fR
+解決系統中的依賴問題
+.TP
+\fB\-n\fR, \fB\-\-no\-fix\-dpkg\-status\fR
+不要修復 dpkg 的「損壞 (broken)」狀態
+.TP
+\fB\-\-force\-unsafe\-io\fR
+執行軟體套件變更時不啟用 fsync(2)（資料不會及時同步到存儲設備，非常危險但操作更快）
+.TP
+\fB\-\-force\-yes\fR
+略過軟體庫和軟體套件依賴問題
+.TP
+\fB\-\-force\-confnew\fR
+使用軟體套件中附帶的設定檔替換系統中的設定檔（等效於 `dpkg \-\-force\-confnew`）
+.TP
+\fB\-\-no\-autoremove\fR
+不要自動移除不再需要的軟體套件
+.TP
+\fB\-\-remove\-config\fR
+在移除軟體套件時同時清理設定檔（類似 `apt purge\*(Aq）
+.TP
+\fB\-\-no\-clean\fR
+Do not clean local package cache

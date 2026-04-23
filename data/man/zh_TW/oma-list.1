@@ -1,0 +1,42 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-list 1  "list " 
+.SH NAME
+list \- 列出可用的軟體套件
+.SH SYNOPSIS
+\fBlist\fR [\fB\-a\fR|\fB\-\-all\fR] [\fB\-i\fR|\fB\-\-installed\fR] [\fB\-u\fR|\fB\-\-upgradable\fR] [\fB\-m\fR|\fB\-\-manually\-installed\fR] [\fB\-\-automatic\fR] [\fB\-\-autoremovable\fR] [\fB\-\-hold\fR] [\fB\-\-json\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPACKAGES\fR] 
+.SH DESCRIPTION
+列出可用的軟體套件
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 參數
+.TP
+[\fIPACKAGES\fR]
+要列出的軟體套件
+.SH 選項
+.TP
+\fB\-a\fR, \fB\-\-all\fR
+列出指定軟體套件的所有可用版本
+.TP
+\fB\-i\fR, \fB\-\-installed\fR
+僅列出已安裝的軟體套件
+.TP
+\fB\-u\fR, \fB\-\-upgradable\fR
+僅列出有可用更新的軟體套件
+.TP
+\fB\-m\fR, \fB\-\-manually\-installed\fR
+僅列出標記為手動安裝的軟體套件
+.TP
+\fB\-\-automatic\fR
+僅列出標記為自動安裝的軟體套件
+.TP
+\fB\-\-autoremovable\fR
+僅列出能夠「自動移除」（即不再需要）的軟體套件
+.TP
+\fB\-\-hold\fR
+僅列出標記為版本鎖定的軟體套件
+.TP
+\fB\-\-json\fR
+設定輸出格式為 JSON

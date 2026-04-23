@@ -1,0 +1,42 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-list 1  "list " 
+.SH NAME
+list \- 列出可用的软件包
+.SH SYNOPSIS
+\fBlist\fR [\fB\-a\fR|\fB\-\-all\fR] [\fB\-i\fR|\fB\-\-installed\fR] [\fB\-u\fR|\fB\-\-upgradable\fR] [\fB\-m\fR|\fB\-\-manually\-installed\fR] [\fB\-\-automatic\fR] [\fB\-\-autoremovable\fR] [\fB\-\-hold\fR] [\fB\-\-json\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPACKAGES\fR] 
+.SH DESCRIPTION
+列出可用的软件包
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 参数
+.TP
+[\fIPACKAGES\fR]
+要列出的软件包
+.SH 选项
+.TP
+\fB\-a\fR, \fB\-\-all\fR
+列出指定软件包的所有可用版本
+.TP
+\fB\-i\fR, \fB\-\-installed\fR
+仅列出已安装的软件包
+.TP
+\fB\-u\fR, \fB\-\-upgradable\fR
+仅列出有可用更新的软件包
+.TP
+\fB\-m\fR, \fB\-\-manually\-installed\fR
+仅列出标记为手动安装的软件包
+.TP
+\fB\-\-automatic\fR
+仅列出标记为自动安装的软件包
+.TP
+\fB\-\-autoremovable\fR
+仅列出可 "自动移除" （即不再需要）的软件包
+.TP
+\fB\-\-hold\fR
+仅列出标记为版本锁定的软件包
+.TP
+\fB\-\-json\fR
+设置输出格式为 JSON

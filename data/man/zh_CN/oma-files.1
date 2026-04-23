@@ -1,0 +1,24 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-files 1  "files " 
+.SH NAME
+files \- 列出指定软件包中的文件
+.SH SYNOPSIS
+\fBfiles\fR [\fB\-\-bin\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGE\fR> 
+.SH DESCRIPTION
+列出指定软件包中的文件
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 参数
+.TP
+<\fIPACKAGE\fR>
+搜索指定软件包的内容
+.SH 选项
+.TP
+\fB\-\-bin\fR
+搜索包含指定可执行文件的软件包
+.TP
+\fB\-\-no\-pager\fR
+将输出直接打印到标准输出流 (stdout) 而不使用查看器 (pager)

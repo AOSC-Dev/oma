@@ -1,0 +1,143 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma 1  "oma 1.26.0-dev" 
+.SH NAME
+oma \- User\-friendly and fool\-proof package manager for APT repositories
+.SH SYNOPSIS
+\fBoma\fR [\fB\-\-dry\-run\fR] [\fB\-\-debug\fR] [\fB\-\-color\fR] [\fB\-\-follow\-terminal\-color\fR] [\fB\-\-no\-progress\fR] [\fB\-\-no\-check\-dbus\fR] [\fB\-\-no\-check\-battery\fR] [\fB\-\-no\-take\-wake\-lock\fR] [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-sysroot\fR] [\fB\-o\fR|\fB\-\-apt\-options\fR] [\fB\-\-no\-bell\fR] [\fB\-t\fR|\fB\-\-download\-threads\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-\-no\-config\fR] [\fB\-\-user\-agent\fR] [\fIcommand\fR]
+.SH DESCRIPTION
+User\-friendly and fool\-proof package manager for APT repositories
+.SH OPTIONS
+.TP
+\fB\-\-dry\-run\fR
+Run oma in "dry\-run" mode. This is useful for testing changes and operations without making changes to the system.
+.TP
+\fB\-\-debug\fR
+Run oma with debug output, including details on program parameters and data. This is useful for developers and administrators to investigate and report issues.
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+Specify color preferences for oma output
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-follow\-terminal\-color\fR
+Make color output follow the terminal color scheme
+.TP
+\fB\-\-no\-progress\fR
+Do not display progress bar
+.TP
+\fB\-\-no\-check\-dbus\fR
+Do not check for D\-Bus availability
+.TP
+\fB\-\-no\-check\-battery\fR
+Do not check for power supply status (whether the system is running on battery)
+.TP
+\fB\-\-no\-take\-wake\-lock\fR
+Do not take session wake lock (no power management inhibitions)
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+Print version
+.TP
+\fB\-\-sysroot\fR \fI<SYSROOT>\fR [default: /]
+Specify the sysroot path where the operations will take place
+.TP
+\fB\-o\fR, \fB\-\-apt\-options\fR \fI<APT_OPTIONS>\fR
+Specify APT option(s)
+.TP
+\fB\-\-no\-bell\fR
+Don\*(Aqt ring the terminal bell as oma completes the transaction
+.TP
+\fB\-t\fR, \fB\-\-download\-threads\fR \fI<DOWNLOAD_THREADS>\fR
+Set the number of parallel download threads (default: 4)
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+\fB\-\-no\-config\fR
+Do not load configuration file, use default settings
+.TP
+\fB\-\-user\-agent\fR \fI<USER_AGENT>\fR
+Specify User\-Agent string to use for HTTP requests
+.SH Command
+.TP
+oma\-install(1)
+Install package(s) from the repository
+.TP
+oma\-upgrade(1)
+Upgrade packages installed on the system
+.TP
+oma\-download(1)
+Download package(s) from the repository
+.TP
+oma\-remove(1)
+Remove package(s)
+.TP
+oma\-refresh(1)
+Refresh repository metadata
+.TP
+oma\-show(1)
+Show information on the specified package(s)
+.TP
+oma\-search(1)
+Search for package(s) available from the repository
+.TP
+oma\-files(1)
+List files in the specified package
+.TP
+oma\-provides(1)
+Search for package(s) that provide(s) certain path pattern(s) or file(s)
+.TP
+oma\-fix\-broken(1)
+Resolve broken dependencies in the system
+.TP
+oma\-pick(1)
+Install a specific version of the specified package
+.TP
+oma\-mark(1)
+Mark status for the specified package(s)
+.TP
+oma\-list(1)
+List available package(s)
+.TP
+oma\-depends(1)
+List dependencies for the specified package(s)
+.TP
+oma\-rdepends(1)
+List reverse dependency(ies) for the specified package(s)
+.TP
+oma\-clean(1)
+Clear local package cache
+.TP
+oma\-history(1)
+Show a history/log of package changes in the system
+.TP
+oma\-undo(1)
+Undo a change to packages on the system
+.TP
+oma\-tui(1)
+Interactive terminal user interface
+.TP
+oma\-version(1)
+Print version
+.TP
+oma\-size\-analyzer(1)
+Analyze storage usage
+.TP
+oma\-tree(1)
+Visualize dependency tree for the specified package
+.TP
+oma\-why(1)
+Visualize why the specified package was installed
+.SH EXTRA
+.SH VERSION
+v1.26.0\-dev

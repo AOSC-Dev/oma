@@ -1,0 +1,27 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-tree 1  "tree " 
+.SH NAME
+tree \- 顯示指定軟體套件的依賴樹
+.SH SYNOPSIS
+\fBtree\fR [\fB\-r\fR|\fB\-\-reverse\fR] [\fB\-d\fR|\fB\-\-depth\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGES\fR> 
+.SH DESCRIPTION
+顯示指定軟體套件的依賴樹
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 參數
+.TP
+<\fIPACKAGES\fR>
+要顯示依賴樹的軟體套件
+.SH 選項
+.TP
+\fB\-r\fR, \fB\-\-reverse\fR
+顯示指定軟體套件的逆向依賴樹
+.TP
+\fB\-d\fR, \fB\-\-depth\fR \fI<DEPTH>\fR [default: 5]
+最大依賴查詢深度（預設為 5 層，查詢的記憶體需求隨深度指數性增加！）
+.TP
+\fB\-\-no\-pager\fR
+將輸出直接寫入標準輸出 (stdout) 而不使用分頁器 (pager)

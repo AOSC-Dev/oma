@@ -1,0 +1,21 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-depends 1  "depends " 
+.SH NAME
+depends \- 查询指定软件包的依赖关系
+.SH SYNOPSIS
+\fBdepends\fR [\fB\-\-json\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGES\fR> 
+.SH DESCRIPTION
+查询指定软件包的依赖关系
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 参数
+.TP
+<\fIPACKAGES\fR>
+要查询依赖关系的软件包
+.SH 选项
+.TP
+\fB\-\-json\fR
+设置输出格式为 JSON

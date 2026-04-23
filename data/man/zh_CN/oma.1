@@ -1,0 +1,144 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma 1  "oma 1.26.0-dev" 
+.SH NAME
+oma \- 易用、防呆的 APT 软件包管理器
+.SH SYNOPSIS
+\fBoma\fR [\fB\-\-dry\-run\fR] [\fB\-\-debug\fR] [\fB\-\-color\fR] [\fB\-\-follow\-terminal\-color\fR] [\fB\-\-no\-progress\fR] [\fB\-\-no\-check\-dbus\fR] [\fB\-\-no\-check\-battery\fR] [\fB\-\-no\-take\-wake\-lock\fR] [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-sysroot\fR] [\fB\-o\fR|\fB\-\-apt\-options\fR] [\fB\-\-no\-bell\fR] [\fB\-t\fR|\fB\-\-download\-threads\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-\-no\-config\fR] [\fB\-\-user\-agent\fR] [\fI命令\fR]
+.SH DESCRIPTION
+易用、防呆的 APT 软件包管理器
+.SH 选项
+.TP
+\fB\-\-dry\-run\fR
+使用 "试运行 (dry\-run)" 模式运行小熊猫包管理 (oma)。该模式可用于推演操作相应的更改，而无须实际对系统进行更改，方便测试。
+.TP
+\fB\-\-debug\fR
+运行小熊猫包管理 (oma) 时启用包含程序参数及运行数据的调试输出，以便让开发者及系统管理员调查并报告问题。
+.TP
+\fB\-\-color\fR \fI<COLOR>\fR [default: auto]
+指定小熊猫包管理 (oma) 的颜色输出模式
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+auto
+.IP \(bu 2
+always
+.IP \(bu 2
+never
+.RE
+.TP
+\fB\-\-follow\-terminal\-color\fR
+使彩色输出跟随终端配色
+.TP
+\fB\-\-no\-progress\fR
+不要显示进度条
+.TP
+\fB\-\-no\-check\-dbus\fR
+不要检查 D\-Bus 可用性
+.TP
+\fB\-\-no\-check\-battery\fR
+不要检查电源状态（即系统是否正在使用电池供电）
+.TP
+\fB\-\-no\-take\-wake\-lock\fR
+不要占用会话唤醒锁（即不要禁用电源管理）
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+显示小熊猫包管理 (oma) 的版本号
+.TP
+\fB\-\-sysroot\fR \fI<SYSROOT>\fR [default: /]
+指定操作目标系统的根路径
+.TP
+\fB\-o\fR, \fB\-\-apt\-options\fR \fI<APT_OPTIONS>\fR
+指定 APT 选项
+.TP
+\fB\-\-no\-bell\fR
+在小熊猫包管理 (oma) 完成操作后不要发送终端响铃
+.TP
+\fB\-t\fR, \fB\-\-download\-threads\fR \fI<DOWNLOAD_THREADS>\fR
+设置并行下载的线程数（默认为 4）
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+显示帮助信息
+.TP
+\fB\-\-no\-config\fR
+不使用配置文件，使用默认设置
+.TP
+\fB\-\-user\-agent\fR \fI<USER_AGENT>\fR
+指定用于 HTTP 请求的 User\-Agent 字串
+.SH 命令
+.TP
+oma\-install(1)
+从仓库中安装软件包
+.TP
+oma\-upgrade(1)
+升级系统中安装的软件包
+.TP
+oma\-download(1)
+从软件仓库下载软件包
+.TP
+oma\-remove(1)
+删除软件包
+.TP
+oma\-refresh(1)
+刷新软件仓库元数据
+.TP
+oma\-show(1)
+显示指定软件包的信息
+.TP
+oma\-search(1)
+搜索软件仓库中可用的软件包
+.TP
+oma\-files(1)
+列出指定软件包中的文件
+.TP
+oma\-provides(1)
+搜索提供特定路径/文件的软件包
+.TP
+oma\-fix\-broken(1)
+解决系统中被破坏的依赖关系
+.TP
+oma\-pick(1)
+选择并安装软件包的特定版本
+.TP
+oma\-mark(1)
+标记指定软件包的状态
+.TP
+oma\-list(1)
+列出可用的软件包
+.TP
+oma\-depends(1)
+查询指定软件包的依赖关系
+.TP
+oma\-rdepends(1)
+查询指定软件包的逆向依赖关系
+.TP
+oma\-clean(1)
+清除本地软件包缓存
+.TP
+oma\-history(1)
+显示系统软件包更改的历史
+.TP
+oma\-undo(1)
+撤销系统软件包更改
+.TP
+oma\-tui(1)
+交互性终端用户界面 (TUI)
+.TP
+oma\-version(1)
+显示小熊猫包管理 (oma) 的版本号
+.TP
+oma\-size\-analyzer(1)
+软件包磁盘占用分析器
+.TP
+oma\-tree(1)
+显示指定软件包的依赖关系树
+.TP
+oma\-why(1)
+通过树形可视化呈现指定软件包被安装的原因
+.SH EXTRA
+本 oma 具有超级小熊猫力！
+.SH VERSION
+v1.26.0\-dev

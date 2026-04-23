@@ -1,0 +1,24 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-show 1  "show " 
+.SH NAME
+show \- 显示指定软件包的信息
+.SH SYNOPSIS
+\fBshow\fR [\fB\-a\fR|\fB\-\-all\fR] [\fB\-\-json\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGES\fR> 
+.SH DESCRIPTION
+显示指定软件包的信息
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 参数
+.TP
+<\fIPACKAGES\fR>
+要显示的软件包
+.SH 选项
+.TP
+\fB\-a\fR, \fB\-\-all\fR
+显示指定软件包的所有版本的信息
+.TP
+\fB\-\-json\fR
+设置输出格式为 JSON

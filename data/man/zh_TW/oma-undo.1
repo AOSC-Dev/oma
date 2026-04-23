@@ -1,0 +1,44 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-undo 1  "undo " 
+.SH NAME
+undo \- 取消系統軟體套件變更
+.SH SYNOPSIS
+\fBundo\fR [\fB\-\-no\-fixbroken\fR] [\fB\-\-no\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-autoremove\fR] [\fB\-\-remove\-config\fR] [\fB\-d\fR|\fB\-\-download\-only\fR] [\fB\-\-no\-refresh\fR] [\fB\-\-no\-clean\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+取消系統軟體套件變更
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 選項
+.TP
+\fB\-\-no\-fixbroken\fR
+不要修復 APT 的「損壞 (broken)」狀態
+.TP
+\fB\-\-no\-fix\-dpkg\-status\fR
+不要修復 dpkg 的「損壞 (broken)」狀態
+.TP
+\fB\-\-force\-unsafe\-io\fR
+執行軟體套件變更時不啟用 fsync(2)（資料不會及時同步到存儲設備，非常危險但操作更快）
+.TP
+\fB\-\-force\-yes\fR
+略過軟體庫和軟體套件依賴問題
+.TP
+\fB\-\-force\-confnew\fR
+使用軟體套件中附帶的設定檔替換系統中的設定檔（等效於 `dpkg \-\-force\-confnew`）
+.TP
+\fB\-\-autoremove\fR
+從系統移除不再需要的軟體套件
+.TP
+\fB\-\-remove\-config\fR
+在移除軟體套件時同時清理設定檔（類似 `apt purge\*(Aq）
+.TP
+\fB\-d\fR, \fB\-\-download\-only\fR
+只下载软件包和其依赖项，不安装
+.TP
+\fB\-\-no\-refresh\fR
+不要重新整理軟體庫後設資料
+.TP
+\fB\-\-no\-clean\fR
+Do not clean local package cache

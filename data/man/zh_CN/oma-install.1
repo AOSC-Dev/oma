@@ -1,0 +1,69 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-install 1  "install " 
+.SH NAME
+install \- 从仓库中安装软件包
+.SH SYNOPSIS
+\fBinstall\fR [\fB\-\-install\-recommends\fR] [\fB\-\-reinstall\fR] [\fB\-\-install\-suggests\fR] [\fB\-\-no\-install\-recommends\fR] [\fB\-\-no\-install\-suggests\fR] [\fB\-y\fR|\fB\-\-yes\fR] [\fB\-\-install\-dbg\fR] [\fB\-f\fR|\fB\-\-fix\-broken\fR] [\fB\-n\fR|\fB\-\-no\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-no\-refresh\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-autoremove\fR] [\fB\-d\fR|\fB\-\-download\-only\fR] [\fB\-\-remove\-config\fR] [\fB\-\-no\-clean\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPACKAGES\fR] 
+.SH DESCRIPTION
+从仓库中安装软件包
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 参数
+.TP
+[\fIPACKAGES\fR]
+要安装的软件包
+.SH 选项
+.TP
+\fB\-\-install\-recommends\fR
+安装推荐依赖
+.TP
+\fB\-\-reinstall\fR
+重装指定的软件包
+.TP
+\fB\-\-install\-suggests\fR
+安装建议依赖
+.TP
+\fB\-\-no\-install\-recommends\fR
+不要安装推荐依赖
+.TP
+\fB\-\-no\-install\-suggests\fR
+不要安装建议依赖
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+跳过确认提示符
+.TP
+\fB\-\-install\-dbg\fR
+安装指定软件包的调试符号
+.TP
+\fB\-f\fR, \fB\-\-fix\-broken\fR
+解决系统中的依赖问题
+.TP
+\fB\-n\fR, \fB\-\-no\-fix\-dpkg\-status\fR
+不要修复 dpkg 的 "损坏 (broken)" 状态
+.TP
+\fB\-\-force\-unsafe\-io\fR
+执行软件包更改时不开启 fsync(2)（数据不会定期落盘，非常危险但操作更快）
+.TP
+\fB\-\-no\-refresh\fR
+不要刷新软件仓库元数据
+.TP
+\fB\-\-force\-yes\fR
+忽略软件源及软件包依赖问题
+.TP
+\fB\-\-force\-confnew\fR
+使用软件包中附带的配置文件替代系统中的配置文件（等效于 `dpkg \-\-force\-confnew`）
+.TP
+\fB\-\-autoremove\fR
+从系统删除不再需要的软件包
+.TP
+\fB\-d\fR, \fB\-\-download\-only\fR
+只下载软件包和其依赖项，不安装
+.TP
+\fB\-\-remove\-config\fR
+在移除软件包时同时清除配置文件（类似 `apt purge\*(Aq）
+.TP
+\fB\-\-no\-clean\fR
+不要清理本地软件包缓存

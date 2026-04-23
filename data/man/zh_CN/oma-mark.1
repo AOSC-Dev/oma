@@ -1,0 +1,34 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-mark 1  "mark " 
+.SH NAME
+mark \- 标记指定软件包的状态
+.SH SYNOPSIS
+\fBmark\fR [\fB\-h\fR|\fB\-\-help\fR] <\fIACTION\fR> <\fIPACKAGES\fR> 
+.SH DESCRIPTION
+标记指定软件包的状态
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.SH 参数
+.TP
+<\fIACTION\fR>
+标记指定软件包的状态，小熊猫包管理 (oma) 将在完成标记后自动重新计算依赖关系
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+hold: 锁定软件包版本，这将防止指定软件包被更新或降级
+.IP \(bu 2
+unhold: 解锁软件包版本，这将撤销指定软件包的 "保留" 状态
+.IP \(bu 2
+manual: 将软件包标记为手动安装、 这将防止指定软件包在所有逆向依赖关系被移除后被移除
+.IP \(bu 2
+auto: 将软件包标记为自动安装，这将标记指定软件包在所有逆向依赖关系被移除后被移除
+.RE
+.TP
+<\fIPACKAGES\fR>
+要标记状态的软件包

@@ -1,0 +1,38 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-tui 1  "tui " 
+.SH NAME
+tui \- 交互性终端用户界面 (TUI)
+.SH SYNOPSIS
+\fBtui\fR [\fB\-f\fR|\fB\-\-fix\-broken\fR] [\fB\-n\fR|\fB\-\-no\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-no\-refresh\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-remove\-config\fR] [\fB\-\-no\-clean\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+交互性终端用户界面 (TUI)
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 选项
+.TP
+\fB\-f\fR, \fB\-\-fix\-broken\fR
+Fix apt broken status
+.TP
+\fB\-n\fR, \fB\-\-no\-fix\-dpkg\-status\fR
+Do not fix dpkg broken status
+.TP
+\fB\-\-force\-unsafe\-io\fR
+Install package(s) without fsync(2)
+.TP
+\fB\-\-no\-refresh\fR
+Do not refresh repository metadata
+.TP
+\fB\-\-force\-yes\fR
+Ignore repository and package dependency issues
+.TP
+\fB\-\-force\-confnew\fR
+Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg \-\-force\-confnew`)
+.TP
+\fB\-\-remove\-config\fR
+Remove package(s) also remove configuration file(s), like apt purge
+.TP
+\fB\-\-no\-clean\fR
+不要清理本地软件包缓存
