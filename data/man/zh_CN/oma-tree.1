@@ -1,0 +1,27 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-tree 1  "tree " 
+.SH NAME
+tree \- 显示指定软件包的依赖关系树
+.SH SYNOPSIS
+\fBtree\fR [\fB\-r\fR|\fB\-\-reverse\fR] [\fB\-d\fR|\fB\-\-depth\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGES\fR> 
+.SH DESCRIPTION
+显示指定软件包的依赖关系树
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 参数
+.TP
+<\fIPACKAGES\fR>
+要显示依赖关系树的软件包
+.SH 选项
+.TP
+\fB\-r\fR, \fB\-\-reverse\fR
+显示指定软件包的逆向依赖树
+.TP
+\fB\-d\fR, \fB\-\-depth\fR \fI<DEPTH>\fR [default: 5]
+最大依赖查询深度（默认为 5 层，查询的内存需求随深度指数性增长！）
+.TP
+\fB\-\-no\-pager\fR
+将输出直接打印到标准输出流 (stdout) 而不使用查看器 (pager)

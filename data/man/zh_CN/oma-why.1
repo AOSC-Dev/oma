@@ -1,0 +1,24 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-why 1  "why " 
+.SH NAME
+why \- 通过树形可视化呈现指定软件包被安装的原因
+.SH SYNOPSIS
+\fBwhy\fR [\fB\-d\fR|\fB\-\-depth\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGES\fR> 
+.SH DESCRIPTION
+通过树形可视化呈现指定软件包被安装的原因
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 参数
+.TP
+<\fIPACKAGES\fR>
+要显示依赖关系树的软件包
+.SH 选项
+.TP
+\fB\-d\fR, \fB\-\-depth\fR \fI<DEPTH>\fR [default: 5]
+最大依赖查询深度（默认为 5 层，查询的内存需求随深度指数性增长！）
+.TP
+\fB\-\-no\-pager\fR
+将输出直接打印到标准输出流 (stdout) 而不使用查看器 (pager)

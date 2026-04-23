@@ -1,0 +1,41 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-size-analyzer 1  "size-analyzer " 
+.SH NAME
+size\-analyzer \- 软件包磁盘占用分析器
+.SH SYNOPSIS
+\fBsize\-analyzer\fR [\fB\-d\fR|\fB\-\-details\fR] [\fB\-f\fR|\fB\-\-fix\-broken\fR] [\fB\-n\fR|\fB\-\-no\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-no\-autoremove\fR] [\fB\-\-remove\-config\fR] [\fB\-\-no\-clean\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+软件包磁盘占用分析器
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 选项
+.TP
+\fB\-d\fR, \fB\-\-details\fR
+仅显示软件包大小信息
+.TP
+\fB\-f\fR, \fB\-\-fix\-broken\fR
+解决系统中的依赖问题
+.TP
+\fB\-n\fR, \fB\-\-no\-fix\-dpkg\-status\fR
+不要修复 dpkg 的 "损坏 (broken)" 状态
+.TP
+\fB\-\-force\-unsafe\-io\fR
+执行软件包更改时不开启 fsync(2)（数据不会定期落盘，非常危险但操作更快）
+.TP
+\fB\-\-force\-yes\fR
+忽略软件源及软件包依赖问题
+.TP
+\fB\-\-force\-confnew\fR
+使用软件包中附带的配置文件替代系统中的配置文件（等效于 `dpkg \-\-force\-confnew`）
+.TP
+\fB\-\-no\-autoremove\fR
+不要自动删除不再需要的软件包
+.TP
+\fB\-\-remove\-config\fR
+在移除软件包时同时清除配置文件（类似 `apt purge\*(Aq）
+.TP
+\fB\-\-no\-clean\fR
+不要清理本地软件包缓存

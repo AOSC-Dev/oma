@@ -1,0 +1,54 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-upgrade 1  "upgrade " 
+.SH NAME
+upgrade \- 升級系統中安裝的軟體套件
+.SH SYNOPSIS
+\fBupgrade\fR [\fB\-\-no\-fixbroken\fR] [\fB\-\-no\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-no\-refresh\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-autoremove\fR] [\fB\-\-remove\-config\fR] [\fB\-y\fR|\fB\-\-yes\fR] [\fB\-\-no\-remove\fR] [\fB\-d\fR|\fB\-\-download\-only\fR] [\fB\-\-no\-clean\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPACKAGES\fR] 
+.SH DESCRIPTION
+升級系統中安裝的軟體套件
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 參數
+.TP
+[\fIPACKAGES\fR]
+要安裝的軟體套件
+.SH 選項
+.TP
+\fB\-\-no\-fixbroken\fR
+不要修復 APT 的「損壞 (broken)」狀態
+.TP
+\fB\-\-no\-fix\-dpkg\-status\fR
+不要修復 dpkg 的「損壞 (broken)」狀態
+.TP
+\fB\-\-force\-unsafe\-io\fR
+執行軟體套件變更時不啟用 fsync(2)（資料不會及時同步到存儲設備，非常危險但操作更快）
+.TP
+\fB\-\-no\-refresh\fR
+不要重新整理軟體庫後設資料
+.TP
+\fB\-\-force\-yes\fR
+略過軟體庫和軟體套件依賴問題
+.TP
+\fB\-\-force\-confnew\fR
+使用軟體套件中附帶的設定檔替換系統中的設定檔（等效於 `dpkg \-\-force\-confnew`）
+.TP
+\fB\-\-autoremove\fR
+從系統移除不再需要的軟體套件
+.TP
+\fB\-\-remove\-config\fR
+在移除軟體套件時同時清理設定檔（類似 `apt purge\*(Aq）
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+跳過確認提示
+.TP
+\fB\-\-no\-remove\fR
+不允許在更新時移除軟體套件（類似 `apt upgrade\*(Aq）
+.TP
+\fB\-d\fR, \fB\-\-download\-only\fR
+只下载软件包和其依赖项，不安装
+.TP
+\fB\-\-no\-clean\fR
+Do not clean local package cache

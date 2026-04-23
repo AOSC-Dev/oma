@@ -1,0 +1,23 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-clean 1  "clean " 
+.SH NAME
+clean \- 清除本地软件包缓存
+.SH SYNOPSIS
+\fBclean\fR [\fB\-\-keep\-downloadable\fR] [\fB\-\-keep\-downloadable\-and\-installed\fR] [\fB\-\-keep\-installed\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+清除本地软件包缓存
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 选项
+.TP
+\fB\-\-keep\-downloadable\fR
+保留依然可下载的软件包
+.TP
+\fB\-\-keep\-downloadable\-and\-installed\fR
+保留依然可下载及已安装的软件包
+.TP
+\fB\-\-keep\-installed\fR
+保留已安装的软件包

@@ -1,0 +1,24 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-provides 1  "provides " 
+.SH NAME
+provides \- Search for package(s) that provide(s) certain path pattern(s) or file(s)
+.SH SYNOPSIS
+\fBprovides\fR [\fB\-\-bin\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPATTERN\fR> 
+.SH DESCRIPTION
+Search for package(s) that provide(s) certain path pattern(s) or file(s)
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH ARGUMENT
+.TP
+<\fIPATTERN\fR>
+Search for package(s) that contains the specified path or file
+.SH OPTIONS
+.TP
+\fB\-\-bin\fR
+Search for package(s) that contains the specified executable
+.TP
+\fB\-\-no\-pager\fR
+Print output directly to stdout (output stream) directly without a pager

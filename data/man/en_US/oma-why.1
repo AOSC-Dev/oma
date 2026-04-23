@@ -1,0 +1,24 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-why 1  "why " 
+.SH NAME
+why \- Visualize why the specified package was installed
+.SH SYNOPSIS
+\fBwhy\fR [\fB\-d\fR|\fB\-\-depth\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGES\fR> 
+.SH DESCRIPTION
+Visualize why the specified package was installed
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH ARGUMENT
+.TP
+<\fIPACKAGES\fR>
+Package(s) to display a dependency tree for
+.SH OPTIONS
+.TP
+\fB\-d\fR, \fB\-\-depth\fR \fI<DEPTH>\fR [default: 5]
+Maximum query level for dependencies (default: 5, RAM REQUIREMENT INCREASES EXPONENTIALLY!)
+.TP
+\fB\-\-no\-pager\fR
+Print output directly to stdout (output stream) directly without a pager

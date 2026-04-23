@@ -1,0 +1,41 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-size-analyzer 1  "size-analyzer " 
+.SH NAME
+size\-analyzer \- Analyze storage usage
+.SH SYNOPSIS
+\fBsize\-analyzer\fR [\fB\-d\fR|\fB\-\-details\fR] [\fB\-f\fR|\fB\-\-fix\-broken\fR] [\fB\-n\fR|\fB\-\-no\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-no\-autoremove\fR] [\fB\-\-remove\-config\fR] [\fB\-\-no\-clean\fR] [\fB\-h\fR|\fB\-\-help\fR] 
+.SH DESCRIPTION
+Analyze storage usage
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH OPTIONS
+.TP
+\fB\-d\fR, \fB\-\-details\fR
+Only display packages size details
+.TP
+\fB\-f\fR, \fB\-\-fix\-broken\fR
+Resolve broken dependency(ies) in the system
+.TP
+\fB\-n\fR, \fB\-\-no\-fix\-dpkg\-status\fR
+Do not fix "broken" dpkg status
+.TP
+\fB\-\-force\-unsafe\-io\fR
+Perform package changes without fsync(2) (no periodic data sync to the storage device, DANGEROUS but fast)
+.TP
+\fB\-\-force\-yes\fR
+Ignore repository and package dependency issue(s)
+.TP
+\fB\-\-force\-confnew\fR
+Replace configuration file(s) in the system those shipped in the package(s) to be installed (equivalent to `dpkg \-\-force\-confnew`)
+.TP
+\fB\-\-no\-autoremove\fR
+Do not automatically remove unneeded package(s)
+.TP
+\fB\-\-remove\-config\fR
+Remove configuration file(s) during package removal (like `apt purge\*(Aq)
+.TP
+\fB\-\-no\-clean\fR
+Do not clean local package cache

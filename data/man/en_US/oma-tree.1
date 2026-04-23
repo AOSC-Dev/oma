@@ -1,0 +1,27 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-tree 1  "tree " 
+.SH NAME
+tree \- Visualize dependency tree for the specified package
+.SH SYNOPSIS
+\fBtree\fR [\fB\-r\fR|\fB\-\-reverse\fR] [\fB\-d\fR|\fB\-\-depth\fR] [\fB\-\-no\-pager\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGES\fR> 
+.SH DESCRIPTION
+Visualize dependency tree for the specified package
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH ARGUMENT
+.TP
+<\fIPACKAGES\fR>
+Package(s) to display a dependency tree for
+.SH OPTIONS
+.TP
+\fB\-r\fR, \fB\-\-reverse\fR
+Visualize the reverse dependency(ies) for the specified package
+.TP
+\fB\-d\fR, \fB\-\-depth\fR \fI<DEPTH>\fR [default: 5]
+Maximum query level for dependencies (default: 5, RAM REQUIREMENT INCREASES EXPONENTIALLY!)
+.TP
+\fB\-\-no\-pager\fR
+Print output directly to stdout (output stream) directly without a pager

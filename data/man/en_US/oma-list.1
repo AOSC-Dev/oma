@@ -1,0 +1,42 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-list 1  "list " 
+.SH NAME
+list \- List available package(s)
+.SH SYNOPSIS
+\fBlist\fR [\fB\-a\fR|\fB\-\-all\fR] [\fB\-i\fR|\fB\-\-installed\fR] [\fB\-u\fR|\fB\-\-upgradable\fR] [\fB\-m\fR|\fB\-\-manually\-installed\fR] [\fB\-\-automatic\fR] [\fB\-\-autoremovable\fR] [\fB\-\-hold\fR] [\fB\-\-json\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPACKAGES\fR] 
+.SH DESCRIPTION
+List available package(s)
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH ARGUMENT
+.TP
+[\fIPACKAGES\fR]
+Package(s) to list
+.SH OPTIONS
+.TP
+\fB\-a\fR, \fB\-\-all\fR
+List all available version(s) of the specified package(s)
+.TP
+\fB\-i\fR, \fB\-\-installed\fR
+List only installed package(s)
+.TP
+\fB\-u\fR, \fB\-\-upgradable\fR
+List only package(s) with update(s) available
+.TP
+\fB\-m\fR, \fB\-\-manually\-installed\fR
+List only package(s) marked as manually installed
+.TP
+\fB\-\-automatic\fR
+List only package(s) marked as automatically installed
+.TP
+\fB\-\-autoremovable\fR
+List only package(s) marked for "autoremove" (no longer needed)
+.TP
+\fB\-\-hold\fR
+List only package(s) marked for version hold
+.TP
+\fB\-\-json\fR
+Set output format to JSON

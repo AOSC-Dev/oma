@@ -1,0 +1,21 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-download 1  "download " 
+.SH NAME
+download \- 从软件仓库下载软件包
+.SH SYNOPSIS
+\fBdownload\fR [\fB\-p\fR|\fB\-\-path\fR] [\fB\-h\fR|\fB\-\-help\fR] <\fIPACKAGES\fR> 
+.SH DESCRIPTION
+从软件仓库下载软件包
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 参数
+.TP
+<\fIPACKAGES\fR>
+要下载的软件包
+.SH 选项
+.TP
+\fB\-p\fR, \fB\-\-path\fR \fI<PATH>\fR [default: .]
+软件包的下载路径

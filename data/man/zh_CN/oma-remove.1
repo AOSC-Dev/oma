@@ -1,0 +1,45 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH oma-remove 1  "remove " 
+.SH NAME
+remove \- 删除软件包
+.SH SYNOPSIS
+\fBremove\fR [\fB\-y\fR|\fB\-\-yes\fR] [\fB\-f\fR|\fB\-\-fix\-broken\fR] [\fB\-\-fix\-dpkg\-status\fR] [\fB\-\-force\-unsafe\-io\fR] [\fB\-\-force\-yes\fR] [\fB\-\-force\-confnew\fR] [\fB\-\-no\-autoremove\fR] [\fB\-\-remove\-config\fR] [\fB\-\-no\-clean\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fIPACKAGES\fR] 
+.SH DESCRIPTION
+删除软件包
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.SH 参数
+.TP
+[\fIPACKAGES\fR]
+要移除的软件包
+.SH 选项
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+跳过确认提示符
+.TP
+\fB\-f\fR, \fB\-\-fix\-broken\fR
+解决系统中的依赖问题
+.TP
+\fB\-\-fix\-dpkg\-status\fR
+修复 dpkg 的 "损坏 (broken)" 状态
+.TP
+\fB\-\-force\-unsafe\-io\fR
+执行软件包更改时不开启 fsync(2)（数据不会定期落盘，非常危险但操作更快）
+.TP
+\fB\-\-force\-yes\fR
+忽略软件源及软件包依赖问题
+.TP
+\fB\-\-force\-confnew\fR
+使用软件包中附带的配置文件替代系统中的配置文件（等效于 `dpkg \-\-force\-confnew`）
+.TP
+\fB\-\-no\-autoremove\fR
+不要自动删除不再需要的软件包
+.TP
+\fB\-\-remove\-config\fR
+在移除软件包时同时清除配置文件（类似 `apt purge\*(Aq）
+.TP
+\fB\-\-no\-clean\fR
+不要清理本地软件包缓存
