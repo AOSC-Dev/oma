@@ -57,16 +57,13 @@ jobs:
         run: cargo build --no-default-features --features nice-setup
       - name: Test
         run: cargo test --workspace
-  manpages:
-    runs-on: ubuntu-latest
-    steps:
       - name: Generate manpages
         run: |
           mkdir -p ./data/man/zh_CN ./data/man/zh_TW ./data/man/en_US
 
-          LANG=C ./target/release/oma generate-manpages --path ./data
-          LANG=zh_CN.UTF-8 ./target/release/oma generate-manpages --path ./data
-          LANG=zh_TW.UTF-8 ./target/release/oma generate-manpages --path ./data
+          LANG=C ./target/debug/oma generate-manpages --path ./data
+          LANG=zh_CN.UTF-8 ./target/debug/oma generate-manpages --path ./data
+          LANG=zh_TW.UTF-8 ./target/debug/oma generate-manpages --path ./data
       - name: Commit and Push changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
