@@ -90,6 +90,9 @@ _parse_os_release() {
 			# Ubuntu >= 25.04 uses libapt-pkg7.0
 			_oma_codename='plucky'
 			_non_lts='1'
+		elif [ "$VERSION_ID" = '26.04' ]; then
+			_oma_codename='resolute'
+			_non_lts='0'
 		else
 			echo "
 >>> oma 暂不支持 Ubuntu ${VERSION_ID}，抱歉！
