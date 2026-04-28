@@ -50,3 +50,4 @@ flume = "0.12"
 rustls = ["reqwest/rustls-no-provider", "dep:rustls"]
 native-tls = ["reqwest/native-tls"]
 default = ["rustls"]
+xz-parallel = ["async-compression/xz-parallel"]

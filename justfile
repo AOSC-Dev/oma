@@ -1,5 +1,12 @@
+has_modern_lzma := `pkg-config --atleast-version=5.4 liblzma && echo "true" || echo "false"`
+features := if has_modern_lzma == "true" {
+    "nice-setup decompress-parallel"
+} else {
+    "nice-setup"
+}
+
 deb:
-    cargo build --release --no-default-features --features nice-setup
+    cargo build --release --no-default-features --features "{{ features }}"
     mkdir -pv completions
     COMPLETE=bash ./target/release/oma > completions/oma.bash
     COMPLETE=zsh ./target/release/oma > completions/_oma
@@ -7,4 +14,4 @@ deb:
     LANG=C ./target/release/oma generate-manpages
     LANG=zh_CN.UTF-8 ./target/release/oma generate-manpages
     LANG=zh_TW.UTF-8 ./target/release/oma generate-manpages
-    cargo deb -Z xz
+    cargo deb -Z xz --features "{{ features }}"
