@@ -14,7 +14,7 @@ jobs:
             "arm64v8/ubuntu:20.04",
             "arm64v8/ubuntu:22.04",
             "arm64v8/ubuntu:24.04",
-            "arm64v8/ubuntu:25.04",
+            "arm64v8/ubuntu:26.04",
             "arm64v8/debian:11",
             "arm64v8/debian:12",
             "arm64v8/debian:13",
@@ -87,8 +87,8 @@ jobs:
               'arm64v8/ubuntu:24.04')
                   CODENAME='noble'
                   ;;
-              'arm64v8/ubuntu:25.04')
-                  CODENAME='plucky'
+              'arm64v8/ubuntu:26.04')
+                  CODENAME='resolute'
                   ;;
               'linuxdeepin/deepin:beige-arm64-v1.4.0')
                   CODENAME='beige'
