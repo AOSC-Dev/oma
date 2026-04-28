@@ -103,6 +103,7 @@ aosc = [
     "dep:oma-mirror",
     "reqwest/blocking",
     "dep:oma-tum",
+    "decompress-parallel",
 ]
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
@@ -122,6 +123,7 @@ openssl = [
 ]
 nice-setup = ["sequoia-nettle-backend", "rustls", "oma-refresh/apt"]
 openssl-setup = ["sequoia-openssl-backend", "openssl", "oma-refresh/apt"]
+decompress-parallel = ["oma-fetch/xz-parallel"]
 default = ["aosc", "nice-setup"]
 
 [workspace]
