@@ -203,7 +203,7 @@ impl CliExecuter for Remove {
         handle_no_result(no_result, config.no_progress())?;
 
         let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
+        let auth_config = auth_config.as_ref().as_ref();
 
         CommitChanges::builder()
             .apt(apt)

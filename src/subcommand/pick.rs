@@ -90,13 +90,11 @@ impl CliExecuter for Pick {
         let apt_config = AptConfig::new();
 
         let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
-                .maybe_auth_config(auth_config)
+                .auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }
@@ -182,7 +180,7 @@ impl CliExecuter for Pick {
             .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(auth_config)
+            .maybe_auth_config(auth_config.as_ref().as_ref())
             .download_only(download_only)
             .config(&config)
             .no_clean(no_clean)

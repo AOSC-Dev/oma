@@ -3,11 +3,11 @@ use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
 use crate::exit_handle::ExitHandle;
+use crate::subcommand::utils::auth_config;
 use clap_complete::ArgValueCompleter;
 use oma_pm::oma_apt::PackageSort;
 use spdlog::{debug, info, warn};
 
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
@@ -102,15 +102,12 @@ impl CliExecuter for Upgrade {
 
         let _fds = dbus_check(false, &config)?;
 
-        let apt_config = AptConfig::new();
-
-        let auth_config = AuthConfig::system(&config.sysroot)?;
+        let auth_config = auth_config(&config.sysroot);
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
-                .auth_config(&auth_config)
+                .auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }
@@ -187,7 +184,7 @@ impl CliExecuter for Upgrade {
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(Some(&auth_config))
+            .maybe_auth_config(auth_config.as_ref().as_ref())
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .is_upgrade(true)
