@@ -365,7 +365,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: Arc<impl AsyncFn(Event)>,
+        callback:  impl AsyncFn(Event) + Send + Sync + 'static + Clone,
     ) -> Result<(), RefreshError> {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
@@ -386,7 +386,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: Arc<impl AsyncFn(Event)>,
+        callback:  impl AsyncFn(Event) + Send + Sync + 'static + Clone,
     ) -> Result<(), RefreshError> {
         let msg = self.get_human_download_message(None)?;
 
@@ -472,7 +472,7 @@ impl MirrorSource {
                 index,
                 total,
                 download_dir,
-                callback.clone(),
+                callback,
             )
             .await
             .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
@@ -508,7 +508,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: Arc<impl AsyncFn(Event)>,
+        callback:  impl AsyncFn(Event) + Send + Sync + 'static + Clone,
     ) -> std::result::Result<(), SingleDownloadError> {
         let total_size = content_length(&resp);
 
@@ -555,7 +555,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: Arc<impl AsyncFn(Event)>,
+        callback:  impl AsyncFn(Event) + Send + Sync + 'static,
     ) -> Result<(), RefreshError> {
         let dist_path_with_protocol = self.dist_path();
         let dist_path = dist_path_with_protocol
@@ -676,7 +676,7 @@ impl MirrorSources {
         replacer: &DatabaseFilenameReplacer,
         download_dir: &Path,
         threads: usize,
-        callback: Arc<impl AsyncFn(Event)>,
+        callback: impl AsyncFn(Event) + Send + Sync + 'static + Clone,
     ) -> Vec<Result<(), RefreshError>> {
         let tasks = self.0.iter().enumerate().map(|(index, m)| {
             m.fetch(

@@ -136,7 +136,7 @@ impl OmaRefresh {
     #[cfg(feature = "blocking")]
     pub fn start_blocking(
         self,
-        callback: impl AsyncFn(Event) + Send + 'static,
+        callback: impl AsyncFn(Event) + Send + Sync + 'static,
     ) -> Result<Vec<SuccessSummary>> {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -147,7 +147,7 @@ impl OmaRefresh {
 
     pub async fn start(
         self,
-        callback: impl AsyncFn(Event) + Send + Sync + 'static,
+        callback: impl AsyncFn(Event) + Send + Sync + 'static + Clone,
     ) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
@@ -223,6 +223,7 @@ impl OmaRefresh {
         }
 
         let dc = self.download_dir.clone();
+        let dcc = self.download_dir.clone();
 
         // Create `apt update` file lock
         let _fd = spawn_blocking(move || get_file_lock(&dc.join("lock")))
@@ -234,12 +235,9 @@ impl OmaRefresh {
 
         let mut download_list = vec![];
 
-        let callback = Arc::new(callback);
-        let arc_self = Arc::new(self);
-
         let replacer = DatabaseFilenameReplacer::new()?;
         let mirror_sources =
-            Self::download_releases(arc_self.clone(), sourcelist, &replacer, callback.clone())
+            self.download_releases(sourcelist, &replacer, callback.clone())
                 .await?;
 
         let msc = mirror_sources.clone();
@@ -253,7 +251,7 @@ impl OmaRefresh {
         );
 
         let (tasks, total, optional_index_files) =
-            Self::collect_all_release_entry(arc_self.clone(), replacer, mirror_sources).await?;
+            self.collect_all_release_entry(replacer, mirror_sources).await?;
 
         debug!("oma will download source metadata: {tasks:#?}");
 
@@ -265,13 +263,11 @@ impl OmaRefresh {
             download_list.push(i.filename.clone());
         }
 
-        let dc = arc_self.download_dir.clone();
         let cc = callback.clone();
-        let ac = arc_self.clone();
 
         let (_, res) = tokio::join!(
-            remove_unused_db(dc, download_list),
-            Self::download_release_data(ac, cc, &tasks, total, optional_index_files)
+            remove_unused_db(dcc, download_list),
+            self.download_release_data(cc, &tasks, total, optional_index_files)
         );
 
         // 有元数据更新才执行 success invoke
@@ -281,7 +277,7 @@ impl OmaRefresh {
         if should_run_invoke {
             callback(Event::RunInvokeScript).await;
             #[cfg(feature = "apt")]
-            Self::run_success_post_invoke(arc_self).await;
+            self.run_success_post_invoke().await;
         }
 
         callback(Event::Done).await;
@@ -314,8 +310,8 @@ impl OmaRefresh {
     }
 
     async fn download_release_data(
-        self: Arc<OmaRefresh>,
-        callback: Arc<impl AsyncFn(Event)>,
+        &self,
+        callback: impl AsyncFn(Event) + Send + Sync + 'static + Clone,
         tasks: &[DownloadEntry],
         total: u64,
         optional_index_files: HashSet<String>,
@@ -361,7 +357,7 @@ impl OmaRefresh {
     }
 
     #[cfg(feature = "apt")]
-    async fn run_success_post_invoke(self: Arc<OmaRefresh>) {
+    async fn run_success_post_invoke(&self) {
         use spdlog::warn;
         use tokio::process::Command;
 
@@ -390,10 +386,10 @@ impl OmaRefresh {
     }
 
     async fn download_releases(
-        self: Arc<OmaRefresh>,
+        &self,
         sourcelist: Vec<OmaSourceEntry>,
         replacer: &DatabaseFilenameReplacer,
-        callback: Arc<impl AsyncFn(Event)>,
+        callback: impl AsyncFn(Event) + Send + Sync + 'static + Clone,
     ) -> Result<Arc<Mutex<MirrorSources>>> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
@@ -413,7 +409,7 @@ impl OmaRefresh {
                 replacer,
                 &self.download_dir,
                 self.threads,
-                callback.clone(),
+                callback.clone()
             )
             .await;
 
@@ -444,7 +440,7 @@ impl OmaRefresh {
 
         let mirror_sources = Arc::new(Mutex::new(mirror_sources));
 
-        self.refresh_topics(callback.clone(), not_found, mirror_sources.clone())
+        self.refresh_topics(callback, not_found, mirror_sources.clone())
             .await?;
 
         Ok(mirror_sources)
@@ -453,7 +449,7 @@ impl OmaRefresh {
     #[cfg(feature = "aosc")]
     async fn refresh_topics(
         &self,
-        callback: Arc<impl AsyncFn(Event)>,
+        callback: impl AsyncFn(Event) + Send + Sync + 'static + Clone,
         not_found: Vec<url::Url>,
         sources: Arc<Mutex<MirrorSources>>,
     ) -> Result<()> {
@@ -496,6 +492,7 @@ impl OmaRefresh {
         tm.write_enabled(false).await?;
 
         let cc = callback.clone();
+
         tm.write_sources_list(
             self.topic_msg.to_string(),
             false,
@@ -519,7 +516,7 @@ impl OmaRefresh {
     }
 
     async fn collect_all_release_entry(
-        self: Arc<OmaRefresh>,
+        &self,
         replacer: DatabaseFilenameReplacer,
         mirror_sources: Arc<Mutex<MirrorSources>>,
     ) -> Result<(Vec<DownloadEntry>, u64, HashSet<String>)> {
