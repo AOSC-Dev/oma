@@ -37,15 +37,9 @@ jobs:
           cd ./aosc-os-abbs/app-admin/oma
           git config user.name "eatradish"
           git config user.email "sakiiily@aosc.io"
-          # Check if the `oma-preview' branch exists, create if not.
-          if ! git rev-parse --verify origin/oma-preview > /dev/null; then
-              git checkout -b oma-preview
-          else
-              # Checkout the existing branch.
-              git checkout oma-preview
-              # Rebase the branch. Failing rebases will need to be handled manually.
-              git rebase stable
-          fi
+          # Unconditionally delete then create a new branch, since oma-preview is non-volatile.
+          git branch -D oma-preview
+          git checkout -b oma-preview
           # Get the baseline version.
           source ./spec
           # Note: Use tilde (~) to denote pre-release, allowing users to upgrade to a final release later.
