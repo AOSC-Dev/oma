@@ -3208,7 +3208,7 @@ dependencies = [
 
 [[package]]
 name = "oma-contents"
-version = "0.19.0"
+version = "0.19.1"
 dependencies = [
  "flate2",
  "lzzzz",
@@ -3224,7 +3224,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.36.2"
+version = "0.37.0"
 dependencies = [
  "async-compression",
  "bon",
@@ -3276,7 +3276,7 @@ dependencies = [
 
 [[package]]
 name = "oma-mirror"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "ahash",
  "indexmap",
@@ -3290,7 +3290,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.62.0"
+version = "0.63.0"
 dependencies = [
  "ahash",
  "apt-auth-config",
@@ -3330,7 +3330,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.54.6"
+version = "0.55.0"
 dependencies = [
  "ahash",
  "aho-corasick",
