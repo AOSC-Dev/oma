@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use clap::Args;
 use oma_history::{DATABASE_PATH, HistoryEntry};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
@@ -55,22 +54,20 @@ impl CliExecuter for History {
     }
 }
 
-fn tui(list: &[HistoryEntry], first_selected: usize) -> Result<Option<usize>, OutputError> {
-    let tui = HistorySelectTui::new(list, first_selected)?;
-    enable_raw_mode().map_err(|e| anyhow!("{e}"))?;
+fn tui(list: &[HistoryEntry], first_selected: usize) -> anyhow::Result<Option<usize>> {
+    let tui = HistorySelectTui::new(list, first_selected);
+    enable_raw_mode()?;
     let height = WRITER.get_height();
     let options = TerminalOptions {
         viewport: Viewport::Inline(if height >= 24 { 24 } else { height }),
     };
 
-    let mut terminal = ratatui::try_init_with_options(options).map_err(|e| anyhow!("{e}"))?;
-    let selected = tui
-        .run(&mut terminal, Duration::from_millis(250))
-        .map_err(|e| anyhow!("{e}"))?;
+    let mut terminal = ratatui::try_init_with_options(options)?;
+    let selected = tui.run(&mut terminal, Duration::from_millis(250))?;
 
-    terminal.clear().map_err(|e| anyhow!("{e}"))?;
-    disable_raw_mode().map_err(|e| anyhow!("{e}"))?;
-    terminal.show_cursor().map_err(|e| anyhow!("{e}"))?;
+    terminal.clear()?;
+    disable_raw_mode()?;
+    terminal.show_cursor()?;
 
     Ok(selected)
 }

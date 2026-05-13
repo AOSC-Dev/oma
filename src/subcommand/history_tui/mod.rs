@@ -25,7 +25,7 @@ use ratatui::{
 use spdlog::debug;
 use terminfo::{Database, capability::MaxColors};
 
-use crate::{WRITER, error::OutputError, fl, subcommand::history_tui::state::StatefulList};
+use crate::{WRITER, fl, subcommand::history_tui::state::StatefulList};
 
 pub struct HistorySelectTui<'a> {
     history: StatefulList<'a, HistoryEntry>,
@@ -36,7 +36,7 @@ pub struct HistorySelectTui<'a> {
 }
 
 impl<'a> HistorySelectTui<'a> {
-    pub fn new(entries: &'a [HistoryEntry], first_selected: usize) -> Result<Self, OutputError> {
+    pub fn new(entries: &'a [HistoryEntry], first_selected: usize) -> Self {
         let len = entries.len();
         let true_colors = Database::from_env()
             .inspect_err(|e| debug!("Failed to get terminfo: {e}"))
@@ -45,7 +45,7 @@ impl<'a> HistorySelectTui<'a> {
             .inspect(|MaxColors(n)| debug!("Terminal max colors: {n}"))
             .is_some_and(|MaxColors(n)| n >= 256);
 
-        Ok(Self {
+        Self {
             history: StatefulList::with_items(entries),
             scroll_state: ScrollbarState::new(len),
             first_selected,
@@ -55,7 +55,7 @@ impl<'a> HistorySelectTui<'a> {
             } else {
                 Color::Blue
             },
-        })
+        }
     }
 
     pub fn run<B: Backend>(
