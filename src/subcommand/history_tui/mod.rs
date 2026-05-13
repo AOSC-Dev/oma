@@ -3,6 +3,7 @@ mod state;
 
 use std::{
     io,
+    ops::ControlFlow,
     time::{Duration, Instant},
 };
 
@@ -14,10 +15,11 @@ use ratatui::{
     crossterm::event,
     layout::{Constraint, Layout},
     style::{Color, Style},
-    widgets::{Block, Borders, Row, ScrollbarState, Table},
+    text::{Line, Text},
+    widgets::{Block, Borders, Paragraph, Row, ScrollbarState, Table},
 };
 
-use crate::{error::OutputError, subcommand::history_tui::state::StatefulList};
+use crate::{WRITER, error::OutputError, subcommand::history_tui::state::StatefulList};
 
 pub struct HistorySelectTui<'a> {
     history: StatefulList<'a, HistoryEntry>,
@@ -54,8 +56,8 @@ impl<'a> HistorySelectTui<'a> {
                 };
 
                 match self.handle_key_event(key) {
-                    std::ops::ControlFlow::Continue(()) => continue,
-                    std::ops::ControlFlow::Break(selected) => return Ok(selected),
+                    ControlFlow::Continue(()) => continue,
+                    ControlFlow::Break(selected) => return Ok(selected),
                 };
             }
 
@@ -68,12 +70,29 @@ impl<'a> HistorySelectTui<'a> {
     fn ui(&mut self, f: &mut Frame) {
         let main_layout = Layout::default()
             .direction(ratatui::layout::Direction::Horizontal)
-            .constraints([Constraint::Length(120)])
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(f.area());
 
+        let cmd_len = (WRITER.get_max_len() as f32 * 0.5 * 0.42) as usize;
+
         let items = self.history.items.iter().map(|item| {
+            let cmd = textwrap::wrap(&item.command, cmd_len)
+                .iter()
+                .next()
+                .map(|s| {
+                    // 3 是 ... 的长度
+                    // 2 是左右两边边框的长度
+                    // 2 是 Command 左右两边空格的长度
+                    if s.len() <= cmd_len - 3 - 2 - 2 {
+                        s.to_string()
+                    } else {
+                        format!("{s}...")
+                    }
+                })
+                .unwrap_or_else(|| item.command.clone());
+
             Row::new(vec![
-                item.command.clone(),
+                cmd,
                 if item.is_success { "✅" } else { "❌" }.to_string(),
                 {
                     let mut operation = vec![];
@@ -105,7 +124,12 @@ impl<'a> HistorySelectTui<'a> {
             ])
         });
 
-        let widths = [Constraint::Percentage(25); 4];
+        let widths = [
+            Constraint::Percentage(42),
+            Constraint::Percentage(6),
+            Constraint::Percentage(10),
+            Constraint::Percentage(42),
+        ];
 
         let table = Table::new(items, widths)
             .header(
@@ -118,5 +142,51 @@ impl<'a> HistorySelectTui<'a> {
             .row_highlight_style(Style::new().bg(Color::Blue));
 
         f.render_stateful_widget(table, main_layout[0], &mut self.history.state);
+
+        let selected = self.history.state.selected().unwrap_or(0);
+        let entry = &self.history.items[selected];
+        let mut display = vec![];
+
+        if entry.is_success {
+            display.push(Line::raw("Installation Succeeded"));
+        } else {
+            display.push(Line::raw("Installation Failed"));
+        }
+
+        let mut operations = vec![];
+        if entry.install_count > 0 {
+            operations.push(format!("{} installed", entry.install_count));
+        }
+
+        if entry.upgrade_count > 0 {
+            operations.push(format!("{} upgraded", entry.upgrade_count));
+        }
+
+        if entry.downgrade_count > 0 {
+            operations.push(format!("{} downgraded", entry.downgrade_count));
+        }
+
+        if entry.remove_count > 0 {
+            operations.push(format!("{} removed", entry.remove_count));
+        }
+
+        if entry.reinstall_count > 0 {
+            operations.push(format!("{} reinstalled", entry.reinstall_count));
+        }
+
+        if !operations.is_empty() {
+            display.push(Line::raw(operations.join(", ")));
+        }
+
+        if !entry.command.is_empty() {
+            display.push(Line::raw(""));
+            display.push(Line::raw("Command Line:"));
+            display.push(Line::raw(&entry.command));
+        }
+
+        f.render_widget(
+            Paragraph::new(Text::from(display)).block(Block::bordered()),
+            main_layout[1],
+        );
     }
 }
