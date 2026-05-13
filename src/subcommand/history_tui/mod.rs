@@ -21,6 +21,8 @@ use ratatui::{
         Table, Wrap,
     },
 };
+use spdlog::debug;
+use terminfo::{Database, capability::MaxColors};
 
 use crate::{error::OutputError, subcommand::history_tui::state::StatefulList};
 
@@ -29,16 +31,29 @@ pub struct HistorySelectTui<'a> {
     scroll_state: ScrollbarState,
     first_selected: usize,
     page_size: usize,
+    select_color: Color,
 }
 
 impl<'a> HistorySelectTui<'a> {
     pub fn new(entries: &'a [HistoryEntry], first_selected: usize) -> Result<Self, OutputError> {
         let len = entries.len();
+        let true_colors = Database::from_env()
+            .inspect_err(|e| debug!("Failed to get terminfo: {e}"))
+            .ok()
+            .and_then(|terminfo| terminfo.get::<MaxColors>())
+            .inspect(|MaxColors(n)| debug!("Terminal max colors: {n}"))
+            .is_some_and(|MaxColors(n)| n >= 256);
+
         Ok(Self {
             history: StatefulList::with_items(entries),
             scroll_state: ScrollbarState::new(len),
             first_selected,
             page_size: 0,
+            select_color: if true_colors {
+                Color::Rgb(59, 64, 70)
+            } else {
+                Color::Blue
+            },
         })
     }
 
@@ -153,7 +168,7 @@ impl<'a> HistorySelectTui<'a> {
             )
             // 设置外部边框
             .block(Block::default().title("History List").borders(Borders::ALL))
-            .row_highlight_style(Style::new().bg(Color::Rgb(59, 64, 70)));
+            .row_highlight_style(Style::new().bg(self.select_color));
 
         f.render_stateful_widget(table, main_layout[0], &mut self.history.state);
         f.render_stateful_widget(
