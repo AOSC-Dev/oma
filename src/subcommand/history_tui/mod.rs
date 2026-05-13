@@ -15,8 +15,8 @@ use ratatui::{
     crossterm::event,
     layout::{Constraint, Layout},
     style::{Color, Style},
-    text::{Line, Text},
-    widgets::{Block, Borders, Paragraph, Row, ScrollbarState, Table},
+    text::Line,
+    widgets::{Block, Borders, Paragraph, Row, ScrollbarState, Table, Wrap},
 };
 
 use crate::{WRITER, error::OutputError, subcommand::history_tui::state::StatefulList};
@@ -73,7 +73,7 @@ impl<'a> HistorySelectTui<'a> {
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(f.area());
 
-        let cmd_len = (WRITER.get_max_len() as f32 * 0.5 * 0.42) as usize;
+        let cmd_len = (WRITER.get_max_len() as f32 * 0.5 * 0.4) as usize;
 
         let items = self.history.items.iter().map(|item| {
             let cmd = textwrap::wrap(&item.command, cmd_len)
@@ -93,7 +93,7 @@ impl<'a> HistorySelectTui<'a> {
 
             Row::new(vec![
                 cmd,
-                if item.is_success { "✅" } else { "❌" }.to_string(),
+                if item.is_success { "Succeed" } else { "Failed" }.to_string(),
                 {
                     let mut operation = vec![];
                     if item.install_count != 0 {
@@ -125,10 +125,10 @@ impl<'a> HistorySelectTui<'a> {
         });
 
         let widths = [
-            Constraint::Percentage(42),
-            Constraint::Percentage(6),
+            Constraint::Percentage(40),
             Constraint::Percentage(10),
-            Constraint::Percentage(42),
+            Constraint::Percentage(10),
+            Constraint::Percentage(40),
         ];
 
         let table = Table::new(items, widths)
@@ -185,7 +185,9 @@ impl<'a> HistorySelectTui<'a> {
         }
 
         f.render_widget(
-            Paragraph::new(Text::from(display)).block(Block::bordered()),
+            Paragraph::new(display)
+                .block(Block::bordered())
+                .wrap(Wrap { trim: true }),
             main_layout[1],
         );
     }
