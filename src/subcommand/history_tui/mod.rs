@@ -28,6 +28,7 @@ pub struct HistorySelectTui<'a> {
     history: StatefulList<'a, HistoryEntry>,
     scroll_state: ScrollbarState,
     first_selected: usize,
+    page_size: usize,
 }
 
 impl<'a> HistorySelectTui<'a> {
@@ -37,6 +38,7 @@ impl<'a> HistorySelectTui<'a> {
             history: StatefulList::with_items(entries),
             scroll_state: ScrollbarState::new(len),
             first_selected,
+            page_size: 0,
         })
     }
 
@@ -77,6 +79,7 @@ impl<'a> HistorySelectTui<'a> {
             .split(f.area());
 
         let cmd_column_width = ((main_layout[0].width as f32 * 0.4) as usize).saturating_sub(3);
+        self.page_size = main_layout[0].height.saturating_sub(4) as usize;
 
         let items = self.history.items.iter().map(|item| {
             let cmd_display = if item.command.len() > cmd_column_width && cmd_column_width > 3 {

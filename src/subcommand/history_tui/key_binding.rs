@@ -19,6 +19,17 @@ impl<'a> HistorySelectTui<'a> {
             KeyCode::Up => {
                 self.history.previous();
             }
+            KeyCode::PageDown => {
+                let i = self.history.state.selected().unwrap_or(0);
+                let len = self.history.items.len();
+                let new_index = (i + self.page_size).min(len.saturating_sub(1));
+                self.history.state.select(Some(new_index));
+            }
+            KeyCode::PageUp => {
+                let i = self.history.state.selected().unwrap_or(0);
+                let new_index = i.saturating_sub(self.page_size);
+                self.history.state.select(Some(new_index));
+            }
             KeyCode::Char(' ') | KeyCode::Enter => {
                 return ControlFlow::Break(self.history.state.selected());
             }
