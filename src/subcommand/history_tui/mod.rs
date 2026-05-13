@@ -24,7 +24,7 @@ use ratatui::{
 use spdlog::debug;
 use terminfo::{Database, capability::MaxColors};
 
-use crate::{error::OutputError, subcommand::history_tui::state::StatefulList};
+use crate::{WRITER, error::OutputError, subcommand::history_tui::state::StatefulList};
 
 pub struct HistorySelectTui<'a> {
     history: StatefulList<'a, HistoryEntry>,
@@ -89,7 +89,13 @@ impl<'a> HistorySelectTui<'a> {
 
     fn ui(&mut self, f: &mut Frame) {
         let main_layout = Layout::default()
-            .direction(Direction::Horizontal)
+            .direction({
+                if WRITER.get_length() <= 117 {
+                    Direction::Vertical
+                } else {
+                    Direction::Horizontal
+                }
+            })
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(f.area());
 

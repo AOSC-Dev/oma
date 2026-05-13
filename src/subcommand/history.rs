@@ -1,13 +1,12 @@
 use anyhow::anyhow;
 use clap::Args;
-use oma_console::pager::exit_tui;
 use oma_history::{DATABASE_PATH, HistoryEntry};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::oma_apt::PackageSort;
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
-use ratatui::crossterm::terminal::enable_raw_mode;
+use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use ratatui::{TerminalOptions, Viewport};
 use spdlog::warn;
 use std::time::Duration;
@@ -59,8 +58,9 @@ impl CliExecuter for History {
 fn tui(list: &[HistoryEntry], first_selected: usize) -> Result<Option<usize>, OutputError> {
     let tui = HistorySelectTui::new(list, first_selected)?;
     enable_raw_mode().map_err(|e| anyhow!("{e}"))?;
+    let height = WRITER.get_height();
     let options = TerminalOptions {
-        viewport: Viewport::Inline(WRITER.get_height() / 4),
+        viewport: Viewport::Inline(if height >= 24 { 24 } else { height }),
     };
 
     let mut terminal = ratatui::try_init_with_options(options).map_err(|e| anyhow!("{e}"))?;
@@ -69,8 +69,8 @@ fn tui(list: &[HistoryEntry], first_selected: usize) -> Result<Option<usize>, Ou
         .map_err(|e| anyhow!("{e}"))?;
 
     terminal.clear().map_err(|e| anyhow!("{e}"))?;
-
-    exit_tui(&mut terminal).map_err(|e| anyhow!("{e}"))?;
+    disable_raw_mode().map_err(|e| anyhow!("{e}"))?;
+    terminal.show_cursor().map_err(|e| anyhow!("{e}"))?;
 
     Ok(selected)
 }
