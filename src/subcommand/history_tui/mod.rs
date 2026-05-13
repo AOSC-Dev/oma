@@ -4,6 +4,7 @@ mod state;
 use std::{
     io,
     ops::ControlFlow,
+    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -13,7 +14,7 @@ use ratatui::{
     Frame, Terminal,
     backend::Backend,
     crossterm::event,
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
     text::{Line, Span},
     widgets::{
@@ -24,7 +25,7 @@ use ratatui::{
 use spdlog::debug;
 use terminfo::{Database, capability::MaxColors};
 
-use crate::{WRITER, error::OutputError, subcommand::history_tui::state::StatefulList};
+use crate::{WRITER, error::OutputError, fl, subcommand::history_tui::state::StatefulList};
 
 pub struct HistorySelectTui<'a> {
     history: StatefulList<'a, HistoryEntry>,
@@ -88,6 +89,11 @@ impl<'a> HistorySelectTui<'a> {
     }
 
     fn ui(&mut self, f: &mut Frame) {
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .split(f.area());
+
         let main_layout = Layout::default()
             .direction({
                 if WRITER.get_length() <= 117 {
@@ -97,7 +103,7 @@ impl<'a> HistorySelectTui<'a> {
                 }
             })
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(f.area());
+            .split(layout[0]);
 
         let cmd_column_width = ((main_layout[0].width as f32 * 0.4) as usize).saturating_sub(3);
         self.page_size = main_layout[0].height.saturating_sub(4) as usize;
@@ -232,5 +238,39 @@ impl<'a> HistorySelectTui<'a> {
                 .wrap(Wrap { trim: true }),
             main_layout[1],
         );
+
+        render_tips(f, layout);
+    }
+}
+
+fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>) {
+    match WRITER.get_length() {
+        0..=62 => {}
+        63..=153 => {
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::raw("Quicknav: "),
+                    Span::styled("Enter", Style::new().blue()),
+                    Span::raw(" / "),
+                    Span::styled("Space", Style::new().blue()),
+                    Span::raw(" / "),
+                    Span::styled("Ctrl+C", Style::new().blue()),
+                    Span::raw(" / "),
+                    Span::styled("Esc", Style::new().blue()),
+                ])),
+                layout[1],
+            );
+        }
+        154.. => {
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled("Enter/Space", Style::new().blue()),
+                    Span::raw(format!(" => Display history detail, ")),
+                    Span::styled("ESC/Ctrl+C", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-start-7"))),
+                ])),
+                layout[1],
+            );
+        }
     }
 }
