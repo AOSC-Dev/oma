@@ -15,10 +15,10 @@ use ratatui::{
     crossterm::event,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
-    text::Line,
+    text::{Line, Span},
     widgets::{
-        Block, Borders, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table,
-        Wrap,
+        Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
+        Table, Wrap,
     },
 };
 
@@ -89,26 +89,43 @@ impl<'a> HistorySelectTui<'a> {
             };
 
             Row::new(vec![
-                cmd_display,
-                if item.is_success { "√ " } else { "✖️" }.to_string(),
+                Cell::new(cmd_display),
+                if item.is_success {
+                    Cell::new("✓").style(Color::Green)
+                } else {
+                    Cell::new("X").style(Color::Red)
+                },
                 {
                     let mut operation = vec![];
                     if item.install_count != 0 {
-                        operation.push("I");
+                        operation.push(Span::from("I").style(Color::Green));
                     }
                     if item.remove_count != 0 {
-                        operation.push("R");
+                        operation.push(Span::from("R").style(Color::Red));
                     }
                     if item.upgrade_count != 0 {
-                        operation.push("U");
+                        operation.push(Span::from("U").style(Color::Cyan));
                     }
                     if item.downgrade_count != 0 {
-                        operation.push("D");
+                        operation.push(Span::from("D").style(Color::Yellow));
                     }
                     if item.reinstall_count != 0 {
-                        operation.push("Re");
+                        operation.push(Span::from("Re").style(Color::Gray));
                     }
-                    operation.join(",")
+
+                    let line: Line = operation
+                        .into_iter()
+                        .enumerate()
+                        .flat_map(|(i, span)| {
+                            if i > 0 {
+                                vec![Span::raw(","), span]
+                            } else {
+                                vec![span]
+                            }
+                        })
+                        .collect();
+
+                    Cell::from(line)
                 },
                 {
                     let dt = match Local.timestamp_opt(item.time, 0) {
@@ -116,7 +133,7 @@ impl<'a> HistorySelectTui<'a> {
                         x => x.unwrap(),
                     };
 
-                    dt.format("%H:%M:%S on %Y-%m-%d").to_string()
+                    Cell::new(dt.format("%H:%M:%S on %Y-%m-%d").to_string())
                 },
             ])
         });
@@ -136,7 +153,7 @@ impl<'a> HistorySelectTui<'a> {
             )
             // 设置外部边框
             .block(Block::default().title("History List").borders(Borders::ALL))
-            .row_highlight_style(Style::new().bg(Color::Blue));
+            .row_highlight_style(Style::new().bg(Color::Rgb(59, 64, 70)));
 
         f.render_stateful_widget(table, main_layout[0], &mut self.history.state);
         f.render_stateful_widget(
