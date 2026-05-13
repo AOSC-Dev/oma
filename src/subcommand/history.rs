@@ -3,15 +3,19 @@ use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
 use dialoguer::{Select, theme::ColorfulTheme};
+use oma_console::pager::exit_tui;
 use oma_history::{DATABASE_PATH, HistoryEntry};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::oma_apt::PackageSort;
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
+use ratatui::crossterm::terminal::enable_raw_mode;
+use ratatui::{TerminalOptions, Viewport};
 use spdlog::warn;
-use std::sync::atomic::Ordering;
+use std::time::Duration;
 
+use crate::WRITER;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
@@ -19,9 +23,9 @@ use crate::exit_handle::ExitHandle;
 #[cfg(feature = "aosc")]
 use crate::exit_handle::ExitStatus;
 use crate::menu::{select_tui_display_msg, tui_select_list_size};
+use crate::subcommand::history_tui::HistorySelectTui;
 use crate::{
-    NOT_DISPLAY_ABORT, dbus::dbus_check, error::OutputError, fl, root::root,
-    table::table_for_history_pending,
+    dbus::dbus_check, error::OutputError, fl, root::root, table::table_for_history_pending,
 };
 
 use super::utils::{auth_config, handle_no_result, lock_oma};
@@ -36,30 +40,43 @@ impl CliExecuter for History {
             oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
 
         let list = history.list()?;
-        let display_list = format_summary_log(&list, false)
-            .into_iter()
-            .map(|x| x.0)
-            .collect::<Vec<_>>();
 
-        NOT_DISPLAY_ABORT.store(true, Ordering::Relaxed);
-
-        let mut old_selected = 0;
+        let mut first_selected = 0;
 
         loop {
-            let selected =
-                dialoguer_select_history(&display_list, old_selected).map_err(|_| anyhow!(""))?;
-            old_selected = selected;
+            let selected = tui(&list, first_selected)?;
 
-            let selected = &list[selected];
-            let id = selected.id;
-            let op = history.find_history_by_id(id)?;
-            let install = &op.install;
-            let remove = &op.remove;
-            let disk_size = op.disk_size;
-
-            table_for_history_pending(install, remove, disk_size)?;
+            match selected {
+                Some(selected) => {
+                    let entry = &list[selected];
+                    let id = entry.id;
+                    let entry = history.find_history_by_id(id)?;
+                    table_for_history_pending(&entry.install, &entry.remove, entry.disk_size)?;
+                    first_selected = selected;
+                }
+                None => return Ok(ExitHandle::default()),
+            }
         }
     }
+}
+
+fn tui(list: &[HistoryEntry], first_selected: usize) -> Result<Option<usize>, OutputError> {
+    let tui = HistorySelectTui::new(list, first_selected)?;
+    enable_raw_mode().map_err(|e| anyhow!("{e}"))?;
+    let options = TerminalOptions {
+        viewport: Viewport::Inline(WRITER.get_height() / 4),
+    };
+
+    let mut terminal = ratatui::try_init_with_options(options).map_err(|e| anyhow!("{e}"))?;
+    let selected = tui
+        .run(&mut terminal, Duration::from_millis(250))
+        .map_err(|e| anyhow!("{e}"))?;
+
+    terminal.clear().map_err(|e| anyhow!("{e}"))?;
+
+    exit_tui(&mut terminal).map_err(|e| anyhow!("{e}"))?;
+
+    Ok(selected)
 }
 
 #[derive(Debug, Args)]
