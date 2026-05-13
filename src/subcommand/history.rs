@@ -38,7 +38,7 @@ impl CliExecuter for History {
         let mut first_selected = 0;
 
         loop {
-            let selected = tui(&list, first_selected)?;
+            let selected = tui(&list, first_selected, false)?;
 
             match selected {
                 Some(selected) => {
@@ -54,8 +54,8 @@ impl CliExecuter for History {
     }
 }
 
-fn tui(list: &[HistoryEntry], first_selected: usize) -> anyhow::Result<Option<usize>> {
-    let tui = HistorySelectTui::new(list, first_selected);
+fn tui(list: &[HistoryEntry], first_selected: usize, undo: bool) -> anyhow::Result<Option<usize>> {
+    let tui = HistorySelectTui::new(list, first_selected, undo);
     enable_raw_mode()?;
     let height = WRITER.get_height();
     let options = TerminalOptions {
@@ -139,7 +139,7 @@ impl CliExecuter for Undo {
             .filter(|e| !e.is_undo)
             .collect::<Vec<_>>();
 
-        let selected = tui(&list, 0)?.expect("expect");
+        let selected = tui(&list, 0, true)?.expect("expect");
 
         let selected = &list[selected];
         let id = selected.id;

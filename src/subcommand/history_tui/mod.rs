@@ -33,10 +33,11 @@ pub struct HistorySelectTui<'a> {
     first_selected: usize,
     page_size: usize,
     select_color: Color,
+    undo: bool,
 }
 
 impl<'a> HistorySelectTui<'a> {
-    pub fn new(entries: &'a [HistoryEntry], first_selected: usize) -> Self {
+    pub fn new(entries: &'a [HistoryEntry], first_selected: usize, undo: bool) -> Self {
         let len = entries.len();
         let true_colors = Database::from_env()
             .inspect_err(|e| debug!("Failed to get terminfo: {e}"))
@@ -55,6 +56,7 @@ impl<'a> HistorySelectTui<'a> {
             } else {
                 Color::Blue
             },
+            undo,
         }
     }
 
@@ -239,38 +241,42 @@ impl<'a> HistorySelectTui<'a> {
             main_layout[1],
         );
 
-        render_tips(f, layout);
+        render_tips(f, layout, self.undo);
     }
 }
 
-fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>) {
-    match WRITER.get_length() {
-        0..=62 => {}
-        63..=153 => {
-            f.render_widget(
-                Paragraph::new(Line::from(vec![
-                    Span::raw("Quicknav: "),
-                    Span::styled("Enter", Style::new().blue()),
-                    Span::raw(" / "),
-                    Span::styled("Space", Style::new().blue()),
-                    Span::raw(" / "),
-                    Span::styled("Ctrl+C", Style::new().blue()),
-                    Span::raw(" / "),
-                    Span::styled("Esc", Style::new().blue()),
-                ])),
-                layout[1],
-            );
+fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
+    if !undo {
+        match WRITER.get_length() {
+            0..=62 => {}
+            63..=153 => {
+                f.render_widget(
+                    Paragraph::new(Line::from(vec![
+                        Span::raw("Quicknav: "),
+                        Span::styled("Enter", Style::new().blue()),
+                        Span::raw(" / "),
+                        Span::styled("Space", Style::new().blue()),
+                        Span::raw(" / "),
+                        Span::styled("Ctrl+C", Style::new().blue()),
+                        Span::raw(" / "),
+                        Span::styled("Esc", Style::new().blue()),
+                    ])),
+                    layout[1],
+                );
+            }
+            154.. => {
+                f.render_widget(
+                    Paragraph::new(Line::from(vec![
+                        Span::styled("Enter/Space", Style::new().blue()),
+                        Span::raw(format!(" => {}, ", fl!("history-detail"))),
+                        Span::styled("ESC/Ctrl+C", Style::new().blue()),
+                        Span::raw(format!(" => {}", fl!("tui-start-7"))),
+                    ])),
+                    layout[1],
+                );
+            }
         }
-        154.. => {
-            f.render_widget(
-                Paragraph::new(Line::from(vec![
-                    Span::styled("Enter/Space", Style::new().blue()),
-                    Span::raw(format!(" => {}, ", fl!("history-detail"))),
-                    Span::styled("ESC/Ctrl+C", Style::new().blue()),
-                    Span::raw(format!(" => {}", fl!("tui-start-7"))),
-                ])),
-                layout[1],
-            );
-        }
+    } else {
+        // TODO
     }
 }
