@@ -265,7 +265,7 @@ fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>) {
             f.render_widget(
                 Paragraph::new(Line::from(vec![
                     Span::styled("Enter/Space", Style::new().blue()),
-                    Span::raw(format!(" => Display history detail, ")),
+                    Span::raw(format!(" => {}, ", fl!("history-detail"))),
                     Span::styled("ESC/Ctrl+C", Style::new().blue()),
                     Span::raw(format!(" => {}", fl!("tui-start-7"))),
                 ])),
