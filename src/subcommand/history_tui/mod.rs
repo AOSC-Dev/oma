@@ -16,7 +16,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     text::Line,
-    widgets::{Block, Borders, Paragraph, Row, ScrollbarState, Table, Wrap},
+    widgets::{Block, Borders, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table, Wrap},
 };
 
 use crate::{error::OutputError, subcommand::history_tui::state::StatefulList};
@@ -133,6 +133,14 @@ impl<'a> HistorySelectTui<'a> {
             .row_highlight_style(Style::new().bg(Color::Blue));
 
         f.render_stateful_widget(table, main_layout[0], &mut self.history.state);
+                f.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .begin_symbol(Some("↑"))
+                .end_symbol(Some("↓")),
+            main_layout[0],
+            &mut self.scroll_state,
+        );
+
 
         let selected = self.history.state.selected().unwrap_or(0);
         let entry = &self.history.items[selected];
