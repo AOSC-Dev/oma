@@ -13,13 +13,13 @@ use ratatui::{
     Frame, Terminal,
     backend::Backend,
     crossterm::event,
-    layout::{Constraint, Layout},
+    layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     text::Line,
     widgets::{Block, Borders, Paragraph, Row, ScrollbarState, Table, Wrap},
 };
 
-use crate::{WRITER, error::OutputError, subcommand::history_tui::state::StatefulList};
+use crate::{error::OutputError, subcommand::history_tui::state::StatefulList};
 
 pub struct HistorySelectTui<'a> {
     history: StatefulList<'a, HistoryEntry>,
@@ -69,31 +69,22 @@ impl<'a> HistorySelectTui<'a> {
 
     fn ui(&mut self, f: &mut Frame) {
         let main_layout = Layout::default()
-            .direction(ratatui::layout::Direction::Horizontal)
+            .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
             .split(f.area());
 
-        let cmd_len = (WRITER.get_max_len() as f32 * 0.5 * 0.4) as usize;
+        let cmd_column_width = ((main_layout[0].width as f32 * 0.4) as usize).saturating_sub(3);
 
         let items = self.history.items.iter().map(|item| {
-            let cmd = textwrap::wrap(&item.command, cmd_len)
-                .iter()
-                .next()
-                .map(|s| {
-                    // 3 是 ... 的长度
-                    // 2 是左右两边边框的长度
-                    // 2 是 Command 左右两边空格的长度
-                    if s.len() <= cmd_len - 3 - 2 - 2 {
-                        s.to_string()
-                    } else {
-                        format!("{s}...")
-                    }
-                })
-                .unwrap_or_else(|| item.command.clone());
+            let cmd_display = if item.command.len() > cmd_column_width && cmd_column_width > 3 {
+                format!("{:.width$}...", item.command, width = cmd_column_width - 3)
+            } else {
+                item.command.clone()
+            };
 
             Row::new(vec![
-                cmd,
-                if item.is_success { "Succeed" } else { "Failed" }.to_string(),
+                cmd_display,
+                if item.is_success { "√ " } else { "✖️" }.to_string(),
                 {
                     let mut operation = vec![];
                     if item.install_count != 0 {
@@ -133,7 +124,7 @@ impl<'a> HistorySelectTui<'a> {
 
         let table = Table::new(items, widths)
             .header(
-                Row::new(vec!["Command", "Status", "Operations", "Date"])
+                Row::new(vec!["Command", "Status", "Ops", "Date"])
                     .style(Style::default().fg(Color::Yellow))
                     .bottom_margin(1),
             )
