@@ -14,7 +14,7 @@ use ratatui::{
     backend::Backend,
     crossterm::event,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
+    style::{Color, Style, Stylize},
     text::{Line, Span},
     widgets::{
         Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
@@ -106,26 +106,26 @@ impl<'a> HistorySelectTui<'a> {
             Row::new(vec![
                 Cell::new(cmd_display),
                 if item.is_success {
-                    Cell::new("✓").style(Color::Green)
+                    Cell::new("✓").style(Color::Green).bold()
                 } else {
-                    Cell::new("X").style(Color::Red)
+                    Cell::new("X").style(Color::Red).bold()
                 },
                 {
                     let mut operation = vec![];
                     if item.install_count != 0 {
-                        operation.push(Span::from("I").style(Color::Green));
+                        operation.push(Span::from("I").style(Color::Green).bold());
                     }
                     if item.remove_count != 0 {
-                        operation.push(Span::from("R").style(Color::Red));
+                        operation.push(Span::from("R").style(Color::Red).bold());
                     }
                     if item.upgrade_count != 0 {
-                        operation.push(Span::from("U").style(Color::Cyan));
+                        operation.push(Span::from("U").style(Color::Cyan).bold());
                     }
                     if item.downgrade_count != 0 {
-                        operation.push(Span::from("D").style(Color::Yellow));
+                        operation.push(Span::from("D").style(Color::Yellow).bold());
                     }
                     if item.reinstall_count != 0 {
-                        operation.push(Span::from("Re").style(Color::Gray));
+                        operation.push(Span::from("Re").style(Color::Gray).bold());
                     }
 
                     let line: Line = operation
