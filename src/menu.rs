@@ -44,6 +44,7 @@ pub fn tui_select_list_size() -> u16 {
     }
 }
 
+#[allow(dead_code)]
 pub fn select_tui_display_msg(s: &str, is_inquire: bool) -> Cow<'_, str> {
     let term_width = WRITER.get_length() as usize;
 

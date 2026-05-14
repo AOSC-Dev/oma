@@ -15,7 +15,6 @@ use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
 use crate::exit_handle::ExitHandle;
-#[cfg(feature = "aosc")]
 use crate::exit_handle::ExitStatus;
 use crate::subcommand::history_tui::HistorySelectTui;
 use crate::{
