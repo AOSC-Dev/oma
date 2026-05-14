@@ -139,7 +139,9 @@ impl CliExecuter for Undo {
             .filter(|e| !e.is_undo)
             .collect::<Vec<_>>();
 
-        let selected = tui(&list, 0, true)?.expect("expect");
+        let Some(selected) = tui(&list, 0, true)? else {
+            return Ok(ExitHandle::default().status(ExitStatus::Other(130)));
+        };
 
         let selected = &list[selected];
         let id = selected.id;
