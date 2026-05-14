@@ -446,3 +446,4 @@ set-mirror-default = Mirror { $m } seems to be the fastest, set as default?
 clap-user-agent-help = Specify User-Agent string to use for HTTP requests
 clap-noclean-help = Do not clean local package cache
 history-detail = Display selected history detail
+undo-detail = Undo the selected history entry

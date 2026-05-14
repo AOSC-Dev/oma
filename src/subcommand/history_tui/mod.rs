@@ -246,37 +246,44 @@ impl<'a> HistorySelectTui<'a> {
 }
 
 fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
-    if !undo {
-        match WRITER.get_length() {
-            0..=37 => {}
-            38..=65 => {
-                f.render_widget(
-                    Paragraph::new(Line::from(vec![
-                        Span::raw("Quicknav: "),
-                        Span::styled("Enter", Style::new().blue()),
-                        Span::raw(" / "),
-                        Span::styled("Space", Style::new().blue()),
-                        Span::raw(" / "),
-                        Span::styled("Ctrl+C", Style::new().blue()),
-                        Span::raw(" / "),
-                        Span::styled("Esc", Style::new().blue()),
-                    ])),
-                    layout[1],
-                );
-            }
-            66.. => {
-                f.render_widget(
-                    Paragraph::new(Line::from(vec![
-                        Span::styled("Enter/Space", Style::new().blue()),
-                        Span::raw(format!(" => {}, ", fl!("history-detail"))),
-                        Span::styled("ESC/Ctrl+C", Style::new().blue()),
-                        Span::raw(format!(" => {}", fl!("tui-start-7"))),
-                    ])),
-                    layout[1],
-                );
-            }
+    match WRITER.get_length() {
+        0..=37 => {}
+        38..=65 => {
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::raw("Quicknav: "),
+                    Span::styled("Enter", Style::new().blue()),
+                    Span::raw(" / "),
+                    Span::styled("Space", Style::new().blue()),
+                    Span::raw(" / "),
+                    Span::styled("Ctrl+C", Style::new().blue()),
+                    Span::raw(" / "),
+                    Span::styled("Esc", Style::new().blue()),
+                ])),
+                layout[1],
+            );
         }
-    } else {
-        // TODO
+        66.. if !undo => {
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled("Enter/Space", Style::new().blue()),
+                    Span::raw(format!(" => {}, ", fl!("history-detail"))),
+                    Span::styled("ESC/Ctrl+C", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-start-7"))),
+                ])),
+                layout[1],
+            );
+        }
+        66.. => {
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled("Enter/Space", Style::new().blue()),
+                    Span::raw(format!(" => {}, ", fl!("undo-detail"))),
+                    Span::styled("ESC/Ctrl+C", Style::new().blue()),
+                    Span::raw(format!(" => {}", fl!("tui-start-7"))),
+                ])),
+                layout[1],
+            );
+        }
     }
 }

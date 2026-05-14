@@ -437,3 +437,4 @@ set-mirror-default = 镜像源 { $m } 是最快的，是否将其设置为默认
 clap-user-agent-help = 指定用于 HTTP 请求的 User-Agent 字串
 clap-noclean-help = 不要清理本地软件包缓存
 history-detail = 显示选中的历史记录详情
+undo-detail = 撤销选中的历史记录
