@@ -139,7 +139,7 @@ impl<'a> HistorySelectTui<'a> {
                         operation.push(Span::from("D").style(Color::Yellow).bold());
                     }
                     if item.reinstall_count != 0 {
-                        operation.push(Span::from("Re").style(Color::Gray).bold());
+                        operation.push(Span::from("Re").style(Color::Blue).bold());
                     }
 
                     let line: Line = operation
@@ -185,7 +185,31 @@ impl<'a> HistorySelectTui<'a> {
                 .style(Style::default().fg(Color::Yellow))
                 .bottom_margin(1),
             )
-            .block(Block::default().title("oma history").borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .title(vec![
+                        Span::raw("I").style(Color::Green).bold(),
+                        Span::raw("/"),
+                        Span::raw("R").style(Color::Red).bold(),
+                        Span::raw("/"),
+                        Span::raw("U").style(Color::Cyan).bold(),
+                        Span::raw("/"),
+                        Span::raw("D").style(Color::Yellow).bold(),
+                        Span::raw("/"),
+                        Span::raw("Re").style(Color::Blue).bold(),
+                        Span::raw(" => "),
+                        Span::raw(fl!("install")).style(Color::Green).bold(),
+                        Span::raw("/"),
+                        Span::raw(fl!("remove")).style(Color::Red).bold(),
+                        Span::raw("/"),
+                        Span::raw(fl!("upgrade")).style(Color::Cyan).bold(),
+                        Span::raw("/"),
+                        Span::raw(fl!("downgrade")).style(Color::Yellow).bold(),
+                        Span::raw("/"),
+                        Span::raw(fl!("reinstall")).style(Color::Blue).bold(),
+                    ])
+                    .borders(Borders::ALL),
+            )
             .row_highlight_style(Style::new().bg(self.select_color));
 
         f.render_stateful_widget(table, main_layout[0], &mut self.history.state);
