@@ -2,6 +2,7 @@ mod key_binding;
 mod state;
 
 use std::{
+    borrow::Cow,
     io,
     ops::ControlFlow,
     rc::Rc,
@@ -111,11 +112,12 @@ impl<'a> HistorySelectTui<'a> {
         self.page_size = main_layout[0].height.saturating_sub(4) as usize;
 
         let items = self.history.items.iter().map(|item| {
-            let cmd_display = if item.command.len() > cmd_column_width && cmd_column_width > 3 {
-                format!("{:.width$}...", item.command, width = cmd_column_width - 3)
-            } else {
-                item.command.clone()
-            };
+            let cmd_display: Cow<str> =
+                if item.command.len() > cmd_column_width && cmd_column_width > 3 {
+                    format!("{:.width$}...", item.command, width = cmd_column_width - 3).into()
+                } else {
+                    item.command.as_str().into()
+                };
 
             Row::new(vec![
                 Cell::new(cmd_display),
