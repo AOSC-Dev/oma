@@ -1,27 +1,25 @@
-use anyhow::anyhow;
-use chrono::format::{DelayedFormat, StrftimeItems};
-use chrono::{Local, LocalResult, TimeZone};
 use clap::Args;
-use dialoguer::{Select, theme::ColorfulTheme};
 use oma_history::{DATABASE_PATH, HistoryEntry};
 use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::oma_apt::PackageSort;
 use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
+use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use ratatui::{TerminalOptions, Viewport};
 use spdlog::warn;
-use std::sync::atomic::Ordering;
+use std::time::Duration;
 
+use crate::WRITER;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
 use crate::exit_handle::ExitHandle;
 #[cfg(feature = "aosc")]
 use crate::exit_handle::ExitStatus;
-use crate::menu::{select_tui_display_msg, tui_select_list_size};
+use crate::subcommand::history_tui::HistorySelectTui;
 use crate::{
-    NOT_DISPLAY_ABORT, dbus::dbus_check, error::OutputError, fl, root::root,
-    table::table_for_history_pending,
+    dbus::dbus_check, error::OutputError, fl, root::root, table::table_for_history_pending,
 };
 
 use super::utils::{auth_config, handle_no_result, lock_oma};
@@ -36,30 +34,42 @@ impl CliExecuter for History {
             oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
 
         let list = history.list()?;
-        let display_list = format_summary_log(&list, false)
-            .into_iter()
-            .map(|x| x.0)
-            .collect::<Vec<_>>();
 
-        NOT_DISPLAY_ABORT.store(true, Ordering::Relaxed);
-
-        let mut old_selected = 0;
+        let mut first_selected = 0;
 
         loop {
-            let selected =
-                dialoguer_select_history(&display_list, old_selected).map_err(|_| anyhow!(""))?;
-            old_selected = selected;
+            let selected = tui(&list, first_selected, false)?;
 
-            let selected = &list[selected];
-            let id = selected.id;
-            let op = history.find_history_by_id(id)?;
-            let install = &op.install;
-            let remove = &op.remove;
-            let disk_size = op.disk_size;
-
-            table_for_history_pending(install, remove, disk_size)?;
+            match selected {
+                Some(selected) => {
+                    let entry = &list[selected];
+                    let id = entry.id;
+                    let entry = history.find_history_by_id(id)?;
+                    table_for_history_pending(&entry.install, &entry.remove, entry.disk_size)?;
+                    first_selected = selected;
+                }
+                None => return Ok(ExitHandle::default()),
+            }
         }
     }
+}
+
+fn tui(list: &[HistoryEntry], first_selected: usize, undo: bool) -> anyhow::Result<Option<usize>> {
+    let tui = HistorySelectTui::new(list, first_selected, undo);
+    enable_raw_mode()?;
+    let height = WRITER.get_height();
+    let options = TerminalOptions {
+        viewport: Viewport::Inline(if height >= 24 { 24 } else { height }),
+    };
+
+    let mut terminal = ratatui::try_init_with_options(options)?;
+    let selected = tui.run(&mut terminal, Duration::from_millis(250))?;
+
+    terminal.clear()?;
+    disable_raw_mode()?;
+    terminal.show_cursor()?;
+
+    Ok(selected)
 }
 
 #[derive(Debug, Args)]
@@ -123,18 +133,17 @@ impl CliExecuter for Undo {
         let history =
             oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
 
-        let list = history.list()?;
-        let display_list = format_summary_log(&list, true);
-        let selected = dialoguer_select_history(
-            &display_list
-                .clone()
-                .into_iter()
-                .map(|x| x.0)
-                .collect::<Vec<_>>(),
-            0,
-        )?;
+        let list = history
+            .list()?
+            .into_iter()
+            .filter(|e| !e.is_undo)
+            .collect::<Vec<_>>();
 
-        let selected = &list[display_list[selected].1];
+        let Some(selected) = tui(&list, 0, true)? else {
+            return Ok(ExitHandle::default().status(ExitStatus::Other(130)));
+        };
+
+        let selected = &list[selected];
         let id = selected.id;
         let op = history.find_history_by_id(id)?;
 
@@ -297,55 +306,4 @@ impl CliExecuter for Undo {
 
         Ok(exit)
     }
-}
-
-fn dialoguer_select_history(
-    display_list: &[String],
-    old_selected: usize,
-) -> Result<usize, OutputError> {
-    let page_size = tui_select_list_size();
-
-    let selected = Select::with_theme(&ColorfulTheme::default())
-        .items(display_list)
-        .default(old_selected)
-        .max_length(page_size.into())
-        .interact()
-        .map_err(|_| anyhow!(""))?;
-
-    Ok(selected)
-}
-
-fn format_summary_log(list: &[HistoryEntry], undo: bool) -> Vec<(String, usize)> {
-    list.iter()
-        .enumerate()
-        .filter(|(_, log)| {
-            if undo {
-                !log.is_fixbroken && !log.is_undo
-            } else {
-                true
-            }
-        })
-        .map(|(index, log)| {
-            let date = format_date(log.time);
-            let command = &log.command;
-
-            let s = format!("{}[{}] {}", format_success(log.is_success), date, command);
-            let s = select_tui_display_msg(&s, false).to_string();
-
-            (s, index)
-        })
-        .collect::<Vec<_>>()
-}
-
-fn format_date(date: i64) -> DelayedFormat<StrftimeItems<'static>> {
-    let dt = match Local.timestamp_opt(date, 0) {
-        LocalResult::None => Local.timestamp_opt(0, 0).unwrap(),
-        x => x.unwrap(),
-    };
-
-    dt.format("%H:%M:%S on %Y-%m-%d")
-}
-
-fn format_success(is_success: bool) -> &'static str {
-    if is_success { "" } else { "[FAIL] " }
 }

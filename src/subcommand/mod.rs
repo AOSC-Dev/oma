@@ -6,6 +6,7 @@ pub mod download;
 pub mod fix_broken;
 pub mod generate;
 pub mod history;
+mod history_tui;
 pub mod install;
 pub mod list;
 pub mod mark;
