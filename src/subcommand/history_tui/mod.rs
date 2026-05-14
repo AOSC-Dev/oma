@@ -16,7 +16,7 @@ use ratatui::{
     backend::Backend,
     crossterm::event,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style, Stylize},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{
         Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
@@ -28,12 +28,30 @@ use terminfo::{Database, capability::MaxColors};
 
 use crate::{WRITER, fl, subcommand::history_tui::state::StatefulList};
 
+#[derive(Clone, Copy)]
+pub(crate) enum BgRenderMode {
+    Color(Color),
+    Reverse,
+}
+
+impl BgRenderMode {
+    pub(crate) fn to_style(self) -> Style {
+        match self {
+            BgRenderMode::Color(color) => Style::default().bg(color),
+            BgRenderMode::Reverse => Style::default()
+                .bg(Color::Reset)
+                .fg(Color::Reset)
+                .add_modifier(Modifier::REVERSED),
+        }
+    }
+}
+
 pub struct HistorySelectTui<'a> {
     history: StatefulList<'a, HistoryEntry>,
     scroll_state: ScrollbarState,
     first_selected: usize,
     page_size: usize,
-    select_color: Color,
+    bg_render_mode: BgRenderMode,
     undo: bool,
 }
 
@@ -47,15 +65,19 @@ impl<'a> HistorySelectTui<'a> {
             .inspect(|MaxColors(n)| debug!("Terminal max colors: {n}"))
             .is_some_and(|MaxColors(n)| n >= 256);
 
+        let no_color = std::env::var("NO_COLOR").is_ok_and(|s| s == "1" || s == "true");
+
         Self {
             history: StatefulList::with_items(entries),
             scroll_state: ScrollbarState::new(len),
             first_selected,
             page_size: 0,
-            select_color: if true_colors {
-                Color::Rgb(59, 64, 70)
+            bg_render_mode: if no_color {
+                BgRenderMode::Reverse
+            } else if true_colors {
+                BgRenderMode::Color(Color::Rgb(59, 64, 70))
             } else {
-                Color::Blue
+                BgRenderMode::Color(Color::Blue)
             },
             undo,
         }
@@ -212,7 +234,7 @@ impl<'a> HistorySelectTui<'a> {
                     ])
                     .borders(Borders::ALL),
             )
-            .row_highlight_style(Style::new().bg(self.select_color));
+            .row_highlight_style(self.bg_render_mode.to_style());
 
         f.render_stateful_widget(table, main_layout[0], &mut self.history.state);
         f.render_stateful_widget(
