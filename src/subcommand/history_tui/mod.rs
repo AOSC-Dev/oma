@@ -176,12 +176,16 @@ impl<'a> HistorySelectTui<'a> {
 
         let table = Table::new(items, widths)
             .header(
-                Row::new(vec!["Command", "Status", "Ops", "Date"])
-                    .style(Style::default().fg(Color::Yellow))
-                    .bottom_margin(1),
+                Row::new(vec![
+                    fl!("history-tui-command"),
+                    fl!("history-tui-status"),
+                    fl!("history-tui-ops"),
+                    fl!("history-tui-date"),
+                ])
+                .style(Style::default().fg(Color::Yellow))
+                .bottom_margin(1),
             )
-            // 设置外部边框
-            .block(Block::default().title("History List").borders(Borders::ALL))
+            .block(Block::default().title("oma history").borders(Borders::ALL))
             .row_highlight_style(Style::new().bg(self.select_color));
 
         f.render_stateful_widget(table, main_layout[0], &mut self.history.state);
@@ -198,30 +202,30 @@ impl<'a> HistorySelectTui<'a> {
         let mut display = vec![];
 
         if entry.is_success {
-            display.push(Line::raw("Installation Succeeded"));
+            display.push(Line::raw(fl!("history-tui-installation-succeeded")));
         } else {
-            display.push(Line::raw("Installation Failed"));
+            display.push(Line::raw(fl!("history-tui-installation-failed")));
         }
 
         let mut operations = vec![];
         if entry.install_count > 0 {
-            operations.push(format!("{} installed", entry.install_count));
+            operations.push(format!("{} {}", entry.install_count, fl!("installed")));
         }
 
         if entry.upgrade_count > 0 {
-            operations.push(format!("{} upgraded", entry.upgrade_count));
+            operations.push(format!("{} {}", entry.upgrade_count, fl!("upgraded")));
         }
 
         if entry.downgrade_count > 0 {
-            operations.push(format!("{} downgraded", entry.downgrade_count));
+            operations.push(format!("{} {}", entry.downgrade_count, fl!("downgraded")));
         }
 
         if entry.remove_count > 0 {
-            operations.push(format!("{} removed", entry.remove_count));
+            operations.push(format!("{} {}", entry.remove_count, fl!("removed")));
         }
 
         if entry.reinstall_count > 0 {
-            operations.push(format!("{} reinstalled", entry.reinstall_count));
+            operations.push(format!("{} {}", entry.reinstall_count, fl!("reinstalled")));
         }
 
         if !operations.is_empty() {
@@ -230,7 +234,7 @@ impl<'a> HistorySelectTui<'a> {
 
         if !entry.command.is_empty() {
             display.push(Line::raw(""));
-            display.push(Line::raw("Command Line:"));
+            display.push(Line::raw(fl!("history-tui-command-line")));
             display.push(Line::raw(&entry.command));
         }
 
