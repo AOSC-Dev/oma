@@ -248,8 +248,8 @@ impl<'a> HistorySelectTui<'a> {
 fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
     if !undo {
         match WRITER.get_length() {
-            0..=62 => {}
-            63..=153 => {
+            0..=37 => {}
+            38..=65 => {
                 f.render_widget(
                     Paragraph::new(Line::from(vec![
                         Span::raw("Quicknav: "),
@@ -264,7 +264,7 @@ fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
                     layout[1],
                 );
             }
-            154.. => {
+            66.. => {
                 f.render_widget(
                     Paragraph::new(Line::from(vec![
                         Span::styled("Enter/Space", Style::new().blue()),
