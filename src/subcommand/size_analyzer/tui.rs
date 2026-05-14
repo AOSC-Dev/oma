@@ -12,12 +12,14 @@ use ratatui::{
     crossterm::event::{self},
     layout::{Constraint, Direction, Flex, Layout, Rect},
     prelude::Backend,
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span, Text},
     widgets::{
         Block, Borders, Clear, List, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
     },
 };
+use spdlog::debug;
+use terminfo::{Database, capability::MaxColors};
 
 use crate::{
     WRITER, fl,
@@ -28,6 +30,24 @@ use crate::{
     },
 };
 
+#[derive(Clone, Copy)]
+pub(crate) enum BgRenderMode {
+    Color(Color),
+    Reverse,
+}
+
+impl BgRenderMode {
+    pub(crate) fn to_style(self) -> Style {
+        match self {
+            BgRenderMode::Color(color) => Style::default().bg(color),
+            BgRenderMode::Reverse => Style::default()
+                .bg(Color::Reset)
+                .fg(Color::Reset)
+                .add_modifier(Modifier::REVERSED),
+        }
+    }
+}
+
 pub(crate) struct PkgSizeAnalyzer<'a> {
     pub(crate) apt: &'a OmaApt,
     pub(crate) remove_package: StatefulList<PkgWrapper<'a>>,
@@ -37,12 +57,22 @@ pub(crate) struct PkgSizeAnalyzer<'a> {
     pub(crate) popup: Option<String>,
     pub(crate) installed_scroll_state: ScrollbarState,
     pub(crate) installed_scroll: usize,
+    pub(crate) bg_render_mode: BgRenderMode,
 }
 
 impl<'a> PkgSizeAnalyzer<'a> {
     pub(crate) const PAGE_LEN: usize = 10;
 
     pub(crate) fn new(apt: &'a OmaApt) -> Self {
+        let true_colors = Database::from_env()
+            .inspect_err(|e| debug!("Failed to get terminfo: {e}"))
+            .ok()
+            .and_then(|terminfo| terminfo.get::<MaxColors>())
+            .inspect(|MaxColors(n)| debug!("Terminal max colors: {n}"))
+            .is_some_and(|MaxColors(n)| n >= 256);
+
+        let no_color = std::env::var("NO_COLOR").is_ok_and(|s| s == "1" || s == "true");
+
         Self {
             apt,
             remove_package: StatefulList::with_items(vec![]),
@@ -52,6 +82,13 @@ impl<'a> PkgSizeAnalyzer<'a> {
             popup: None,
             installed_scroll_state: ScrollbarState::new(0),
             installed_scroll: 0,
+            bg_render_mode: if no_color {
+                BgRenderMode::Reverse
+            } else if true_colors {
+                BgRenderMode::Color(Color::Rgb(59, 64, 70))
+            } else {
+                BgRenderMode::Color(Color::Blue)
+            },
         }
     }
 
@@ -152,7 +189,7 @@ impl<'a> PkgSizeAnalyzer<'a> {
                     .borders(Borders::ALL)
                     .style(highlight_window(self.window, Window::Installed)),
             )
-            .highlight_style(Style::default().bg(Color::Rgb(59, 64, 70))),
+            .highlight_style(self.bg_render_mode.to_style()),
             area,
             &mut self.installed.state,
         );
@@ -171,9 +208,9 @@ impl<'a> PkgSizeAnalyzer<'a> {
                     self.remove_package
                         .items
                         .iter()
-                        .map(|p| p.to_remove_line(chunks[1].width - 2)),
+                        .map(|p| p.to_remove_line(chunks[1].width - 2, self.bg_render_mode)),
                 )
-                .highlight_style(Style::default().bg(Color::Rgb(59, 64, 70)))
+                .highlight_style(self.bg_render_mode.to_style())
                 .block(
                     Block::new()
                         .title(fl!(

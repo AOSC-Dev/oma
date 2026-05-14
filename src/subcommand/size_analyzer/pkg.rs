@@ -6,6 +6,8 @@ use ratatui::{
     text::{Line, Span},
 };
 
+use crate::subcommand::size_analyzer::tui::BgRenderMode;
+
 const FULL: &str = "█";
 const SEVEN_EIGHTHS: &str = "▉";
 const THREE_QUARTERS: &str = "▊";
@@ -96,7 +98,11 @@ impl<'a> PkgWrapper<'a> {
         (human_size, percent_str, bar, name)
     }
 
-    pub(crate) fn to_remove_line(&self, area_width: u16) -> Line<'static> {
+    pub(crate) fn to_remove_line(
+        &self,
+        area_width: u16,
+        bg_render_mode: BgRenderMode,
+    ) -> Line<'static> {
         let ver = self.pkg.installed().unwrap();
         let size = ver.installed_size();
         let human_size = HumanBytes(size).to_string();
@@ -104,17 +110,30 @@ impl<'a> PkgWrapper<'a> {
         let name_len = pkg_name.len();
         let human_size_len = human_size.len();
 
-        Line::from_iter(vec![
-            Span::styled(pkg_name, Style::new().yellow()),
-            Span::raw(format!(
-                "{:-space$}",
-                "",
-                space = (area_width as usize)
-                    .saturating_sub(name_len)
-                    .saturating_sub(human_size_len),
-            )),
-            Span::styled(HumanBytes(size).to_string(), Style::new().red()),
-        ])
+        match bg_render_mode {
+            BgRenderMode::Color(_) => Line::from_iter(vec![
+                Span::styled(pkg_name, Style::new().yellow()),
+                Span::raw(format!(
+                    "{:-space$}",
+                    "",
+                    space = (area_width as usize)
+                        .saturating_sub(name_len)
+                        .saturating_sub(human_size_len),
+                )),
+                Span::styled(HumanBytes(size).to_string(), Style::new().red()),
+            ]),
+            BgRenderMode::Reverse => Line::from_iter(vec![
+                Span::raw(pkg_name),
+                Span::raw(format!(
+                    "{:-space$}",
+                    "",
+                    space = (area_width as usize)
+                        .saturating_sub(name_len)
+                        .saturating_sub(human_size_len),
+                )),
+                Span::raw(HumanBytes(size).to_string()),
+            ]),
+        }
     }
 }
 

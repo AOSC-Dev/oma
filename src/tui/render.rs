@@ -13,7 +13,10 @@ use oma_pm::{
     pkginfo::OmaPackage,
     search::{IndiciumSearch, OmaSearch, SearchResult},
 };
-use ratatui::crossterm::event::{self};
+use ratatui::{
+    crossterm::event::{self},
+    style::Modifier,
+};
 
 use ratatui::{
     Frame, Terminal,
@@ -35,6 +38,24 @@ use crate::{
     tui::{key_binding::Control, window::Mode},
 };
 
+#[derive(Clone, Copy)]
+pub(crate) enum BgRenderMode {
+    Color(Color),
+    Reverse,
+}
+
+impl BgRenderMode {
+    fn to_style(self) -> Style {
+        match self {
+            BgRenderMode::Color(color) => Style::default().bg(color),
+            BgRenderMode::Reverse => Style::default()
+                .bg(Color::Reset)
+                .fg(Color::Reset)
+                .add_modifier(Modifier::REVERSED),
+        }
+    }
+}
+
 pub struct Tui<'a> {
     pub(crate) apt: &'a OmaApt,
     pub(crate) searcher: IndiciumSearch<'a>,
@@ -52,7 +73,7 @@ pub struct Tui<'a> {
     pub(crate) upgrade: bool,
     pub(crate) autoremove: bool,
     pub(crate) popup: Option<String>,
-    pub(crate) select_bg_color: Color,
+    pub(crate) bg_render_mode: BgRenderMode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -122,10 +143,14 @@ impl<'a> Tui<'a> {
             .inspect(|MaxColors(n)| debug!("Terminal max colors: {n}"))
             .is_some_and(|MaxColors(n)| n >= 256);
 
-        let select_bg_color = if true_colors {
-            Color::Rgb(59, 64, 70)
+        let no_color = std::env::var("NO_COLOR").is_ok_and(|s| s == "1" || s == "true");
+
+        let bg_render_mode = if no_color {
+            BgRenderMode::Reverse
+        } else if true_colors {
+            BgRenderMode::Color(Color::Rgb(59, 64, 70))
         } else {
-            Color::Blue
+            BgRenderMode::Color(Color::Blue)
         };
 
         Self {
@@ -145,7 +170,7 @@ impl<'a> Tui<'a> {
             upgrade: false,
             autoremove: false,
             popup: None,
-            select_bg_color,
+            bg_render_mode,
         }
     }
 
@@ -222,7 +247,7 @@ impl<'a> Tui<'a> {
                 main_layout[2]
             },
             self.status,
-            self.select_bg_color,
+            self.bg_render_mode,
         );
 
         if self.display_pending_detail {
@@ -234,7 +259,7 @@ impl<'a> Tui<'a> {
                             .title(fl!("tui-pending"))
                             .style(self.mode.highlight_window(&Mode::Pending)),
                     )
-                    .highlight_style(Style::default().bg(self.select_bg_color)),
+                    .highlight_style(self.bg_render_mode.to_style()),
                 chunks[1],
                 &mut self.pending_result_state.state,
             );
@@ -359,7 +384,7 @@ fn show_packages(
     mode: &Mode,
     area: Rect,
     status: PackageStatus,
-    select_bg_color: Color,
+    bg_render_mode: BgRenderMode,
 ) {
     let u = status.available_upgrade_package_count();
 
@@ -377,7 +402,7 @@ fn show_packages(
                         ))
                         .style(mode.highlight_window(&Mode::Packages)),
                 )
-                .highlight_style(Style::default().bg(select_bg_color)),
+                .highlight_style(bg_render_mode.to_style()),
             area,
             &mut display_list.state,
         );
