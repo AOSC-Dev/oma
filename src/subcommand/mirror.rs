@@ -215,9 +215,12 @@ impl CliExecuter for CliMirror {
                     &config,
                 ),
                 MirrorSubCmd::SortMirrors { no_refresh } => set_order(no_refresh, &config),
-                MirrorSubCmd::Latency { timeout, json } => {
-                    get_latency(timeout, config.no_progress(), json, &config.user_agent)
-                }
+                MirrorSubCmd::Latency { timeout, json } => get_latency(
+                    timeout,
+                    config.no_progress(),
+                    json,
+                    config.http_client_blocking()?,
+                ),
             }
         } else {
             tui(no_refresh, &config)
@@ -377,11 +380,9 @@ fn get_latency(
     timeout: f64,
     no_progress: bool,
     json: bool,
-    user_agent: &str,
+    client: &blocking::Client,
 ) -> Result<ExitHandle, OutputError> {
     let mm = MirrorManager::new("/")?;
-
-    let client = client(timeout, user_agent)?;
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
@@ -397,6 +398,7 @@ fn get_latency(
         "origin",
         &pb,
         false,
+        timeout,
     )?;
 
     let origin_date =
@@ -409,7 +411,7 @@ fn get_latency(
         .filter(|m| !["origin", "origin4", "origin6", "repo-hk", "fastly"].contains(&m.0))
         .map(|m| (m.0, &m.1.url))
         .map(|(m, url)| (m, concat_url(url, "debs/dists/stable/InRelease")))
-        .map(|(m, url)| (m, get_mirror_date(&url, &client, m, &pb, true)))
+        .map(|(m, url)| (m, get_mirror_date(&url, &client, m, &pb, true, timeout)))
         .filter_map(|(m, res)| {
             res.map_err(|e| {
                 if let Some(pb) = &pb {
@@ -538,12 +540,14 @@ fn get_mirror_date(
     m: &str,
     p: &Option<OmaProgressBar>,
     error_without_url: bool,
+    timeout: f64,
 ) -> anyhow::Result<String> {
     let url = Url::parse(url)?;
 
     let inrelease = match url.scheme() {
         "http" | "https" => client
             .get(url)
+            .timeout(Duration::from_secs_f64(timeout))
             .send()
             .and_then(|x| x.error_for_status())
             .and_then(|x| x.text())
@@ -719,15 +723,6 @@ fn speedtest(
     }
 
     Ok(ExitHandle::default().ring(true))
-}
-
-fn client(timeout: f64, user_agent: &str) -> Result<blocking::Client, OutputError> {
-    let client = blocking::ClientBuilder::new()
-        .user_agent(user_agent)
-        .timeout(Duration::from_secs_f64(timeout))
-        .build()?;
-
-    Ok(client)
 }
 
 #[inline]
