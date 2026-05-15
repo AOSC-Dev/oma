@@ -2120,6 +2120,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "i18n-embed-fl-no-check-hashmap-on-ra"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2adf37e776aa514d3d8ba7ea755a1c3da51843ed2d84de74316617f4cda6984"
+dependencies = [
+ "find-crate",
+ "fluent",
+ "fluent-syntax",
+ "i18n-config",
+ "i18n-embed",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "strsim",
+ "syn 2.0.117",
+ "unic-langid",
+]
+
+[[package]]
 name = "i18n-embed-impl"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3129,7 +3148,7 @@ dependencies = [
  "glob-match",
  "humantime",
  "i18n-embed",
- "i18n-embed-fl",
+ "i18n-embed-fl-no-check-hashmap-on-ra",
  "indexmap",
  "itertools 0.14.0",
  "libc",

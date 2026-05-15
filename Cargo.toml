@@ -91,7 +91,7 @@ i18n-embed = { version = "0.16.0", features = [
     "fluent-system",
     "desktop-requester",
 ] }
-i18n-embed-fl = "0.10"
+i18n-embed-fl = { version = "0.10.0", package = "i18n-embed-fl-no-check-hashmap-on-ra" }
 rust-embed = "8.11.0"
 
 [features]
