@@ -3,6 +3,7 @@ use clap_complete::ArgValueCompleter;
 use dialoguer::{Select, theme::ColorfulTheme};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs},
+    oma_apt::records::RecordField,
     pkginfo::OmaPackage,
 };
 
@@ -137,24 +138,28 @@ impl CliExecuter for Pick {
 
         let mut version_str_display = versions_str.clone();
         for (a, b) in v {
-            if let Some(uri) = versions[a].uris().first() {
-                version_str_display[a] = format!("{} (from: {uri})", versions_str[a]);
+            if let Some(f) = versions[a].get_record(RecordField::Filename) {
+                version_str_display[a] = format!("{} ({})", versions[a].version(), f)
             }
 
-            if let Some(uri) = versions[b].uris().first() {
-                version_str_display[b] = format!("{} (from: {uri})", versions_str[b]);
+            if let Some(f) = versions[b].get_record(RecordField::Filename) {
+                version_str_display[b] = format!("{} ({})", versions[b].version(), f)
             }
         }
 
         let theme = ColorfulTheme::default();
         let mut dialoguer = Select::with_theme(&theme)
-            .items(&versions_str)
+            .items(&version_str_display)
             .with_prompt(fl!("pick-tips", pkgname = pkg.fullname(true)));
 
         let pos = if let Some(installed) = pkg.installed() {
-            versions_str
+            versions
                 .iter()
-                .position(|x| x == installed.version())
+                .position(|v| {
+                    v.version() == installed.version()
+                        && v.get_record(RecordField::Filename)
+                            == installed.get_record(RecordField::Filename)
+                })
                 .unwrap_or(0)
         } else {
             0
@@ -166,12 +171,13 @@ impl CliExecuter for Pick {
         dialoguer = dialoguer.max_length(size.into());
 
         let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
-        let version = pkg.get_version(&versions_str[sel]).unwrap();
 
-        let pkgs = vec![OmaPackage::new(&version, &pkg).map_err(|e| OutputError {
-            description: e.to_string(),
-            source: None,
-        })?];
+        let pkgs = vec![
+            OmaPackage::new(&versions[sel], &pkg).map_err(|e| OutputError {
+                description: e.to_string(),
+                source: None,
+            })?,
+        ];
 
         apt.install(&pkgs, false)?;
 
