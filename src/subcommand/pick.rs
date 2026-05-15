@@ -172,10 +172,12 @@ impl CliExecuter for Pick {
 
         let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
 
-        let pkgs = vec![OmaPackage::new(&versions[sel], &pkg).map_err(|e| OutputError {
-            description: e.to_string(),
-            source: None,
-        })?];
+        let pkgs = vec![
+            OmaPackage::new(&versions[sel], &pkg).map_err(|e| OutputError {
+                description: e.to_string(),
+                source: None,
+            })?,
+        ];
 
         apt.install(&pkgs, false)?;
 
