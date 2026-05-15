@@ -394,7 +394,7 @@ fn get_latency(
 
     let origin_date = get_mirror_date(
         "https://repo-hk.aosc.io/debs/dists/stable/InRelease",
-        &client,
+        client,
         "origin",
         &pb,
         false,
@@ -411,7 +411,7 @@ fn get_latency(
         .filter(|m| !["origin", "origin4", "origin6", "repo-hk", "fastly"].contains(&m.0))
         .map(|m| (m.0, &m.1.url))
         .map(|(m, url)| (m, concat_url(url, "debs/dists/stable/InRelease")))
-        .map(|(m, url)| (m, get_mirror_date(&url, &client, m, &pb, true, timeout)))
+        .map(|(m, url)| (m, get_mirror_date(&url, client, m, &pb, true, timeout)))
         .filter_map(|(m, res)| {
             res.map_err(|e| {
                 if let Some(pb) = &pb {
