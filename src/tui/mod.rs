@@ -4,7 +4,7 @@ use clap::Args;
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::{
     apt::{AptConfig, OmaApt, OmaAptArgs, Upgrade},
-    search::IndiciumSearch,
+    search::{IndiciumSearch, SearchType},
 };
 use render::{Task, Tui as TuiInner};
 use spdlog::info;
@@ -110,12 +110,16 @@ impl CliExecuter for Tui {
         let autoremove = apt.count_pending_autoremovable_pkgs();
         let installed = apt.count_installed_packages();
 
-        let searcher = IndiciumSearch::new(&apt.cache, |n| {
-            if let Some(ref pb) = pb {
-                pb.inner
-                    .set_message(fl!("reading-database-with-count", count = n));
-            }
-        })?;
+        let searcher = IndiciumSearch::new(
+            &apt.cache,
+            |n| {
+                if let Some(ref pb) = pb {
+                    pb.inner
+                        .set_message(fl!("reading-database-with-count", count = n));
+                }
+            },
+            SearchType::Live,
+        )?;
 
         if let Some(pb) = pb {
             pb.inner.finish_and_clear();
