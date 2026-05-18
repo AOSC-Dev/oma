@@ -211,7 +211,7 @@ fn get_source_from_version_file(i: VersionFile<'_>) -> String {
         result.push_str(archive);
     }
 
-    if let Some(codename) = pkg_file.codename() {
+    if let Some(codename) = pkg_file.component() {
         result.push('/');
         result.push_str(codename);
     }
