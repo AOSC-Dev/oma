@@ -143,7 +143,9 @@ impl CliExecuter for Pick {
                     "{} ({})",
                     versions[i].version(),
                     versions[i]
-                        .get_record(RecordField::Filename)
+                        .uris()
+                        .into_iter()
+                        .next()
                         .unwrap_or_else(|| fl!("pick-unknown-source"))
                 );
             }
