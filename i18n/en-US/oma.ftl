@@ -454,3 +454,4 @@ history-tui-date = Date
 history-tui-installation-succeeded = Installation succeeded
 history-tui-installation-failed = Installation Failed
 history-tui-command-line = Command Line:
+pick-unknown-source = unknown source

@@ -138,12 +138,14 @@ impl CliExecuter for Pick {
 
         let mut version_str_display = versions_str.clone();
         for (a, b) in v {
-            if let Some(f) = versions[a].get_record(RecordField::Filename) {
-                version_str_display[a] = format!("{} ({})", versions[a].version(), f)
-            }
-
-            if let Some(f) = versions[b].get_record(RecordField::Filename) {
-                version_str_display[b] = format!("{} ({})", versions[b].version(), f)
+            for i in [a, b] {
+                version_str_display[i] = format!(
+                    "{} ({})",
+                    versions[i].version(),
+                    versions[i]
+                        .get_record(RecordField::Filename)
+                        .unwrap_or_else(|| fl!("pick-unknown-source"))
+                );
             }
         }
 
