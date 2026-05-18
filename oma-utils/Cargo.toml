@@ -20,7 +20,7 @@ logind-zbus = { version = "5.1", optional = true, default-features = false, feat
     "tokio",
 ], package = "logind-zbus-tokio" }
 nix = { version = "0.31", features = ["fs"] }
-sysinfo = "0.38"
+sysinfo = "0.39"
 
 [features]
 dpkg = []
