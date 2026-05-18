@@ -160,7 +160,12 @@ impl CliExecuter for Pick {
         let pos = if let Some(installed) = pkg.installed() {
             versions
                 .iter()
-                .position(|v| v.version() == installed.version())
+                .position(|v| {
+                    v.version() == installed.version()
+                        && v.uris()
+                            .iter()
+                            .any(|uri| installed.uris().iter().any(|uri2| uri == uri2))
+                })
                 .unwrap_or(0)
         } else {
             0
@@ -211,9 +216,9 @@ fn get_source_from_version_file(i: VersionFile<'_>) -> String {
         result.push_str(archive);
     }
 
-    if let Some(codename) = pkg_file.component() {
+    if let Some(component) = pkg_file.component() {
         result.push('/');
-        result.push_str(codename);
+        result.push_str(component);
     }
 
     result
