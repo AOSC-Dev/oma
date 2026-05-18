@@ -201,12 +201,12 @@ impl CliExecuter for Pick {
 fn get_source_from_version_file(i: VersionFile<'_>) -> String {
     let pkg_file = i.package_file();
 
-    let mut result = pkg_file.site().map(|s| s.to_string()).unwrap_or_default();
+    let mut result = pkg_file
+        .site()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| fl!("pick-unknown-source"));
 
-    if !result.is_empty() {
-        result.push(':');
-    }
-
+    result.push_str(": ");
     if let Some(archive) = pkg_file.archive() {
         result.push_str(archive);
     }
