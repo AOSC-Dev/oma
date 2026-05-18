@@ -8,19 +8,15 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "2"
-number_prefix = { version = "0.4", optional = true }
-os-release = "0.1"
-zbus = { version = "5.1", optional = true, default-features = false, features = [
-    "tokio",
-] }
-url-escape = { version = "0.1", optional = true }
-spdlog-rs = "0.5"
-logind-zbus = { version = "5.1", optional = true, default-features = false, features = [
-    "tokio",
-], package = "logind-zbus-tokio" }
-nix = { version = "0.31", features = ["fs"] }
-sysinfo = "0.39"
+thiserror = { workspace = true }
+number_prefix = { workspace = true, optional = true }
+os-release = { workspace = true }
+zbus = { workspace = true, optional = true }
+url-escape = { workspace = true, optional = true }
+spdlog-rs =  { workspace = true }
+logind-zbus = { workspace = true, optional = true }
+nix = { workspace = true, features = ["fs"] }
+sysinfo = { workspace = true }
 
 [features]
 dpkg = []
