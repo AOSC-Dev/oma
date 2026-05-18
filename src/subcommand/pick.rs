@@ -2,9 +2,7 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::{Select, theme::ColorfulTheme};
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
-    oma_apt::records::RecordField,
-    pkginfo::OmaPackage,
+    apt::{AptConfig, OmaApt, OmaAptArgs}, oma_apt::VersionFile, pkginfo::OmaPackage
 };
 
 use crate::{
@@ -139,14 +137,15 @@ impl CliExecuter for Pick {
         let mut version_str_display = versions_str.clone();
         for (a, b) in v {
             for i in [a, b] {
+                let mut site_branch_suite = vec![];
+                for i in versions[i].version_files() {
+                    site_branch_suite.push(get_source_from_version_file(i));
+                }
+
                 version_str_display[i] = format!(
                     "{} ({})",
                     versions[i].version(),
-                    versions[i]
-                        .uris()
-                        .into_iter()
-                        .next()
-                        .unwrap_or_else(|| fl!("pick-unknown-source"))
+                    site_branch_suite.join(",")
                 );
             }
         }
@@ -159,11 +158,7 @@ impl CliExecuter for Pick {
         let pos = if let Some(installed) = pkg.installed() {
             versions
                 .iter()
-                .position(|v| {
-                    v.version() == installed.version()
-                        && v.get_record(RecordField::Filename)
-                            == installed.get_record(RecordField::Filename)
-                })
+                .position(|v| v.version() == installed.version())
                 .unwrap_or(0)
         } else {
             0
@@ -199,4 +194,22 @@ impl CliExecuter for Pick {
             .build()
             .run()
     }
+}
+
+fn get_source_from_version_file(i: VersionFile<'_>) -> String {
+    let pkg_file = i.package_file();
+
+    let mut result = pkg_file.site().unwrap_or("").to_string();
+    result.push(':');
+
+    if let Some(archive) = pkg_file.archive() {
+        result.push_str(archive);
+    }
+
+    if let Some(codename) = pkg_file.codename() {
+        result.push('/');
+        result.push_str(codename);
+    }
+
+    result
 }
