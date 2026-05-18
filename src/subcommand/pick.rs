@@ -206,7 +206,7 @@ fn get_source_from_version_file(i: VersionFile<'_>) -> String {
         .map(|s| s.to_string())
         .unwrap_or_else(|| fl!("pick-unknown-source"));
 
-    result.push_str(": ");
+    result.push(':');
     if let Some(archive) = pkg_file.archive() {
         result.push_str(archive);
     }
