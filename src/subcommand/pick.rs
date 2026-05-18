@@ -2,7 +2,9 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::{Select, theme::ColorfulTheme};
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs}, oma_apt::VersionFile, pkginfo::OmaPackage
+    apt::{AptConfig, OmaApt, OmaAptArgs},
+    oma_apt::VersionFile,
+    pkginfo::OmaPackage,
 };
 
 use crate::{
@@ -199,7 +201,11 @@ impl CliExecuter for Pick {
 fn get_source_from_version_file(i: VersionFile<'_>) -> String {
     let pkg_file = i.package_file();
 
-    let mut result = pkg_file.site().unwrap_or("").to_string();
+    let mut result = pkg_file
+        .site()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| fl!("pick-unknown-source"));
+
     result.push(':');
 
     if let Some(archive) = pkg_file.archive() {
