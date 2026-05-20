@@ -450,11 +450,14 @@ pub fn table_for_install_pending(
         printer,
         &remove,
         &install,
-        disk_size,
-        total_download_size,
+        if !is_pager {
+            Some((disk_size, total_download_size))
+        } else {
+            None // disk_size and total_download_size are displayed in the pager header, so we don't need to display them again in the table body
+        },
         &tum,
-        is_pager,
     );
+
     let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
@@ -473,10 +476,8 @@ pub fn table_for_install_pending(
                 printer,
                 &remove,
                 &install,
-                disk_size,
-                total_download_size,
+                Some((disk_size, total_download_size)),
                 &tum,
-                false,
             );
             Ok(exit)
         }
@@ -523,13 +524,9 @@ pub fn table_for_history_pending(
     let remove = remove.iter().map(|x| x.into()).collect::<Vec<_>>();
 
     print_pending_inner(
-        printer,
-        &remove,
-        &install,
-        disk_size,
-        total_download_size,
+        printer, &remove, &install,
+        None, // disk_size and total_download_size are displayed in the pager header, so we don't need to display them again in the table body
         &None,
-        true,
     );
     pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
@@ -575,10 +572,8 @@ fn print_pending_inner<W: Write>(
     mut printer: PagerPrinter<W>,
     remove: &[RemoveEntryDisplay],
     install: &[InstallEntryDisplay],
-    disk_size: i64,
-    total_download_size: u64,
+    disk_size_and_total_download_size: Option<(i64, u64)>,
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
-    no_display_size_message: bool,
 ) {
     print_tum(&mut printer, tum);
 
@@ -729,7 +724,7 @@ fn print_pending_inner<W: Write>(
         }
     }
 
-    if !no_display_size_message {
+    if let Some((disk_size, total_download_size)) = disk_size_and_total_download_size {
         printer
             .println(format!(
                 "{}{}",
