@@ -453,7 +453,7 @@ pub fn table_for_install_pending(
         if !is_pager {
             Some((disk_size, total_download_size))
         } else {
-            None // disk_size and total_download_size are displayed in the pager header, so we don't need to display them again in the table body
+            None // disk_size and total_download_size are already displayed in the floating window in the pager, so it would not need to be displayed again in the pager content
         },
         &tum,
     );
@@ -525,7 +525,7 @@ pub fn table_for_history_pending(
 
     print_pending_inner(
         printer, &remove, &install,
-        None, // disk_size and total_download_size are displayed in the pager header, so we don't need to display them again in the table body
+        None, // disk_size and total_download_size are already displayed in the floating window in the pager, so it would not need to be displayed again in the pager content
         &None,
     );
     pager.wait_for_exit().map_err(|e| OutputError {
