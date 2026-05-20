@@ -450,11 +450,14 @@ pub fn table_for_install_pending(
         printer,
         &remove,
         &install,
-        disk_size,
-        total_download_size,
+        if !is_pager {
+            Some((disk_size, total_download_size))
+        } else {
+            None // disk_size and total_download_size are displayed in the pager header, so we don't need to display them again in the table body
+        },
         &tum,
-        is_pager,
     );
+
     let exit = pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
         source: Some(Box::new(e)),
@@ -473,10 +476,8 @@ pub fn table_for_install_pending(
                 printer,
                 &remove,
                 &install,
-                disk_size,
-                total_download_size,
+                Some((disk_size, total_download_size)),
                 &tum,
-                false,
             );
             Ok(exit)
         }
@@ -489,10 +490,18 @@ pub fn table_for_history_pending(
     remove: &[RemoveHistoryEntry],
     disk_size: i64,
 ) -> Result<(), OutputError> {
+    let total_download_size = install
+        .iter()
+        .filter(|x| {
+            x.operation == InstallOperation::Install || x.operation == InstallOperation::Upgrade
+        })
+        .map(|x| x.download_size as u64)
+        .sum();
+
     let mut pager = Pager::external(
         Box::new(OmaPagerUIText {
             is_question: false,
-            download_and_install_size: None,
+            download_and_install_size: Some((total_download_size, disk_size)),
         }),
         Some(fl!("pending-op")),
         color_formatter(),
@@ -511,25 +520,13 @@ pub fn table_for_history_pending(
 
     printer.println("\n\n").ok();
 
-    let total_download_size = install
-        .iter()
-        .filter(|x| {
-            x.operation == InstallOperation::Install || x.operation == InstallOperation::Upgrade
-        })
-        .map(|x| x.download_size as u64)
-        .sum();
-
     let install = install.iter().map(|x| x.into()).collect::<Vec<_>>();
     let remove = remove.iter().map(|x| x.into()).collect::<Vec<_>>();
 
     print_pending_inner(
-        printer,
-        &remove,
-        &install,
-        disk_size,
-        total_download_size,
+        printer, &remove, &install,
+        None, // disk_size and total_download_size are displayed in the pager header, so we don't need to display them again in the table body
         &None,
-        false,
     );
     pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
@@ -575,10 +572,8 @@ fn print_pending_inner<W: Write>(
     mut printer: PagerPrinter<W>,
     remove: &[RemoveEntryDisplay],
     install: &[InstallEntryDisplay],
-    disk_size: i64,
-    total_download_size: u64,
+    disk_size_and_total_download_size: Option<(i64, u64)>,
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
-    no_display_size_message: bool,
 ) {
     print_tum(&mut printer, tum);
 
@@ -729,7 +724,7 @@ fn print_pending_inner<W: Write>(
         }
     }
 
-    if !no_display_size_message {
+    if let Some((disk_size, total_download_size)) = disk_size_and_total_download_size {
         printer
             .println(format!(
                 "{}{}",
