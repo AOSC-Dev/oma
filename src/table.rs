@@ -489,10 +489,18 @@ pub fn table_for_history_pending(
     remove: &[RemoveHistoryEntry],
     disk_size: i64,
 ) -> Result<(), OutputError> {
+    let total_download_size = install
+        .iter()
+        .filter(|x| {
+            x.operation == InstallOperation::Install || x.operation == InstallOperation::Upgrade
+        })
+        .map(|x| x.download_size as u64)
+        .sum();
+
     let mut pager = Pager::external(
         Box::new(OmaPagerUIText {
             is_question: false,
-            download_and_install_size: None,
+            download_and_install_size: Some((total_download_size, disk_size)),
         }),
         Some(fl!("pending-op")),
         color_formatter(),
@@ -511,14 +519,6 @@ pub fn table_for_history_pending(
 
     printer.println("\n\n").ok();
 
-    let total_download_size = install
-        .iter()
-        .filter(|x| {
-            x.operation == InstallOperation::Install || x.operation == InstallOperation::Upgrade
-        })
-        .map(|x| x.download_size as u64)
-        .sum();
-
     let install = install.iter().map(|x| x.into()).collect::<Vec<_>>();
     let remove = remove.iter().map(|x| x.into()).collect::<Vec<_>>();
 
@@ -529,7 +529,7 @@ pub fn table_for_history_pending(
         disk_size,
         total_download_size,
         &None,
-        false,
+        true,
     );
     pager.wait_for_exit().map_err(|e| OutputError {
         description: "Failed to wait exit".to_string(),
