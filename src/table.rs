@@ -557,7 +557,8 @@ impl Display for TumDisplay {
         let length = if length > 80 { 80 } else { length } as usize;
 
         if !self.caution.is_empty() {
-            for i in textwrap::wrap(&self.caution, length) {
+            // 4 为空格缩进的长度，外加 1 列滚动条及 1 列右侧空白，共 6 列
+            for i in textwrap::wrap(&self.caution, length - 6) {
                 writeln!(f, "    {i}")?;
             }
         } else {
