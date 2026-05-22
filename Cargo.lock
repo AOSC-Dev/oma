@@ -3224,7 +3224,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.37.0"
+version = "0.37.1"
 dependencies = [
  "async-compression",
  "bon",
