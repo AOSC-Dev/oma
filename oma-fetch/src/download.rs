@@ -477,12 +477,15 @@ impl<'a> SingleDownloader<'a> {
                         return Err(SingleDownloadError::Seek { source: e });
                     }
                 }
+            } else if let Err(e) = dest.seek(SeekFrom::Start(downloaded_size)).await {
+                callback(Event::ProgressDone(self.download_list_index)).await;
+                return Err(SingleDownloadError::Seek { source: e });
+            }
 
-                // truncate file
-                if let Err(e) = dest.set_len(downloaded_size).await {
-                    callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(SingleDownloadError::Write { source: e });
-                }
+            // truncate file
+            if let Err(e) = dest.set_len(downloaded_size).await {
+                callback(Event::ProgressDone(self.download_list_index)).await;
+                return Err(SingleDownloadError::Write { source: e });
             }
 
             // update progress
