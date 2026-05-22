@@ -6,13 +6,13 @@ description = "Handle APT repository verify library"
 license = "MIT"
 
 [dependencies]
-anyhow = "1"
-thiserror = "2"
-sequoia-openpgp = { version = "2", default-features = false }
-spdlog-rs = "0.5"
-oma-apt-sources-lists = "0.9"
-sequoia-policy-config = "0.8"
-chrono = "0.4"
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+sequoia-openpgp = { workspace = true }
+spdlog-rs = { workspace = true }
+oma-apt-sources-lists = { workspace = true }
+sequoia-policy-config = { workspace = true }
+chrono = { workspace = true }
 
 [features]
 sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]

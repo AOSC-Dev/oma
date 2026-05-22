@@ -8,9 +8,9 @@ description = "APT package management operation abstraction library"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-oma-utils = { version = "^0.13.0", path = "../oma-utils", default-features = false, features = [
+serde = { workspace = true }
+oma-utils = { workspace = true , default-features = false, features = [
     "human-bytes",
 ] }
-bon = "3"
-num_enum = "0.7.3"
+bon = { workspace = true }
+num_enum = { workspace = true }

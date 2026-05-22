@@ -8,16 +8,16 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-regex = "1.8"
-thiserror = "2.0"
-winnow = "1"
-flate2 = "1.0"
-rayon = "1.8"
-lzzzz = "2.0"
-spdlog-rs = "0.5"
-which = "8"
-zstd = "0.13"
-memchr = "2"
+regex = { workspace = true }
+thiserror = { workspace = true }
+winnow = { workspace = true }
+flate2 = { workspace = true }
+rayon = { workspace = true }
+lzzzz = { workspace = true }
+spdlog-rs = { workspace = true }
+which = { workspace = true }
+zstd = { workspace = true }
+memchr = { workspace = true }
 
 [features]
 aosc = []
