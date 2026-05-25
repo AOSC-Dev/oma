@@ -4,7 +4,7 @@ use std::{collections::HashMap, env::args, path::Path};
 
 use migrations::create_and_maybe_migration_from_oma_db_v2;
 use oma_pm_operation_type::{InstallOperation, OmaOperation, RemoveTag};
-use rusqlite::{Connection, Error, Result};
+use rusqlite::{Connection, Error, OpenFlags, Result};
 use serde::Deserialize;
 use spdlog::debug;
 use thiserror::Error;
@@ -119,7 +119,26 @@ impl History {
         create_history_database_if_not_exists: bool,
         dry_run: bool,
     ) -> HistoryResult<Self> {
-        let conn = Connection::open(db_path);
+        if create_history_database_if_not_exists {
+            if let Some(parent) = db_path.as_ref().parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    HistoryError::FailedOperateDirOrFile(parent.to_string_lossy().to_string(), e)
+                })?;
+            } else {
+                return Err(HistoryError::FailedParentPath(
+                    db_path.as_ref().to_string_lossy().to_string(),
+                ));
+            }
+        }
+
+        let conn = Connection::open_with_flags(
+            db_path,
+            if create_history_database_if_not_exists {
+                OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE
+            } else {
+                OpenFlags::SQLITE_OPEN_READ_WRITE
+            },
+        );
 
         let mut conn = match conn {
             Ok(conn) => conn,
