@@ -138,10 +138,9 @@ pub fn parse_version_expr(input: &str) -> Result<Vec<VersionToken<'_>>, VersionP
             | VersionToken::Lt
             | VersionToken::Or
             | VersionToken::And => {
-                if let Some(last_op) = operators.last()
-                    && last_op.precedence() >= token.precedence()
+                if let Some(last) =
+                    operators.pop_if(|last_op| last_op.precedence() >= token.precedence())
                 {
-                    let last = operators.pop().unwrap();
                     stack.push(last);
                     operators.push(token);
                     prev_is_op = token.is_op();
