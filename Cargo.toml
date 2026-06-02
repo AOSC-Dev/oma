@@ -105,7 +105,7 @@ clap_mangen = "0.3"
 clap_complete = { version = "4.6", features = ["unstable-dynamic"] }
 clap_lex = "1"
 console-subscriber = "0.5.0"
-tabled = { version = "0.20", features = ["ansi"] }
+tabled = { version = "0.21", features = ["ansi"] }
 ctrlc = "3.5"
 anyhow = "1.0.89"
 tokio = { version = "1.46.0", default-features = false }
@@ -161,7 +161,7 @@ liblzma = { version = "0", features = ["uncheck_liblzma_version"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 md-5 = "0.11"
 headers = "0.4.1"
-rusqlite = { version = "0.39", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 indicium = "0.6"
 cxx = "1.0.121"
 deb822-lossless = "0.5"
