@@ -3,7 +3,6 @@ use std::thread;
 use apt_auth_config::AuthConfig;
 use bon::Builder;
 use flume::unbounded;
-use oma_pm::apt::AptConfig;
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg::dpkg_arch;
 use spdlog::{debug, info};
@@ -20,7 +19,6 @@ use crate::{
 #[derive(Debug, Builder)]
 pub struct Refresh<'a> {
     config: &'a OmaConfig,
-    apt_config: &'a AptConfig,
     auth_config: Option<&'a AuthConfig>,
 }
 
@@ -28,7 +26,6 @@ impl Refresh<'_> {
     pub fn run(self) -> Result<(), OutputError> {
         let Refresh {
             config,
-            apt_config,
             auth_config,
         } = self;
 
@@ -42,11 +39,10 @@ impl Refresh<'_> {
         let arch = dpkg_arch(sysroot)?;
 
         let refresh = OmaRefresh::builder()
-            .download_dir(get_lists_dir(apt_config))
+            .download_dir(get_lists_dir())
             .source(sysroot.clone())
             .threads(config.download_threads)
             .arch(arch)
-            .apt_config(apt_config)
             .client(config.http_client()?)
             .another_apt_options(&config.apt_options)
             .maybe_auth_config(auth_config);

@@ -1,9 +1,12 @@
-use oma_pm::apt::AptConfig;
+use oma_pm::oma_apt;
 use std::path::PathBuf;
 
 #[inline]
-pub fn get_lists_dir(config: &AptConfig) -> PathBuf {
-    PathBuf::from(config.dir("Dir::State::lists", "lists/"))
+pub fn get_lists_dir() -> PathBuf {
+    PathBuf::from(oma_apt::raw::config::find_dir(
+        "Dir::State::lists".to_string(),
+        "lists/".to_string(),
+    ))
 }
 
 /// oma display normal message

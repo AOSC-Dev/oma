@@ -1,6 +1,5 @@
 use clap::Args;
 use clap_complete::ArgValueCompleter;
-use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::matches::GetArchMethod;
@@ -133,8 +132,6 @@ impl CliExecuter for Install {
 
         let _fds = dbus_check(yes, &config)?;
 
-        let apt_config = AptConfig::new();
-
         let auth_config = auth_config(&config.sysroot);
         let auth_config = auth_config.as_ref();
         let no_progress = config.no_progress();
@@ -142,7 +139,6 @@ impl CliExecuter for Install {
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
                 .maybe_auth_config(auth_config)
                 .build()
                 .run()?;

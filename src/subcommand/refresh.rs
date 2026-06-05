@@ -1,5 +1,5 @@
 use clap::Args;
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{OmaApt, OmaAptArgs};
 use spdlog::info;
 
 use crate::config::OmaConfig;
@@ -24,13 +24,11 @@ impl CliExecuter for Refresh {
 
         root()?;
 
-        let apt_config = AptConfig::new();
         let auth_config = auth_config(&config.sysroot);
         let auth_config = auth_config.as_ref();
 
         RefreshInner::builder()
             .config(&config)
-            .apt_config(&apt_config)
             .maybe_auth_config(auth_config)
             .build()
             .run()?;

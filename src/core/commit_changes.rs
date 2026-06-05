@@ -10,9 +10,7 @@ use oma_console::{indicatif::HumanBytes, pager::PagerExit, print::Action};
 use oma_history::{DATABASE_PATH, HistoryInfo};
 use oma_pm::{
     CommitConfig,
-    apt::{
-        AptConfig, InstallEntry, InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError, RemoveEntry,
-    },
+    apt::{InstallEntry, InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError, RemoveEntry},
     oma_apt::{self, PackageSort},
     sort::SummarySort,
 };
@@ -144,7 +142,7 @@ impl CommitChanges<'_> {
 
         if check_tum {
             #[cfg(feature = "aosc")]
-            let tum = oma_tum::get_tum(get_lists_dir(&AptConfig::new()))?;
+            let tum = oma_tum::get_tum(get_lists_dir())?;
 
             #[cfg(feature = "aosc")]
             let matches_tum = Some(oma_tum::get_matches_tum(&tum, &op));

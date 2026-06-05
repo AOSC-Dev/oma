@@ -2,7 +2,7 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::{Select, theme::ColorfulTheme};
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     oma_apt::VersionFile,
     pkginfo::OmaPackage,
 };
@@ -88,15 +88,12 @@ impl CliExecuter for Pick {
 
         let _fds = dbus_check(false, &config)?;
 
-        let apt_config = AptConfig::new();
-
         let auth_config = auth_config(&config.sysroot);
         let auth_config = auth_config.as_ref();
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
                 .maybe_auth_config(auth_config)
                 .build()
                 .run()?;

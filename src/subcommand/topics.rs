@@ -8,7 +8,7 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
     oma_apt::PkgSelectedState,
     pkginfo::OmaPackageWithoutVersion,
@@ -194,10 +194,9 @@ impl CliExecuter for Topics {
 
         let auth_config = auth_config(&config.sysroot);
         let auth_config = auth_config.as_ref();
-        let apt_config = AptConfig::new();
 
         let code = Ok(()).and_then(|_| -> Result<ExitHandle, OutputError> {
-            refresh(&config, &apt_config, auth_config)?;
+            refresh(&config, auth_config)?;
 
             if only_apply_sources_list {
                 return Ok(ExitHandle::default().ring(true));
@@ -351,7 +350,7 @@ impl CliExecuter for Topics {
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
                     RT.block_on(tm.write_enabled(true))?;
-                    refresh(&config, &AptConfig::new(), auth_config)?;
+                    refresh(&config, auth_config)?;
                 }
             }
             Err(e) => {
@@ -368,14 +367,9 @@ impl CliExecuter for Topics {
     }
 }
 
-fn refresh(
-    config: &OmaConfig,
-    apt_config: &AptConfig,
-    auth_config: Option<&AuthConfig>,
-) -> Result<(), OutputError> {
+fn refresh(config: &OmaConfig, auth_config: Option<&AuthConfig>) -> Result<(), OutputError> {
     Refresh::builder()
         .config(config)
-        .apt_config(apt_config)
         .maybe_auth_config(auth_config)
         .build()
         .run()

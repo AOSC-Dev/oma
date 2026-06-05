@@ -6,7 +6,7 @@ use clap::Args;
 use oma_console::print::Action;
 use oma_contents::OmaContentsError;
 use oma_contents::searcher::{Mode, search};
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{OmaApt, OmaAptArgs};
 use spdlog::error;
 
 use crate::config::OmaConfig;
@@ -41,12 +41,7 @@ impl CliExecuter for CommandNotFound {
             }
         };
 
-        let search_res = search(
-            get_lists_dir(&AptConfig::new()),
-            Mode::BinProvides,
-            &keyword,
-            cb,
-        );
+        let search_res = search(get_lists_dir(), Mode::BinProvides, &keyword, cb);
 
         match search_res {
             Ok(()) if res.is_empty() => {

@@ -3,7 +3,7 @@ use std::time::Duration;
 use clap::Args;
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs, Upgrade},
+    apt::{OmaApt, OmaAptArgs, Upgrade},
     search::IndiciumSearch,
 };
 use render::{Task, Tui as TuiInner};
@@ -80,7 +80,6 @@ impl CliExecuter for Tui {
         let _lock_fd = lock_oma(&config.sysroot)?;
         let _fds = dbus_check(false, &config)?;
 
-        let apt_config = AptConfig::new();
         let sysroot = &config.sysroot;
         let auth_config = auth_config(sysroot);
         let auth_config = auth_config.as_ref();
@@ -88,7 +87,6 @@ impl CliExecuter for Tui {
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
                 .maybe_auth_config(auth_config)
                 .build()
                 .run()?;
