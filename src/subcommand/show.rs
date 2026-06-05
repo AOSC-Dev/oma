@@ -5,7 +5,7 @@ use clap_complete::ArgValueCompleter;
 use dialoguer::console::{StyledObject, style};
 use oma_console::indicatif::HumanBytes;
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
     oma_apt::records::RecordField,
     pkginfo::{AptSource, OmaPackage},
@@ -74,7 +74,7 @@ impl CliExecuter for Show {
             .map(|x| x.to_owned())
             .collect::<Vec<_>>();
 
-        let apt = OmaApt::new(local_debs, oma_apt_args, false, AptConfig::new())?;
+        let apt = OmaApt::new(local_debs, oma_apt_args, false)?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)

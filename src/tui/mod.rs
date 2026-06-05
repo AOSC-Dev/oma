@@ -102,7 +102,7 @@ impl CliExecuter for Tui {
             .force_yes(force_yes)
             .build();
 
-        let mut apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+        let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
         let pb = create_progress_spinner(config.no_progress(), fl!("reading-database"));
 

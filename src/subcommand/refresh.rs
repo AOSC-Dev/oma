@@ -39,7 +39,7 @@ impl CliExecuter for Refresh {
             .sysroot(config.sysroot.to_string_lossy().to_string())
             .build();
 
-        let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+        let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
         let pb = create_progress_spinner(config.no_progress(), fl!("reading-database"));
 

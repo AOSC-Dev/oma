@@ -4,7 +4,7 @@ use std::thread;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use flume::unbounded;
-use oma_pm::apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
 use spdlog::error;
 
@@ -39,11 +39,10 @@ impl CliExecuter for Download {
             source: Some(Box::new(e)),
         })?;
 
-        let apt_config = AptConfig::new();
         let oma_apt_args = OmaAptArgs::builder()
             .another_apt_options(&config.apt_options)
             .build();
-        let apt = OmaApt::new(vec![], oma_apt_args, config.dry_run, apt_config)?;
+        let apt = OmaApt::new(vec![], oma_apt_args, config.dry_run)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .filter_candidate(true)

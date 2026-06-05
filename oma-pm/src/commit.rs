@@ -131,7 +131,6 @@ impl<'a> DoInstall<'a> {
             .map_err(OmaAptError::InstallPackages)?;
 
         let args = InstallProgressArgs {
-            config: self.apt.config,
             tokio: self.apt.tokio,
             connection: self.apt.conn,
         };

@@ -13,7 +13,7 @@ use oma_pm::{
     apt::{
         AptConfig, InstallEntry, InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError, RemoveEntry,
     },
-    oma_apt::PackageSort,
+    oma_apt::{self, PackageSort},
     sort::SummarySort,
 };
 use spdlog::{debug, error, info, warn};
@@ -233,7 +233,6 @@ impl CommitChanges<'_> {
                         .sysroot(config.sysroot.to_string_lossy().to_string())
                         .build(),
                     false,
-                    AptConfig::new(),
                 )?;
 
                 if download_only {
@@ -294,12 +293,7 @@ impl CommitChanges<'_> {
                     return Err(e.into());
                 }
 
-                let apt = OmaApt::new(
-                    vec![],
-                    OmaAptArgs::builder().build(),
-                    false,
-                    AptConfig::new(),
-                )?;
+                let apt = OmaApt::new(vec![], OmaAptArgs::builder().build(), false)?;
 
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 undo_tips();
@@ -334,7 +328,7 @@ fn fix_broken(
     let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
 
     let res = Ok(()).and_then(|_| -> Result<(), OmaAptError> {
-        let solver = apt.config.find("APT::Solver", "internal");
+        let solver = oma_apt::raw::config::find("APT::Solver".to_string(), "internal".to_string());
 
         if autoremove {
             apt.autoremove(remove_config)?;

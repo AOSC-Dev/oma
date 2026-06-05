@@ -136,7 +136,7 @@ impl CliExecuter for Upgrade {
             .dpkg_force_unsafe_io(force_unsafe_io)
             .build();
 
-        let mut apt = OmaApt::new(local_debs, oma_apt_args, config.dry_run, AptConfig::new())?;
+        let mut apt = OmaApt::new(local_debs, oma_apt_args, config.dry_run)?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
@@ -196,12 +196,7 @@ impl CliExecuter for Upgrade {
             .build()
             .run()?;
 
-        let apt = OmaApt::new(
-            vec![],
-            OmaAptArgs::builder().build(),
-            config.dry_run,
-            AptConfig::new(),
-        )?;
+        let apt = OmaApt::new(vec![], OmaAptArgs::builder().build(), config.dry_run)?;
 
         let (_, manual_held) = apt.count_pending_upgradable_pkgs();
 

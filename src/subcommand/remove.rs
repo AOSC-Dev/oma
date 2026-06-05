@@ -4,7 +4,7 @@ use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use spdlog::{info, warn};
 
@@ -162,7 +162,7 @@ impl CliExecuter for Remove {
             .dpkg_force_confnew(force_confnew)
             .build();
 
-        let mut apt = OmaApt::new(vec![], oma_apt_args, config.dry_run, AptConfig::new())?;
+        let mut apt = OmaApt::new(vec![], oma_apt_args, config.dry_run)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .filter_candidate(false)

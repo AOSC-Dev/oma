@@ -173,7 +173,7 @@ impl CliExecuter for Install {
             .dpkg_force_unsafe_io(force_unsafe_io)
             .build();
 
-        let mut apt = OmaApt::new(local_debs, oma_apt_args, config.dry_run, apt_config)?;
+        let mut apt = OmaApt::new(local_debs, oma_apt_args, config.dry_run)?;
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
             .filter_candidate(true)

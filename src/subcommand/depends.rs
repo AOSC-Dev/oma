@@ -6,7 +6,7 @@ use std::{
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
 
@@ -48,12 +48,11 @@ impl CliExecuter for Depends {
             .map(|x| x.to_owned())
             .collect::<Vec<_>>();
 
-        let apt_config = AptConfig::new();
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
             .another_apt_options(&apt_options)
             .build();
-        let apt = OmaApt::new(local_debs, oma_apt_args, false, apt_config)?;
+        let apt = OmaApt::new(local_debs, oma_apt_args, false)?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)

@@ -110,7 +110,7 @@ impl CliExecuter for Pick {
             .force_yes(force_yes)
             .build();
 
-        let mut apt = OmaApt::new(vec![], oma_apt_args, config.dry_run, apt_config)?;
+        let mut apt = OmaApt::new(vec![], oma_apt_args, config.dry_run)?;
 
         let pkg = apt
             .cache

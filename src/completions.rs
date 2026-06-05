@@ -6,7 +6,7 @@ use clap_complete::{CompletionCandidate, engine::ValueCompleter};
 use clap_lex::OsStrExt;
 use dirs::home_dir;
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     oma_apt::PackageSort,
 };
 use rustix::path::Arg;
@@ -200,12 +200,7 @@ fn pkgnames_complete_impl(
     current: &str,
     sort: PackageSort,
 ) {
-    let Ok(apt) = OmaApt::new(
-        vec![],
-        OmaAptArgs::builder().build(),
-        false,
-        AptConfig::new(),
-    ) else {
+    let Ok(apt) = OmaApt::new(vec![], OmaAptArgs::builder().build(), false) else {
         return;
     };
 

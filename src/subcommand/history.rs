@@ -171,7 +171,7 @@ impl CliExecuter for Undo {
             .force_yes(force_yes)
             .build();
 
-        let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+        let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
         let mut remove = vec![];
         let mut install = vec![];

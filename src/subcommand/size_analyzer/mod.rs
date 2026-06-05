@@ -11,7 +11,7 @@ use clap::Args;
 use dialoguer::console::style;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{exit_tui, prepare_create_tui};
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{OmaApt, OmaAptArgs};
 use oma_pm::oma_apt::{Package, PackageSort};
 use oma_pm::pkginfo::OmaPackageWithoutVersion;
 use oma_utils::is_termux;
@@ -96,7 +96,6 @@ impl CliExecuter for SizeAnalyzer {
                 .dpkg_force_confnew(force_confnew)
                 .build(),
             false,
-            AptConfig::new(),
         )?;
 
         let mut exit_code = ExitHandle::default();
