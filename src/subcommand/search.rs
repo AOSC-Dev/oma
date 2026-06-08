@@ -5,7 +5,7 @@ use clap_complete::ArgValueCompleter;
 use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
 use oma_pm::{
     PackageStatus,
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     matches::SearchEngine,
     search::{IndiciumSearch, OmaSearch, SearchResult, StrSimSearch, TextSearch},
 };
@@ -131,7 +131,7 @@ impl CliExecuter for Search {
             .sysroot(config.sysroot.to_string_lossy().to_string())
             .build();
 
-        let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+        let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
         let pb = create_progress_spinner(config.no_progress() || json, fl!("searching"));
         let res = search(

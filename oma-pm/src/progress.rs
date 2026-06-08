@@ -1,5 +1,5 @@
-use crate::{apt::AptConfig, dbus::change_status};
-use oma_apt::progress::DynInstallProgress;
+use crate::dbus::change_status;
+use oma_apt::{progress::DynInstallProgress, raw::config as apt_config};
 use oma_utils::zbus;
 use once_cell::sync::OnceCell;
 use tokio::runtime::Runtime;
@@ -7,50 +7,36 @@ use zbus::Connection;
 
 pub use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
 
-#[derive(Default, Debug)]
-pub struct NoProgress {
-    _lastline: usize,
-    _pulse_interval: usize,
-    _disable: bool,
-}
-
 pub(crate) struct InstallProgressArgs {
-    pub config: AptConfig,
     pub tokio: OnceCell<Runtime>,
     pub connection: OnceCell<Connection>,
 }
 
 pub(crate) struct OmaAptInstallProgress {
-    config: AptConfig,
     tokio: OnceCell<Runtime>,
     connection: OnceCell<Connection>,
     pm: Box<dyn InstallProgressManager>,
 }
 
 pub trait InstallProgressManager {
-    fn status_change(&self, pkgname: &str, steps_done: u64, total_steps: u64, config: &AptConfig);
+    fn status_change(&self, pkgname: &str, steps_done: u64, total_steps: u64);
     fn no_interactive(&self) -> bool;
     fn use_pty(&self) -> bool;
 }
 
 impl OmaAptInstallProgress {
     pub fn new(args: InstallProgressArgs, pm: Box<dyn InstallProgressManager>) -> Self {
-        let InstallProgressArgs {
-            config,
-            tokio,
-            connection,
-        } = args;
+        let InstallProgressArgs { tokio, connection } = args;
 
         if pm.no_interactive() {
             unsafe { std::env::set_var("DEBIAN_FRONTEND", "noninteractive") };
         }
 
         if !pm.use_pty() {
-            config.set("Dpkg::Use-Pty", "false");
+            apt_config::set("Dpkg::Use-Pty".to_string(), "false".to_string());
         }
 
         Self {
-            config,
             tokio,
             connection,
             pm,
@@ -68,8 +54,7 @@ impl DynInstallProgress for OmaAptInstallProgress {
     ) {
         let conn = &self.connection;
 
-        self.pm
-            .status_change(&pkgname, steps_done, total_steps, &self.config);
+        self.pm.status_change(&pkgname, steps_done, total_steps);
 
         if let Some(tokio) = self.tokio.get()
             && let Some(conn) = conn.get()

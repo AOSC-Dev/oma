@@ -1,7 +1,7 @@
 use std::{borrow::Cow, path::PathBuf};
 
 use clap::ColorChoice;
-use oma_pm::apt::AptConfig;
+use oma_pm::oma_apt;
 use oma_utils::is_termux;
 use once_cell::sync::OnceCell;
 use reqwest::Client;
@@ -190,16 +190,19 @@ impl OmaConfig {
     }
 
     pub fn init_apt_config(&self) {
-        let apt_config = AptConfig::new();
+        oma_apt::config::init_config_system();
 
         if !is_termux() {
-            apt_config.set("Dir", &self.sysroot.to_string_lossy());
+            oma_apt::raw::config::set(
+                "Dir".to_string(),
+                self.sysroot.to_string_lossy().to_string(),
+            );
         }
 
         for kv in &self.apt_options {
             let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
             debug!("Set apt option: {k}={v}");
-            apt_config.set(k, v);
+            oma_apt::raw::config::set(k.to_string(), v.to_string());
         }
     }
 

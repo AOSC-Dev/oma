@@ -4,7 +4,7 @@ use clap::{Args, ValueEnum};
 use clap_complete::ArgValueCompleter;
 use oma_console::print::Action;
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
 use spdlog::info;
@@ -65,7 +65,7 @@ impl CliExecuter for Mark {
             .another_apt_options(&config.apt_options)
             .build();
 
-        let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+        let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
         let set = match action {
             MarkAction::Hold | MarkAction::Unhold => apt

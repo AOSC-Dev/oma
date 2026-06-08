@@ -2,11 +2,14 @@ use std::{io::Write, thread};
 
 use apt_auth_config::AuthConfig;
 use flume::unbounded;
-use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
+use oma_apt::{
+    raw::config as apt_config,
+    util::{get_apt_progress_string, terminal_height, terminal_width},
+};
 use oma_fetch::{Event, reqwest::ClientBuilder};
 use oma_pm::{
     CommitConfig,
-    apt::{AptConfig, InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError},
+    apt::{InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError},
     matches::PackagesMatcher,
     progress::InstallProgressManager,
     sort::SummarySort,
@@ -15,7 +18,7 @@ use oma_pm::{
 struct MyInstallProgressManager;
 
 impl InstallProgressManager for MyInstallProgressManager {
-    fn status_change(&self, _pkgname: &str, steps_done: u64, total_steps: u64, config: &AptConfig) {
+    fn status_change(&self, _pkgname: &str, steps_done: u64, total_steps: u64) {
         // Get the terminal's width and height.
         let term_height = terminal_height();
         let term_width = terminal_width();
@@ -45,8 +48,14 @@ impl InstallProgressManager for MyInstallProgressManager {
         // Get colors for progress reporting.
         // NOTE: The APT implementation confusingly has 'Progress-fg' for 'bg_color',
         // and the same the other way around.
-        let bg_color = config.find("Dpkg::Progress-Fancy::Progress-fg", "\x1b[42m");
-        let fg_color = config.find("Dpkg::Progress-Fancy::Progress-bg", "\x1b[30m");
+        let bg_color = apt_config::find(
+            "Dpkg::Progress-Fancy::Progress-fg".to_string(),
+            "\x1b[42m".to_string(),
+        );
+        let fg_color = apt_config::find(
+            "Dpkg::Progress-Fancy::Progress-bg".to_string(),
+            "\x1b[30m".to_string(),
+        );
         const BG_COLOR_RESET: &str = "\x1b[49m";
         const FG_COLOR_RESET: &str = "\x1b[39m";
 
@@ -86,7 +95,7 @@ impl InstallProgressManager for MyInstallProgressManager {
 
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgs::builder().yes(true).build();
-    let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+    let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let matcher = PackagesMatcher::builder()
         .cache(&apt.cache)

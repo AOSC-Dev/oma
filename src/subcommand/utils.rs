@@ -23,7 +23,6 @@ use oma_console::writer::Writeln;
 use oma_contents::searcher::Mode;
 use oma_contents::searcher::search;
 use oma_pm::CustomDownloadMessage;
-use oma_pm::apt::AptConfig;
 use oma_utils::GetLockError;
 use oma_utils::get_file_lock;
 use spdlog::{debug, error, info};
@@ -59,16 +58,11 @@ pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Resul
                 error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
             }
 
-            search(
-                get_lists_dir(&AptConfig::new()),
-                Mode::BinProvides,
-                word,
-                |(pkg, file)| {
-                    if file == format!("/usr/bin/{word}") {
-                        bin.insert((pkg, word));
-                    }
-                },
-            )
+            search(get_lists_dir(), Mode::BinProvides, word, |(pkg, file)| {
+                if file == format!("/usr/bin/{word}") {
+                    bin.insert((pkg, word));
+                }
+            })
             .ok();
         }
     }

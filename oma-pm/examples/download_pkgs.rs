@@ -4,13 +4,13 @@ use apt_auth_config::AuthConfig;
 use flume::unbounded;
 use oma_fetch::{Event, reqwest::ClientBuilder};
 use oma_pm::{
-    apt::{AptConfig, DownloadConfig, OmaApt, OmaAptArgs, OmaAptError},
+    apt::{DownloadConfig, OmaApt, OmaAptArgs, OmaAptError},
     matches::PackagesMatcher,
 };
 
 fn main() -> Result<(), OmaAptError> {
     let oma_apt_args = OmaAptArgs::builder().build();
-    let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+    let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
     let matcher = PackagesMatcher::builder()
         .cache(&apt.cache)

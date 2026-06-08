@@ -18,7 +18,7 @@ use oma_apt::{
     error::AptErrors,
     new_cache,
     progress::{AcquireProgress, InstallProgress},
-    raw::IntoRawIter,
+    raw::{IntoRawIter, config as apt_config},
     records::RecordField,
     util::DiskSpace,
 };
@@ -77,8 +77,6 @@ pub struct OmaAptArgs<'a> {
 pub struct OmaApt {
     /// Summary of all the apt operations in rust-apt.
     pub cache: Cache,
-    /// See Document for `AptConfig`.
-    pub config: AptConfig,
     /// The set of packages to be autoremoved.
     autoremove: HashSet<usize>,
     /// Toggle for dry-run mode.
@@ -178,6 +176,22 @@ pub struct DownloadConfig<'a> {
     pub auth: Option<&'a AuthConfig>,
 }
 
+pub fn apt_config_get(key: String) -> Option<String> {
+    let res = apt_config::find(key, "".to_string());
+    if res.is_empty() { None } else { Some(res) }
+}
+
+pub fn apt_config_set_vector(key: &str, values: &[&str]) {
+    let mut vec_key = String::from(key);
+    if !vec_key.ends_with("::") {
+        vec_key.push_str("::");
+    }
+
+    for value in values {
+        apt_config::set(vec_key.to_string(), value.to_string());
+    }
+}
+
 impl OmaApt {
     /// Create a new apt manager
     ///
@@ -187,12 +201,7 @@ impl OmaApt {
     /// `args`: Configuration for oma, see documentation for `OmaAptArgs`
     /// `dry_run`: Toggle for dry-run mode
     /// `config`: Configuration for apt, see documentation for `AptConfig`
-    pub fn new(
-        local_debs: Vec<String>,
-        args: OmaAptArgs,
-        dry_run: bool,
-        config: AptConfig,
-    ) -> OmaAptResult<Self> {
+    pub fn new(local_debs: Vec<String>, args: OmaAptArgs, dry_run: bool) -> OmaAptResult<Self> {
         for path in &local_debs {
             if !Path::new(&path).exists() {
                 return Err(OmaAptError::PathNotExist(path.to_string()));
@@ -200,11 +209,10 @@ impl OmaApt {
         }
 
         let sysroot = args.sysroot.clone();
-        let config = Self::init_config(config, args)?;
+        Self::init_config(args)?;
 
         Ok(Self {
             cache: new_cache!(&local_debs).map_err(OmaAptError::CreateCache)?,
-            config,
             autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
             select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
@@ -217,7 +225,7 @@ impl OmaApt {
     }
 
     /// Init apt config (before create new apt manager)
-    fn init_config(config: AptConfig, args: OmaAptArgs) -> OmaAptResult<AptConfig> {
+    fn init_config(args: OmaAptArgs) -> OmaAptResult<()> {
         let OmaAptArgs {
             install_recommends,
             install_suggests,
@@ -238,13 +246,13 @@ impl OmaApt {
                 OmaAptError::FailedGetCanonicalize(sysroot.display().to_string(), e)
             })?;
 
-            config.set("Dir", &sysroot.display().to_string());
+            apt_config::set("Dir".to_string(), sysroot.display().to_string());
         }
 
-        debug!("Dir is: {:?}", config.get("Dir"));
+        debug!("Dir is: {:?}", apt_config_get("Dir".to_string()));
         debug!(
             "Dir::State::status is: {:?}",
-            config.get("Dir::State::status")
+            apt_config_get("Dir::State::status".to_string())
         );
 
         let install_recommend = if install_recommends {
@@ -252,7 +260,7 @@ impl OmaApt {
         } else if no_install_recommends {
             false
         } else {
-            config.bool("APT::Install-Recommends", true)
+            apt_config::find_bool("APT::Install-Recommends".to_string(), true)
         };
 
         let install_suggests = if install_suggests {
@@ -260,22 +268,28 @@ impl OmaApt {
         } else if no_install_suggests {
             false
         } else {
-            config.bool("APT::Install-Suggests", false)
+            apt_config::find_bool("APT::Install-Suggests".to_string(), false)
         };
 
-        config.set("APT::Install-Recommends", &install_recommend.to_string());
+        apt_config::set(
+            "APT::Install-Recommends".to_string(),
+            install_recommend.to_string(),
+        );
         debug!("APT::Install-Recommends is set to {install_recommend}");
 
-        config.set("APT::Install-Suggests", &install_suggests.to_string());
+        apt_config::set(
+            "APT::Install-Suggests".to_string(),
+            install_suggests.to_string(),
+        );
         debug!("APT::Install-Suggests is set to {install_suggests}");
 
         if yes {
-            config.set("APT::Get::Assume-Yes", "true");
+            apt_config::set("APT::Get::Assume-Yes".to_string(), "true".to_string());
             debug!("APT::Get::Assume-Yes is set to true");
         }
 
         let mut dpkg_args = vec![];
-        let opts = config.get("Dpkg::Options::");
+        let opts = apt_config_get("Dpkg::Options::".to_string());
         if let Some(ref opts) = opts {
             dpkg_args.push(opts.as_str());
         }
@@ -293,7 +307,7 @@ impl OmaApt {
 
         if force_yes {
             // warn!("{}", fl!("force-auto-mode"));
-            config.set("APT::Get::force-yes", "true");
+            apt_config::set("APT::Get::force-yes".to_string(), "true".to_string());
             debug!("APT::Get::force-Yes is set to true");
         }
 
@@ -306,23 +320,23 @@ impl OmaApt {
             unsafe { std::env::set_var("DEBIAN_FRONTEND", "noninteractive") };
         }
 
-        let dir = config.get("Dir").unwrap_or_else(|| "/".to_owned());
+        let dir = apt_config_get("Dir".to_string()).unwrap_or_else(|| "/".to_owned());
         let root_arg = format!("--root={dir}");
 
         if !is_termux() {
             dpkg_args.push(&root_arg);
         }
 
-        config.set_vector("Dpkg::Options::", &dpkg_args);
+        apt_config_set_vector("Dpkg::Options::", &dpkg_args);
         debug!("dpkg args: {dpkg_args:?}");
 
         for kv in another_apt_options {
             let (k, v) = kv.split_once('=').unwrap_or((kv, ""));
-            config.set(k, v);
+            apt_config::set(k.to_owned(), v.to_owned());
             debug!("{k}={v} is set");
         }
 
-        Ok(config)
+        Ok(())
     }
 
     /// Get upgradable packages count
@@ -390,7 +404,7 @@ impl OmaApt {
     ) -> OmaAptResult<Vec<(String, String)>> {
         let mut no_marked_install = vec![];
 
-        let install_recommends = self.config.bool("APT::Install-Recommends", true);
+        let install_recommends = apt_config::find_bool("APT::Install-Recommends".to_string(), true);
 
         for pkg in pkgs {
             let marked_install = mark_install(&self.cache, pkg, reinstall, install_recommends)?;
@@ -570,7 +584,7 @@ impl OmaApt {
     }
 
     pub fn get_architectures(&self) -> Vec<String> {
-        self.config.get_architectures()
+        apt_config::get_architectures()
     }
 
     /// Commit changes
@@ -607,7 +621,7 @@ impl OmaApt {
         if is_termux() {
             self.sysroot.display().to_string()
         } else {
-            self.config.get("Dir").unwrap_or_else(|| "/".to_string())
+            apt_config::find("Dir".to_string(), "/".to_string())
         }
     }
 
@@ -713,7 +727,7 @@ impl OmaApt {
             }
             return Err(OmaAptError::DependencyIssue {
                 broken_dependencies: self.unmet.to_vec(),
-                is_solver3: self.config.get("APT::Solver").is_some_and(|v| v == "3.0"),
+                is_solver3: apt_config_get("APT::Solver".to_string()).is_some_and(|v| v == "3.0"),
                 apt_errors: e,
             });
         }
@@ -756,7 +770,10 @@ impl OmaApt {
                 return PathBuf::from("/data/data/com.termux/cache/apt/archives/");
             }
 
-            PathBuf::from(&self.config.dir("Dir::Cache::Archives", "archives/"))
+            PathBuf::from(apt_config::find_dir(
+                "Dir::Cache::Archives".to_string(),
+                "archives/".to_string(),
+            ))
         })
     }
 

@@ -4,7 +4,7 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use oma_console::print::Action;
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     oma_apt::{PackageSort, PkgCurrentState, PkgSelectedState},
 };
 use spdlog::info;
@@ -69,7 +69,7 @@ impl CliExecuter for List {
             .another_apt_options(&config.apt_options)
             .build();
 
-        let apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+        let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
         let mut sort = PackageSort::default();
 

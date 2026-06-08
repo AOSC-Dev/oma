@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use oma_pm::{
-    apt::AptConfig,
+    oma_apt::raw::config as apt_config,
     progress::{InstallProgressManager, get_apt_progress_string, terminal_height, terminal_width},
 };
 
@@ -9,6 +9,8 @@ use crate::subcommand::utils::is_terminal;
 
 pub struct OmaInstallProgressManager {
     yes: bool,
+    bg_color: String,
+    fg_color: String,
 }
 
 impl OmaInstallProgressManager {
@@ -17,12 +19,22 @@ impl OmaInstallProgressManager {
     const BG_COLOR_RESET: &str = "\x1b[49m";
     const FG_COLOR_RESET: &str = "\x1b[39m";
     pub fn new(yes: bool) -> Self {
-        Self { yes }
+        Self {
+            yes,
+            bg_color: apt_config::find(
+                "Dpkg::Progress-Fancy::Progress-fg".to_string(),
+                "\x1b[42m".to_string(),
+            ),
+            fg_color: apt_config::find(
+                "Dpkg::Progress-Fancy::Progress-bg".to_string(),
+                "\x1b[30m".to_string(),
+            ),
+        }
     }
 }
 
 impl InstallProgressManager for OmaInstallProgressManager {
-    fn status_change(&self, _pkgname: &str, steps_done: u64, total_steps: u64, config: &AptConfig) {
+    fn status_change(&self, _pkgname: &str, steps_done: u64, total_steps: u64) {
         // Get the terminal's width and height.
         let term_height = terminal_height();
         let term_width = terminal_width();
@@ -54,14 +66,10 @@ impl InstallProgressManager for OmaInstallProgressManager {
 
         percent_str = percent_padding.to_owned() + &percent_str;
 
-        // Get colors for progress reporting.
-        // NOTE: The APT implementation confusingly has 'Progress-fg' for 'bg_color',
-        // and the same the other way around.
-        let bg_color = config.find("Dpkg::Progress-Fancy::Progress-fg", "\x1b[42m");
-        let fg_color = config.find("Dpkg::Progress-Fancy::Progress-bg", "\x1b[30m");
-
         eprint!(
-            "{bg_color}{fg_color}Progress: [{percent_str}%]{}{} ",
+            "{}{}Progress: [{percent_str}%]{}{} ",
+            self.bg_color,
+            self.fg_color,
             Self::BG_COLOR_RESET,
             Self::FG_COLOR_RESET
         );
@@ -116,14 +124,7 @@ pub fn osc94_progress(percent: f32, finish: bool) {
 pub struct NoInstallProgressManager;
 
 impl InstallProgressManager for NoInstallProgressManager {
-    fn status_change(
-        &self,
-        _pkgname: &str,
-        _steps_done: u64,
-        _total_steps: u64,
-        _config: &AptConfig,
-    ) {
-    }
+    fn status_change(&self, _pkgname: &str, _steps_done: u64, _total_steps: u64) {}
 
     fn no_interactive(&self) -> bool {
         true

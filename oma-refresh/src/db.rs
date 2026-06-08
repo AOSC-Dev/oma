@@ -10,7 +10,7 @@ use bon::Builder;
 use chrono::Utc;
 
 #[cfg(feature = "apt")]
-use oma_apt::config::Config;
+use oma_apt::raw::config as apt_config;
 use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
     CompressType, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
@@ -107,8 +107,6 @@ pub struct OmaRefresh<'a> {
     client: &'a Client,
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
-    #[cfg(feature = "apt")]
-    apt_config: &'a Config,
     #[cfg(not(feature = "apt"))]
     manifest_config: Vec<(String, std::collections::HashMap<String, String>)>,
     #[cfg(feature = "aosc")]
@@ -156,15 +154,20 @@ impl<'a> OmaRefresh<'a> {
             let list_file = if is_termux() {
                 "/data/data/com.termux/files/usr/etc/apt/sources.list".to_string()
             } else {
-                self.apt_config.file("Dir::Etc::sourcelist", "sources.list")
+                apt_config::find_file(
+                    "Dir::Etc::sourcelist".to_string(),
+                    "sources.list".to_string(),
+                )
             };
 
             #[cfg(feature = "apt")]
             let list_dir = if is_termux() {
                 "/data/data/com.termux/files/usr/etc/apt/sources.list.d".to_string()
             } else {
-                self.apt_config
-                    .dir("Dir::Etc::sourceparts", "sources.list.d")
+                apt_config::find_dir(
+                    "Dir::Etc::sourceparts".to_string(),
+                    "sources.list.d".to_string(),
+                )
             };
 
             #[cfg(feature = "apt")]
@@ -199,7 +202,7 @@ impl<'a> OmaRefresh<'a> {
         };
 
         #[cfg(feature = "apt")]
-        let ignores = crate::sourceslist::ignores(self.apt_config);
+        let ignores = crate::sourceslist::ignores();
 
         #[cfg(not(feature = "apt"))]
         let ignores = vec![];
@@ -269,25 +272,25 @@ impl<'a> OmaRefresh<'a> {
 
     #[cfg(feature = "apt")]
     fn init_apt_options(&self) {
+        oma_apt::config::init_config_system();
+
         if !is_termux() {
-            self.apt_config.set("Dir", &self.source.to_string_lossy());
+            apt_config::set("Dir".to_string(), self.source.to_string_lossy().to_string());
         }
 
         for i in self.another_apt_options {
             let (k, v) = i.split_once('=').unwrap_or((i.as_str(), ""));
             debug!("Setting apt opt: {k}={v}");
-            self.apt_config.set(k, v);
+            apt_config::set(k.to_string(), v.to_string());
         }
 
         // default compression order
-        if self
-            .apt_config
-            .find_vector("Acquire::CompressionTypes::Order")
-            .is_empty()
-        {
-            self.apt_config.set_vector(
+        if apt_config::find_vector("Acquire::CompressionTypes::Order".to_string()).is_empty() {
+            use crate::util::apt_config_set_vector;
+
+            apt_config_set_vector(
                 "Acquire::CompressionTypes::Order",
-                &vec!["zst", "xz", "bz2", "lzma", "gz", "lz4"],
+                &["zst", "xz", "bz2", "lzma", "gz", "lz4"],
             );
         }
     }
@@ -344,9 +347,7 @@ impl<'a> OmaRefresh<'a> {
         use spdlog::warn;
         use tokio::process::Command;
 
-        let cmds = self
-            .apt_config
-            .find_vector("APT::Update::Post-Invoke-Success");
+        let cmds = apt_config::find_vector("APT::Update::Post-Invoke-Success".to_string());
 
         for cmd in &cmds {
             debug!("Running post-invoke script: {cmd}");
@@ -492,8 +493,7 @@ impl<'a> OmaRefresh<'a> {
         let mut tasks = vec![];
 
         #[cfg(feature = "apt")]
-        let index_target_config =
-            IndexTargetConfig::new_from_apt_config(self.apt_config, &self.arch);
+        let index_target_config = IndexTargetConfig::new_from_apt_config(&self.arch);
 
         #[cfg(not(feature = "apt"))]
         let index_target_config =

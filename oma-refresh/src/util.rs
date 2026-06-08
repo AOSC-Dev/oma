@@ -66,3 +66,15 @@ pub(crate) fn concat_url_only_check_once_slash(url: &str, path: impl Display) ->
         format!("{url}/{path}")
     }
 }
+
+#[cfg(feature = "apt")]
+pub fn apt_config_set_vector(key: &str, values: &[&str]) {
+    let mut vec_key = String::from(key);
+    if !vec_key.ends_with("::") {
+        vec_key.push_str("::");
+    }
+
+    for value in values {
+        oma_apt::raw::config::set(vec_key.to_string(), value.to_string());
+    }
+}

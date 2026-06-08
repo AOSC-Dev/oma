@@ -253,13 +253,9 @@ impl From<OmaDbusError> for OutputError {
 #[cfg(feature = "aosc")]
 impl From<TumError> for OutputError {
     fn from(value: TumError) -> Self {
-        use oma_pm::apt::AptConfig;
-
         use crate::utils::get_lists_dir;
 
-        let p1 = get_lists_dir(&AptConfig::new())
-            .to_string_lossy()
-            .to_string();
+        let p1 = get_lists_dir().to_string_lossy().to_string();
 
         match value {
             TumError::ReadAptListDir { source } => Self {

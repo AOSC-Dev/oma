@@ -9,7 +9,7 @@ use clap::Args;
 use clap_complete::{ArgValueCompleter, PathCompleter};
 use indexmap::IndexSet;
 use oma_contents::searcher::{Mode, search};
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use std::io::{Write, stdout};
 use std::path::{Path, PathBuf};
@@ -118,12 +118,7 @@ fn execute(
 
     match mode {
         Mode::Files | Mode::BinFiles | Mode::FilesSrc => {
-            let apt = OmaApt::new(
-                vec![],
-                OmaAptArgs::builder().build(),
-                false,
-                AptConfig::new(),
-            )?;
+            let apt = OmaApt::new(vec![], OmaAptArgs::builder().build(), false)?;
 
             let result = PackagesMatcher::builder()
                 .cache(&apt.cache)

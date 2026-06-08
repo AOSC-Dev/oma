@@ -81,10 +81,10 @@ pub(crate) async fn scan_sources_lists_paths(
 }
 
 #[cfg(feature = "apt")]
-pub fn ignores(config: &oma_apt::config::Config) -> Vec<Regex> {
+pub fn ignores() -> Vec<Regex> {
     use spdlog::warn;
 
-    config.find_vector("Dir::Ignore-Files-Silently")
+    oma_apt::raw::config::find_vector("Dir::Ignore-Files-Silently".to_string())
         .iter()
         .filter_map(|re| Regex::new(re)
             .inspect_err(|e|

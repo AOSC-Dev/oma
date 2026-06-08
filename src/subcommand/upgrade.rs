@@ -9,7 +9,6 @@ use spdlog::{debug, info, warn};
 
 use apt_auth_config::AuthConfig;
 use clap::Args;
-use oma_pm::apt::AptConfig;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::apt::Upgrade as AptUpgrade;
@@ -102,14 +101,11 @@ impl CliExecuter for Upgrade {
 
         let _fds = dbus_check(false, &config)?;
 
-        let apt_config = AptConfig::new();
-
         let auth_config = AuthConfig::system(&config.sysroot)?;
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
                 .auth_config(&auth_config)
                 .build()
                 .run()?;
@@ -136,7 +132,7 @@ impl CliExecuter for Upgrade {
             .dpkg_force_unsafe_io(force_unsafe_io)
             .build();
 
-        let mut apt = OmaApt::new(local_debs, oma_apt_args, config.dry_run, AptConfig::new())?;
+        let mut apt = OmaApt::new(local_debs, oma_apt_args, config.dry_run)?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
@@ -196,12 +192,7 @@ impl CliExecuter for Upgrade {
             .build()
             .run()?;
 
-        let apt = OmaApt::new(
-            vec![],
-            OmaAptArgs::builder().build(),
-            config.dry_run,
-            AptConfig::new(),
-        )?;
+        let apt = OmaApt::new(vec![], OmaAptArgs::builder().build(), config.dry_run)?;
 
         let (_, manual_held) = apt.count_pending_upgradable_pkgs();
 

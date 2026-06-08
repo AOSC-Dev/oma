@@ -11,7 +11,7 @@ use crate::success;
 use clap::Args;
 use fs_extra::dir::get_size;
 use oma_console::indicatif::HumanBytes;
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{OmaApt, OmaAptArgs};
 use spdlog::{debug, error, info};
 
 use crate::{error::OutputError, root::root};
@@ -55,13 +55,12 @@ impl CliExecuter for Clean {
 
         root()?;
 
-        let apt_config = AptConfig::new();
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
             .another_apt_options(&apt_options)
             .build();
 
-        let apt = OmaApt::new(vec![], oma_apt_args, false, apt_config)?;
+        let apt = OmaApt::new(vec![], oma_apt_args, false)?;
         let download_dir = apt.get_archive_dir();
 
         let total_clean_size = clean_download_packages_cache(

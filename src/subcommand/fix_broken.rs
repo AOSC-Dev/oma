@@ -1,5 +1,5 @@
 use clap::Args;
-use oma_pm::apt::{AptConfig, OmaApt, OmaAptArgs};
+use oma_pm::apt::{OmaApt, OmaAptArgs};
 
 use crate::{
     config::OmaConfig, core::commit_changes::CommitChanges, dbus::dbus_check, error::OutputError,
@@ -65,7 +65,7 @@ impl CliExecuter for FixBroken {
             .dpkg_force_confnew(force_confnew)
             .another_apt_options(&config.apt_options)
             .build();
-        let apt = OmaApt::new(vec![], oma_apt_args, config.dry_run, AptConfig::new())?;
+        let apt = OmaApt::new(vec![], oma_apt_args, config.dry_run)?;
 
         CommitChanges::builder()
             .apt(apt)

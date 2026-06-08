@@ -1,6 +1,6 @@
 use clap::Args;
 use oma_history::{DATABASE_PATH, HistoryEntry};
-use oma_pm::apt::{AptConfig, InstallOperation, OmaAptArgs};
+use oma_pm::apt::{InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::oma_apt::PackageSort;
 use oma_pm::pkginfo::PtrIsNone;
@@ -149,13 +149,11 @@ impl CliExecuter for Undo {
         #[cfg(feature = "aosc")]
         let (opt_in, opt_out) = history.find_history_topics_status_by_id(id)?;
 
-        let apt_config = AptConfig::new();
         let auth_config = auth_config(&config.sysroot);
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .apt_config(&apt_config)
                 .maybe_auth_config(auth_config.as_ref())
                 .build()
                 .run()?;
@@ -171,7 +169,7 @@ impl CliExecuter for Undo {
             .force_yes(force_yes)
             .build();
 
-        let mut apt = OmaApt::new(vec![], oma_apt_args, false, AptConfig::new())?;
+        let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
         let mut remove = vec![];
         let mut install = vec![];

@@ -141,9 +141,20 @@ fn modify_result(
 }
 
 #[cfg(feature = "apt")]
-pub fn get_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
+fn tree(key: &str) -> Option<ConfigTree> {
+    let tree = unsafe { oma_apt::raw::config::tree(key.to_string()) };
+
+    if tree.end() {
+        return None;
+    }
+
+    Some(ConfigTree::new(tree))
+}
+
+#[cfg(feature = "apt")]
+pub fn get_tree(key: &str) -> Vec<(String, HashMap<String, String>)> {
     let mut res = HashMap::new();
-    let tree = config.tree(key);
+    let tree = tree(key);
 
     let Some(tree) = tree else {
         return vec![];
@@ -170,10 +181,10 @@ pub struct IndexTargetConfig<'a> {
 
 impl<'a> IndexTargetConfig<'a> {
     #[cfg(feature = "apt")]
-    pub fn new_from_apt_config(config: &Config, native_arch: &'a str) -> Self {
+    pub fn new_from_apt_config(native_arch: &'a str) -> Self {
         Self::new(
-            get_index_target_tree(config, "Acquire::IndexTargets::deb"),
-            get_index_target_tree(config, "Acquire::IndexTargets::deb-src"),
+            get_index_target_tree("Acquire::IndexTargets::deb"),
+            get_index_target_tree("Acquire::IndexTargets::deb-src"),
             native_arch,
         )
     }
@@ -396,8 +407,8 @@ fn uncompress_file_name(target: &str) -> Cow<'_, str> {
 }
 
 #[cfg(feature = "apt")]
-fn get_index_target_tree(config: &Config, key: &str) -> Vec<(String, HashMap<String, String>)> {
-    get_tree(config, key)
+fn get_index_target_tree(key: &str) -> Vec<(String, HashMap<String, String>)> {
+    get_tree(key)
         .into_iter()
         .filter(|x| {
             x.1.get("DefaultEnabled")
@@ -514,7 +525,7 @@ fn test_get_tree() {
     use crate::test::TEST_LOCK;
 
     let _lock = TEST_LOCK.lock().unwrap();
-    let t = get_tree(&Config::new(), "Acquire::IndexTargets::deb");
+    let t = get_tree("Acquire::IndexTargets::deb");
     assert!(t.iter().any(|x| x.0.contains("::deb::")));
     assert!(t.iter().all(|x| !x.0.contains("::deb-src::")))
 }

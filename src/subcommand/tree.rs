@@ -10,7 +10,7 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
     oma_apt::{BaseDep, Package, Version},
     pkginfo::OmaDepType,
@@ -120,12 +120,7 @@ impl CliExecuter for Tree {
             no_pager,
         } = self;
 
-        let apt = OmaApt::new(
-            vec![],
-            OmaAptArgs::builder().build(),
-            false,
-            AptConfig::new(),
-        )?;
+        let apt = OmaApt::new(vec![], OmaAptArgs::builder().build(), false)?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)

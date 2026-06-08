@@ -3,7 +3,7 @@ use std::{borrow::Cow, io::stdout};
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use oma_pm::{
-    apt::{AptConfig, OmaApt, OmaAptArgs},
+    apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
 use std::io::Write;
@@ -43,7 +43,7 @@ impl CliExecuter for Rdepends {
             .another_apt_options(&config.apt_options)
             .build();
 
-        let apt = OmaApt::new(local_debs, oma_apt_args, false, AptConfig::new())?;
+        let apt = OmaApt::new(local_debs, oma_apt_args, false)?;
 
         let matcher = PackagesMatcher::builder()
             .cache(&apt.cache)
