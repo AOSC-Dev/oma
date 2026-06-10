@@ -12,6 +12,7 @@ jobs:
         target:
           [
             "lcr.loongnix.cn/library/debian:sid-20251209",
+            "ghcr.io/loong64/debian:trixie-slim"
             # "linuxdeepin/deepin:beige-loong64-v1.4.0", 编译 cargo-deb 会卡住
           ]
     container:
@@ -50,6 +51,10 @@ jobs:
           VER_SUFFIX="${VER_SUFFIX##*\/}"
           case "${TARGET_DISTRO}" in
               'lcr.loongnix.cn/library/debian'*)
+                  CODENAME='forky'
+                  VER_SUFFIX='debian14'
+                  ;;
+              'ghcr.io/loong64/debian:trixie-slim')
                   CODENAME='trixie'
                   VER_SUFFIX='debian13'
                   ;;
