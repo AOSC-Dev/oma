@@ -1,13 +1,16 @@
 use std::{
     borrow::Cow,
+    fs::DirEntry,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
-use ahash::{AHashMap, HashSet};
+use ahash::{AHashMap, HashSet, HashSetExt};
 use aho_corasick::BuildError;
 use bon::Builder;
 use chrono::Utc;
 
+use flume::Sender;
 #[cfg(feature = "apt")]
 use oma_apt::raw::config as apt_config;
 use oma_apt_sources_lists::SourcesListError;
@@ -31,10 +34,6 @@ use oma_fetch::reqwest::StatusCode;
 use oma_utils::{GetLockError, get_file_lock, is_termux};
 use reqwest_middleware::ClientWithMiddleware;
 use spdlog::{debug, warn};
-use tokio::{
-    fs::{self},
-    task::spawn_blocking,
-};
 
 use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
 use crate::{
@@ -49,7 +48,6 @@ use crate::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum RefreshError {
-    #[cfg(feature = "blocking")]
     #[error("Failed to create tokio runtime")]
     CreateTokioRuntime(std::io::Error),
     #[error("Invalid URL: {0}")]
@@ -126,25 +124,18 @@ pub enum Event {
 }
 
 impl OmaRefresh {
-    #[cfg(feature = "blocking")]
-    pub fn start_blocking(self, callback: impl AsyncFn(Event)) -> Result<Vec<SuccessSummary>> {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .map_err(RefreshError::CreateTokioRuntime)?
-            .block_on(self.start(callback))
-    }
-
-    pub async fn start(self, callback: impl AsyncFn(Event)) -> Result<Vec<SuccessSummary>> {
+    pub fn start(self, mut callback: impl FnMut(Event) + 'static) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
+
+        let replacer = Arc::new(DatabaseFilenameReplacer::new()?);
 
         #[cfg(feature = "apt")]
         self.init_apt_options();
 
         let paths = if let Some(ref paths) = self.sources_lists_paths {
-            paths.to_vec()
+            Cow::Borrowed(paths)
         } else {
             #[cfg(feature = "apt")]
             let list_file = if is_termux() {
@@ -192,9 +183,10 @@ impl OmaRefresh {
                     .to_string()
             };
 
-            scan_sources_lists_paths(list_file, list_dir)
-                .await
-                .map_err(RefreshError::ScanSourceError)?
+            Cow::Owned(
+                scan_sources_lists_paths(list_file, list_dir)
+                    .map_err(RefreshError::ScanSourceError)?,
+            )
         };
 
         #[cfg(feature = "apt")]
@@ -203,38 +195,60 @@ impl OmaRefresh {
         #[cfg(not(feature = "apt"))]
         let ignores = vec![];
 
-        let sourcelist = scan_sources_list_from_paths(&paths, &self.arch, &ignores, &callback)
-            .await
-            .map_err(RefreshError::ScanSourceError)?;
+        let sourcelist = scan_sources_list_from_paths(
+            &paths,
+            Arc::from(self.arch.as_str()),
+            &ignores,
+            &mut callback,
+        )
+        .map_err(RefreshError::ScanSourceError)?;
 
         if !self.download_dir.is_dir() {
-            fs::create_dir_all(&self.download_dir).await.map_err(|e| {
+            std::fs::create_dir_all(&self.download_dir).map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(self.download_dir.display().to_string(), e)
             })?;
         }
 
-        let download_dir: Box<Path> = Box::from(self.download_dir.as_path());
-
         // Create `apt update` file lock
-        let _fd = spawn_blocking(move || get_file_lock(&download_dir.join("lock")))
-            .await
-            .unwrap()
-            .map_err(RefreshError::SetLock)?;
+        let _fd = get_file_lock(&self.download_dir.join("lock")).map_err(RefreshError::SetLock)?;
 
         detect_duplicate_repositories(&sourcelist)?;
 
-        let mut download_list = vec![];
+        let mut download_list = HashSet::new();
 
-        let replacer = DatabaseFilenameReplacer::new()?;
-        let mirror_sources = self
-            .download_releases(&sourcelist, &replacer, &callback)
-            .await?;
+        let self_arc = Arc::new(self);
+        let sc = self_arc.clone();
 
-        download_list.extend(mirror_sources.0.iter().flat_map(|x| x.file_name()));
+        let (tx, rx) = flume::unbounded::<Event>();
+        let replacer_clone = replacer.clone();
 
-        let (tasks, total, optional_index_files) = self
-            .collect_all_release_entry(&replacer, &mirror_sources)
-            .await?;
+        let _async_rt_keep_alive;
+        let async_rt_handle = if let Ok(h) = tokio::runtime::Handle::try_current() {
+            h
+        } else {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .map_err(RefreshError::CreateTokioRuntime)?;
+            let h = rt.handle().clone();
+            _async_rt_keep_alive = Some(rt);
+            h
+        };
+
+        let mirror_sources =
+            run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
+                sc.download_releases(&sourcelist, &replacer_clone, tx).await
+            })?;
+
+        download_list.extend(
+            mirror_sources
+                .0
+                .iter()
+                .flat_map(|x| x.file_name().map(|s| s.to_string())),
+        );
+
+        let (tasks, total, optional_index_files) =
+            self_arc.collect_all_release_entry(&replacer, mirror_sources)?;
 
         debug!("oma will download source metadata: {tasks:#?}");
 
@@ -243,25 +257,28 @@ impl OmaRefresh {
         }
 
         for i in &tasks {
-            download_list.push(i.filename.as_str());
+            download_list.insert(i.filename.clone());
         }
 
-        let (_, res) = tokio::join!(
-            remove_unused_db(&self.download_dir, download_list),
-            self.download_release_data(&callback, &tasks, total, optional_index_files)
-        );
+        remove_unused_db(&self_arc.download_dir, download_list).ok();
+
+        let sc2 = self_arc.clone();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let res = run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
+            sc2.download_release_data(tx, tasks, total, optional_index_files)
+                .await
+        })?;
 
         // 有元数据更新才执行 success invoke
-        let res = res?;
         let should_run_invoke = res.has_wrote();
 
         if should_run_invoke {
-            callback(Event::RunInvokeScript).await;
+            callback(Event::RunInvokeScript);
             #[cfg(feature = "apt")]
-            self.run_success_post_invoke().await;
+            self_arc.run_success_post_invoke();
         }
 
-        callback(Event::Done).await;
+        callback(Event::Done);
 
         Ok(res.success)
     }
@@ -287,8 +304,8 @@ impl OmaRefresh {
 
     async fn download_release_data(
         &self,
-        callback: &impl AsyncFn(Event),
-        tasks: &[DownloadEntry],
+        tx: Sender<Event>,
+        tasks: Vec<DownloadEntry>,
         total: u64,
         optional_index_files: HashSet<String>,
     ) -> Result<Summary> {
@@ -299,17 +316,21 @@ impl OmaRefresh {
             .total_size(total)
             .build();
 
+        let optional_index_files = Arc::new(optional_index_files);
+        let optional_files_ref = optional_index_files.clone();
+
         let res = dm
-            .start_download(|event| async {
+            .start_download(async move |event| {
                 let mut optional = false;
+
                 if let oma_fetch::Event::Failed { file_name, .. } = &event
-                    && optional_index_files.contains(file_name)
+                    && optional_files_ref.contains(file_name)
                 {
                     optional = true;
                 }
 
                 if !optional {
-                    callback(Event::DownloadEvent(event)).await;
+                    let _ = tx.send_async(Event::DownloadEvent(event)).await;
                 }
             })
             .await
@@ -333,15 +354,16 @@ impl OmaRefresh {
     }
 
     #[cfg(feature = "apt")]
-    async fn run_success_post_invoke(&self) {
+    fn run_success_post_invoke(&self) {
         use spdlog::warn;
-        use tokio::process::Command;
 
         let cmds = apt_config::find_vector("APT::Update::Post-Invoke-Success".to_string());
 
         for cmd in &cmds {
+            use std::process::Command;
+
             debug!("Running post-invoke script: {cmd}");
-            let output = Command::new("sh").arg("-c").arg(cmd).output().await;
+            let output = Command::new("sh").arg("-c").arg(cmd).output();
 
             match output {
                 Ok(output) => {
@@ -361,12 +383,12 @@ impl OmaRefresh {
         }
     }
 
-    async fn download_releases<'a>(
-        &'a self,
-        sourcelist: &'a [OmaSourceEntry<'a>],
-        replacer: &DatabaseFilenameReplacer,
-        callback: &impl AsyncFn(Event),
-    ) -> Result<MirrorSources<'a>> {
+    async fn download_releases(
+        &self,
+        sourcelist: &[OmaSourceEntry],
+        replacer: &Arc<DatabaseFilenameReplacer>,
+        sender: Sender<Event>,
+    ) -> Result<MirrorSources> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
@@ -377,11 +399,11 @@ impl OmaRefresh {
 
         let results = mirror_sources
             .fetch_all_release(
-                &self.client,
+                self.client.clone(),
                 replacer,
-                &self.download_dir,
+                Arc::from(self.download_dir.as_ref()),
                 self.threads,
-                callback,
+                sender.clone(),
             )
             .await;
 
@@ -410,7 +432,7 @@ impl OmaRefresh {
         #[cfg(not(feature = "aosc"))]
         results.into_iter().collect::<Result<Vec<_>>>()?;
 
-        self.refresh_topics(callback, not_found, &mut mirror_sources)
+        self.refresh_topics(sender, not_found, &mut mirror_sources)
             .await?;
 
         Ok(mirror_sources)
@@ -419,15 +441,14 @@ impl OmaRefresh {
     #[cfg(feature = "aosc")]
     async fn refresh_topics(
         &self,
-        callback: &impl AsyncFn(Event),
+        tx: Sender<Event>,
         not_found: Vec<url::Url>,
-        sources: &mut MirrorSources<'_>,
+        sources: &mut MirrorSources,
     ) -> Result<()> {
         if !self.refresh_topics || not_found.is_empty() {
             return Ok(());
         }
 
-        callback(Event::ScanningTopic).await;
         let mut tm =
             TopicManager::new(self.client.clone(), &self.source, &self.arch, false).await?;
         tm.refresh().await?;
@@ -450,16 +471,22 @@ impl OmaRefresh {
             let pos = sources.0.iter().position(|x| x.suite() == suite).unwrap();
             sources.0.remove(pos);
 
-            callback(Event::ClosingTopic(suite)).await;
+            let _ = tx.send_async(Event::ClosingTopic(suite)).await;
         }
 
         tm.write_enabled(false).await?;
+
+        let txc = tx.clone();
         tm.write_sources_list(&self.topic_msg, false, async move |topic, mirror| {
-            callback(Event::TopicNotInMirror { topic, mirror }).await
+            let _ = txc
+                .send_async(Event::TopicNotInMirror { topic, mirror })
+                .await;
         })
         .await?;
 
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1))).await;
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)))
+            .await;
 
         Ok(())
     }
@@ -467,56 +494,52 @@ impl OmaRefresh {
     #[cfg(not(feature = "aosc"))]
     async fn refresh_topics(
         &self,
-        _callback: &impl AsyncFn(Event),
+        _tx: Sender<Event>,
         _not_found: Vec<url::Url>,
-        _sources: &mut MirrorSources<'_>,
+        _sources: &mut MirrorSources,
     ) -> Result<()> {
         Ok(())
     }
 
-    async fn collect_all_release_entry(
+    fn collect_all_release_entry(
         &self,
         replacer: &DatabaseFilenameReplacer,
-        mirror_sources: &MirrorSources<'_>,
+        mirror_sources: MirrorSources,
     ) -> Result<(Vec<DownloadEntry>, u64, HashSet<String>)> {
         let mut total = 0;
         let mut tasks = vec![];
 
         #[cfg(feature = "apt")]
         let index_target_config = IndexTargetConfig::new_from_apt_config(&self.arch);
-
         #[cfg(not(feature = "apt"))]
         let index_target_config =
             IndexTargetConfig::new(self.manifest_config.clone(), vec![], &self.arch);
 
-        let archs_from_file = fs::read_to_string("/var/lib/dpkg/arch").await;
-
-        let archs_from_file = if let Ok(file) = archs_from_file {
-            let res = file.lines().map(|x| x.to_string()).collect::<Vec<_>>();
-
-            if res.is_empty() { None } else { Some(res) }
-        } else {
-            None
-        };
+        let archs_from_file = std::fs::read_to_string("/var/lib/dpkg/arch")
+            .ok()
+            .map(|file| file.lines().map(|x| x.to_string()).collect::<Vec<_>>())
+            .filter(|res| !res.is_empty());
 
         let mut flat_repo_no_release = vec![];
-
         let mut optional_index_files = HashSet::with_hasher(ahash::RandomState::new());
 
         for m in &mirror_sources.0 {
-            let file_name = match m.file_name() {
-                Some(name) => name,
-                None => {
-                    flat_repo_no_release.push(m);
-                    continue;
-                }
+            if m.file_name().is_none() {
+                flat_repo_no_release.push(m);
+            }
+        }
+        for i in flat_repo_no_release {
+            collect_flat_repo_no_release(i, &self.download_dir, &mut tasks, replacer)?;
+        }
+
+        for m in &mirror_sources.0 {
+            let Some(file_name) = m.file_name() else {
+                continue;
             };
-
             let inrelease_path = self.download_dir.join(file_name);
-
             let mut handle = HashSet::with_hasher(ahash::RandomState::new());
 
-            let inrelease = fs::read_to_string(&inrelease_path).await.map_err(|e| {
+            let inrelease = std::fs::read_to_string(&inrelease_path).map_err(|e| {
                 RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
             })?;
 
@@ -527,27 +550,25 @@ impl OmaRefresh {
                 &inrelease_path,
                 m.trusted(),
             )
-            .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
+            .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.clone(), e))?;
 
             let release: Release = inrelease
                 .parse()
-                .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?;
+                .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.clone(), e))?;
 
             if !m.is_flat() {
                 let now = Utc::now();
-
-                release.check_date(&now).map_err(|e| {
-                    RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
-                })?;
-
-                release.check_valid_until(&now).map_err(|e| {
-                    RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e)
-                })?;
+                release
+                    .check_date(&now)
+                    .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.clone(), e))?;
+                release
+                    .check_valid_until(&now)
+                    .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.clone(), e))?;
             }
 
             let checksums = &release
                 .get_or_try_init_checksum_type_and_list()
-                .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.to_path_buf(), e))?
+                .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.clone(), e))?
                 .1;
 
             let arch_from_local_configure = if let Some(ref f) = archs_from_file {
@@ -556,40 +577,24 @@ impl OmaRefresh {
                 vec![self.arch.as_str()]
             };
 
-            debug!("Got source entries: {:#?}", m.sources);
-
             for ose in &m.sources {
                 let archs = if let Some(archs) = ose.archs()
                     && !archs.is_empty()
                 {
                     let archs = archs.iter().map(|x| x.as_str()).collect::<Vec<_>>();
-
                     if arch_from_local_configure.iter().all(|x| !archs.contains(x))
                         && !archs.contains(&"all")
                         && !archs.contains(&"any")
                     {
                         warn!(
-                            "Mirror {} does not contain architectures enabled in local configuration ({} enabled, {} available from the mirror)",
-                            ose.url(),
-                            arch_from_local_configure
-                                .iter()
-                                .map(|x| format!("'{x}'"))
-                                .collect::<Vec<_>>()
-                                .join(" "),
-                            archs
-                                .iter()
-                                .map(|x| format!("'{x}'"))
-                                .collect::<Vec<_>>()
-                                .join(" ")
+                            "Mirror {} does not contain architectures enabled in local configuration...",
+                            ose.url()
                         );
                     }
-
                     archs
                 } else {
                     arch_from_local_configure.clone()
                 };
-
-                debug!("archs: {:?}", archs);
 
                 let download_list = index_target_config.get_download_list(
                     checksums,
@@ -598,12 +603,7 @@ impl OmaRefresh {
                     archs,
                     ose.components(),
                 )?;
-
                 get_all_need_db_from_config(download_list, &mut total, checksums, &mut handle);
-            }
-
-            for i in &flat_repo_no_release {
-                collect_flat_repo_no_release(i, &self.download_dir, &mut tasks, replacer)?;
             }
 
             for c in &handle {
@@ -637,7 +637,7 @@ pub fn content_length(resp: &Response) -> u64 {
         .unwrap_or_default()
 }
 
-fn detect_duplicate_repositories(sourcelist: &[OmaSourceEntry<'_>]) -> Result<()> {
+fn detect_duplicate_repositories(sourcelist: &[OmaSourceEntry]) -> Result<()> {
     let mut map = AHashMap::new();
 
     for i in sourcelist {
@@ -712,18 +712,26 @@ fn get_all_need_db_from_config(
     }
 }
 
-async fn remove_unused_db(download_dir: &Path, download_list: Vec<&str>) -> Result<()> {
-    let mut download_dir = fs::read_dir(&download_dir)
-        .await
+fn remove_unused_db(download_dir: &Path, download_list: HashSet<String>) -> Result<()> {
+    let download_dir = std::fs::read_dir(download_dir)
         .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
 
-    while let Ok(Some(x)) = download_dir.next_entry().await {
-        if x.path().is_file()
-            && !download_list.contains(&&*x.file_name().to_string_lossy())
+    fn should_keep(entry: &DirEntry, download_list: &HashSet<String>) -> bool {
+        if let Some(s) = entry.file_name().to_str() {
+            download_list.contains(s)
+        } else {
+            download_list.contains(&entry.file_name().to_string_lossy().into_owned())
+        }
+    }
+
+    for x in download_dir {
+        if let Ok(x) = x
+            && x.path().is_file()
+            && !should_keep(&x, &download_list)
             && x.file_name() != "lock"
         {
             debug!("Removing {:?}", x.file_name());
-            if let Err(e) = fs::remove_file(x.path()).await {
+            if let Err(e) = std::fs::remove_file(x.path()) {
                 debug!("Failed to remove file {:?}: {e}", x.file_name());
             }
         }
@@ -771,7 +779,7 @@ fn collect_flat_repo_no_release(
 
 fn collect_download_task(
     c: &ChecksumDownloadEntry,
-    mirror_source: &MirrorSource<'_>,
+    mirror_source: &MirrorSource,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     release: &Release,
@@ -875,4 +883,29 @@ fn collect_download_task(
     tasks.push(task);
 
     Ok(())
+}
+
+fn run_task_with_pump<Fut, T>(
+    handle: &tokio::runtime::Handle,
+    rx: &flume::Receiver<Event>,
+    callback: &mut (impl FnMut(Event) + 'static),
+    task: Fut,
+) -> Result<T>
+where
+    Fut: std::future::Future<Output = Result<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    let (result_tx, result_rx) = flume::bounded(1);
+    handle.spawn(async move {
+        let res = task.await;
+        let _ = result_tx.send(res);
+    });
+
+    while let Ok(event) = rx.recv() {
+        callback(event);
+    }
+
+    result_rx
+        .recv()
+        .map_err(|_| RefreshError::DownloadFailed(None))?
 }

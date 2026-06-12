@@ -6,6 +6,7 @@ use oma_utils::dpkg::dpkg_arch;
 
 #[tokio::main]
 async fn main() -> Result<(), RefreshError> {
+    rustls::crypto::ring::default_provider().install_default().unwrap();
     let p = Path::new("./oma-fetcher-test");
     tokio::fs::create_dir_all(p).await.unwrap();
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();
@@ -30,13 +31,11 @@ async fn main() -> Result<(), RefreshError> {
         }
     });
 
-    refresh
-        .start(|event| async {
-            if let Err(e) = tx.send_async(event).await {
-                eprintln!("{:#?}", e);
-            }
-        })
-        .await?;
+    refresh.start(move |event| {
+        if let Err(e) = tx.send(event) {
+            eprintln!("{:#?}", e);
+        }
+    })?;
 
     Ok(())
 }

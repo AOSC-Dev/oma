@@ -7,7 +7,6 @@ use oma_utils::dpkg::dpkg_arch;
 use spdlog::{debug, info};
 
 use crate::{
-    RT,
     config::OmaConfig,
     error::OutputError,
     fl,
@@ -65,14 +64,10 @@ impl Refresh<'_> {
             pb.render_refresh_progress(&rx);
         });
 
-        RT.block_on(async move {
-            refresh
-                .start(async |event| {
-                    if let Err(e) = tx.send_async(event).await {
-                        debug!("{}", e);
-                    }
-                })
-                .await
+        refresh.start(move |event| {
+            if let Err(e) = tx.send(event) {
+                debug!("{}", e);
+            }
         })?;
 
         Ok(())

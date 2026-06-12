@@ -3401,6 +3401,7 @@ dependencies = [
  "oma-utils",
  "once_cell",
  "reqwest-middleware",
+ "rustls",
  "spdlog-rs",
  "sys-locale",
  "thiserror 2.0.18",

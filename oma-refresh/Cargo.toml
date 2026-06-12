@@ -15,9 +15,11 @@ tokio = { workspace = true, default-features = false, features = [
     "fs",
     "process",
     "macros",
+    "rt",
+    "rt-multi-thread",
 ] }
 futures = { workspace = true }
-oma-apt-sources-lists ={ workspace = true }
+oma-apt-sources-lists = { workspace = true }
 chrono = { workspace = true, features = ["unstable-locales"] }
 oma-topics = { workspace = true, optional = true, default-features = false }
 spdlog-rs = { workspace = true }
@@ -33,6 +35,7 @@ sys-locale = { workspace = true }
 fancy-regex = { workspace = true }
 oma-utils = { workspace = true, default-features = false }
 reqwest-middleware = { workspace = true }
+flume = { workspace = true }
 
 [features]
 aosc = ["dep:oma-topics"]
@@ -41,7 +44,6 @@ sequoia-nettle-backend = ["oma-repo-verify/sequoia-nettle-backend"]
 rustls = ["oma-fetch/rustls", "oma-topics/rustls"]
 native-tls = ["oma-fetch/native-tls", "oma-topics/native-tls"]
 apt = ["dep:oma-apt"]
-blocking = ["tokio/rt", "tokio/rt-multi-thread"]
 default = ["aosc", "sequoia-nettle-backend", "rustls", "apt"]
 
 [dev-dependencies]
@@ -50,6 +52,7 @@ tokio = { workspace = true, default-features = false, features = [
 ] }
 flume = { workspace = true }
 oma-utils = { workspace = true, features = ["dpkg"] }
+rustls = { workspace = true }
 
 [[example]]
 name = "update"

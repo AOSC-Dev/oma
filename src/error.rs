@@ -484,6 +484,10 @@ impl From<RefreshError> for OutputError {
                 description: fl!("oma-refresh-no-metadata-to-download"),
                 source: None,
             },
+            RefreshError::CreateTokioRuntime(error) => Self {
+                description: error.to_string(),
+                source: None,
+            },
         }
     }
 }
