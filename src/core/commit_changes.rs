@@ -55,7 +55,7 @@ pub(crate) struct CommitChanges<'a> {
     remove_config: bool,
     #[builder(default)]
     autoremove: bool,
-    auth_config: Option<&'a AuthConfig>,
+    auth_config: Option<AuthConfig>,
     #[builder(default)]
     check_tum: bool,
     #[builder(default)]
@@ -202,7 +202,7 @@ impl CommitChanges<'_> {
             config.http_client()?,
             CommitConfig {
                 network_thread: Some(config.download_threads),
-                auth_config,
+                auth_config: auth_config.as_ref(),
                 download_only,
             },
             download_message(),

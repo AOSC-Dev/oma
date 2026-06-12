@@ -101,8 +101,8 @@ pub async fn download_pkgs(
     }
 
     let downloader = DownloadManager::builder()
-        .client(client)
-        .download_list(&download_list)
+        .client(client.clone())
+        .download_list(download_list.into())
         .maybe_threads(network_thread)
         .total_size(total_size)
         .build();

@@ -46,8 +46,8 @@ async fn main() {
 
     let binding = [file_1, file_2];
     let download_manager = DownloadManager::builder()
-        .client(&client)
-        .download_list(&binding)
+        .client(client)
+        .download_list(Box::new(binding))
         .build();
 
     let event_worker = tokio::spawn(async move {

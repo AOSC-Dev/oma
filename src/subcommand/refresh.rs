@@ -25,11 +25,10 @@ impl CliExecuter for Refresh {
         root()?;
 
         let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
 
         RefreshInner::builder()
             .config(&config)
-            .maybe_auth_config(auth_config)
+            .maybe_auth_config(auth_config.clone())
             .build()
             .run()?;
 

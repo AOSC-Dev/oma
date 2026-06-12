@@ -144,9 +144,9 @@ pub enum Event {
 }
 
 #[derive(Builder)]
-pub struct DownloadManager<'a> {
-    client: &'a Client,
-    download_list: &'a [DownloadEntry],
+pub struct DownloadManager {
+    client: Client,
+    download_list: Box<[DownloadEntry]>,
     #[builder(default = 4)]
     threads: usize,
     #[builder(default = 3)]
@@ -173,10 +173,10 @@ impl Summary {
     }
 }
 
-impl DownloadManager<'_> {
+impl DownloadManager {
     /// Start download
     pub async fn start_download(
-        &self,
+        mut self,
         callback: impl AsyncFn(Event),
     ) -> Result<Summary, BuilderError> {
         if self.threads == 0 || self.threads > 255 {
@@ -187,16 +187,19 @@ impl DownloadManager<'_> {
 
         let mut tasks = Vec::new();
         let mut list = vec![];
-        for (i, c) in self.download_list.iter().enumerate() {
+        let len = self.download_list.len();
+        for (i, c) in std::mem::take(&mut self.download_list)
+            .into_iter()
+            .enumerate()
+        {
             let msg = c.msg.clone();
             let single = SingleDownloader::builder()
-                .client(self.client)
+                .client(self.client.clone())
                 .maybe_msg(msg)
                 .download_list_index(i)
                 .entry(c)
-                .total(self.download_list.len())
+                .total(len)
                 .retry_times(self.retry_times)
-                .file_type(c.file_type)
                 .timeout(self.timeout)
                 .build()?;
 

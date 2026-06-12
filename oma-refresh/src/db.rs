@@ -98,24 +98,21 @@ pub enum RefreshError {
 type Result<T> = std::result::Result<T, RefreshError>;
 
 #[derive(Builder)]
-pub struct OmaRefresh<'a> {
+pub struct OmaRefresh {
     source: PathBuf,
     #[builder(default = 4)]
     threads: usize,
     arch: String,
     download_dir: PathBuf,
-    client: &'a Client,
+    client: Client,
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
     #[cfg(not(feature = "apt"))]
     manifest_config: Vec<(String, std::collections::HashMap<String, String>)>,
     #[cfg(feature = "aosc")]
-    topic_msg: &'a str,
-    auth_config: Option<&'a AuthConfig>,
+    topic_msg: Cow<'static, str>,
+    auth_config: Option<AuthConfig>,
     sources_lists_paths: Option<Vec<PathBuf>>,
-    #[cfg(feature = "apt")]
-    #[builder(default)]
-    another_apt_options: &'a [String],
 }
 
 #[derive(Debug)]
@@ -129,7 +126,7 @@ pub enum Event {
     Done,
 }
 
-impl<'a> OmaRefresh<'a> {
+impl OmaRefresh {
     #[cfg(feature = "blocking")]
     pub fn start_blocking(self, callback: impl AsyncFn(Event)) -> Result<Vec<SuccessSummary>> {
         tokio::runtime::Builder::new_multi_thread()
@@ -278,12 +275,6 @@ impl<'a> OmaRefresh<'a> {
             apt_config::set("Dir".to_string(), self.source.to_string_lossy().to_string());
         }
 
-        for i in self.another_apt_options {
-            let (k, v) = i.split_once('=').unwrap_or((i.as_str(), ""));
-            debug!("Setting apt opt: {k}={v}");
-            apt_config::set(k.to_string(), v.to_string());
-        }
-
         // default compression order
         if apt_config::find_vector("Acquire::CompressionTypes::Order".to_string()).is_empty() {
             use crate::util::apt_config_set_vector;
@@ -303,8 +294,8 @@ impl<'a> OmaRefresh<'a> {
         optional_index_files: HashSet<String>,
     ) -> Result<Summary> {
         let dm = DownloadManager::builder()
-            .client(self.client)
-            .download_list(tasks)
+            .client(self.client.clone())
+            .download_list(tasks.into())
             .threads(self.threads)
             .total_size(total)
             .build();
@@ -371,8 +362,8 @@ impl<'a> OmaRefresh<'a> {
         }
     }
 
-    async fn download_releases(
-        &self,
+    async fn download_releases<'a>(
+        &'a self,
         sourcelist: &'a [OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
         callback: &impl AsyncFn(Event),
@@ -384,11 +375,11 @@ impl<'a> OmaRefresh<'a> {
         let not_found = vec![];
 
         let mut mirror_sources =
-            MirrorSources::from_sourcelist(sourcelist, replacer, self.auth_config)?;
+            MirrorSources::from_sourcelist(sourcelist, replacer, self.auth_config.as_ref())?;
 
         let results = mirror_sources
             .fetch_all_release(
-                self.client,
+                &self.client,
                 replacer,
                 &self.download_dir,
                 self.threads,
@@ -432,14 +423,14 @@ impl<'a> OmaRefresh<'a> {
         &self,
         callback: &impl AsyncFn(Event),
         not_found: Vec<url::Url>,
-        sources: &mut MirrorSources<'a>,
+        sources: &mut MirrorSources<'_>,
     ) -> Result<()> {
         if !self.refresh_topics || not_found.is_empty() {
             return Ok(());
         }
 
         callback(Event::ScanningTopic).await;
-        let mut tm = TopicManager::new(self.client, &self.source, &self.arch, false).await?;
+        let mut tm = TopicManager::new(&self.client, &self.source, &self.arch, false).await?;
         tm.refresh().await?;
         let removed_suites = tm.remove_closed_topics()?;
 
@@ -464,7 +455,7 @@ impl<'a> OmaRefresh<'a> {
         }
 
         tm.write_enabled(false).await?;
-        tm.write_sources_list(self.topic_msg, false, async move |topic, mirror| {
+        tm.write_sources_list(&self.topic_msg, false, async move |topic, mirror| {
             callback(Event::TopicNotInMirror { topic, mirror }).await
         })
         .await?;
@@ -479,7 +470,7 @@ impl<'a> OmaRefresh<'a> {
         &self,
         _callback: &impl AsyncFn(Event),
         _not_found: Vec<url::Url>,
-        _sources: &mut MirrorSources<'a>,
+        _sources: &mut MirrorSources<'_>,
     ) -> Result<()> {
         Ok(())
     }
@@ -487,7 +478,7 @@ impl<'a> OmaRefresh<'a> {
     async fn collect_all_release_entry(
         &self,
         replacer: &DatabaseFilenameReplacer,
-        mirror_sources: &MirrorSources<'a>,
+        mirror_sources: &MirrorSources<'_>,
     ) -> Result<(Vec<DownloadEntry>, u64, HashSet<String>)> {
         let mut total = 0;
         let mut tasks = vec![];

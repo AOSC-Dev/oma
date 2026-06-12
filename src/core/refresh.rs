@@ -19,7 +19,7 @@ use crate::{
 #[derive(Debug, Builder)]
 pub struct Refresh<'a> {
     config: &'a OmaConfig,
-    auth_config: Option<&'a AuthConfig>,
+    auth_config: Option<AuthConfig>,
 }
 
 impl Refresh<'_> {
@@ -43,8 +43,7 @@ impl Refresh<'_> {
             .source(sysroot.clone())
             .threads(config.download_threads)
             .arch(arch)
-            .client(config.http_client()?)
-            .another_apt_options(&config.apt_options)
+            .client(config.http_client()?.clone())
             .maybe_auth_config(auth_config);
 
         #[cfg(feature = "aosc")]
@@ -53,7 +52,7 @@ impl Refresh<'_> {
         #[cfg(feature = "aosc")]
         let refresh = refresh
             .refresh_topics(!config.no_refresh_topics)
-            .topic_msg(&msg)
+            .topic_msg(msg.into())
             .build();
 
         #[cfg(not(feature = "aosc"))]

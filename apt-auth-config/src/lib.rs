@@ -21,7 +21,7 @@ pub enum AuthConfigError {
     ParseError(#[from] netrc::Error),
 }
 
-#[derive(Debug, Eq)]
+#[derive(Debug, Eq, Clone)]
 pub struct AuthUrl {
     schema: Option<String>,
     host_and_path: String,
@@ -90,7 +90,7 @@ impl PartialEq for AuthUrl {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AuthConfig(pub Vec<(AuthUrl, Authenticator)>);
 
 impl AuthConfig {

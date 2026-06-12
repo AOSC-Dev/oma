@@ -106,7 +106,7 @@ impl CliExecuter for Upgrade {
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .auth_config(&auth_config)
+                .auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }
@@ -183,7 +183,7 @@ impl CliExecuter for Upgrade {
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(Some(&auth_config))
+            .maybe_auth_config(Some(auth_config))
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .is_upgrade(true)

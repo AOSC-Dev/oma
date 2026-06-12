@@ -82,12 +82,11 @@ impl CliExecuter for Tui {
 
         let sysroot = &config.sysroot;
         let auth_config = auth_config(sysroot);
-        let auth_config = auth_config.as_ref();
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .maybe_auth_config(auth_config)
+                .maybe_auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }

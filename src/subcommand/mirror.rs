@@ -737,11 +737,10 @@ fn progress_bar(mirrors_len: u64) -> OmaProgressBar {
 
 fn refresh(config: &OmaConfig) -> Result<(), OutputError> {
     let auth_config = auth_config(&config.sysroot);
-    let auth_config = auth_config.as_ref();
 
     Refresh::builder()
         .config(config)
-        .maybe_auth_config(auth_config)
+        .maybe_auth_config(auth_config.clone())
         .build()
         .run()?;
 

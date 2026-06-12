@@ -133,13 +133,12 @@ impl CliExecuter for Install {
         let _fds = dbus_check(yes, &config)?;
 
         let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
         let no_progress = config.no_progress();
 
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .maybe_auth_config(auth_config)
+                .maybe_auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }

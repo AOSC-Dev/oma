@@ -39,14 +39,13 @@ pub enum BuilderError {
     IllegalDownloadThread { count: usize },
 }
 
-pub(crate) struct SingleDownloader<'a> {
-    client: &'a Client,
-    pub entry: &'a DownloadEntry,
+pub(crate) struct SingleDownloader {
+    client: Client,
+    pub entry: DownloadEntry,
     total: usize,
     retry_times: usize,
     msg: Option<Cow<'static, str>>,
     download_list_index: usize,
-    file_type: CompressType,
     timeout: Duration,
 }
 
@@ -96,18 +95,17 @@ pub enum SingleDownloadError {
 }
 
 #[bon]
-impl<'a> SingleDownloader<'a> {
+impl SingleDownloader {
     #[builder]
     pub(crate) fn new(
-        client: &'a Client,
-        entry: &'a DownloadEntry,
+        client: Client,
+        entry: DownloadEntry,
         total: usize,
         retry_times: usize,
         msg: Option<Cow<'static, str>>,
         download_list_index: usize,
-        file_type: CompressType,
         timeout: Duration,
-    ) -> Result<SingleDownloader<'a>, BuilderError> {
+    ) -> Result<SingleDownloader, BuilderError> {
         if entry.source.is_empty() {
             return Err(BuilderError::EmptySource {
                 file_name: entry.filename.to_string(),
@@ -121,7 +119,6 @@ impl<'a> SingleDownloader<'a> {
             retry_times,
             msg,
             download_list_index,
-            file_type,
             timeout,
         })
     }
@@ -536,7 +533,7 @@ impl<'a> SingleDownloader<'a> {
             let mut stream = Counter::new(stream, &stream_counter);
 
             // initialize decompressor
-            let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
+            let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.entry.file_type {
                 CompressType::Xz => &mut XzDecoder::new(&mut stream),
                 CompressType::Gzip => &mut GzipDecoder::new(&mut stream),
                 CompressType::Bz2 => &mut BzDecoder::new(&mut stream),
@@ -697,7 +694,7 @@ impl<'a> SingleDownloader<'a> {
             .await
             .context(CreateSnafu)?;
 
-        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.file_type {
+        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.entry.file_type {
             CompressType::Xz => &mut XzDecoder::new(BufReader::new(from)),
             CompressType::Gzip => &mut GzipDecoder::new(BufReader::new(from)),
             CompressType::Bz2 => &mut BzDecoder::new(BufReader::new(from)),

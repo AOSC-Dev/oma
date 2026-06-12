@@ -15,13 +15,13 @@ async fn main() -> Result<(), RefreshError> {
     let (tx, rx) = flume::unbounded();
 
     let refresh = OmaRefresh::builder()
-        .client(&client)
+        .client(client)
         .arch(dpkg_arch("/").unwrap())
         .download_dir(p.to_path_buf())
         .source("/".into())
-        .topic_msg("test")
+        .topic_msg("test".into())
         .refresh_topics(false)
-        .auth_config(&auth)
+        .auth_config(auth)
         .build();
 
     tokio::spawn(async move {

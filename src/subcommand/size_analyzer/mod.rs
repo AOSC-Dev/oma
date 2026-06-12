@@ -164,7 +164,6 @@ impl CliExecuter for SizeAnalyzer {
             )?;
 
             let auth_config = auth_config(&config.sysroot);
-            let auth_config = auth_config.as_ref();
 
             exit_code = CommitChanges::builder()
                 .apt(apt)

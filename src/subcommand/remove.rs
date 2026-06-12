@@ -203,7 +203,6 @@ impl CliExecuter for Remove {
         handle_no_result(no_result, config.no_progress())?;
 
         let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
 
         CommitChanges::builder()
             .apt(apt)
@@ -211,7 +210,7 @@ impl CliExecuter for Remove {
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(!no_autoremove)
-            .maybe_auth_config(auth_config)
+            .maybe_auth_config(auth_config.clone())
             .fix_dpkg_status(fix_dpkg_status)
             .config(&config)
             .no_clean(no_clean)

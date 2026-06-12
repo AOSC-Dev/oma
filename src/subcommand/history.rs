@@ -154,7 +154,7 @@ impl CliExecuter for Undo {
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .maybe_auth_config(auth_config.as_ref())
+                .maybe_auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }
@@ -252,7 +252,7 @@ impl CliExecuter for Undo {
             .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(auth_config.as_ref())
+            .maybe_auth_config(auth_config)
             .download_only(download_only)
             .config(&config)
             .no_clean(no_clean)
