@@ -3431,6 +3431,7 @@ dependencies = [
  "oma-inquire",
  "oma-mirror",
  "reqwest",
+ "reqwest-middleware",
  "rustls",
  "serde",
  "serde_json",

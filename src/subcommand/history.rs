@@ -263,7 +263,7 @@ impl CliExecuter for Undo {
 
             let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(
-                config.http_client()?.as_ref(),
+                config.http_client()?.clone(),
                 &config.sysroot,
                 &arch,
                 config.dry_run,

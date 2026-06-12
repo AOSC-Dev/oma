@@ -79,11 +79,10 @@ impl AuthUrl {
             return None;
         }
 
-        if let Some(conf_port) = self.port {
-            if Some(conf_port) != request_url.port {
+        if let Some(conf_port) = self.port
+            && Some(conf_port) != request_url.port {
                 return None;
             }
-        }
 
         if request_url.path.starts_with(&self.path) {
             Some(self.path.len())
@@ -155,7 +154,7 @@ impl AuthConfig {
         if auth_conf.exists() {
             let config = Netrc::from_file(&auth_conf).map_err(|e| AuthConfigError::OpenFile {
                 path: auth_conf.clone(),
-                err: io::Error::new(io::ErrorKind::Other, e),
+                err: io::Error::other(e),
             })?;
             v.push(config);
         }
@@ -177,7 +176,7 @@ impl AuthConfig {
 
                 let config = Netrc::from_file(&path).map_err(|e| AuthConfigError::OpenFile {
                     path: path.clone(),
-                    err: io::Error::new(io::ErrorKind::Other, e),
+                    err: io::Error::other(e),
                 })?;
                 v.push(config);
             }

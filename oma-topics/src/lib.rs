@@ -8,7 +8,7 @@ use std::{
 use ahash::{HashMap, HashSet};
 use futures::future::try_join_all;
 use oma_mirror::{MirrorError, MirrorManager, parser::MirrorsConfigTemplate, write_sources_inner};
-use reqwest::Client;
+use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use spdlog::{debug, warn};
 use tokio::fs;
@@ -25,7 +25,7 @@ pub enum OmaTopicsError {
     #[error("Failed to enable topic: {0}")]
     FailedToDisableTopic(String),
     #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
+    ReqwestError(#[from] reqwest_middleware::Error),
     #[error("Failed to serialize data")]
     FailedSer,
     #[error("Failed to get path parent: {0:?}")]
@@ -76,7 +76,7 @@ impl Hash for Topic {
 pub struct TopicManager<'a> {
     enabled: Vec<Topic>,
     all: HashMap<Box<str>, Vec<Topic>>,
-    client: &'a Client,
+    client: ClientWithMiddleware,
     arch: &'a str,
     atm_state_path: PathBuf,
     atm_source_list_path: PathBuf,
@@ -93,7 +93,7 @@ impl<'a> TopicManager<'a> {
     const ATM_SOURCE_LIST_PATH_NEW_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.sources";
 
     pub fn new_blocking(
-        client: &'a Client,
+        client: ClientWithMiddleware,
         sysroot: impl AsRef<Path>,
         arch: &'a str,
         dry_run: bool,
@@ -106,7 +106,7 @@ impl<'a> TopicManager<'a> {
     }
 
     pub async fn new(
-        client: &'a Client,
+        client: ClientWithMiddleware,
         sysroot: impl AsRef<Path>,
         arch: &'a str,
         dry_run: bool,
@@ -196,7 +196,7 @@ impl<'a> TopicManager<'a> {
         let enabled_mirrors = self.mm.enabled_mirrors();
         let tasks = enabled_mirrors
             .iter()
-            .map(|x| refresh_innter(self.client, x.1, self.arch));
+            .map(|x| refresh_innter(&self.client, x.1, self.arch));
 
         let res = try_join_all(tasks).await?;
         let res = res
@@ -417,7 +417,7 @@ async fn create_empty_state(atm_state_path: &Path) -> Result<Vec<Topic>> {
     Ok(v)
 }
 
-async fn get<T: DeserializeOwned>(client: &Client, url: Url) -> Result<T> {
+async fn get<T: DeserializeOwned>(client: &ClientWithMiddleware, url: Url) -> Result<T> {
     let schema = url.scheme();
 
     match schema {
@@ -434,9 +434,11 @@ async fn get<T: DeserializeOwned>(client: &Client, url: Url) -> Result<T> {
                 .get(url)
                 .send()
                 .await?
-                .error_for_status()?
+                .error_for_status()
+                .map_err(reqwest_middleware::Error::Reqwest)?
                 .json::<T>()
-                .await?;
+                .await
+                .map_err(reqwest_middleware::Error::Reqwest)?;
             Ok(res)
         }
         _ => Err(OmaTopicsError::UnsupportedProtocol(url.to_string())),
@@ -444,7 +446,7 @@ async fn get<T: DeserializeOwned>(client: &Client, url: Url) -> Result<T> {
 }
 
 async fn refresh_innter<'a>(
-    client: &'a Client,
+    client: &'a ClientWithMiddleware,
     url: &'a str,
     arch: &'a str,
 ) -> Result<(Cow<'a, str>, Vec<Topic>)> {

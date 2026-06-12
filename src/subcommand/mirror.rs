@@ -765,7 +765,7 @@ fn refresh_enabled_topics_sources_list(
 
     let try_refresh = Ok(()).and_then(|_| -> Result<(), OutputError> {
         let arch = dpkg_arch("/")?;
-        let mut tm = TopicManager::new_blocking(client.as_ref(), "/", &arch, false)?;
+        let mut tm = TopicManager::new_blocking(client.clone(), "/", &arch, false)?;
         RT.block_on(tm.refresh())?;
         tm.remove_closed_topics()?;
         RT.block_on(tm.write_sources_list(

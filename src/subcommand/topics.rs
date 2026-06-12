@@ -156,7 +156,7 @@ impl CliExecuter for Topics {
 
         let dpkg_arch = dpkg_arch(&config.sysroot)?;
         let mut tm = TopicManager::new_blocking(
-            config.http_client()?.as_ref(),
+            config.http_client()?.clone(),
             &config.sysroot,
             &dpkg_arch,
             config.dry_run,

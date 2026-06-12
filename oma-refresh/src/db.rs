@@ -429,7 +429,7 @@ impl OmaRefresh {
 
         callback(Event::ScanningTopic).await;
         let mut tm =
-            TopicManager::new(self.client.as_ref(), &self.source, &self.arch, false).await?;
+            TopicManager::new(self.client.clone(), &self.source, &self.arch, false).await?;
         tm.refresh().await?;
         let removed_suites = tm.remove_closed_topics()?;
 

@@ -225,13 +225,13 @@ impl OmaConfig {
             Client::builder()
                 .user_agent(self.user_agent.as_ref())
                 .build()
-                .and_then(|client| {
+                .map(|client| {
                     if let Some(auth) = auth {
-                        Ok(ClientBuilder::new(client)
+                        ClientBuilder::new(client)
                             .with_init(apt_auth_config::reqwuest::AuthMiddleware::new(auth))
-                            .build())
+                            .build()
                     } else {
-                        Ok(client.into())
+                        client.into()
                     }
                 })
         })
