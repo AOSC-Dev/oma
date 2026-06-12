@@ -643,7 +643,7 @@ impl<'a> MirrorSources<'a> {
 
         for (_, v) in map {
             let url = v[0].url();
-            let auth = auth_config.and_then(|auth| auth.find(url));
+            let auth = auth_config.and_then(|auth| auth.find_str(url));
 
             res.push(MirrorSource {
                 sources: v,

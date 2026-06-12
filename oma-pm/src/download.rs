@@ -54,7 +54,7 @@ pub async fn download_pkgs(
                         url_no_escape_times(&x.download_url, 1),
                     )
                 } else {
-                    let auth = auth.and_then(|auth| auth.find(&x.index_url));
+                    let auth = auth.and_then(|auth| auth.find_str(&*x.index_url));
 
                     (
                         DownloadSourceType::Http {
