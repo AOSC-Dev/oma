@@ -27,8 +27,8 @@ impl RequestInitialiser for AuthMiddleware {
         if let Some(url) = url
             && let Some(auth) = self.config.find(&url)
         {
-            let login = auth.login.clone();
-            let passwd = auth.password.clone();
+            let login = &auth.login;
+            let passwd = &auth.password;
 
             req.basic_auth(login, Some(passwd))
         } else {

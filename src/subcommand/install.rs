@@ -138,7 +138,6 @@ impl CliExecuter for Install {
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .maybe_auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }

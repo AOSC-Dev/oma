@@ -5,7 +5,6 @@ use std::{
 
 use ahash::{AHashMap, HashSet};
 use aho_corasick::BuildError;
-use apt_auth_config::AuthConfig;
 use bon::Builder;
 use chrono::Utc;
 
@@ -17,7 +16,7 @@ use oma_fetch::{
     checksum::{Checksum, ChecksumError},
     download::{BuilderError, SuccessSummary},
     reqwest::{
-        Client, Response,
+        Response,
         header::{CONTENT_LENGTH, HeaderValue},
     },
 };
@@ -30,6 +29,7 @@ use oma_topics::TopicManager;
 use oma_fetch::reqwest::StatusCode;
 
 use oma_utils::{GetLockError, get_file_lock, is_termux};
+use reqwest_middleware::ClientWithMiddleware;
 use spdlog::{debug, warn};
 use tokio::{
     fs::{self},
@@ -104,14 +104,13 @@ pub struct OmaRefresh {
     threads: usize,
     arch: String,
     download_dir: PathBuf,
-    client: Client,
+    client: ClientWithMiddleware,
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
     #[cfg(not(feature = "apt"))]
     manifest_config: Vec<(String, std::collections::HashMap<String, String>)>,
     #[cfg(feature = "aosc")]
     topic_msg: Cow<'static, str>,
-    auth_config: Option<AuthConfig>,
     sources_lists_paths: Option<Vec<PathBuf>>,
 }
 
@@ -374,8 +373,7 @@ impl OmaRefresh {
         #[cfg(not(feature = "aosc"))]
         let not_found = vec![];
 
-        let mut mirror_sources =
-            MirrorSources::from_sourcelist(sourcelist, replacer, self.auth_config.as_ref())?;
+        let mut mirror_sources = MirrorSources::from_sourcelist(sourcelist, replacer)?;
 
         let results = mirror_sources
             .fetch_all_release(
@@ -393,9 +391,9 @@ impl OmaRefresh {
         for result in results {
             if let Err(e) = result {
                 match e {
-                    RefreshError::DownloadFailed(Some(SingleDownloadError::ReqwestError {
-                        source,
-                    })) if source
+                    RefreshError::DownloadFailed(Some(
+                        SingleDownloadError::ReqwestMiddlewareError { source },
+                    )) if source
                         .status()
                         .map(|x| x == StatusCode::NOT_FOUND)
                         .unwrap_or(false)
@@ -430,7 +428,8 @@ impl OmaRefresh {
         }
 
         callback(Event::ScanningTopic).await;
-        let mut tm = TopicManager::new(&self.client, &self.source, &self.arch, false).await?;
+        let mut tm =
+            TopicManager::new(self.client.as_ref(), &self.source, &self.arch, false).await?;
         tm.refresh().await?;
         let removed_suites = tm.remove_closed_topics()?;
 
@@ -744,12 +743,7 @@ fn collect_flat_repo_no_release(
     let dist_url = mirror_source.dist_path();
 
     let from = match mirror_source.from()? {
-        OmaSourceEntryFrom::Http => DownloadSourceType::Http {
-            auth: mirror_source
-                .auth()
-                .as_ref()
-                .map(|auth| (auth.login.clone(), auth.password.clone())),
-        },
+        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
     };
 
@@ -789,12 +783,7 @@ fn collect_download_task(
     let msg = mirror_source.get_human_download_message(Some(file_type))?;
 
     let from = match mirror_source.from()? {
-        OmaSourceEntryFrom::Http => DownloadSourceType::Http {
-            auth: mirror_source
-                .auth()
-                .as_ref()
-                .map(|auth| (auth.login.clone(), auth.password.clone())),
-        },
+        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(
             mirror_source.is_flat()
                 && (!file_is_compress(&c.item.name)

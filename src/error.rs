@@ -1089,7 +1089,7 @@ impl From<SingleDownloadError> for OutputError {
                 description: fl!("create-symlink-err"),
                 source: Some(Box::new(source)),
             },
-            SingleDownloadError::ReqwestError { source } => Self {
+            SingleDownloadError::ReqwestMiddlewareError { source } => Self {
                 description: fl!("reqwest-err"),
                 source: Some(Box::new(source)),
             },

@@ -64,6 +64,7 @@ humantime = { workspace = true }
 env_filter = { workspace = true }
 terminfo = { workspace = true }
 digest-io = { workspace = true }
+reqwest-middleware = { workspace = true }
 
 # oma crates
 oma-utils = { workspace = true }

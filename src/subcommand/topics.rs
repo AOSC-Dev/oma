@@ -1,6 +1,5 @@
 use std::{fmt::Display, sync::atomic::Ordering};
 
-use apt_auth_config::AuthConfig;
 use clap::{ArgAction, ArgGroup, Args};
 use dialoguer::console::style;
 use inquire::{
@@ -157,7 +156,7 @@ impl CliExecuter for Topics {
 
         let dpkg_arch = dpkg_arch(&config.sysroot)?;
         let mut tm = TopicManager::new_blocking(
-            config.http_client()?,
+            config.http_client()?.as_ref(),
             &config.sysroot,
             &dpkg_arch,
             config.dry_run,
@@ -195,7 +194,7 @@ impl CliExecuter for Topics {
         let auth_config = auth_config(&config.sysroot);
 
         let code = Ok(()).and_then(|_| -> Result<ExitHandle, OutputError> {
-            refresh(&config, auth_config.clone())?;
+            refresh(&config)?;
 
             if only_apply_sources_list {
                 return Ok(ExitHandle::default().ring(true));
@@ -349,7 +348,7 @@ impl CliExecuter for Topics {
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
                     RT.block_on(tm.write_enabled(true))?;
-                    refresh(&config, auth_config.clone())?;
+                    refresh(&config)?;
                 }
             }
             Err(e) => {
@@ -366,10 +365,9 @@ impl CliExecuter for Topics {
     }
 }
 
-fn refresh(config: &OmaConfig, auth_config: Option<AuthConfig>) -> Result<(), OutputError> {
+fn refresh(config: &OmaConfig) -> Result<(), OutputError> {
     Refresh::builder()
         .config(config)
-        .maybe_auth_config(auth_config)
         .build()
         .run()
 }

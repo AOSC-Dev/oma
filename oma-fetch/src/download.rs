@@ -15,7 +15,8 @@ use async_compression::futures::bufread::{
 use bon::bon;
 use futures::{AsyncBufRead, AsyncRead, TryStreamExt, io::BufReader};
 use headers::{ContentLength, ContentRange, HeaderMapExt};
-use reqwest::{Client, Method, RequestBuilder, StatusCode, header::RANGE};
+use reqwest::{Method, StatusCode, header::RANGE};
+use reqwest_middleware::ClientWithMiddleware;
 use snafu::{ResultExt, Snafu};
 use tokio::{
     fs::{self, File},
@@ -40,7 +41,7 @@ pub enum BuilderError {
 }
 
 pub(crate) struct SingleDownloader {
-    client: Client,
+    client: ClientWithMiddleware,
     pub entry: DownloadEntry,
     total: usize,
     retry_times: usize,
@@ -83,7 +84,7 @@ pub enum SingleDownloadError {
     #[snafu(display("Failed to create symlink"))]
     CreateSymlink { source: io::Error },
     #[snafu(display("Request Error"))]
-    ReqwestError { source: reqwest::Error },
+    ReqwestMiddlewareError { source: reqwest_middleware::Error },
     #[snafu(display("Broken pipe"))]
     BrokenPipe { source: io::Error },
     #[snafu(display("Send request timeout"))]
@@ -98,7 +99,7 @@ pub enum SingleDownloadError {
 impl SingleDownloader {
     #[builder]
     pub(crate) fn new(
-        client: Client,
+        client: ClientWithMiddleware,
         entry: DownloadEntry,
         total: usize,
         retry_times: usize,
@@ -133,8 +134,8 @@ impl SingleDownloader {
 
         for (index, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
-                DownloadSourceType::Http { auth } => {
-                    self.try_http_download(c, auth, callback).await
+                DownloadSourceType::Http => {
+                    self.try_http_download(c, callback).await
                 }
                 DownloadSourceType::Local(as_symlink) => {
                     self.download_local(c, *as_symlink, callback).await
@@ -186,14 +187,13 @@ impl SingleDownloader {
     async fn try_http_download(
         &self,
         source: &DownloadSource,
-        auth: &Option<(String, String)>,
         callback: &impl AsyncFn(Event),
     ) -> Result<bool, SingleDownloadError> {
         let mut times = 1;
         let mut allow_resume = self.entry.allow_resume;
         loop {
             match self
-                .http_download(allow_resume, source, auth, callback)
+                .http_download(allow_resume, source, callback)
                 .await
             {
                 Ok(s) => {
@@ -244,7 +244,6 @@ impl SingleDownloader {
         &self,
         allow_resume: bool,
         source: &DownloadSource,
-        auth: &Option<(String, String)>,
         callback: &impl AsyncFn(Event),
     ) -> Result<bool, SingleDownloadError> {
         let file = self.entry.dir.join(&*self.entry.filename);
@@ -351,7 +350,8 @@ impl SingleDownloader {
             let old_total_size = total_size;
 
             // send request
-            let mut req = self.build_request_with_basic_auth(&source.url, Method::GET, auth);
+            let mut req = self.client.request(Method::GET, &source.url);
+
             if downloaded_size != 0 {
                 // request for resume
                 // assume reqwest's automatic decompression is disabled
@@ -360,7 +360,7 @@ impl SingleDownloader {
             } else {
                 debug!("sending complete request ...");
             }
-            let resp = timeout(self.timeout, send_request(&source.url, req)).await;
+            let resp = timeout(self.timeout, send_request(req)).await;
             let resp = match resp {
                 Ok(Ok(resp)) => resp,
                 Ok(Err(e)) => match e.status() {
@@ -373,14 +373,14 @@ impl SingleDownloader {
                         // some servers reply with Bad Request when Range is invalid
                         // so retry once
                         if downloaded_size == 0 {
-                            return Err(SingleDownloadError::ReqwestError { source: e });
+                            return Err(SingleDownloadError::ReqwestMiddlewareError { source: e });
                         } else {
                             debug!("HTTP Bad Request from server, restarting ...");
                             downloaded_size = 0;
                             continue 'download;
                         }
                     }
-                    _ => return Err(SingleDownloadError::ReqwestError { source: e }),
+                    _ => return Err(SingleDownloadError::ReqwestMiddlewareError { source: e }),
                 },
                 Err(_) => {
                     return Err(SingleDownloadError::SendRequestTimeout);
@@ -622,22 +622,6 @@ impl SingleDownloader {
 
         callback(Event::ProgressDone(self.download_list_index)).await;
         Ok(true)
-    }
-
-    fn build_request_with_basic_auth(
-        &self,
-        url: &str,
-        method: Method,
-        auth: &Option<(String, String)>,
-    ) -> RequestBuilder {
-        let mut req = self.client.request(method, url);
-
-        if let Some((user, password)) = auth {
-            trace!("Authenticating as user: {} ...", user);
-            req = req.basic_auth(user, Some(password));
-        }
-
-        req
     }
 
     /// Download local source file

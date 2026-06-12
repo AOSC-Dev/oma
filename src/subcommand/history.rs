@@ -154,7 +154,6 @@ impl CliExecuter for Undo {
         if !no_refresh {
             Refresh::builder()
                 .config(&config)
-                .maybe_auth_config(auth_config.clone())
                 .build()
                 .run()?;
         }
@@ -267,7 +266,7 @@ impl CliExecuter for Undo {
 
             let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(
-                config.http_client()?,
+                config.http_client()?.as_ref(),
                 &config.sysroot,
                 &arch,
                 config.dry_run,

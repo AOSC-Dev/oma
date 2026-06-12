@@ -5,19 +5,19 @@ use std::{
 };
 
 use ahash::HashMap;
-use apt_auth_config::{AuthConfig, Authenticator};
 use fancy_regex::Regex;
 use futures::StreamExt;
 use oma_apt_sources_lists::{
     Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
 };
 use oma_fetch::{
-    SingleDownloadError, build_request_with_basic_auth,
-    reqwest::{Client, Method, Response, StatusCode},
-    send_request,
+    SingleDownloadError,
+    reqwest::{Method, Response, StatusCode},
+    send_request_with_url_and_method,
 };
 use oma_utils::concat_url;
 use once_cell::sync::OnceCell;
+use reqwest_middleware::ClientWithMiddleware;
 use spdlog::debug;
 use tokio::{
     fs::{self, File},
@@ -281,7 +281,6 @@ pub struct MirrorSources<'a>(pub Vec<MirrorSource<'a>>);
 pub struct MirrorSource<'a> {
     pub sources: Vec<&'a OmaSourceEntry<'a>>,
     release_file_name: OnceCell<String>,
-    auth: Option<&'a Authenticator>,
 }
 
 impl MirrorSource<'_> {
@@ -353,13 +352,9 @@ impl MirrorSource<'_> {
         self.release_file_name.get().map(|x| x.as_str())
     }
 
-    pub fn auth(&self) -> Option<&Authenticator> {
-        self.auth
-    }
-
     pub async fn fetch(
         &self,
-        client: &Client,
+        client: &ClientWithMiddleware,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
@@ -380,7 +375,7 @@ impl MirrorSource<'_> {
 
     async fn fetch_http_release(
         &self,
-        client: &Client,
+        client: &ClientWithMiddleware,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
@@ -399,14 +394,14 @@ impl MirrorSource<'_> {
         let mut url = self.get_download_url("InRelease");
         let mut is_release = false;
 
-        let resp = self.send_request(client, &url, Method::GET).await;
+        let resp = send_request_with_url_and_method(&url, client, Method::GET).await;
         callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
 
         let resp = match resp {
             Ok(resp) => resp,
             Err(e) if e.status().is_some_and(|e| e == StatusCode::NOT_FOUND) => {
                 url = self.get_download_url("Release");
-                let resp = self.send_request(client, &url, Method::GET).await;
+                let resp = send_request_with_url_and_method(&url, client, Method::GET).await;
 
                 if resp.is_err() && self.is_flat() {
                     // Flat repo no release
@@ -415,12 +410,12 @@ impl MirrorSource<'_> {
 
                 is_release = true;
 
-                resp.map_err(|e| SingleDownloadError::ReqwestError { source: e })
+                resp.map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e })
                     .map_err(|e| RefreshError::DownloadFailed(Some(e)))?
             }
             Err(e) => {
                 return Err(RefreshError::DownloadFailed(Some(
-                    SingleDownloadError::ReqwestError { source: e },
+                    SingleDownloadError::ReqwestMiddlewareError { source: e },
                 )));
             }
         };
@@ -440,20 +435,10 @@ impl MirrorSource<'_> {
         if is_release && !self.trusted() {
             let url = self.get_download_url("Release.gpg");
 
-            let request = build_request_with_basic_auth(
-                client,
-                Method::GET,
-                &self
-                    .auth()
-                    .map(|x| (x.login.to_string(), x.password.to_string())),
-                &url,
-            );
-
-            let resp = request
-                .send()
+            let resp = send_request_with_url_and_method(&url, client, Method::GET)
                 .await
-                .and_then(|resp| resp.error_for_status())
-                .map_err(|e| SingleDownloadError::ReqwestError { source: e })
+                .and_then(|resp| resp.error_for_status().map_err(|e| e.into()))
+                .map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e })
                 .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
             let file_name = self.get_download_file_name(Some("Release.gpg"), replacer)?;
@@ -464,26 +449,6 @@ impl MirrorSource<'_> {
         }
 
         Ok(())
-    }
-
-    async fn send_request(
-        &self,
-        client: &Client,
-        url: &str,
-        method: Method,
-    ) -> Result<Response, oma_fetch::reqwest::Error> {
-        let request = build_request_with_basic_auth(
-            client,
-            method,
-            &self
-                .auth()
-                .map(|x| (x.login.to_string(), x.password.to_string())),
-            url,
-        );
-
-        let resp = send_request(url, request).await?;
-
-        Ok(resp)
     }
 
     async fn download_file(
@@ -512,7 +477,7 @@ impl MirrorSource<'_> {
         while let Some(chunk) = resp
             .chunk()
             .await
-            .map_err(|e| SingleDownloadError::ReqwestError { source: e })?
+            .map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e.into() })?
         {
             callback(Event::DownloadEvent(oma_fetch::Event::ProgressInc {
                 index,
@@ -624,7 +589,6 @@ impl<'a> MirrorSources<'a> {
     pub fn from_sourcelist(
         sourcelist: &'a [OmaSourceEntry<'a>],
         replacer: &DatabaseFilenameReplacer,
-        auth_config: Option<&'a AuthConfig>,
     ) -> Result<Self, RefreshError> {
         let mut map: HashMap<String, Vec<&OmaSourceEntry>> =
             HashMap::with_hasher(ahash::RandomState::new());
@@ -642,13 +606,9 @@ impl<'a> MirrorSources<'a> {
         let mut res = vec![];
 
         for (_, v) in map {
-            let url = v[0].url();
-            let auth = auth_config.and_then(|auth| auth.find_str(url));
-
             res.push(MirrorSource {
                 sources: v,
                 release_file_name: OnceCell::new(),
-                auth,
             });
         }
 
@@ -657,7 +617,7 @@ impl<'a> MirrorSources<'a> {
 
     pub async fn fetch_all_release(
         &self,
-        client: &Client,
+        client: &ClientWithMiddleware,
         replacer: &DatabaseFilenameReplacer,
         download_dir: &Path,
         threads: usize,

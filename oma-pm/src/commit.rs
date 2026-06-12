@@ -7,9 +7,10 @@ use oma_apt::{
     progress::{AcquireProgress, InstallProgress},
     util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner},
 };
-use oma_fetch::{Event, Summary, reqwest::Client};
+use oma_fetch::{Event, Summary};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
 use oma_utils::get_file_lock;
+use reqwest_middleware::ClientWithMiddleware;
 use spdlog::debug;
 use std::io::Write;
 
@@ -30,7 +31,7 @@ pub struct CommitConfig<'a> {
 
 pub struct DoInstall<'a> {
     apt: OmaApt,
-    client: &'a Client,
+    client: &'a ClientWithMiddleware,
     sysroot: &'a str,
     config: CommitConfig<'a>,
     archive_lock: OnceLock<OwnedFd>,
@@ -41,7 +42,7 @@ pub type CustomDownloadMessage = Box<dyn Fn(&InstallEntry) -> Cow<'static, str>>
 impl<'a> DoInstall<'a> {
     pub fn new(
         apt: OmaApt,
-        client: &'a Client,
+        client: &'a ClientWithMiddleware,
         sysroot: &'a str,
         config: CommitConfig<'a>,
     ) -> Result<Self, OmaAptError> {
@@ -96,7 +97,6 @@ impl<'a> DoInstall<'a> {
             let config = DownloadConfig {
                 network_thread: self.config.network_thread,
                 download_dir: Some(path),
-                auth: self.config.auth_config,
             };
 
             download_pkgs(

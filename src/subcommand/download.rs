@@ -17,7 +17,7 @@ use crate::{fl, success};
 
 use crate::args::CliExecuter;
 
-use super::utils::{auth_config, download_message};
+use super::utils::download_message;
 
 #[derive(Debug, Args)]
 pub struct Download {
@@ -73,7 +73,6 @@ impl CliExecuter for Download {
             DownloadConfig {
                 network_thread: Some(config.download_threads),
                 download_dir: Some(&path),
-                auth: auth_config("/").as_ref(),
             },
             download_message(),
             |event| async {

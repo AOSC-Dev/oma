@@ -132,7 +132,7 @@ fn main() -> Result<(), OmaAptError> {
     apt.commit(
         InstallProgressOpt::TermLike(Box::new(MyInstallProgressManager)),
         &op,
-        &client,
+        &client.into(),
         CommitConfig {
             network_thread: None,
             auth_config: Some(&AuthConfig::system("/").unwrap()),

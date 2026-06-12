@@ -32,6 +32,7 @@ deb822-fast = { workspace = true }
 sys-locale = { workspace = true }
 fancy-regex = { workspace = true }
 oma-utils = { workspace = true, default-features = false }
+reqwest-middleware = { workspace = true }
 
 [features]
 aosc = ["dep:oma-topics"]

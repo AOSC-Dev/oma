@@ -5,7 +5,8 @@ use checksum::Checksum;
 use download::{BuilderError, SingleDownloader, SuccessSummary};
 use futures::StreamExt;
 
-use reqwest::{Client, Method, RequestBuilder, Response};
+use reqwest::{Method, Response};
+use reqwest_middleware::{ClientWithMiddleware, RequestBuilder};
 use spdlog::debug;
 
 pub mod checksum;
@@ -72,7 +73,7 @@ pub struct DownloadSource {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DownloadSourceType {
-    Http { auth: Option<(String, String)> },
+    Http,
     Local(bool),
 }
 
@@ -145,7 +146,7 @@ pub enum Event {
 
 #[derive(Builder)]
 pub struct DownloadManager {
-    client: Client,
+    client: ClientWithMiddleware,
     download_list: Box<[DownloadEntry]>,
     #[builder(default = 4)]
     threads: usize,
@@ -235,25 +236,30 @@ impl DownloadManager {
     }
 }
 
-pub fn build_request_with_basic_auth(
-    client: &Client,
-    method: Method,
-    auth: &Option<(String, String)>,
+pub async fn send_request_with_url_and_method(
     url: &str,
-) -> RequestBuilder {
-    let mut req = client.request(method, url);
+    client: &ClientWithMiddleware,
+    method: Method,
+) -> Result<Response, reqwest_middleware::Error> {
+    let resp = client.request(method, url).send().await?;
+    let headers = resp.headers();
 
-    if let Some((user, password)) = auth {
-        debug!("Authenticating as user: {} ...", user);
-        req = req.basic_auth(user, Some(password));
-    }
+    debug!(
+        "\nDownload URL: {url}\nStatus: {}\nHeaders: {headers:#?}",
+        resp.status()
+    );
 
-    req
+    let resp = resp.error_for_status()?;
+
+    Ok(resp)
 }
 
-pub async fn send_request(url: &str, request: RequestBuilder) -> Result<Response, reqwest::Error> {
+pub async fn send_request(
+    request: RequestBuilder,
+) -> Result<Response, reqwest_middleware::Error> {
     let resp = request.send().await?;
     let headers = resp.headers();
+    let url = resp.url();
 
     debug!(
         "\nDownload URL: {url}\nStatus: {}\nHeaders: {headers:#?}",

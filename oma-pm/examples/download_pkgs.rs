@@ -1,6 +1,5 @@
 use std::{path::Path, thread};
 
-use apt_auth_config::AuthConfig;
 use flume::unbounded;
 use oma_fetch::{Event, reqwest::ClientBuilder};
 use oma_pm::{
@@ -37,12 +36,11 @@ fn main() -> Result<(), OmaAptError> {
     });
 
     let res = apt.download(
-        &client,
+        &client.into(),
         pkgs.0,
         DownloadConfig {
             network_thread: None,
             download_dir: Some(Path::new("test")),
-            auth: Some(&AuthConfig::system("/").unwrap()),
         },
         None,
         |event| async {
