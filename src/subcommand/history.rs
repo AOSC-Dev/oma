@@ -152,10 +152,7 @@ impl CliExecuter for Undo {
         let auth_config = auth_config(&config.sysroot);
 
         if !no_refresh {
-            Refresh::builder()
-                .config(&config)
-                .build()
-                .run()?;
+            Refresh::builder().config(&config).build().run()?;
         }
 
         let no_progress = config.no_progress();

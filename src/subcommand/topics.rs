@@ -366,10 +366,7 @@ impl CliExecuter for Topics {
 }
 
 fn refresh(config: &OmaConfig) -> Result<(), OutputError> {
-    Refresh::builder()
-        .config(config)
-        .build()
-        .run()
+    Refresh::builder().config(config).build().run()
 }
 
 fn revert_sources_list(tm: &TopicManager<'_>) -> Result<(), OutputError> {

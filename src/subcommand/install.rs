@@ -136,10 +136,7 @@ impl CliExecuter for Install {
         let no_progress = config.no_progress();
 
         if !no_refresh {
-            Refresh::builder()
-                .config(&config)
-                .build()
-                .run()?;
+            Refresh::builder().config(&config).build().run()?;
         }
 
         if yes {

@@ -254,9 +254,7 @@ pub async fn send_request_with_url_and_method(
     Ok(resp)
 }
 
-pub async fn send_request(
-    request: RequestBuilder,
-) -> Result<Response, reqwest_middleware::Error> {
+pub async fn send_request(request: RequestBuilder) -> Result<Response, reqwest_middleware::Error> {
     let resp = request.send().await?;
     let headers = resp.headers();
     let url = resp.url();

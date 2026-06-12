@@ -134,9 +134,7 @@ impl SingleDownloader {
 
         for (index, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
-                DownloadSourceType::Http => {
-                    self.try_http_download(c, callback).await
-                }
+                DownloadSourceType::Http => self.try_http_download(c, callback).await,
                 DownloadSourceType::Local(as_symlink) => {
                     self.download_local(c, *as_symlink, callback).await
                 }
@@ -192,10 +190,7 @@ impl SingleDownloader {
         let mut times = 1;
         let mut allow_resume = self.entry.allow_resume;
         loop {
-            match self
-                .http_download(allow_resume, source, callback)
-                .await
-            {
+            match self.http_download(allow_resume, source, callback).await {
                 Ok(s) => {
                     return Ok(s);
                 }

@@ -735,10 +735,7 @@ fn progress_bar(mirrors_len: u64) -> OmaProgressBar {
 }
 
 fn refresh(config: &OmaConfig) -> Result<(), OutputError> {
-    Refresh::builder()
-        .config(config)
-        .build()
-        .run()?;
+    Refresh::builder().config(config).build().run()?;
 
     success!("{}", fl!("successfully-refresh-without-status"));
 

@@ -91,10 +91,7 @@ impl CliExecuter for Pick {
         let auth_config = auth_config(&config.sysroot);
 
         if !no_refresh {
-            Refresh::builder()
-                .config(&config)
-                .build()
-                .run()?;
+            Refresh::builder().config(&config).build().run()?;
         }
 
         let oma_apt_args = OmaAptArgs::builder()

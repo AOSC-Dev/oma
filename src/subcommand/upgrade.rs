@@ -101,10 +101,7 @@ impl CliExecuter for Upgrade {
         let _fds = dbus_check(false, &config)?;
 
         if !no_refresh {
-            Refresh::builder()
-                .config(&config)
-                .build()
-                .run()?;
+            Refresh::builder().config(&config).build().run()?;
         }
 
         if yes {
