@@ -61,7 +61,10 @@ impl<'a> DoInstall<'a> {
         custom_download_message: CustomDownloadMessage,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<()> {
-        apt_lock().map_err(OmaAptError::LockApt)?;
+        self.apt
+            .lock_apt
+            .get_or_try_init(apt_lock)
+            .map_err(OmaAptError::LockApt)?;
 
         let summary = self.download_pkgs(&op.install, custom_download_message, callback)?;
 

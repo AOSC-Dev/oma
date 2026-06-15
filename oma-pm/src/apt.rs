@@ -20,7 +20,7 @@ use oma_apt::{
     progress::{AcquireProgress, InstallProgress},
     raw::{IntoRawIter, config as apt_config},
     records::RecordField,
-    util::DiskSpace,
+    util::{DiskSpace, apt_lock},
 };
 
 use oma_fetch::{Event, Summary, checksum::ChecksumError, reqwest::Client};
@@ -91,6 +91,7 @@ pub struct OmaApt {
     pub(crate) tokio: OnceCell<Runtime>,
     pub(crate) conn: OnceCell<Connection>,
     sysroot: PathBuf,
+    pub(crate) lock_apt: OnceCell<()>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -221,6 +222,7 @@ impl OmaApt {
             tokio: OnceCell::new(),
             conn: OnceCell::new(),
             sysroot: sysroot.into(),
+            lock_apt: OnceCell::new(),
         })
     }
 
@@ -869,6 +871,12 @@ impl OmaApt {
         how_handle_essential: impl Fn(&str) -> bool,
         how_handle_features: impl Fn(&HashSet<Box<str>>) -> bool,
     ) -> OmaAptResult<OmaOperation> {
+        if !self.dry_run {
+            self.lock_apt
+                .get_or_try_init(apt_lock)
+                .map_err(OmaAptError::LockApt)?;
+        }
+
         #[cfg(feature = "aosc")]
         let mut features = HashSet::with_hasher(ahash::RandomState::new());
 
