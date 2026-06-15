@@ -28,7 +28,6 @@ use crate::exit_handle::ExitHandle;
 use crate::root::is_root;
 use crate::subcommand::size_analyzer::pkg::PkgWrapper;
 use crate::subcommand::size_analyzer::tui::PkgSizeAnalyzer;
-use crate::subcommand::utils::auth_config;
 use crate::table::table_no_color;
 use crate::{CliExecuter, error::OutputError};
 use crate::{NO_COLOR, fl};
@@ -163,15 +162,12 @@ impl CliExecuter for SizeAnalyzer {
                 no_autoremove,
             )?;
 
-            let auth_config = auth_config(&config.sysroot);
-
             exit_code = CommitChanges::builder()
                 .apt(apt)
                 .no_fixbroken(!fix_broken)
                 .yes(false)
                 .remove_config(remove_config)
                 .autoremove(!no_autoremove)
-                .maybe_auth_config(auth_config)
                 .fix_dpkg_status(!no_fix_dpkg_status)
                 .config(&config)
                 .no_clean(no_clean)

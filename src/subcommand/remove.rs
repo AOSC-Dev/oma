@@ -15,7 +15,7 @@ use crate::exit_handle::ExitHandle;
 use crate::fl;
 use crate::{dbus::dbus_check, error::OutputError, root::root};
 
-use super::utils::{auth_config, create_progress_spinner, handle_no_result, lock_oma};
+use super::utils::{create_progress_spinner, handle_no_result, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -202,15 +202,12 @@ impl CliExecuter for Remove {
 
         handle_no_result(no_result, config.no_progress())?;
 
-        let auth_config = auth_config(&config.sysroot);
-
         CommitChanges::builder()
             .apt(apt)
             .no_fixbroken(!fix_broken)
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(!no_autoremove)
-            .maybe_auth_config(auth_config.clone())
             .fix_dpkg_status(fix_dpkg_status)
             .config(&config)
             .no_clean(no_clean)

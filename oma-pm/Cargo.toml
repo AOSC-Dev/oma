@@ -35,7 +35,6 @@ strsim = { workspace = true }
 indexmap = { workspace = true }
 memchr = { workspace = true }
 serde = { workspace = true }
-apt-auth-config = { workspace = true }
 once_cell = { workspace = true }
 sysinfo = { workspace = true, optional = true }
 deb822-lossless = { workspace = true }

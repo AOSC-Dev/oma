@@ -1,6 +1,5 @@
 use std::{borrow::Cow, fs::create_dir_all, os::fd::OwnedFd, path::Path, sync::OnceLock};
 
-use apt_auth_config::AuthConfig;
 use chrono::Local;
 use oma_apt::{
     error::AptErrors,
@@ -23,9 +22,8 @@ use crate::{
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
-pub struct CommitConfig<'a> {
+pub struct CommitConfig {
     pub network_thread: Option<usize>,
-    pub auth_config: Option<&'a AuthConfig>,
     pub download_only: bool,
 }
 
@@ -33,7 +31,7 @@ pub struct DoInstall<'a> {
     apt: OmaApt,
     client: &'a ClientWithMiddleware,
     sysroot: &'a str,
-    config: CommitConfig<'a>,
+    config: CommitConfig,
     archive_lock: OnceLock<OwnedFd>,
 }
 
@@ -44,7 +42,7 @@ impl<'a> DoInstall<'a> {
         apt: OmaApt,
         client: &'a ClientWithMiddleware,
         sysroot: &'a str,
-        config: CommitConfig<'a>,
+        config: CommitConfig,
     ) -> Result<Self, OmaAptError> {
         Ok(Self {
             apt,

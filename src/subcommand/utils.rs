@@ -14,7 +14,6 @@ use crate::msg;
 use crate::pb::OmaProgressBar;
 use crate::utils::get_lists_dir;
 use anyhow::Context;
-use apt_auth_config::AuthConfig;
 use dialoguer::console;
 use dialoguer::console::style;
 use indexmap::IndexSet;
@@ -122,13 +121,6 @@ pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<OwnedFd, OutputError
     })?;
 
     Ok(lock)
-}
-
-pub fn auth_config(sysroot: impl AsRef<Path>) -> Option<AuthConfig> {
-    AuthConfig::system(sysroot)
-        .inspect(|res| debug!("Auth config: {res:#?}"))
-        .inspect_err(|e| debug!("Couldn't read auth config: {e}"))
-        .ok()
 }
 
 pub fn download_message() -> Option<CustomDownloadMessage> {

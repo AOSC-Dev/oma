@@ -29,7 +29,6 @@ oma-apt = { workspace = true, optional = true }
 aho-corasick = { workspace = true }
 bon = { workspace = true }
 once_cell = { workspace = true }
-apt-auth-config = { workspace = true }
 deb822-fast = { workspace = true }
 sys-locale = { workspace = true }
 fancy-regex = { workspace = true }

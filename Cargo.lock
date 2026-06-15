@@ -3344,7 +3344,6 @@ name = "oma-pm"
 version = "0.63.0"
 dependencies = [
  "ahash",
- "apt-auth-config",
  "bon",
  "chrono",
  "cxx",
@@ -3386,7 +3385,6 @@ version = "0.55.0"
 dependencies = [
  "ahash",
  "aho-corasick",
- "apt-auth-config",
  "bon",
  "chrono",
  "deb822-fast",

@@ -30,7 +30,7 @@ use crate::{
     root::root,
 };
 
-use super::utils::{auth_config, create_progress_spinner, lock_oma};
+use super::utils::{create_progress_spinner, lock_oma};
 
 use crate::args::CliExecuter;
 
@@ -191,8 +191,6 @@ impl CliExecuter for Topics {
             RT.block_on(tm.write_enabled(false))?;
         }
 
-        let auth_config = auth_config(&config.sysroot);
-
         let code = Ok(()).and_then(|_| -> Result<ExitHandle, OutputError> {
             refresh(&config)?;
 
@@ -322,7 +320,6 @@ impl CliExecuter for Topics {
                 .yes(yes)
                 .remove_config(remove_config)
                 .autoremove(autoremove)
-                .maybe_auth_config(auth_config.clone())
                 .check_tum(true)
                 .topics_enabled(opt_in)
                 .topics_disabled(opt_out)

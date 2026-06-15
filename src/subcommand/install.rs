@@ -17,7 +17,6 @@ use crate::exit_handle::ExitHandle;
 use crate::fl;
 use crate::root::root;
 
-use super::utils::auth_config;
 use super::utils::handle_no_result;
 use super::utils::lock_oma;
 use crate::args::CliExecuter;
@@ -132,7 +131,6 @@ impl CliExecuter for Install {
 
         let _fds = dbus_check(yes, &config)?;
 
-        let auth_config = auth_config(&config.sysroot);
         let no_progress = config.no_progress();
 
         if !no_refresh {
@@ -194,7 +192,6 @@ impl CliExecuter for Install {
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(auth_config)
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .config(&config)
