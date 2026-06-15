@@ -61,6 +61,8 @@ impl<'a> DoInstall<'a> {
         custom_download_message: CustomDownloadMessage,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<()> {
+        apt_lock().map_err(OmaAptError::LockApt)?;
+
         let summary = self.download_pkgs(&op.install, custom_download_message, callback)?;
 
         if !summary.failed.is_empty() {
@@ -70,6 +72,8 @@ impl<'a> DoInstall<'a> {
         if !self.config.download_only {
             self.do_install(install_progress_manager, op)?;
         }
+
+        apt_unlock();
 
         Ok(())
     }
@@ -116,8 +120,6 @@ impl<'a> DoInstall<'a> {
         install_progress_manager: InstallProgressOpt,
         op: &OmaOperation,
     ) -> OmaAptResult<()> {
-        apt_lock().map_err(OmaAptError::LockApt)?;
-
         debug!("Try to get apt archives");
 
         self.apt
@@ -160,9 +162,6 @@ impl<'a> DoInstall<'a> {
             .map_err(OmaAptError::InstallPackages)?;
 
         debug!("Try to unlock apt lock");
-
-        apt_unlock();
-
         Self::log(self.sysroot, op)?;
 
         Ok(())
