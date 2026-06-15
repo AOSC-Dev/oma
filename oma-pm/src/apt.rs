@@ -866,7 +866,7 @@ impl OmaApt {
         Ok(res)
     }
 
-    pub fn ensure_locked(&self) -> OmaAptResult<()> {
+    pub fn ensure_apt_frontend_locked(&self) -> OmaAptResult<()> {
         let mut lock_slot = self.apt_lock.borrow_mut();
         if lock_slot.is_none() {
             let guard = AptLockGuard::acquire()?;
@@ -875,7 +875,7 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn force_unlock(&self) {
+    pub fn force_unlock_apt_frontend(&self) {
         *self.apt_lock.borrow_mut() = None;
     }
 
@@ -886,10 +886,6 @@ impl OmaApt {
         how_handle_essential: impl Fn(&str) -> bool,
         how_handle_features: impl Fn(&HashSet<Box<str>>) -> bool,
     ) -> OmaAptResult<OmaOperation> {
-        if !self.dry_run {
-            self.ensure_locked()?;
-        }
-
         #[cfg(feature = "aosc")]
         let mut features = HashSet::with_hasher(ahash::RandomState::new());
 
