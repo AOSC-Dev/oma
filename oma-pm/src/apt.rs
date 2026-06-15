@@ -875,10 +875,6 @@ impl OmaApt {
         Ok(())
     }
 
-    pub fn force_unlock_apt_frontend(&self) {
-        *self.apt_lock.borrow_mut() = None;
-    }
-
     /// Build transaction
     pub fn build_transaction(
         &self,
