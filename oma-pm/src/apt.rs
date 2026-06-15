@@ -80,7 +80,7 @@ pub struct OmaApt {
     /// The set of packages to be autoremoved.
     autoremove: HashSet<usize>,
     /// Toggle for dry-run mode.
-    dry_run: bool,
+    pub dry_run: bool,
     /// The set of selected packages.
     select_pkgs: HashSet<usize>,
     /// A set of lists containing broken packages that have unmet dependencies.
