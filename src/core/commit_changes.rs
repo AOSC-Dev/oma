@@ -11,7 +11,7 @@ use oma_history::{DATABASE_PATH, HistoryInfo};
 use oma_pm::{
     CommitConfig,
     apt::{InstallEntry, InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError, RemoveEntry},
-    oma_apt::{self, PackageSort, raw::apt_lock},
+    oma_apt::{self, PackageSort},
     sort::SummarySort,
 };
 use spdlog::{debug, error, info, warn};
