@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     fmt,
     io::{self},
     path::{Path, PathBuf},
@@ -20,7 +21,7 @@ use oma_apt::{
     progress::{AcquireProgress, InstallProgress},
     raw::{IntoRawIter, config as apt_config},
     records::RecordField,
-    util::{DiskSpace, apt_lock},
+    util::DiskSpace,
 };
 
 use oma_fetch::{Event, Summary, checksum::ChecksumError, reqwest::Client};
@@ -39,6 +40,7 @@ use crate::{
     commit::{CommitConfig, CustomDownloadMessage, DoInstall},
     dbus::create_session,
     download::download_pkgs,
+    lock::AptLockGuard,
     matches::MatcherError,
     pkginfo::{OmaDependency, OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::InstallProgressManager,
@@ -91,7 +93,7 @@ pub struct OmaApt {
     pub(crate) tokio: OnceCell<Runtime>,
     pub(crate) conn: OnceCell<Connection>,
     sysroot: PathBuf,
-    pub(crate) lock_apt: OnceCell<()>,
+    pub(crate) apt_lock: RefCell<Option<AptLockGuard>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -222,7 +224,7 @@ impl OmaApt {
             tokio: OnceCell::new(),
             conn: OnceCell::new(),
             sysroot: sysroot.into(),
-            lock_apt: OnceCell::new(),
+            apt_lock: RefCell::new(None),
         })
     }
 
@@ -864,6 +866,19 @@ impl OmaApt {
         Ok(res)
     }
 
+    pub fn ensure_locked(&self) -> OmaAptResult<()> {
+        let mut lock_slot = self.apt_lock.borrow_mut();
+        if lock_slot.is_none() {
+            let guard = AptLockGuard::acquire()?;
+            *lock_slot = Some(guard);
+        }
+        Ok(())
+    }
+
+    pub fn force_unlock(&self) {
+        *self.apt_lock.borrow_mut() = None;
+    }
+
     /// Build transaction
     pub fn build_transaction(
         &self,
@@ -872,9 +887,7 @@ impl OmaApt {
         how_handle_features: impl Fn(&HashSet<Box<str>>) -> bool,
     ) -> OmaAptResult<OmaOperation> {
         if !self.dry_run {
-            self.lock_apt
-                .get_or_try_init(apt_lock)
-                .map_err(OmaAptError::LockApt)?;
+            self.ensure_locked()?;
         }
 
         #[cfg(feature = "aosc")]

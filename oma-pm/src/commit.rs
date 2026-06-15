@@ -5,7 +5,7 @@ use chrono::Local;
 use oma_apt::{
     error::AptErrors,
     progress::{AcquireProgress, InstallProgress},
-    util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner},
+    util::{apt_lock_inner, apt_unlock, apt_unlock_inner},
 };
 use oma_fetch::{Event, Summary, reqwest::Client};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
@@ -61,10 +61,7 @@ impl<'a> DoInstall<'a> {
         custom_download_message: CustomDownloadMessage,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<()> {
-        self.apt
-            .lock_apt
-            .get_or_try_init(apt_lock)
-            .map_err(OmaAptError::LockApt)?;
+        self.apt.ensure_locked()?;
 
         let summary = self.download_pkgs(&op.install, custom_download_message, callback)?;
 
