@@ -6,7 +6,9 @@ use oma_utils::dpkg::dpkg_arch;
 
 #[tokio::main]
 async fn main() -> Result<(), RefreshError> {
-    rustls::crypto::ring::default_provider().install_default().unwrap();
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .unwrap();
     let p = Path::new("./oma-fetcher-test");
     tokio::fs::create_dir_all(p).await.unwrap();
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();

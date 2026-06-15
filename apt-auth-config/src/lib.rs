@@ -80,9 +80,10 @@ impl AuthUrl {
         }
 
         if let Some(conf_port) = self.port
-            && Some(conf_port) != request_url.port {
-                return None;
-            }
+            && Some(conf_port) != request_url.port
+        {
+            return None;
+        }
 
         if request_url.path.starts_with(&self.path) {
             Some(self.path.len())

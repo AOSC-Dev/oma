@@ -1,7 +1,8 @@
 use std::{
     borrow::Cow,
     fmt::Debug,
-    path::{Path, PathBuf}, sync::Arc,
+    path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use ahash::HashMap;
