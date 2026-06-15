@@ -11,7 +11,7 @@ use oma_history::{DATABASE_PATH, HistoryInfo};
 use oma_pm::{
     CommitConfig,
     apt::{InstallEntry, InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError, RemoveEntry},
-    oma_apt::{self, PackageSort},
+    oma_apt::{self, PackageSort, raw::apt_lock},
     sort::SummarySort,
 };
 use spdlog::{debug, error, info, warn};
@@ -103,7 +103,7 @@ impl CommitChanges<'_> {
 
         let dry_run = config.dry_run;
 
-        let op = apt.summary(
+        let op = apt.build_transaction(
             SummarySort::default().names().operation(),
             |pkg| {
                 if dry_run {

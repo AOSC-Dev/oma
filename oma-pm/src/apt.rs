@@ -862,8 +862,8 @@ impl OmaApt {
         Ok(res)
     }
 
-    /// Show changes summary
-    pub fn summary(
+    /// Build transaction
+    pub fn build_transaction(
         &self,
         sort: SummarySort,
         how_handle_essential: impl Fn(&str) -> bool,
