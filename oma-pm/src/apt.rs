@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     fmt,
     io::{self},
     path::{Path, PathBuf},
@@ -39,6 +40,7 @@ use crate::{
     commit::{CommitConfig, CustomDownloadMessage, DoInstall},
     dbus::create_session,
     download::download_pkgs,
+    lock::AptLockGuard,
     matches::MatcherError,
     pkginfo::{OmaDependency, OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::InstallProgressManager,
@@ -80,7 +82,7 @@ pub struct OmaApt {
     /// The set of packages to be autoremoved.
     autoremove: HashSet<usize>,
     /// Toggle for dry-run mode.
-    dry_run: bool,
+    pub dry_run: bool,
     /// The set of selected packages.
     select_pkgs: HashSet<usize>,
     /// A set of lists containing broken packages that have unmet dependencies.
@@ -91,6 +93,7 @@ pub struct OmaApt {
     pub(crate) tokio: OnceCell<Runtime>,
     pub(crate) conn: OnceCell<Connection>,
     sysroot: PathBuf,
+    pub(crate) apt_lock: RefCell<Option<AptLockGuard>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -221,6 +224,7 @@ impl OmaApt {
             tokio: OnceCell::new(),
             conn: OnceCell::new(),
             sysroot: sysroot.into(),
+            apt_lock: RefCell::new(None),
         })
     }
 
@@ -862,8 +866,17 @@ impl OmaApt {
         Ok(res)
     }
 
-    /// Show changes summary
-    pub fn summary(
+    pub fn ensure_apt_frontend_locked(&self) -> OmaAptResult<()> {
+        let mut lock_slot = self.apt_lock.borrow_mut();
+        if lock_slot.is_none() {
+            let guard = AptLockGuard::acquire()?;
+            *lock_slot = Some(guard);
+        }
+        Ok(())
+    }
+
+    /// Build transaction
+    pub fn build_transaction(
         &self,
         sort: SummarySort,
         how_handle_essential: impl Fn(&str) -> bool,

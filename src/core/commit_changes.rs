@@ -103,7 +103,9 @@ impl CommitChanges<'_> {
 
         let dry_run = config.dry_run;
 
-        let op = apt.summary(
+        apt.ensure_apt_frontend_locked()?;
+
+        let op = apt.build_transaction(
             SummarySort::default().names().operation(),
             |pkg| {
                 if dry_run {

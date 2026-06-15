@@ -112,7 +112,7 @@ fn main() -> Result<(), OmaAptError> {
 
     apt.resolve(false, false)?;
 
-    let op = apt.summary(
+    let op = apt.build_transaction(
         SummarySort::default().operation().names(),
         |_| false,
         |_| false,

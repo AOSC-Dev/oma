@@ -5,7 +5,7 @@ use chrono::Local;
 use oma_apt::{
     error::AptErrors,
     progress::{AcquireProgress, InstallProgress},
-    util::{apt_lock, apt_lock_inner, apt_unlock, apt_unlock_inner},
+    util::{apt_lock_inner, apt_unlock, apt_unlock_inner},
 };
 use oma_fetch::{Event, Summary, reqwest::Client};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
@@ -61,6 +61,8 @@ impl<'a> DoInstall<'a> {
         custom_download_message: CustomDownloadMessage,
         callback: impl AsyncFn(Event),
     ) -> OmaAptResult<()> {
+        self.apt.ensure_apt_frontend_locked()?;
+
         let summary = self.download_pkgs(&op.install, custom_download_message, callback)?;
 
         if !summary.failed.is_empty() {
@@ -116,8 +118,6 @@ impl<'a> DoInstall<'a> {
         install_progress_manager: InstallProgressOpt,
         op: &OmaOperation,
     ) -> OmaAptResult<()> {
-        apt_lock().map_err(OmaAptError::LockApt)?;
-
         debug!("Try to get apt archives");
 
         self.apt
@@ -159,9 +159,6 @@ impl<'a> DoInstall<'a> {
             .map_err(OmaAptError::InstallPackages)?;
 
         debug!("Try to unlock apt lock");
-
-        apt_unlock();
-
         Self::log(self.sysroot, op)?;
 
         Ok(())

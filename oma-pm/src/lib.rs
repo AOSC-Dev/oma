@@ -47,6 +47,7 @@ pub use oma_apt;
 pub use oma_fetch::Event as PackageDownloadEvent;
 pub use oma_fetch::SingleDownloadError as PackageDownloadError;
 mod dpkg;
+mod lock;
 
 #[cfg(test)]
 mod test {
