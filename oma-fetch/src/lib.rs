@@ -193,10 +193,8 @@ impl DownloadManager {
             .into_iter()
             .enumerate()
         {
-            let msg = c.msg.clone();
             let single = SingleDownloader::builder()
                 .client(self.client.clone())
-                .maybe_msg(msg)
                 .download_list_index(i)
                 .entry(c)
                 .total(len)

@@ -1,6 +1,5 @@
 use crate::{CompressType, DownloadSource, Event, checksum::ChecksumValidator, send_request};
 use std::{
-    borrow::Cow,
     io::{self, SeekFrom},
     path::Path,
     pin::Pin,
@@ -45,7 +44,6 @@ pub(crate) struct SingleDownloader {
     pub entry: DownloadEntry,
     total: usize,
     retry_times: usize,
-    msg: Option<Cow<'static, str>>,
     download_list_index: usize,
     timeout: Duration,
 }
@@ -103,7 +101,6 @@ impl SingleDownloader {
         entry: DownloadEntry,
         total: usize,
         retry_times: usize,
-        msg: Option<Cow<'static, str>>,
         download_list_index: usize,
         timeout: Duration,
     ) -> Result<SingleDownloader, BuilderError> {
@@ -118,7 +115,6 @@ impl SingleDownloader {
             entry,
             total,
             retry_times,
-            msg,
             download_list_index,
             timeout,
         })
@@ -130,7 +126,7 @@ impl SingleDownloader {
 
         sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
 
-        let msg = self.msg.as_deref().unwrap_or(&*self.entry.filename);
+        let msg = self.entry.msg.as_deref().unwrap_or(&*self.entry.filename);
 
         for (index, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
@@ -750,7 +746,8 @@ impl SingleDownloader {
     }
 
     fn download_message(&self) -> String {
-        self.msg
+        self.entry
+            .msg
             .as_deref()
             .unwrap_or(&self.entry.filename)
             .to_string()
