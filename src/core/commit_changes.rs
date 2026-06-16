@@ -176,7 +176,21 @@ impl CommitChanges<'_> {
             }
         }
 
-        let start_time = Local::now().timestamp();
+        let mut history = oma_history::History::new(
+            config.sysroot.join(DATABASE_PATH),
+            true,
+            self.config.dry_run,
+        )?;
+
+        let id = history.write(HistoryInfo {
+            summary: &op,
+            start_time: Local::now().timestamp(),
+            success: false,
+            is_fix_broken: is_fixbroken,
+            is_undo,
+            topics_enabled,
+            topics_disabled,
+        })?;
 
         let (tx, rx) = unbounded();
 
@@ -213,12 +227,6 @@ impl CommitChanges<'_> {
 
         osc94_progress(100.0, true);
 
-        let history = oma_history::History::new(
-            config.sysroot.join(DATABASE_PATH),
-            true,
-            self.config.dry_run,
-        );
-
         match res {
             Ok(_) => {
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
@@ -248,16 +256,7 @@ impl CommitChanges<'_> {
                 write_oma_installed_status(&apt, &config.sysroot)?;
                 autoremovable_tips(ar_count, ar_size);
 
-                let mut history = history?;
-                history.write(HistoryInfo {
-                    summary: &op,
-                    start_time,
-                    success: true,
-                    is_fix_broken: is_fixbroken,
-                    is_undo,
-                    topics_enabled,
-                    topics_disabled,
-                })?;
+                history.edit_status(id, true)?;
 
                 history_success_tips(dry_run);
                 display_suggest_tips(suggest, recommend);
@@ -289,22 +288,12 @@ impl CommitChanges<'_> {
                     return Err(e.into());
                 }
 
+                history.edit_status(id, false)?;
+
                 let apt = OmaApt::new(vec![], OmaAptArgs::builder().build(), false)?;
 
                 NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                 undo_tips();
-
-                let mut history = history?;
-                history.write(HistoryInfo {
-                    summary: &op,
-                    start_time,
-                    success: false,
-                    is_fix_broken: is_fixbroken,
-                    is_undo,
-                    topics_enabled,
-                    topics_disabled,
-                })?;
-
                 space_tips(&apt, &config.sysroot);
                 Err(e.into())
             }
