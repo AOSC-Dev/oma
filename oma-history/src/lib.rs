@@ -160,7 +160,7 @@ impl History {
         })
     }
 
-    pub fn write(&mut self, entry: HistoryInfo<'_>) -> HistoryResult<()> {
+    pub fn write(&mut self, entry: HistoryInfo<'_>) -> HistoryResult<i64> {
         let HistoryInfo {
             summary,
             start_time,
@@ -173,7 +173,7 @@ impl History {
 
         if self.dry_run {
             debug!("In dry-run mode, oma will not write history entries");
-            return Ok(());
+            return Ok(-1);
         }
 
         let transaction = self
@@ -306,6 +306,24 @@ impl History {
                     .map_err(HistoryError::ExecuteError)?;
             }
         }
+
+        transaction.commit().map_err(HistoryError::ExecuteError)?;
+
+        Ok(id)
+    }
+
+    pub fn edit_status(&mut self, id: i64, success: bool) -> HistoryResult<()> {
+        let transaction = self
+            .connection
+            .transaction()
+            .map_err(HistoryError::CreateTransaction)?;
+
+        transaction
+            .execute(
+                r#"UPDATE "history_topic_oma_1.14" SET is_success = ?1 WHERE id = ?2"#,
+                [if success { 1 } else { 0 }, id],
+            )
+            .map_err(HistoryError::ExecuteError)?;
 
         transaction.commit().map_err(HistoryError::ExecuteError)?;
 
