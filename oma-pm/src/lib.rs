@@ -41,7 +41,6 @@ mod download;
 pub mod utils;
 pub use commit::CommitConfig;
 pub mod sort;
-pub use apt_auth_config;
 pub use commit::CustomDownloadMessage;
 pub use oma_apt;
 pub use oma_fetch::Event as PackageDownloadEvent;

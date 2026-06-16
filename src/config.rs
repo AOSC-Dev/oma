@@ -1,10 +1,12 @@
 use std::{borrow::Cow, path::PathBuf};
 
+use apt_auth_config::AuthConfig;
 use clap::ColorChoice;
 use oma_pm::oma_apt;
 use oma_utils::is_termux;
 use once_cell::sync::OnceCell;
 use reqwest::Client;
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use spdlog::debug;
 
 use crate::{
@@ -41,7 +43,7 @@ pub struct OmaConfig {
     pub user_agent: Cow<'static, str>,
     pub yn_mode: bool,
     subcmd: Option<SubCmd>,
-    http_client: OnceCell<Client>,
+    http_client: OnceCell<ClientWithMiddleware>,
     #[cfg(feature = "aosc")]
     http_client_blocking: OnceCell<reqwest::blocking::Client>,
     rustls_crypto_provider: OnceCell<()>,
@@ -215,12 +217,23 @@ impl OmaConfig {
         });
     }
 
-    pub fn http_client(&self) -> Result<&Client, reqwest::Error> {
+    pub fn http_client(&self) -> Result<&ClientWithMiddleware, reqwest::Error> {
         self.http_client.get_or_try_init(|| {
             self.init_tls_config();
+            let auth = AuthConfig::system(&self.sysroot).ok();
+
             Client::builder()
                 .user_agent(self.user_agent.as_ref())
                 .build()
+                .map(|client| {
+                    if let Some(auth) = auth {
+                        ClientBuilder::new(client)
+                            .with_init(apt_auth_config::reqwuest::AuthMiddleware::new(auth))
+                            .build()
+                    } else {
+                        client.into()
+                    }
+                })
         })
     }
 

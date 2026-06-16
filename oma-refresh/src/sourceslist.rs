@@ -2,22 +2,24 @@ use std::{
     borrow::Cow,
     fmt::Debug,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use ahash::HashMap;
-use apt_auth_config::{AuthConfig, Authenticator};
 use fancy_regex::Regex;
+use flume::Sender;
 use futures::StreamExt;
 use oma_apt_sources_lists::{
     Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
 };
 use oma_fetch::{
-    SingleDownloadError, build_request_with_basic_auth,
-    reqwest::{Client, Method, Response, StatusCode},
-    send_request,
+    SingleDownloadError,
+    reqwest::{Method, Response, StatusCode},
+    send_request_with_url_and_method,
 };
 use oma_utils::concat_url;
 use once_cell::sync::OnceCell;
+use reqwest_middleware::ClientWithMiddleware;
 use spdlog::debug;
 use tokio::{
     fs::{self, File},
@@ -31,16 +33,16 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct OmaSourceEntry<'a> {
+pub struct OmaSourceEntry {
     source: SourceEntry,
-    arch: &'a str,
+    arch: Arc<str>,
     url: OnceCell<String>,
     suite: OnceCell<String>,
     dist_path: OnceCell<String>,
     from: OnceCell<OmaSourceEntryFrom>,
 }
 
-impl Debug for OmaSourceEntry<'_> {
+impl Debug for OmaSourceEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OmaSourceEntry")
             .field("url", &self.url)
@@ -53,7 +55,7 @@ impl Debug for OmaSourceEntry<'_> {
     }
 }
 
-pub(crate) async fn scan_sources_lists_paths(
+pub(crate) fn scan_sources_lists_paths(
     list_file: impl AsRef<str>,
     list_dir: impl AsRef<str>,
 ) -> Result<Vec<PathBuf>, SourcesListError> {
@@ -66,9 +68,11 @@ pub(crate) async fn scan_sources_lists_paths(
     }
 
     if list_dir_path.exists() {
-        let mut dir = tokio::fs::read_dir(list_dir_path).await?;
-        while let Some(entry) = dir.next_entry().await? {
-            let path = entry.path();
+        let dir = std::fs::read_dir(list_dir_path)?;
+
+        for i in dir {
+            let i = i?;
+            let path = i.path();
             if !path.is_file() {
                 continue;
             }
@@ -92,12 +96,12 @@ pub fn ignores() -> Vec<Regex> {
         .collect::<Vec<_>>()
 }
 
-pub async fn scan_sources_list_from_paths<'a>(
+pub fn scan_sources_list_from_paths(
     paths: &[impl AsRef<Path>],
-    arch: &'a str,
+    arch: Arc<str>,
     ignores: &[Regex],
-    cb: &'a impl AsyncFn(Event),
-) -> Result<Vec<OmaSourceEntry<'a>>, SourcesListError> {
+    cb: &mut impl FnMut(Event),
+) -> Result<Vec<OmaSourceEntry>, SourcesListError> {
     let mut res = vec![];
 
     for p in paths {
@@ -108,20 +112,20 @@ pub async fn scan_sources_list_from_paths<'a>(
                         if let SourceLine::Entry(entry) = source
                             && entry.enabled
                         {
-                            res.push(OmaSourceEntry::new(entry, arch));
+                            res.push(OmaSourceEntry::new(entry, arch.clone()));
                         }
                     }
                 }
                 SourceListType::Deb822(source_list_deb822) => {
                     for source in source_list_deb822.entries.into_iter().filter(|s| s.enabled) {
-                        res.push(OmaSourceEntry::new(source, arch));
+                        res.push(OmaSourceEntry::new(source, arch.clone()));
                     }
                 }
             },
             Err(e) => match e {
                 SourcesListError::UnknownFile { path } => {
                     let Some(file_name) = path.file_name() else {
-                        cb(Event::SourceListFileNotSupport { path }).await;
+                        cb(Event::SourceListFileNotSupport { path });
                         continue;
                     };
 
@@ -133,7 +137,7 @@ pub async fn scan_sources_list_from_paths<'a>(
                         continue;
                     }
 
-                    cb(Event::SourceListFileNotSupport { path }).await;
+                    cb(Event::SourceListFileNotSupport { path });
                 }
                 e => return Err(e),
             },
@@ -149,8 +153,8 @@ pub enum OmaSourceEntryFrom {
     Local,
 }
 
-impl<'a> OmaSourceEntry<'a> {
-    pub fn new(source: SourceEntry, arch: &'a str) -> Self {
+impl OmaSourceEntry {
+    pub fn new(source: SourceEntry, arch: Arc<str>) -> Self {
         Self {
             source,
             arch,
@@ -192,7 +196,7 @@ impl<'a> OmaSourceEntry<'a> {
 
     pub fn url(&self) -> &str {
         self.url
-            .get_or_init(|| self.source.url.replace("$(ARCH)", self.arch))
+            .get_or_init(|| self.source.url.replace("$(ARCH)", &self.arch))
     }
 
     pub fn is_flat(&self) -> bool {
@@ -201,7 +205,7 @@ impl<'a> OmaSourceEntry<'a> {
 
     pub fn suite(&self) -> &str {
         self.suite
-            .get_or_init(|| self.source.suite.replace("$(ARCH)", self.arch))
+            .get_or_init(|| self.source.suite.replace("$(ARCH)", &self.arch))
     }
 
     pub fn is_source(&self) -> bool {
@@ -274,17 +278,16 @@ impl<'a> OmaSourceEntry<'a> {
     }
 }
 
-#[derive(Debug)]
-pub struct MirrorSources<'a>(pub Vec<MirrorSource<'a>>);
+#[derive(Debug, Clone)]
+pub struct MirrorSources(pub Vec<MirrorSource>);
 
-#[derive(Debug)]
-pub struct MirrorSource<'a> {
-    pub sources: Vec<&'a OmaSourceEntry<'a>>,
+#[derive(Debug, Clone)]
+pub struct MirrorSource {
+    pub sources: Vec<OmaSourceEntry>,
     release_file_name: OnceCell<String>,
-    auth: Option<&'a Authenticator>,
 }
 
-impl MirrorSource<'_> {
+impl MirrorSource {
     pub fn set_release_file_name(&self, file_name: String) {
         self.release_file_name
             .set(file_name)
@@ -353,18 +356,14 @@ impl MirrorSource<'_> {
         self.release_file_name.get().map(|x| x.as_str())
     }
 
-    pub fn auth(&self) -> Option<&Authenticator> {
-        self.auth
-    }
-
     pub async fn fetch(
         &self,
-        client: &Client,
+        client: &ClientWithMiddleware,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: &impl AsyncFn(Event),
+        callback: Sender<Event>,
     ) -> Result<(), RefreshError> {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
@@ -380,33 +379,36 @@ impl MirrorSource<'_> {
 
     async fn fetch_http_release(
         &self,
-        client: &Client,
+        client: &ClientWithMiddleware,
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: impl AsyncFn(Event),
+        tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
         let msg = self.get_human_download_message(None)?;
 
-        callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-            index,
-            total,
-            msg,
-        }))
-        .await;
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+                index,
+                total,
+                msg,
+            }))
+            .await;
 
         let mut url = self.get_download_url("InRelease");
         let mut is_release = false;
 
-        let resp = self.send_request(client, &url, Method::GET).await;
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+        let resp = send_request_with_url_and_method(&url, client, Method::GET).await;
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+            .await;
 
         let resp = match resp {
             Ok(resp) => resp,
             Err(e) if e.status().is_some_and(|e| e == StatusCode::NOT_FOUND) => {
                 url = self.get_download_url("Release");
-                let resp = self.send_request(client, &url, Method::GET).await;
+                let resp = send_request_with_url_and_method(&url, client, Method::GET).await;
 
                 if resp.is_err() && self.is_flat() {
                     // Flat repo no release
@@ -415,12 +417,12 @@ impl MirrorSource<'_> {
 
                 is_release = true;
 
-                resp.map_err(|e| SingleDownloadError::ReqwestError { source: e })
+                resp.map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e })
                     .map_err(|e| RefreshError::DownloadFailed(Some(e)))?
             }
             Err(e) => {
                 return Err(RefreshError::DownloadFailed(Some(
-                    SingleDownloadError::ReqwestError { source: e },
+                    SingleDownloadError::ReqwestMiddlewareError { source: e },
                 )));
             }
         };
@@ -431,7 +433,7 @@ impl MirrorSource<'_> {
             self.get_download_file_name(Some("InRelease"), replacer)?
         };
 
-        self.download_file(&file_name, resp, index, total, download_dir, &callback)
+        self.download_file(&file_name, resp, index, total, download_dir, tx.clone())
             .await
             .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
@@ -440,50 +442,20 @@ impl MirrorSource<'_> {
         if is_release && !self.trusted() {
             let url = self.get_download_url("Release.gpg");
 
-            let request = build_request_with_basic_auth(
-                client,
-                Method::GET,
-                &self
-                    .auth()
-                    .map(|x| (x.login.to_string(), x.password.to_string())),
-                &url,
-            );
-
-            let resp = request
-                .send()
+            let resp = send_request_with_url_and_method(&url, client, Method::GET)
                 .await
-                .and_then(|resp| resp.error_for_status())
-                .map_err(|e| SingleDownloadError::ReqwestError { source: e })
+                .and_then(|resp| resp.error_for_status().map_err(|e| e.into()))
+                .map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e })
                 .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
             let file_name = self.get_download_file_name(Some("Release.gpg"), replacer)?;
 
-            self.download_file(&file_name, resp, index, total, download_dir, &callback)
+            self.download_file(&file_name, resp, index, total, download_dir, tx.clone())
                 .await
                 .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
         }
 
         Ok(())
-    }
-
-    async fn send_request(
-        &self,
-        client: &Client,
-        url: &str,
-        method: Method,
-    ) -> Result<Response, oma_fetch::reqwest::Error> {
-        let request = build_request_with_basic_auth(
-            client,
-            method,
-            &self
-                .auth()
-                .map(|x| (x.login.to_string(), x.password.to_string())),
-            url,
-        );
-
-        let resp = send_request(url, request).await?;
-
-        Ok(resp)
     }
 
     async fn download_file(
@@ -493,17 +465,18 @@ impl MirrorSource<'_> {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: &impl AsyncFn(Event),
+        tx: Sender<Event>,
     ) -> std::result::Result<(), SingleDownloadError> {
         let total_size = content_length(&resp);
 
-        callback(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
-            index,
-            total,
-            msg: self.get_human_download_message(Some(file_name)).unwrap(),
-            size: total_size,
-        }))
-        .await;
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
+                index,
+                total,
+                msg: self.get_human_download_message(Some(file_name)).unwrap(),
+                size: total_size,
+            }))
+            .await;
 
         let mut f = File::create(download_dir.join(file_name))
             .await
@@ -512,13 +485,14 @@ impl MirrorSource<'_> {
         while let Some(chunk) = resp
             .chunk()
             .await
-            .map_err(|e| SingleDownloadError::ReqwestError { source: e })?
+            .map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e.into() })?
         {
-            callback(Event::DownloadEvent(oma_fetch::Event::ProgressInc {
-                index,
-                size: chunk.len() as u64,
-            }))
-            .await;
+            let _ = tx
+                .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressInc {
+                    index,
+                    size: chunk.len() as u64,
+                }))
+                .await;
 
             f.write_all(&chunk)
                 .await
@@ -529,7 +503,9 @@ impl MirrorSource<'_> {
             .await
             .map_err(|e| SingleDownloadError::Flush { source: e })?;
 
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+            .await;
 
         Ok(())
     }
@@ -540,7 +516,7 @@ impl MirrorSource<'_> {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: &impl AsyncFn(Event),
+        tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
         let dist_path_with_protocol = self.dist_path();
         let dist_path = dist_path_with_protocol
@@ -552,12 +528,13 @@ impl MirrorSource<'_> {
 
         let msg = self.get_human_download_message(None)?;
 
-        callback(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
-            index,
-            total,
-            msg,
-        }))
-        .await;
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+                index,
+                total,
+                msg,
+            }))
+            .await;
 
         let mut is_release = false;
 
@@ -611,7 +588,9 @@ impl MirrorSource<'_> {
             }
         }
 
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index))).await;
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+            .await;
 
         let name = name.ok_or_else(|| RefreshError::NoInReleaseFile(self.url().to_string()))?;
         self.set_release_file_name(name);
@@ -620,13 +599,12 @@ impl MirrorSource<'_> {
     }
 }
 
-impl<'a> MirrorSources<'a> {
+impl MirrorSources {
     pub fn from_sourcelist(
-        sourcelist: &'a [OmaSourceEntry<'a>],
+        sourcelist: &[OmaSourceEntry],
         replacer: &DatabaseFilenameReplacer,
-        auth_config: Option<&'a AuthConfig>,
     ) -> Result<Self, RefreshError> {
-        let mut map: HashMap<String, Vec<&OmaSourceEntry>> =
+        let mut map: HashMap<String, Vec<OmaSourceEntry>> =
             HashMap::with_hasher(ahash::RandomState::new());
 
         if sourcelist.is_empty() {
@@ -636,19 +614,15 @@ impl<'a> MirrorSources<'a> {
         for source in sourcelist {
             map.entry(source.get_download_file_name(None, replacer)?)
                 .or_default()
-                .push(source);
+                .push(source.clone());
         }
 
         let mut res = vec![];
 
         for (_, v) in map {
-            let url = v[0].url();
-            let auth = auth_config.and_then(|auth| auth.find(url));
-
             res.push(MirrorSource {
                 sources: v,
                 release_file_name: OnceCell::new(),
-                auth,
             });
         }
 
@@ -656,28 +630,44 @@ impl<'a> MirrorSources<'a> {
     }
 
     pub async fn fetch_all_release(
-        &self,
-        client: &Client,
-        replacer: &DatabaseFilenameReplacer,
-        download_dir: &Path,
+        &mut self,
+        client: ClientWithMiddleware,
+        replacer: &Arc<DatabaseFilenameReplacer>,
+        download_dir: Arc<Path>,
         threads: usize,
-        callback: &impl AsyncFn(Event),
+        sender: Sender<Event>,
     ) -> Vec<Result<(), RefreshError>> {
-        let tasks = self.0.iter().enumerate().map(|(index, m)| {
-            m.fetch(
-                client,
-                replacer,
-                index,
-                self.0.len(),
-                download_dir,
-                &callback,
-            )
+        let total_len = self.0.len();
+
+        let sources = std::mem::take(&mut self.0);
+
+        let tasks = sources.into_iter().enumerate().map(|(index, m)| {
+            let client = client.clone();
+            let replacer = replacer.clone();
+            let download_dir = download_dir.clone();
+            let sender = sender.clone();
+
+            async move {
+                let res = m
+                    .fetch(&client, &replacer, index, total_len, &download_dir, sender)
+                    .await;
+
+                (m, res)
+            }
         });
 
-        futures::stream::iter(tasks)
+        let execution_results = futures::stream::iter(tasks)
             .buffer_unordered(threads)
-            .collect::<Vec<_>>()
-            .await
+            .collect::<Vec<(MirrorSource, Result<(), RefreshError>)>>()
+            .await;
+
+        let mut results = Vec::with_capacity(execution_results.len());
+        for (m, res) in execution_results {
+            self.0.push(m);
+            results.push(res);
+        }
+
+        results
     }
 }
 
@@ -701,7 +691,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     assert_eq!(ose.url(), "file:///debs/");
     assert_eq!(ose.dist_path(), "file:///debs/");
 
@@ -720,7 +710,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     assert_eq!(ose.url(), "file:///debs/");
     assert_eq!(ose.dist_path(), "file:///debs/./");
 
@@ -739,7 +729,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     assert_eq!(ose.url(), "file:/debs/");
     assert_eq!(ose.dist_path(), "file:/debs/");
 
@@ -760,7 +750,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     assert_eq!(ose.url(), "file:/debs");
     assert_eq!(ose.dist_path(), "file:/debs/");
 
@@ -779,7 +769,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     assert_eq!(ose.url(), "file:/debs/");
     assert_eq!(ose.dist_path(), "file:/debs/./././");
 
@@ -802,7 +792,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     assert_eq!(ose.url(), "file:/debs/");
     assert_eq!(ose.dist_path(), "file:/debs/.//");
 
@@ -825,7 +815,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     assert_eq!(ose.url(), "file:/debs/");
     assert_eq!(ose.dist_path(), "file:/debs///");
 
@@ -844,7 +834,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     assert_eq!(ose.url(), "file:/./debs/");
     assert_eq!(ose.dist_path(), "file:/./debs/./");
 
@@ -863,7 +853,7 @@ fn test_ose() {
     };
 
     let arch = dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     assert_eq!(ose.url(), "file:/usr/../debs/");
     assert_eq!(ose.dist_path(), "file:/usr/../debs/./");
 }
@@ -887,7 +877,7 @@ fn test_url_encode_plus() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     let file_name = ose
         .get_download_file_name(Some("InRelease"), &replacer)
         .unwrap();
@@ -916,7 +906,7 @@ fn test_dot() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
     let file_name = ose
         .get_download_file_name(Some("Packages"), &replacer)
         .unwrap();
@@ -946,7 +936,7 @@ fn test_encode_underline() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
 
     let file_name = ose
         .get_download_file_name(Some("InRelease"), &replacer)
@@ -990,7 +980,7 @@ fn test_flat_repo_file_name_1() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
 
     let file_name = ose
         .get_download_file_name(Some("Packages"), &replacer)
@@ -1018,7 +1008,7 @@ fn test_flat_repo_file_name_2() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
 
     let file_name = ose
         .get_download_file_name(Some("Packages"), &replacer)
@@ -1046,7 +1036,7 @@ fn test_flat_repo_file_name_3() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch.into());
 
     let file_name = ose
         .get_download_file_name(Some("Packages"), &replacer)
@@ -1074,7 +1064,9 @@ fn test_flat_repo_file_name_4() {
     };
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let arch: Arc<str> = Arc::from(arch.as_str());
+    let ac = arch.clone();
+    let ose = OmaSourceEntry::new(entry, ac);
     let res = ose
         .get_download_file_name(Some("Packages"), &replacer)
         .unwrap();
@@ -1093,7 +1085,7 @@ fn test_flat_repo_file_name_4() {
         trusted: false,
     };
 
-    let ose = OmaSourceEntry::new(entry, &arch);
+    let ose = OmaSourceEntry::new(entry, arch);
     let res = ose
         .get_download_file_name(Some("Packages"), &replacer)
         .unwrap();

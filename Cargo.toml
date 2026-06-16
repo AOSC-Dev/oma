@@ -64,6 +64,7 @@ humantime = { workspace = true }
 env_filter = { workspace = true }
 terminfo = { workspace = true }
 digest-io = { workspace = true }
+reqwest-middleware = { workspace = true }
 
 # oma crates
 oma-utils = { workspace = true }
@@ -187,6 +188,8 @@ i18n-embed = { version = "0.16.0", features = [
 ] }
 i18n-embed-fl = { version = "0.10.0", package = "i18n-embed-fl-no-check-hashmap-on-ra" }
 rust-embed = "8.11.0"
+reqwest-middleware = "0.5"
+http = "1.4.2"
 
 # oma crates
 oma-utils = { path = "./oma-utils", default-features = false }

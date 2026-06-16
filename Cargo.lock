@@ -137,6 +137,9 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "apt-auth-config"
 version = "0.5.0"
 dependencies = [
+ "http",
+ "reqwest",
+ "reqwest-middleware",
  "rust-netrc",
  "spdlog-rs",
  "thiserror 2.0.18",
@@ -1933,9 +1936,9 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "http"
-version = "1.4.1"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8be7462df143984c4598a256ef469b251d7d7f9e271135073e78fc535414f3d0"
+checksum = "6970f50e31d6fc17d3fa27329444bfa74e196cf62e95052a3f6fee181dba6425"
 dependencies = [
  "bytes",
  "itoa",
@@ -3195,6 +3198,7 @@ dependencies = [
  "ratatui",
  "rayon",
  "reqwest",
+ "reqwest-middleware",
  "rust-embed",
  "rustix",
  "rustls",
@@ -3282,6 +3286,7 @@ dependencies = [
  "liblzma",
  "md-5",
  "reqwest",
+ "reqwest-middleware",
  "rustls",
  "serde",
  "sha2 0.11.0",
@@ -3339,7 +3344,6 @@ name = "oma-pm"
 version = "0.63.0"
 dependencies = [
  "ahash",
- "apt-auth-config",
  "bon",
  "chrono",
  "cxx",
@@ -3355,6 +3359,7 @@ dependencies = [
  "oma-pm-operation-type",
  "oma-utils",
  "once_cell",
+ "reqwest-middleware",
  "serde",
  "spdlog-rs",
  "strsim",
@@ -3380,7 +3385,6 @@ version = "0.55.0"
 dependencies = [
  "ahash",
  "aho-corasick",
- "apt-auth-config",
  "bon",
  "chrono",
  "deb822-fast",
@@ -3394,6 +3398,8 @@ dependencies = [
  "oma-topics",
  "oma-utils",
  "once_cell",
+ "reqwest-middleware",
+ "rustls",
  "spdlog-rs",
  "sys-locale",
  "thiserror 2.0.18",
@@ -3424,6 +3430,7 @@ dependencies = [
  "oma-inquire",
  "oma-mirror",
  "reqwest",
+ "reqwest-middleware",
  "rustls",
  "serde",
  "serde_json",
@@ -4125,6 +4132,20 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
+]
+
+[[package]]
+name = "reqwest-middleware"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07bc3f1384cffa4f274dad2d4ddd73aed32fed8f786d96c6be8aa4e5fd3c3b58"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "http",
+ "reqwest",
+ "thiserror 2.0.18",
+ "tower-service",
 ]
 
 [[package]]

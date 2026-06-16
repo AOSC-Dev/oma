@@ -10,11 +10,8 @@ use render::{Task, Tui as TuiInner};
 use spdlog::info;
 
 use crate::{
-    args::CliExecuter,
-    config::OmaConfig,
-    exit_handle::ExitHandle,
-    subcommand::utils::{auth_config, create_progress_spinner},
-    tui::render::PackageStatus,
+    args::CliExecuter, config::OmaConfig, exit_handle::ExitHandle,
+    subcommand::utils::create_progress_spinner, tui::render::PackageStatus,
 };
 use crate::{
     core::{commit_changes::CommitChanges, refresh::Refresh},
@@ -81,15 +78,8 @@ impl CliExecuter for Tui {
         let _fds = dbus_check(false, &config)?;
 
         let sysroot = &config.sysroot;
-        let auth_config = auth_config(sysroot);
-        let auth_config = auth_config.as_ref();
-
         if !no_refresh {
-            Refresh::builder()
-                .config(&config)
-                .maybe_auth_config(auth_config)
-                .build()
-                .run()?;
+            Refresh::builder().config(&config).build().run()?;
         }
 
         let oma_apt_args = OmaAptArgs::builder()
@@ -171,7 +161,6 @@ impl CliExecuter for Tui {
                 .yes(false)
                 .remove_config(remove_config)
                 .autoremove(autoremove)
-                .maybe_auth_config(auth_config)
                 .check_tum(upgrade)
                 .is_upgrade(upgrade)
                 .config(&config)

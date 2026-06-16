@@ -1,6 +1,5 @@
 use std::thread;
 
-use apt_auth_config::AuthConfig;
 use bon::Builder;
 use flume::unbounded;
 use oma_refresh::db::OmaRefresh;
@@ -8,7 +7,6 @@ use oma_utils::dpkg::dpkg_arch;
 use spdlog::{debug, info};
 
 use crate::{
-    RT,
     config::OmaConfig,
     error::OutputError,
     fl,
@@ -19,15 +17,11 @@ use crate::{
 #[derive(Debug, Builder)]
 pub struct Refresh<'a> {
     config: &'a OmaConfig,
-    auth_config: Option<&'a AuthConfig>,
 }
 
 impl Refresh<'_> {
     pub fn run(self) -> Result<(), OutputError> {
-        let Refresh {
-            config,
-            auth_config,
-        } = self;
+        let Refresh { config } = self;
 
         if config.dry_run {
             return Ok(());
@@ -43,9 +37,7 @@ impl Refresh<'_> {
             .source(sysroot.clone())
             .threads(config.download_threads)
             .arch(arch)
-            .client(config.http_client()?)
-            .another_apt_options(&config.apt_options)
-            .maybe_auth_config(auth_config);
+            .client(config.http_client()?.clone());
 
         #[cfg(feature = "aosc")]
         let msg = fl!("do-not-edit-topic-sources-list");
@@ -53,7 +45,7 @@ impl Refresh<'_> {
         #[cfg(feature = "aosc")]
         let refresh = refresh
             .refresh_topics(!config.no_refresh_topics)
-            .topic_msg(&msg)
+            .topic_msg(msg.into())
             .build();
 
         #[cfg(not(feature = "aosc"))]
@@ -72,14 +64,10 @@ impl Refresh<'_> {
             pb.render_refresh_progress(&rx);
         });
 
-        RT.block_on(async move {
-            refresh
-                .start(async |event| {
-                    if let Err(e) = tx.send_async(event).await {
-                        debug!("{}", e);
-                    }
-                })
-                .await
+        refresh.start(move |event| {
+            if let Err(e) = tx.send(event) {
+                debug!("{}", e);
+            }
         })?;
 
         Ok(())

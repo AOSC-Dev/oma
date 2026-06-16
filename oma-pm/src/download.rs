@@ -2,10 +2,11 @@ use std::path::Path;
 
 use oma_fetch::{
     DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event, Summary,
-    checksum::Checksum, reqwest::Client,
+    checksum::Checksum,
 };
 use oma_pm_operation_type::InstallEntry;
 use oma_utils::url_no_escape::url_no_escape_times;
+use reqwest_middleware::ClientWithMiddleware;
 use spdlog::debug;
 
 use crate::{
@@ -15,7 +16,7 @@ use crate::{
 
 /// Download packages (inner)
 pub async fn download_pkgs(
-    client: &Client,
+    client: &ClientWithMiddleware,
     download_pkg_list: &[InstallEntry],
     config: DownloadConfig<'_>,
     download_only: bool,
@@ -25,7 +26,6 @@ pub async fn download_pkgs(
     let DownloadConfig {
         network_thread,
         download_dir,
-        auth,
     } = config;
 
     debug!(
@@ -54,14 +54,7 @@ pub async fn download_pkgs(
                         url_no_escape_times(&x.download_url, 1),
                     )
                 } else {
-                    let auth = auth.and_then(|auth| auth.find(&x.index_url));
-
-                    (
-                        DownloadSourceType::Http {
-                            auth: auth.map(|x| (x.login.to_owned(), x.password.to_owned())),
-                        },
-                        x.download_url.clone(),
-                    )
+                    (DownloadSourceType::Http, x.download_url.clone())
                 };
 
                 DownloadSource { url, source_type }
@@ -101,8 +94,8 @@ pub async fn download_pkgs(
     }
 
     let downloader = DownloadManager::builder()
-        .client(client)
-        .download_list(&download_list)
+        .client(client.clone())
+        .download_list(download_list.into())
         .maybe_threads(network_thread)
         .total_size(total_size)
         .build();

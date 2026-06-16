@@ -10,3 +10,6 @@ thiserror = { workspace = true }
 spdlog-rs = { workspace = true }
 rust-netrc = { workspace = true }
 url = { workspace = true }
+reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
+http = { workspace = true }

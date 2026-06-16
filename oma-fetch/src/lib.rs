@@ -5,7 +5,8 @@ use checksum::Checksum;
 use download::{BuilderError, SingleDownloader, SuccessSummary};
 use futures::StreamExt;
 
-use reqwest::{Client, Method, RequestBuilder, Response};
+use reqwest::{Method, Response};
+use reqwest_middleware::{ClientWithMiddleware, RequestBuilder};
 use spdlog::debug;
 
 pub mod checksum;
@@ -72,7 +73,7 @@ pub struct DownloadSource {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DownloadSourceType {
-    Http { auth: Option<(String, String)> },
+    Http,
     Local(bool),
 }
 
@@ -85,12 +86,12 @@ impl PartialOrd for DownloadSourceType {
 impl Ord for DownloadSourceType {
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
-            DownloadSourceType::Http { .. } => match other {
-                DownloadSourceType::Http { .. } => Ordering::Equal,
+            DownloadSourceType::Http => match other {
+                DownloadSourceType::Http => Ordering::Equal,
                 DownloadSourceType::Local { .. } => Ordering::Less,
             },
             DownloadSourceType::Local { .. } => match other {
-                DownloadSourceType::Http { .. } => Ordering::Greater,
+                DownloadSourceType::Http => Ordering::Greater,
                 DownloadSourceType::Local { .. } => Ordering::Equal,
             },
         }
@@ -144,9 +145,9 @@ pub enum Event {
 }
 
 #[derive(Builder)]
-pub struct DownloadManager<'a> {
-    client: &'a Client,
-    download_list: &'a [DownloadEntry],
+pub struct DownloadManager {
+    client: ClientWithMiddleware,
+    download_list: Box<[DownloadEntry]>,
     #[builder(default = 4)]
     threads: usize,
     #[builder(default = 3)]
@@ -173,10 +174,10 @@ impl Summary {
     }
 }
 
-impl DownloadManager<'_> {
+impl DownloadManager {
     /// Start download
     pub async fn start_download(
-        &self,
+        mut self,
         callback: impl AsyncFn(Event),
     ) -> Result<Summary, BuilderError> {
         if self.threads == 0 || self.threads > 255 {
@@ -187,16 +188,17 @@ impl DownloadManager<'_> {
 
         let mut tasks = Vec::new();
         let mut list = vec![];
-        for (i, c) in self.download_list.iter().enumerate() {
-            let msg = c.msg.clone();
+        let len = self.download_list.len();
+        for (i, c) in std::mem::take(&mut self.download_list)
+            .into_iter()
+            .enumerate()
+        {
             let single = SingleDownloader::builder()
-                .client(self.client)
-                .maybe_msg(msg)
+                .client(self.client.clone())
                 .download_list_index(i)
                 .entry(c)
-                .total(self.download_list.len())
+                .total(len)
                 .retry_times(self.retry_times)
-                .file_type(c.file_type)
                 .timeout(self.timeout)
                 .build()?;
 
@@ -232,25 +234,28 @@ impl DownloadManager<'_> {
     }
 }
 
-pub fn build_request_with_basic_auth(
-    client: &Client,
-    method: Method,
-    auth: &Option<(String, String)>,
+pub async fn send_request_with_url_and_method(
     url: &str,
-) -> RequestBuilder {
-    let mut req = client.request(method, url);
+    client: &ClientWithMiddleware,
+    method: Method,
+) -> Result<Response, reqwest_middleware::Error> {
+    let resp = client.request(method, url).send().await?;
+    let headers = resp.headers();
 
-    if let Some((user, password)) = auth {
-        debug!("Authenticating as user: {} ...", user);
-        req = req.basic_auth(user, Some(password));
-    }
+    debug!(
+        "\nDownload URL: {url}\nStatus: {}\nHeaders: {headers:#?}",
+        resp.status()
+    );
 
-    req
+    let resp = resp.error_for_status()?;
+
+    Ok(resp)
 }
 
-pub async fn send_request(url: &str, request: RequestBuilder) -> Result<Response, reqwest::Error> {
+pub async fn send_request(request: RequestBuilder) -> Result<Response, reqwest_middleware::Error> {
     let resp = request.send().await?;
     let headers = resp.headers();
+    let url = resp.url();
 
     debug!(
         "\nDownload URL: {url}\nStatus: {}\nHeaders: {headers:#?}",

@@ -7,7 +7,6 @@ use clap_complete::ArgValueCompleter;
 use oma_pm::oma_apt::PackageSort;
 use spdlog::{debug, info, warn};
 
-use apt_auth_config::AuthConfig;
 use clap::Args;
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
@@ -101,14 +100,8 @@ impl CliExecuter for Upgrade {
 
         let _fds = dbus_check(false, &config)?;
 
-        let auth_config = AuthConfig::system(&config.sysroot)?;
-
         if !no_refresh {
-            Refresh::builder()
-                .config(&config)
-                .auth_config(&auth_config)
-                .build()
-                .run()?;
+            Refresh::builder().config(&config).build().run()?;
         }
 
         if yes {
@@ -183,7 +176,6 @@ impl CliExecuter for Upgrade {
             .yes(yes)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(Some(&auth_config))
             .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .is_upgrade(true)

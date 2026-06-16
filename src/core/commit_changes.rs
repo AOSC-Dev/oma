@@ -1,7 +1,6 @@
 use std::{fs, path::Path, sync::atomic::Ordering, thread};
 
 use ahash::{HashMap, HashSet};
-use apt_auth_config::AuthConfig;
 use bon::Builder;
 use chrono::Local;
 use dialoguer::{Confirm, theme::ColorfulTheme};
@@ -55,7 +54,6 @@ pub(crate) struct CommitChanges<'a> {
     remove_config: bool,
     #[builder(default)]
     autoremove: bool,
-    auth_config: Option<&'a AuthConfig>,
     #[builder(default)]
     check_tum: bool,
     #[builder(default)]
@@ -81,7 +79,6 @@ impl CommitChanges<'_> {
             yes,
             remove_config,
             autoremove,
-            auth_config,
             check_tum,
             topics_enabled,
             topics_disabled,
@@ -204,7 +201,6 @@ impl CommitChanges<'_> {
             config.http_client()?,
             CommitConfig {
                 network_thread: Some(config.download_threads),
-                auth_config,
                 download_only,
             },
             download_message(),

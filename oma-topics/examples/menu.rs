@@ -6,14 +6,18 @@ use inquire::{
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
 
-use oma_topics::Result;
 use oma_topics::TopicManager;
+use oma_topics::{OmaTopicsError, Result};
 use reqwest::Client;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let client = Client::builder().user_agent("oma").build()?;
-    let mut tm = TopicManager::new(&client, Path::new("/"), "amd64", false).await?;
+    let client = Client::builder()
+        .user_agent("oma")
+        .build()
+        .map_err(|e| OmaTopicsError::ReqwestError(e.into()))?;
+    let client = reqwest_middleware::ClientBuilder::new(client).build();
+    let mut tm = TopicManager::new(client, Path::new("/"), "amd64", false).await?;
     let mut opt_in = vec![];
     let mut opt_out = vec![];
 

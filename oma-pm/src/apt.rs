@@ -7,10 +7,10 @@ use std::{
 };
 
 use ahash::HashSet;
-use apt_auth_config::AuthConfig;
 use bon::Builder;
 pub use oma_apt::cache::Upgrade;
 use once_cell::sync::OnceCell;
+use reqwest_middleware::ClientWithMiddleware;
 use tokio::runtime::Runtime;
 
 use oma_apt::{
@@ -24,7 +24,7 @@ use oma_apt::{
     util::DiskSpace,
 };
 
-use oma_fetch::{Event, Summary, checksum::ChecksumError, reqwest::Client};
+use oma_fetch::{Event, Summary, checksum::ChecksumError};
 use oma_utils::{GetLockError, dpkg::DpkgError, human_bytes::HumanBytes, is_termux};
 
 pub use oma_apt::config::Config as AptConfig;
@@ -175,8 +175,6 @@ pub struct DownloadConfig<'a> {
     pub network_thread: Option<usize>,
     /// Path to downloaded files/archives.
     pub download_dir: Option<&'a Path>,
-    /// Configuration for repository authorization.
-    pub auth: Option<&'a AuthConfig>,
 }
 
 pub fn apt_config_get(key: String) -> Option<String> {
@@ -437,7 +435,7 @@ impl OmaApt {
     /// Download packages
     pub fn download<F>(
         &self,
-        client: &Client,
+        client: &ClientWithMiddleware,
         pkgs: Vec<OmaPackage>,
         config: DownloadConfig<'_>,
         custom_download_message: Option<CustomDownloadMessage>,
@@ -596,7 +594,7 @@ impl OmaApt {
         self,
         install_progress_manager: InstallProgressOpt,
         op: &OmaOperation,
-        client: &Client,
+        client: &ClientWithMiddleware,
         config: CommitConfig,
         custom_download_message: Option<CustomDownloadMessage>,
         callback: impl AsyncFn(Event),

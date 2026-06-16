@@ -21,7 +21,7 @@ use crate::{
     dbus::dbus_check, error::OutputError, fl, root::root, table::table_for_history_pending,
 };
 
-use super::utils::{auth_config, handle_no_result, lock_oma};
+use super::utils::{handle_no_result, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -149,14 +149,8 @@ impl CliExecuter for Undo {
         #[cfg(feature = "aosc")]
         let (opt_in, opt_out) = history.find_history_topics_status_by_id(id)?;
 
-        let auth_config = auth_config(&config.sysroot);
-
         if !no_refresh {
-            Refresh::builder()
-                .config(&config)
-                .maybe_auth_config(auth_config.as_ref())
-                .build()
-                .run()?;
+            Refresh::builder().config(&config).build().run()?;
         }
 
         let no_progress = config.no_progress();
@@ -252,7 +246,6 @@ impl CliExecuter for Undo {
             .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(auth_config.as_ref())
             .download_only(download_only)
             .config(&config)
             .no_clean(no_clean)
@@ -267,7 +260,7 @@ impl CliExecuter for Undo {
 
             let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
             let mut tm = oma_topics::TopicManager::new_blocking(
-                config.http_client()?,
+                config.http_client()?.clone(),
                 &config.sysroot,
                 &arch,
                 config.dry_run,

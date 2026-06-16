@@ -484,6 +484,10 @@ impl From<RefreshError> for OutputError {
                 description: fl!("oma-refresh-no-metadata-to-download"),
                 source: None,
             },
+            RefreshError::CreateTokioRuntime(error) => Self {
+                description: error.to_string(),
+                source: None,
+            },
         }
     }
 }
@@ -922,6 +926,15 @@ fn for_each_display_apt_err_messages(apt_errors: AptErrors) {
     }
 }
 
+impl From<reqwest_middleware::Error> for OutputError {
+    fn from(value: reqwest_middleware::Error) -> Self {
+        match value {
+            reqwest_middleware::Error::Middleware(error) => OutputError::from(error),
+            reqwest_middleware::Error::Reqwest(error) => OutputError::from(error),
+        }
+    }
+}
+
 impl From<reqwest::Error> for OutputError {
     fn from(e: reqwest::Error) -> Self {
         debug!("{:?}", e);
@@ -1089,7 +1102,7 @@ impl From<SingleDownloadError> for OutputError {
                 description: fl!("create-symlink-err"),
                 source: Some(Box::new(source)),
             },
-            SingleDownloadError::ReqwestError { source } => Self {
+            SingleDownloadError::ReqwestMiddlewareError { source } => Self {
                 description: fl!("reqwest-err"),
                 source: Some(Box::new(source)),
             },

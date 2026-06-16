@@ -9,7 +9,7 @@ use reqwest::ClientBuilder;
 async fn main() {
     let source_1 = DownloadSource {
         url: "https://mirrors.bfsu.edu.cn/anthon/mascots/zhaxia-stickers-v1.zip".to_string(),
-        source_type: DownloadSourceType::Http { auth: None },
+        source_type: DownloadSourceType::Http,
     };
 
     let file_1 = DownloadEntry::builder()
@@ -27,7 +27,7 @@ async fn main() {
 
     let source_2 = DownloadSource {
         url: "https://mirrors.bfsu.edu.cn/anthon/mascots/mascots.zip".to_string(),
-        source_type: DownloadSourceType::Http { auth: None },
+        source_type: DownloadSourceType::Http,
     };
 
     let file_2 = DownloadEntry::builder()
@@ -46,8 +46,8 @@ async fn main() {
 
     let binding = [file_1, file_2];
     let download_manager = DownloadManager::builder()
-        .client(&client)
-        .download_list(&binding)
+        .client(client.into())
+        .download_list(Box::new(binding))
         .build();
 
     let event_worker = tokio::spawn(async move {

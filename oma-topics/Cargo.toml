@@ -29,6 +29,7 @@ spdlog-rs = { workspace = true }
 url = { workspace = true }
 oma-mirror = { workspace = true }
 ahash = { workspace = true }
+reqwest-middleware = { workspace = true }
 
 [dev-dependencies]
 oma-inquire = { workspace = true }

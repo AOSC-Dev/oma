@@ -19,7 +19,7 @@ use crate::{
 use crate::{fl, root::root};
 use anyhow::anyhow;
 
-use super::utils::{auth_config, lock_oma};
+use super::utils::lock_oma;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -88,15 +88,8 @@ impl CliExecuter for Pick {
 
         let _fds = dbus_check(false, &config)?;
 
-        let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
-
         if !no_refresh {
-            Refresh::builder()
-                .config(&config)
-                .maybe_auth_config(auth_config)
-                .build()
-                .run()?;
+            Refresh::builder().config(&config).build().run()?;
         }
 
         let oma_apt_args = OmaAptArgs::builder()
@@ -191,7 +184,6 @@ impl CliExecuter for Pick {
             .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .maybe_auth_config(auth_config)
             .download_only(download_only)
             .config(&config)
             .no_clean(no_clean)

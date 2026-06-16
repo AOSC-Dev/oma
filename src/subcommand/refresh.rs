@@ -8,7 +8,7 @@ use crate::exit_handle::ExitHandle;
 use crate::{error::OutputError, root::root};
 use crate::{fl, success};
 
-use super::utils::{auth_config, create_progress_spinner};
+use super::utils::create_progress_spinner;
 use crate::args::CliExecuter;
 use crate::core::refresh::Refresh as RefreshInner;
 
@@ -24,14 +24,7 @@ impl CliExecuter for Refresh {
 
         root()?;
 
-        let auth_config = auth_config(&config.sysroot);
-        let auth_config = auth_config.as_ref();
-
-        RefreshInner::builder()
-            .config(&config)
-            .maybe_auth_config(auth_config)
-            .build()
-            .run()?;
+        RefreshInner::builder().config(&config).build().run()?;
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(config.sysroot.to_string_lossy().to_string())

@@ -36,9 +36,9 @@ use oma_utils::concat_url;
 use oma_utils::dpkg::dpkg_arch;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
-use reqwest::Client;
 use reqwest::Url;
 use reqwest::blocking;
+use reqwest_middleware::ClientWithMiddleware;
 use sha2::Digest;
 use sha2::Sha256;
 use spdlog::{error, info, warn};
@@ -62,7 +62,6 @@ use crate::root::root;
 use crate::success;
 use crate::table::PagerPrinter;
 
-use super::utils::auth_config;
 use super::utils::create_progress_spinner;
 use crate::args::CliExecuter;
 
@@ -736,14 +735,7 @@ fn progress_bar(mirrors_len: u64) -> OmaProgressBar {
 }
 
 fn refresh(config: &OmaConfig) -> Result<(), OutputError> {
-    let auth_config = auth_config(&config.sysroot);
-    let auth_config = auth_config.as_ref();
-
-    Refresh::builder()
-        .config(config)
-        .maybe_auth_config(auth_config)
-        .build()
-        .run()?;
+    Refresh::builder().config(config).build().run()?;
 
     success!("{}", fl!("successfully-refresh-without-status"));
 
@@ -766,14 +758,14 @@ fn sort_mirrors(
 }
 
 fn refresh_enabled_topics_sources_list(
-    client: &Client,
+    client: &ClientWithMiddleware,
     no_progress: bool,
 ) -> Result<(), OutputError> {
     let pb = create_progress_spinner(no_progress, fl!("refreshing-topic-metadata"));
 
     let try_refresh = Ok(()).and_then(|_| -> Result<(), OutputError> {
         let arch = dpkg_arch("/")?;
-        let mut tm = TopicManager::new_blocking(client, "/", &arch, false)?;
+        let mut tm = TopicManager::new_blocking(client.clone(), "/", &arch, false)?;
         RT.block_on(tm.refresh())?;
         tm.remove_closed_topics()?;
         RT.block_on(tm.write_sources_list(

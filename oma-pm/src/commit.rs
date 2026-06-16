@@ -1,15 +1,15 @@
 use std::{borrow::Cow, fs::create_dir_all, os::fd::OwnedFd, path::Path, sync::OnceLock};
 
-use apt_auth_config::AuthConfig;
 use chrono::Local;
 use oma_apt::{
     error::AptErrors,
     progress::{AcquireProgress, InstallProgress},
     util::{apt_lock_inner, apt_unlock, apt_unlock_inner},
 };
-use oma_fetch::{Event, Summary, reqwest::Client};
+use oma_fetch::{Event, Summary};
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
 use oma_utils::get_file_lock;
+use reqwest_middleware::ClientWithMiddleware;
 use spdlog::debug;
 use std::io::Write;
 
@@ -22,17 +22,16 @@ use crate::{
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
-pub struct CommitConfig<'a> {
+pub struct CommitConfig {
     pub network_thread: Option<usize>,
-    pub auth_config: Option<&'a AuthConfig>,
     pub download_only: bool,
 }
 
 pub struct DoInstall<'a> {
     apt: OmaApt,
-    client: &'a Client,
+    client: &'a ClientWithMiddleware,
     sysroot: &'a str,
-    config: CommitConfig<'a>,
+    config: CommitConfig,
     archive_lock: OnceLock<OwnedFd>,
 }
 
@@ -41,9 +40,9 @@ pub type CustomDownloadMessage = Box<dyn Fn(&InstallEntry) -> Cow<'static, str>>
 impl<'a> DoInstall<'a> {
     pub fn new(
         apt: OmaApt,
-        client: &'a Client,
+        client: &'a ClientWithMiddleware,
         sysroot: &'a str,
-        config: CommitConfig<'a>,
+        config: CommitConfig,
     ) -> Result<Self, OmaAptError> {
         Ok(Self {
             apt,
@@ -98,7 +97,6 @@ impl<'a> DoInstall<'a> {
             let config = DownloadConfig {
                 network_thread: self.config.network_thread,
                 download_dir: Some(path),
-                auth: self.config.auth_config,
             };
 
             download_pkgs(

@@ -309,7 +309,7 @@ impl OmaMultiProgressBar {
         is_refresh: bool,
         error: SingleDownloadError,
     ) {
-        if let SingleDownloadError::ReqwestError { ref source } = error
+        if let SingleDownloadError::ReqwestMiddlewareError { ref source } = error
             && source
                 .status()
                 .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
@@ -492,7 +492,7 @@ impl NoProgressBar {
 }
 
 fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError, is_refresh: bool) {
-    if let SingleDownloadError::ReqwestError { ref source } = error
+    if let SingleDownloadError::ReqwestMiddlewareError { ref source } = error
         && source
             .status()
             .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
