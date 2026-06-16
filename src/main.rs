@@ -319,6 +319,7 @@ fn init_color_formatter(config: &OmaConfig) {
 
     if no_color {
         unsafe { env::set_var("NO_COLOR", "1") };
+        console::set_colors_enabled(false);
         NO_COLOR.store(true, Ordering::Relaxed);
     }
 
