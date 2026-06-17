@@ -346,8 +346,6 @@ fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
                     Span::raw("Quicknav: "),
                     Span::styled("Enter", Style::new().blue()),
                     Span::raw(" / "),
-                    Span::styled("Space", Style::new().blue()),
-                    Span::raw(" / "),
                     Span::styled("Ctrl+C", Style::new().blue()),
                     Span::raw(" / "),
                     Span::styled("Esc", Style::new().blue()),
@@ -358,7 +356,7 @@ fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
         66.. if !undo => {
             f.render_widget(
                 Paragraph::new(Line::from(vec![
-                    Span::styled("Enter/Space", Style::new().blue()),
+                    Span::styled("Enter", Style::new().blue()),
                     Span::raw(format!(" => {}, ", fl!("history-detail"))),
                     Span::styled("ESC/Ctrl+C", Style::new().blue()),
                     Span::raw(format!(" => {}", fl!("tui-start-7"))),
@@ -369,7 +367,7 @@ fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
         66.. => {
             f.render_widget(
                 Paragraph::new(Line::from(vec![
-                    Span::styled("Enter/Space", Style::new().blue()),
+                    Span::styled("Enter", Style::new().blue()),
                     Span::raw(format!(" => {}, ", fl!("undo-detail"))),
                     Span::styled("ESC/Ctrl+C", Style::new().blue()),
                     Span::raw(format!(" => {}", fl!("tui-start-7"))),

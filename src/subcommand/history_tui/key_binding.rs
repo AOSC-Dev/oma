@@ -42,7 +42,7 @@ impl<'a> HistorySelectTui<'a> {
                 let new_index = i.saturating_sub(self.page_size);
                 self.history_list.state.select(Some(new_index));
             }
-            KeyCode::Char(' ') | KeyCode::Enter => {
+            KeyCode::Enter => {
                 let id = self
                     .history_list
                     .state
@@ -69,8 +69,6 @@ impl<'a> HistorySelectTui<'a> {
                 }
 
                 enable_raw_mode().map_err(|e| io::Error::other(e.to_string()))?;
-
-                return Ok(ControlFlow::Continue(()));
             }
             _ => {}
         }
