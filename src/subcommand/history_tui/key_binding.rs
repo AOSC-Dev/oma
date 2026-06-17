@@ -68,7 +68,7 @@ impl<'a> HistorySelectTui<'a> {
                     return Ok(ControlFlow::Break(Some(id)));
                 }
 
-                enable_raw_mode().map_err(|e| io::Error::other(e.to_string()))?;
+                enable_raw_mode()?;
             }
             _ => {}
         }
