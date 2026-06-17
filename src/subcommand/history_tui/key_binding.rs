@@ -84,7 +84,7 @@ impl<'a> HistorySelectTui<'a> {
                 } else {
                     let contains_query_pkg = self
                         .db
-                        .query_contains_install_and_remove_pkgname_item(&query)
+                        .query_like_install_and_remove_pkgname_item(&query)
                         .map_err(io::Error::other)?;
 
                     self.history_list.items = self
