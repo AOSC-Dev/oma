@@ -62,6 +62,7 @@ pub struct HistoryInfo<'a> {
     pub topics_disabled: Vec<String>,
 }
 
+#[derive(Clone)]
 pub struct HistoryEntry {
     pub id: i64,
     pub time: i64,
@@ -599,5 +600,34 @@ impl History {
         }
 
         Err(HistoryError::NoUpgradeSystemLog)
+    }
+
+    pub fn query_contains_install_and_remove_pkgname_item(
+        &self,
+        pkgname: &str,
+    ) -> HistoryResult<Vec<i64>> {
+        let mut prepare = self.connection.prepare(
+            r#"SELECT history_id FROM "history_install_package_oma_1.14" where package_name = ?1"#,
+        ).map_err(HistoryError::ExecuteError)?;
+
+        let mut res: Vec<_> = prepare
+            .query_map([pkgname], |row| row.get::<usize, i64>(0))
+            .map_err(HistoryError::ExecuteError)?
+            .collect::<Result<Vec<_>>>()
+            .map_err(HistoryError::ParseDbError)?;
+
+        let mut prepare = self.connection.prepare(
+            r#"SELECT history_id FROM "history_remove_package_oma_1.14" where package_name = ?1"#,
+        ).map_err(HistoryError::ExecuteError)?;
+
+        let res_remove: Vec<_> = prepare
+            .query_map([pkgname], |row| row.get::<usize, i64>(0))
+            .map_err(HistoryError::ExecuteError)?
+            .collect::<Result<Vec<_>>>()
+            .map_err(HistoryError::ParseDbError)?;
+
+        res.extend(res_remove);
+
+        Ok(res)
     }
 }

@@ -1,12 +1,14 @@
+use std::rc::Rc;
+
 use ratatui::widgets::TableState;
 
-pub struct StatefulList<'a, T> {
+pub struct StatefulList<T> {
     pub state: TableState,
-    pub items: &'a [T],
+    pub items: Vec<Rc<T>>,
 }
 
-impl<'a, T> StatefulList<'a, T> {
-    pub fn with_items(items: &'a [T]) -> StatefulList<'a, T> {
+impl<T> StatefulList<T> {
+    pub fn with_items(items: Vec<Rc<T>>) -> StatefulList<T> {
         StatefulList {
             state: TableState::default(),
             items,

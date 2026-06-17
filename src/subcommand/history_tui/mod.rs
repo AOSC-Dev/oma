@@ -25,8 +25,9 @@ use ratatui::{
 };
 use spdlog::debug;
 use terminfo::{Database, capability::MaxColors};
+use tui_input::Input;
 
-use crate::{WRITER, fl, subcommand::history_tui::state::StatefulList};
+use crate::{WRITER, error::OutputError, fl, subcommand::history_tui::state::StatefulList};
 
 #[derive(Clone, Copy)]
 pub(crate) enum BgRenderMode {
@@ -47,16 +48,25 @@ impl BgRenderMode {
 }
 
 pub struct HistorySelectTui<'a> {
-    history: StatefulList<'a, HistoryEntry>,
+    history_list: StatefulList<HistoryEntry>,
+    all_entries: Vec<Rc<HistoryEntry>>,
     scroll_state: ScrollbarState,
-    first_selected: usize,
     page_size: usize,
     bg_render_mode: BgRenderMode,
     undo: bool,
+    search_input: Input,
+    db: &'a oma_history::History,
 }
 
 impl<'a> HistorySelectTui<'a> {
-    pub fn new(entries: &'a [HistoryEntry], first_selected: usize, undo: bool) -> Self {
+    pub fn new(history_db: &'a oma_history::History, undo: bool) -> Result<Self, OutputError> {
+        let entries = history_db
+            .list()?
+            .into_iter()
+            .filter(|e| if undo { !e.is_undo } else { true })
+            .map(Rc::new)
+            .collect::<Vec<_>>();
+
         let len = entries.len();
         let true_colors = Database::from_env()
             .inspect_err(|e| debug!("Failed to get terminfo: {e}"))
@@ -67,10 +77,13 @@ impl<'a> HistorySelectTui<'a> {
 
         let no_color = std::env::var("NO_COLOR").is_ok_and(|s| s == "1" || s == "true");
 
-        Self {
-            history: StatefulList::with_items(entries),
+        let mut history_list = StatefulList::with_items(entries.clone());
+        history_list.state.select(Some(0));
+
+        Ok(Self {
+            history_list,
+            all_entries: entries,
             scroll_state: ScrollbarState::new(len),
-            first_selected,
             page_size: 0,
             bg_render_mode: if no_color {
                 BgRenderMode::Reverse
@@ -80,17 +93,17 @@ impl<'a> HistorySelectTui<'a> {
                 BgRenderMode::Color(Color::Blue)
             },
             undo,
-        }
+            search_input: Input::new(String::new()),
+            db: history_db,
+        })
     }
 
     pub fn run<B: Backend>(
         mut self,
         terminal: &mut Terminal<B>,
         tick_rate: Duration,
-    ) -> io::Result<Option<usize>> {
+    ) -> io::Result<Option<i64>> {
         let mut last_tick = Instant::now();
-        self.history.state.select(Some(self.first_selected));
-
         loop {
             terminal
                 .draw(|f| self.ui(f))
@@ -101,9 +114,9 @@ impl<'a> HistorySelectTui<'a> {
                     continue;
                 };
 
-                match self.handle_key_event(key) {
+                match self.handle_key_event(key, terminal)? {
                     ControlFlow::Continue(()) => continue,
-                    ControlFlow::Break(selected) => return Ok(selected),
+                    ControlFlow::Break(id) => return Ok(id),
                 };
             }
 
@@ -116,7 +129,11 @@ impl<'a> HistorySelectTui<'a> {
     fn ui(&mut self, f: &mut Frame) {
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Min(0), Constraint::Length(1)])
+            .constraints([
+                Constraint::Min(0),
+                Constraint::Length(3),
+                Constraint::Length(1),
+            ])
             .split(f.area());
 
         let main_layout = Layout::default()
@@ -133,7 +150,7 @@ impl<'a> HistorySelectTui<'a> {
         let cmd_column_width = ((main_layout[0].width as f32 * 0.4) as usize).saturating_sub(3);
         self.page_size = main_layout[0].height.saturating_sub(4) as usize;
 
-        let items = self.history.items.iter().map(|item| {
+        let items = self.history_list.items.iter().map(|item| {
             let cmd_display: Cow<str> =
                 if item.command.len() > cmd_column_width && cmd_column_width > 3 {
                     format!("{:.width$}...", item.command, width = cmd_column_width - 3).into()
@@ -236,7 +253,7 @@ impl<'a> HistorySelectTui<'a> {
             )
             .row_highlight_style(self.bg_render_mode.to_style());
 
-        f.render_stateful_widget(table, main_layout[0], &mut self.history.state);
+        f.render_stateful_widget(table, main_layout[0], &mut self.history_list.state);
         f.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some("↑"))
@@ -245,45 +262,48 @@ impl<'a> HistorySelectTui<'a> {
             &mut self.scroll_state,
         );
 
-        let selected = self.history.state.selected().unwrap_or(0);
-        let entry = &self.history.items[selected];
+        let selected = self.history_list.state.selected();
         let mut display = vec![];
 
-        if entry.is_success {
-            display.push(Line::raw(fl!("history-tui-installation-succeeded")));
-        } else {
-            display.push(Line::raw(fl!("history-tui-installation-failed")));
-        }
+        if let Some(selected) = selected {
+            let entry = &self.history_list.items[selected];
 
-        let mut operations = vec![];
-        if entry.install_count > 0 {
-            operations.push(format!("{} {}", entry.install_count, fl!("installed")));
-        }
+            if entry.is_success {
+                display.push(Line::raw(fl!("history-tui-installation-succeeded")));
+            } else {
+                display.push(Line::raw(fl!("history-tui-installation-failed")));
+            }
 
-        if entry.upgrade_count > 0 {
-            operations.push(format!("{} {}", entry.upgrade_count, fl!("upgraded")));
-        }
+            let mut operations = vec![];
+            if entry.install_count > 0 {
+                operations.push(format!("{} {}", entry.install_count, fl!("installed")));
+            }
 
-        if entry.downgrade_count > 0 {
-            operations.push(format!("{} {}", entry.downgrade_count, fl!("downgraded")));
-        }
+            if entry.upgrade_count > 0 {
+                operations.push(format!("{} {}", entry.upgrade_count, fl!("upgraded")));
+            }
 
-        if entry.remove_count > 0 {
-            operations.push(format!("{} {}", entry.remove_count, fl!("removed")));
-        }
+            if entry.downgrade_count > 0 {
+                operations.push(format!("{} {}", entry.downgrade_count, fl!("downgraded")));
+            }
 
-        if entry.reinstall_count > 0 {
-            operations.push(format!("{} {}", entry.reinstall_count, fl!("reinstalled")));
-        }
+            if entry.remove_count > 0 {
+                operations.push(format!("{} {}", entry.remove_count, fl!("removed")));
+            }
 
-        if !operations.is_empty() {
-            display.push(Line::raw(operations.join(", ")));
-        }
+            if entry.reinstall_count > 0 {
+                operations.push(format!("{} {}", entry.reinstall_count, fl!("reinstalled")));
+            }
 
-        if !entry.command.is_empty() {
-            display.push(Line::raw(""));
-            display.push(Line::raw(fl!("history-tui-command-line")));
-            display.push(Line::raw(&entry.command));
+            if !operations.is_empty() {
+                display.push(Line::raw(operations.join(", ")));
+            }
+
+            if !entry.command.is_empty() {
+                display.push(Line::raw(""));
+                display.push(Line::raw(fl!("history-tui-command-line")));
+                display.push(Line::raw(&entry.command));
+            }
         }
 
         f.render_widget(
@@ -292,6 +312,26 @@ impl<'a> HistorySelectTui<'a> {
                 .wrap(Wrap { trim: true }),
             main_layout[1],
         );
+
+        let value = self.search_input.value();
+
+        // 3. 渲染搜索框组件
+        let search_block = Paragraph::new(value).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Search ")
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
+        f.render_widget(search_block, layout[1]);
+
+        // 4. 【核心】让终端的光标显示在正确的位置上
+        // layout[1] 内部扣除边框后的实际输入起点是 x + 1, y + 1
+        // self.search_input.visual_scroll() 能够自动处理文本过长时的滚动显示
+        let cursor_x = layout[1].x + 1 + (self.search_input.visual_cursor() as u16);
+        let cursor_y = layout[1].y + 1;
+
+        // 设置光标位置，Ratatui 会在渲染完成后自动让终端光标闪烁
+        f.set_cursor_position((cursor_x, cursor_y));
 
         render_tips(f, layout, self.undo);
     }
@@ -312,7 +352,7 @@ fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
                     Span::raw(" / "),
                     Span::styled("Esc", Style::new().blue()),
                 ])),
-                layout[1],
+                layout[2],
             );
         }
         66.. if !undo => {
@@ -323,7 +363,7 @@ fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
                     Span::styled("ESC/Ctrl+C", Style::new().blue()),
                     Span::raw(format!(" => {}", fl!("tui-start-7"))),
                 ])),
-                layout[1],
+                layout[2],
             );
         }
         66.. => {
@@ -334,7 +374,7 @@ fn render_tips(f: &mut Frame<'_>, layout: Rc<[Rect]>, undo: bool) {
                     Span::styled("ESC/Ctrl+C", Style::new().blue()),
                     Span::raw(format!(" => {}", fl!("tui-start-7"))),
                 ])),
-                layout[1],
+                layout[2],
             );
         }
     }

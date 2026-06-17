@@ -65,6 +65,7 @@ env_filter = { workspace = true }
 terminfo = { workspace = true }
 digest-io = { workspace = true }
 reqwest-middleware = { workspace = true }
+tui-input = { workspace = true }
 
 # oma crates
 oma-utils = { workspace = true }
@@ -190,6 +191,7 @@ i18n-embed-fl = { version = "0.10.0", package = "i18n-embed-fl-no-check-hashmap-
 rust-embed = "8.11.0"
 reqwest-middleware = "0.5"
 http = "1.4.2"
+tui-input = { version = "0.15", features = ["ratatui"] }
 
 # oma crates
 oma-utils = { path = "./oma-utils", default-features = false }
