@@ -319,12 +319,11 @@ impl<'a> HistorySelectTui<'a> {
         let search_block = Paragraph::new(value).block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(" Search ")
                 .border_style(Style::default().fg(Color::Cyan)),
         );
         f.render_widget(search_block, layout[1]);
 
-        // 4. 【核心】让终端的光标显示在正确的位置上
+        // 让终端的光标显示在正确的位置上
         // layout[1] 内部扣除边框后的实际输入起点是 x + 1, y + 1
         // self.search_input.visual_scroll() 能够自动处理文本过长时的滚动显示
         let cursor_x = layout[1].x + 1 + (self.search_input.visual_cursor() as u16);
