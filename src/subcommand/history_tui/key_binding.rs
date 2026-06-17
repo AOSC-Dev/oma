@@ -75,36 +75,35 @@ impl<'a> HistorySelectTui<'a> {
 
         if let Some(req) = to_input_request(&Event::Key(key))
             && let Some(state_changed) = self.search_input.handle(req)
+            && state_changed.value
         {
-            if state_changed.value {
-                let query = self.search_input.value().to_lowercase();
+            let query = self.search_input.value().to_lowercase();
 
-                if query.is_empty() {
-                    self.history_list.items = self.all_entries.clone();
-                } else {
-                    let contains_query_pkg = self
-                        .db
-                        .query_like_install_and_remove_pkgname_item(&query)
-                        .map_err(io::Error::other)?;
+            if query.is_empty() {
+                self.history_list.items = self.all_entries.clone();
+            } else {
+                let contains_query_pkg = self
+                    .db
+                    .query_like_install_and_remove_pkgname_item(&query)
+                    .map_err(io::Error::other)?;
 
-                    self.history_list.items = self
-                        .all_entries
-                        .iter()
-                        .filter(|entry| {
-                            entry.command.to_lowercase().contains(&query)
-                                || contains_query_pkg.contains(&entry.id)
-                        })
-                        .cloned()
-                        .collect();
-                }
+                self.history_list.items = self
+                    .all_entries
+                    .iter()
+                    .filter(|entry| {
+                        entry.command.to_lowercase().contains(&query)
+                            || contains_query_pkg.contains(&entry.id)
+                    })
+                    .cloned()
+                    .collect();
+            }
 
-                // 重置滚动条和高亮位置
-                self.scroll_state = ScrollbarState::new(self.history_list.items.len()).position(0);
-                if self.history_list.items.is_empty() {
-                    self.history_list.state.select(None);
-                } else {
-                    self.history_list.state.select(Some(0));
-                }
+            // 重置滚动条和高亮位置
+            self.scroll_state = ScrollbarState::new(self.history_list.items.len()).position(0);
+            if self.history_list.items.is_empty() {
+                self.history_list.state.select(None);
+            } else {
+                self.history_list.state.select(Some(0));
             }
         }
 
