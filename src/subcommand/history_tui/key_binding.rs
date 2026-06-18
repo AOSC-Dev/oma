@@ -85,7 +85,7 @@ impl<'a> HistorySelectTui<'a> {
             } else {
                 let contains_query_pkg = self
                     .db
-                    .query_like_install_and_remove_pkgname_item(&query)
+                    .query_like_install_and_remove_pkgname_item(query)
                     .map_err(io::Error::other)?;
 
                 self.history_list.items = self
@@ -99,9 +99,9 @@ impl<'a> HistorySelectTui<'a> {
                         .format("%H:%M:%S on %Y-%m-%d")
                         .to_string();
 
-                        entry.command.to_lowercase().contains(&query)
+                        entry.command.to_lowercase().contains(query)
                             || contains_query_pkg.contains(&entry.id)
-                            || dt.contains(&query)
+                            || dt.contains(query)
                             || (query == "FAIL" && !entry.is_success)
                             || (query == "SUCCESS" && entry.is_success)
                     })
