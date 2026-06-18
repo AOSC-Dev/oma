@@ -395,7 +395,9 @@ impl Tui<'_> {
 
     fn handle_space(&mut self) -> ControlFlow<()> {
         match self.mode {
-            Mode::Search => {}
+            Mode::Search => {
+                self.handle_input_text(' ');
+            }
             Mode::Packages => {
                 let selected = self.pkg_result_state.state.selected();
                 if let Some(i) = selected {
