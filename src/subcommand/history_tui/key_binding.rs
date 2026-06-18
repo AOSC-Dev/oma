@@ -78,7 +78,7 @@ impl<'a> HistorySelectTui<'a> {
             && let Some(state_changed) = self.search_input.handle(req)
             && state_changed.value
         {
-            let query = self.search_input.value().to_lowercase();
+            let query = self.search_input.value();
 
             if query.is_empty() {
                 self.history_list.items = self.all_entries.clone();
@@ -102,6 +102,8 @@ impl<'a> HistorySelectTui<'a> {
                         entry.command.to_lowercase().contains(&query)
                             || contains_query_pkg.contains(&entry.id)
                             || dt.contains(&query)
+                            || (query == "FAIL" && !entry.is_success)
+                            || (query == "SUCCESS" && entry.is_success)
                     })
                     .cloned()
                     .collect();
