@@ -318,6 +318,7 @@ impl<'a> HistorySelectTui<'a> {
         // 3. 渲染搜索框组件
         let search_block = Paragraph::new(value).block(
             Block::default()
+                .title("Type to search history")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan)),
         );
