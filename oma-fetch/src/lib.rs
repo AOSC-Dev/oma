@@ -7,6 +7,7 @@ use futures::StreamExt;
 
 use reqwest::{Method, Response};
 use reqwest_middleware::{ClientWithMiddleware, RequestBuilder};
+use serde::Serialize;
 use spdlog::debug;
 
 pub mod checksum;
@@ -98,7 +99,7 @@ impl Ord for DownloadSourceType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum Event {
     ChecksumMismatch {
         index: usize,

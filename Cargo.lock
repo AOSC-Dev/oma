@@ -3400,6 +3400,7 @@ dependencies = [
  "once_cell",
  "reqwest-middleware",
  "rustls",
+ "serde",
  "spdlog-rs",
  "sys-locale",
  "thiserror 2.0.18",
