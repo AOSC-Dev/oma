@@ -446,3 +446,4 @@ history-tui-installation-succeeded = 操作成功完成
 history-tui-installation-failed = 操作失败
 history-tui-command-line = 命令：
 pick-unknown-source = 未知来源
+history-tui-search-prompt = 输入以搜索历史

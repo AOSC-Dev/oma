@@ -1,5 +1,6 @@
+use anyhow::Context;
 use clap::Args;
-use oma_history::{DATABASE_PATH, HistoryEntry};
+use oma_history::DATABASE_PATH;
 use oma_pm::apt::{InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::oma_apt::PackageSort;
@@ -17,9 +18,7 @@ use crate::core::refresh::Refresh;
 use crate::exit_handle::ExitHandle;
 use crate::exit_handle::ExitStatus;
 use crate::subcommand::history_tui::HistorySelectTui;
-use crate::{
-    dbus::dbus_check, error::OutputError, fl, root::root, table::table_for_history_pending,
-};
+use crate::{dbus::dbus_check, error::OutputError, fl, root::root};
 
 use super::utils::{handle_no_result, lock_oma};
 use crate::args::CliExecuter;
@@ -32,43 +31,32 @@ impl CliExecuter for History {
         let history =
             oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
 
-        let list = history.list()?;
+        tui(&history)?;
 
-        let mut first_selected = 0;
-
-        loop {
-            let selected = tui(&list, first_selected, false)?;
-
-            match selected {
-                Some(selected) => {
-                    let entry = &list[selected];
-                    let id = entry.id;
-                    let entry = history.find_history_by_id(id)?;
-                    table_for_history_pending(&entry.install, &entry.remove, entry.disk_size)?;
-                    first_selected = selected;
-                }
-                None => return Ok(ExitHandle::default()),
-            }
-        }
+        Ok(ExitHandle::default())
     }
 }
 
-fn tui(list: &[HistoryEntry], first_selected: usize, undo: bool) -> anyhow::Result<Option<usize>> {
-    let tui = HistorySelectTui::new(list, first_selected, undo);
-    enable_raw_mode()?;
+fn tui(history: &oma_history::History) -> Result<Option<i64>, OutputError> {
+    let tui = HistorySelectTui::new(history, false)?;
+    enable_raw_mode().context("Failed to enable termin raw mode")?;
     let height = WRITER.get_height();
     let options = TerminalOptions {
         viewport: Viewport::Inline(if height >= 24 { 24 } else { height }),
     };
 
-    let mut terminal = ratatui::try_init_with_options(options)?;
-    let selected = tui.run(&mut terminal, Duration::from_millis(250))?;
+    let mut terminal = ratatui::try_init_with_options(options)
+        .context("Failed to init ratatui terminal handler")?;
 
-    terminal.clear()?;
-    disable_raw_mode()?;
-    terminal.show_cursor()?;
+    let id = tui
+        .run(&mut terminal, Duration::from_millis(250))
+        .context("Failed to run history tui")?;
 
-    Ok(selected)
+    terminal.clear().context("Failed to clear terminal")?;
+    disable_raw_mode().context("Failed to disable terminal raw mode")?;
+    terminal.show_cursor().ok();
+
+    Ok(id)
 }
 
 #[derive(Debug, Args)]
@@ -132,18 +120,10 @@ impl CliExecuter for Undo {
         let history =
             oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
 
-        let list = history
-            .list()?
-            .into_iter()
-            .filter(|e| !e.is_undo)
-            .collect::<Vec<_>>();
-
-        let Some(selected) = tui(&list, 0, true)? else {
+        let Some(id) = tui(&history)? else {
             return Ok(ExitHandle::default().status(ExitStatus::Other(130)));
         };
 
-        let selected = &list[selected];
-        let id = selected.id;
         let op = history.find_history_by_id(id)?;
 
         #[cfg(feature = "aosc")]
