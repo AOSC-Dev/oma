@@ -16,6 +16,7 @@ use futures::{AsyncBufRead, AsyncRead, TryStreamExt, io::BufReader};
 use headers::{ContentLength, ContentRange, HeaderMapExt};
 use reqwest::{Method, StatusCode, header::RANGE};
 use reqwest_middleware::ClientWithMiddleware;
+use serde::{Serialize, Serializer};
 use snafu::{ResultExt, Snafu};
 use tokio::{
     fs::{self, File},
@@ -91,6 +92,72 @@ pub enum SingleDownloadError {
     DownloadTimeout,
     #[snafu(display("checksum mismatch"))]
     ChecksumMismatch,
+}
+
+impl Serialize for SingleDownloadError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        enum Helper {
+            SetPermission { source: String },
+            OpenAsWriteMode { source: String },
+            Open { source: String },
+            Create { source: String },
+            Seek { source: String },
+            Write { source: String },
+            Flush { source: String },
+            Remove { source: String },
+            CreateSymlink { source: String },
+            ReqwestMiddlewareError { source: String },
+            BrokenPipe { source: String },
+            SendRequestTimeout,
+            DownloadTimeout,
+            ChecksumMismatch,
+        }
+
+        let helper = match self {
+            Self::SetPermission { source } => Helper::SetPermission {
+                source: source.to_string(),
+            },
+            Self::OpenAsWriteMode { source } => Helper::OpenAsWriteMode {
+                source: source.to_string(),
+            },
+            Self::Open { source } => Helper::Open {
+                source: source.to_string(),
+            },
+            Self::Create { source } => Helper::Create {
+                source: source.to_string(),
+            },
+            Self::Seek { source } => Helper::Seek {
+                source: source.to_string(),
+            },
+            Self::Write { source } => Helper::Write {
+                source: source.to_string(),
+            },
+            Self::Flush { source } => Helper::Flush {
+                source: source.to_string(),
+            },
+            Self::Remove { source } => Helper::Remove {
+                source: source.to_string(),
+            },
+            Self::CreateSymlink { source } => Helper::CreateSymlink {
+                source: source.to_string(),
+            },
+            Self::ReqwestMiddlewareError { source } => Helper::ReqwestMiddlewareError {
+                source: source.to_string(),
+            },
+            Self::BrokenPipe { source } => Helper::BrokenPipe {
+                source: source.to_string(),
+            },
+            Self::SendRequestTimeout => Helper::SendRequestTimeout,
+            Self::DownloadTimeout => Helper::DownloadTimeout,
+            Self::ChecksumMismatch => Helper::ChecksumMismatch,
+        };
+
+        helper.serialize(serializer)
+    }
 }
 
 #[bon]
