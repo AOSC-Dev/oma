@@ -441,3 +441,4 @@ history-tui-installation-failed = 操作失敗
 history-tui-command-line = 指令列：
 set-mirror-default = 鏡像源 { $m } 是最快的，是否將其設為默認鏡像源？
 clap-download-only-help = 僅下載軟體套件及其依賴項目，不安裝
+history-tui-search-prompt = 輸入以搜尋歷史
