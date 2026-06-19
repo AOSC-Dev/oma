@@ -320,7 +320,7 @@ impl History {
 
         transaction
             .execute(
-                r#"UPDATE "history_topic_oma_1.14" SET is_success = ?1 WHERE id = ?2"#,
+                r#"UPDATE "history_oma_1.14" SET is_success = ?1 WHERE id = ?2"#,
                 [if success { 1 } else { 0 }, id],
             )
             .map_err(HistoryError::ExecuteError)?;
