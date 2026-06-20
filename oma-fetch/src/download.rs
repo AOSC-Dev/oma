@@ -1,4 +1,7 @@
-use crate::{CompressType, DownloadSource, Event, checksum::ChecksumValidator, send_request};
+use crate::{
+    CompressType, DownloadSource, Event, SingleDownloadErrorHelper, checksum::ChecksumValidator,
+    send_request,
+};
 use std::{
     io::{self, SeekFrom},
     path::Path,
@@ -16,7 +19,7 @@ use futures::{AsyncBufRead, AsyncRead, TryStreamExt, io::BufReader};
 use headers::{ContentLength, ContentRange, HeaderMapExt};
 use reqwest::{Method, StatusCode, header::RANGE};
 use reqwest_middleware::ClientWithMiddleware;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{ResultExt, Snafu};
 use tokio::{
     fs::{self, File},
@@ -99,64 +102,104 @@ impl Serialize for SingleDownloadError {
     where
         S: Serializer,
     {
-        #[derive(Serialize)]
-        enum Helper {
-            SetPermission { source: String },
-            OpenAsWriteMode { source: String },
-            Open { source: String },
-            Create { source: String },
-            Seek { source: String },
-            Write { source: String },
-            Flush { source: String },
-            Remove { source: String },
-            CreateSymlink { source: String },
-            ReqwestMiddlewareError { source: String },
-            BrokenPipe { source: String },
-            SendRequestTimeout,
-            DownloadTimeout,
-            ChecksumMismatch,
-        }
-
         let helper = match self {
-            Self::SetPermission { source } => Helper::SetPermission {
+            Self::SetPermission { source } => SingleDownloadErrorHelper::SetPermission {
                 source: source.to_string(),
             },
-            Self::OpenAsWriteMode { source } => Helper::OpenAsWriteMode {
+            Self::OpenAsWriteMode { source } => SingleDownloadErrorHelper::OpenAsWriteMode {
                 source: source.to_string(),
             },
-            Self::Open { source } => Helper::Open {
+            Self::Open { source } => SingleDownloadErrorHelper::Open {
                 source: source.to_string(),
             },
-            Self::Create { source } => Helper::Create {
+            Self::Create { source } => SingleDownloadErrorHelper::Create {
                 source: source.to_string(),
             },
-            Self::Seek { source } => Helper::Seek {
+            Self::Seek { source } => SingleDownloadErrorHelper::Seek {
                 source: source.to_string(),
             },
-            Self::Write { source } => Helper::Write {
+            Self::Write { source } => SingleDownloadErrorHelper::Write {
                 source: source.to_string(),
             },
-            Self::Flush { source } => Helper::Flush {
+            Self::Flush { source } => SingleDownloadErrorHelper::Flush {
                 source: source.to_string(),
             },
-            Self::Remove { source } => Helper::Remove {
+            Self::Remove { source } => SingleDownloadErrorHelper::Remove {
                 source: source.to_string(),
             },
-            Self::CreateSymlink { source } => Helper::CreateSymlink {
+            Self::CreateSymlink { source } => SingleDownloadErrorHelper::CreateSymlink {
                 source: source.to_string(),
             },
-            Self::ReqwestMiddlewareError { source } => Helper::ReqwestMiddlewareError {
+            Self::ReqwestMiddlewareError { source } => {
+                SingleDownloadErrorHelper::ReqwestMiddlewareError {
+                    source: source.to_string(),
+                }
+            }
+            Self::BrokenPipe { source } => SingleDownloadErrorHelper::BrokenPipe {
                 source: source.to_string(),
             },
-            Self::BrokenPipe { source } => Helper::BrokenPipe {
-                source: source.to_string(),
-            },
-            Self::SendRequestTimeout => Helper::SendRequestTimeout,
-            Self::DownloadTimeout => Helper::DownloadTimeout,
-            Self::ChecksumMismatch => Helper::ChecksumMismatch,
+            Self::SendRequestTimeout => SingleDownloadErrorHelper::SendRequestTimeout,
+            Self::DownloadTimeout => SingleDownloadErrorHelper::DownloadTimeout,
+            Self::ChecksumMismatch => SingleDownloadErrorHelper::ChecksumMismatch,
         };
 
         helper.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SingleDownloadError {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let helper = SingleDownloadErrorHelper::deserialize(deserializer)?;
+
+        let error = match helper {
+            SingleDownloadErrorHelper::SetPermission { source } => Self::SetPermission {
+                source: io::Error::other(source),
+            },
+            SingleDownloadErrorHelper::OpenAsWriteMode { source } => Self::OpenAsWriteMode {
+                source: io::Error::other(source),
+            },
+            SingleDownloadErrorHelper::Open { source } => Self::Open {
+                source: io::Error::other(source),
+            },
+            SingleDownloadErrorHelper::Create { source } => Self::Create {
+                source: io::Error::other(source),
+            },
+            SingleDownloadErrorHelper::Seek { source } => Self::Seek {
+                source: io::Error::other(source),
+            },
+            SingleDownloadErrorHelper::Write { source } => Self::Write {
+                source: io::Error::other(source),
+            },
+            SingleDownloadErrorHelper::Flush { source } => Self::Flush {
+                source: io::Error::other(source),
+            },
+            SingleDownloadErrorHelper::Remove { source } => Self::Remove {
+                source: io::Error::other(source),
+            },
+            SingleDownloadErrorHelper::CreateSymlink { source } => Self::CreateSymlink {
+                source: io::Error::other(source),
+            },
+
+            // reqwest_middleware::Error 无法简单 new，但它通常支持从标准 Error 转换，或者转为自定义格式
+            // 这里可以通过 anyhow 或标准映射转换为中间状态错误
+            SingleDownloadErrorHelper::ReqwestMiddlewareError { source } => {
+                Self::ReqwestMiddlewareError {
+                    source: reqwest_middleware::Error::Middleware(anyhow::anyhow!(source)),
+                }
+            }
+
+            SingleDownloadErrorHelper::BrokenPipe { source } => Self::BrokenPipe {
+                source: io::Error::new(io::ErrorKind::BrokenPipe, source),
+            },
+            SingleDownloadErrorHelper::SendRequestTimeout => Self::SendRequestTimeout,
+            SingleDownloadErrorHelper::DownloadTimeout => Self::DownloadTimeout,
+            SingleDownloadErrorHelper::ChecksumMismatch => Self::ChecksumMismatch,
+        };
+
+        Ok(error)
     }
 }
 

@@ -42,6 +42,7 @@ snafu = { workspace = true }
 headers = { workspace = true }
 digest-io = { workspace = true }
 reqwest-middleware = { workspace = true }
+anyhow = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

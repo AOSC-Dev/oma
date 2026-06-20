@@ -3277,6 +3277,7 @@ dependencies = [
 name = "oma-fetch"
 version = "0.37.1"
 dependencies = [
+ "anyhow",
  "async-compression",
  "bon",
  "digest-io",
