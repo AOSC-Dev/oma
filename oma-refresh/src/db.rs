@@ -33,7 +33,7 @@ use oma_fetch::reqwest::StatusCode;
 
 use oma_utils::{GetLockError, get_file_lock, is_termux};
 use reqwest_middleware::ClientWithMiddleware;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use spdlog::{debug, warn};
 
 use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
@@ -113,7 +113,7 @@ pub struct OmaRefresh {
     sources_lists_paths: Option<Vec<PathBuf>>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Event {
     DownloadEvent(oma_fetch::Event),
     ScanningTopic,

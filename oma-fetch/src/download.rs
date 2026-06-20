@@ -147,7 +147,6 @@ impl Serialize for SingleDownloadError {
     }
 }
 
-
 impl<'de> Deserialize<'de> for SingleDownloadError {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -186,9 +185,11 @@ impl<'de> Deserialize<'de> for SingleDownloadError {
 
             // reqwest_middleware::Error 无法简单 new，但它通常支持从标准 Error 转换，或者转为自定义格式
             // 这里可以通过 anyhow 或标准映射转换为中间状态错误
-            SingleDownloadErrorHelper::ReqwestMiddlewareError { source } => Self::ReqwestMiddlewareError {
-                source: reqwest_middleware::Error::Middleware(anyhow::anyhow!(source)),
-            },
+            SingleDownloadErrorHelper::ReqwestMiddlewareError { source } => {
+                Self::ReqwestMiddlewareError {
+                    source: reqwest_middleware::Error::Middleware(anyhow::anyhow!(source)),
+                }
+            }
 
             SingleDownloadErrorHelper::BrokenPipe { source } => Self::BrokenPipe {
                 source: io::Error::new(io::ErrorKind::BrokenPipe, source),
