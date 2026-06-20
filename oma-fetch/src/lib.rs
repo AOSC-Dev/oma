@@ -7,7 +7,7 @@ use futures::StreamExt;
 
 use reqwest::{Method, Response};
 use reqwest_middleware::{ClientWithMiddleware, RequestBuilder};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use spdlog::debug;
 
 pub mod checksum;
@@ -99,7 +99,7 @@ impl Ord for DownloadSourceType {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Event {
     ChecksumMismatch {
         index: usize,
@@ -143,6 +143,24 @@ pub enum Event {
     },
     AllDone,
     NewGlobalProgressBar(u64),
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) enum SingleDownloadErrorHelper {
+    SetPermission { source: String },
+    OpenAsWriteMode { source: String },
+    Open { source: String },
+    Create { source: String },
+    Seek { source: String },
+    Write { source: String },
+    Flush { source: String },
+    Remove { source: String },
+    CreateSymlink { source: String },
+    ReqwestMiddlewareError { source: String },
+    BrokenPipe { source: String },
+    SendRequestTimeout,
+    DownloadTimeout,
+    ChecksumMismatch,
 }
 
 #[derive(Builder)]
