@@ -11,7 +11,7 @@ use bon::Builder;
 pub use oma_apt::cache::Upgrade;
 use once_cell::sync::OnceCell;
 use reqwest_middleware::ClientWithMiddleware;
-use tokio::runtime::Runtime;
+use tokio::runtime::Handle;
 
 use oma_apt::{
     DepFlags, Dependency, Package, PkgCurrentState, Version,
@@ -90,7 +90,7 @@ pub struct OmaApt {
     unmet: Vec<Vec<BrokenPackage>>,
     /// The path for archive.
     archive_dir: OnceCell<PathBuf>,
-    pub(crate) tokio: OnceCell<Runtime>,
+    pub(crate) tokio: OnceCell<Handle>,
     pub(crate) conn: OnceCell<Connection>,
     sysroot: PathBuf,
     pub(crate) apt_lock: RefCell<Option<AptLockGuard>>,
@@ -378,13 +378,18 @@ impl OmaApt {
         Ok(())
     }
 
-    pub(crate) fn get_or_init_async_runtime(&self) -> Result<&Runtime, OmaAptError> {
+    pub(crate) fn get_or_init_async_runtime(&self) -> Result<&Handle, OmaAptError> {
         self.tokio
             .get_or_try_init(|| -> Result<_, _> {
-                tokio::runtime::Builder::new_multi_thread()
-                    .enable_time()
-                    .enable_io()
-                    .build()
+                if let Ok(h) = tokio::runtime::Handle::try_current() {
+                    Ok(h)
+                } else {
+                    let rt = tokio::runtime::Builder::new_multi_thread()
+                        .enable_time()
+                        .enable_io()
+                        .build()?;
+                    Ok(rt.handle().to_owned())
+                }
             })
             .map_err(OmaAptError::FailedCreateAsyncRuntime)
     }

@@ -2,18 +2,18 @@ use crate::dbus::change_status;
 use oma_apt::{progress::DynInstallProgress, raw::config as apt_config};
 use oma_utils::zbus;
 use once_cell::sync::OnceCell;
-use tokio::runtime::Runtime;
+use tokio::runtime::Handle;
 use zbus::Connection;
 
 pub use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
 
 pub(crate) struct InstallProgressArgs {
-    pub tokio: OnceCell<Runtime>,
+    pub tokio: OnceCell<Handle>,
     pub connection: OnceCell<Connection>,
 }
 
 pub(crate) struct OmaAptInstallProgress {
-    tokio: OnceCell<Runtime>,
+    tokio: OnceCell<Handle>,
     connection: OnceCell<Connection>,
     pm: Box<dyn InstallProgressManager>,
 }
