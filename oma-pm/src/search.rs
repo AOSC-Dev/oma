@@ -3,15 +3,13 @@
 //! - StrSimSearch: Search method based on similarly score, using `strsim`.
 //! - TextSearch: Text match search based on `memmem`
 use ahash::{AHashMap, RandomState};
-use cxx::UniquePtr;
 use glob_match::glob_match;
-use indexmap::map::Entry;
 use indicium::simple::{Indexable, SearchIndex};
 use memchr::memmem;
 use oma_apt::{
     Package,
     cache::{Cache, PackageSort},
-    raw::{IntoRawIter, PkgIterator},
+    raw::IntoRawIter,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -59,22 +57,24 @@ impl Ord for PackageStatus {
         }
     }
 }
-
-/// Entry in the package search results.
+#[derive(Clone)]
 pub struct SearchEntry {
     /// The name of the package
-    name: String,
+    pub name: String,
     /// The description of the package
-    description: String,
+    pub description: String,
     /// The status of the package. See [`PackageStatus`]
-    status: PackageStatus,
+    pub status: PackageStatus,
     /// Alias of the package. eg: `telegram-desktop` provides `telegram`.
-    provides: IndexSet<String>,
+    pub provides: IndexSet<String>,
     /// Whether the package provides a matching package for debug symbols.
-    has_dbg: bool,
-    raw_pkg: UniquePtr<PkgIterator>,
+    pub has_dbg: bool,
     /// Whether the package is an AOSC OS metapackage (-base package).
-    section_is_base: bool,
+    pub section_is_base: bool,
+    /// Old version
+    pub old_version: Option<String>,
+    /// New version
+    pub new_version: String,
 }
 
 impl Debug for SearchEntry {
@@ -85,7 +85,8 @@ impl Debug for SearchEntry {
             .field("status", &self.status)
             .field("provides", &self.provides)
             .field("has_dbg", &self.has_dbg)
-            .field("raw_pkg", &self.raw_pkg.fullname(true))
+            .field("old_version", &self.old_version)
+            .field("new_version", &self.new_version)
             .field("section_is_base", &self.section_is_base)
             .finish()
     }
@@ -94,8 +95,7 @@ impl Debug for SearchEntry {
 impl Indexable for SearchEntry {
     fn strings(&self) -> Vec<String> {
         let mut v = vec![self.name.clone(), self.description.clone()];
-        let provides = self.provides.clone().into_iter();
-        v.extend(provides);
+        v.extend(self.provides.clone());
         v
     }
 }
@@ -134,20 +134,18 @@ pub struct SearchResult {
 }
 
 /// Index search based on `indicium`.
-pub struct IndiciumSearch<'a> {
-    /// Locally cached index.
-    cache: &'a Cache,
+pub struct IndiciumSearch {
     /// Map contains package names and their corresponding search entries.
-    pkg_map: IndexMap<String, SearchEntry>,
+    pub pkg_map: IndexMap<String, SearchEntry>,
     /// Index used to perform search operations.
-    index: SearchIndex<String>,
+    pub index: SearchIndex<String>,
 }
 
 pub trait OmaSearch {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>>;
 }
 
-impl OmaSearch for IndiciumSearch<'_> {
+impl OmaSearch for IndiciumSearch {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let mut search_res = vec![];
         let query = query.to_lowercase();
@@ -158,7 +156,7 @@ impl OmaSearch for IndiciumSearch<'_> {
         }
 
         for i in res {
-            let entry = self.search_result(i, Some(&query))?;
+            let entry = self.search_result(i, &query)?;
             search_res.push(entry);
         }
 
@@ -175,8 +173,8 @@ impl OmaSearch for IndiciumSearch<'_> {
     }
 }
 
-impl<'a> IndiciumSearch<'a> {
-    pub fn new(cache: &'a Cache, progress: impl Fn(usize)) -> OmaSearchResult<Self> {
+impl IndiciumSearch {
+    pub fn new(cache: &Cache, progress: impl Fn(usize)) -> OmaSearchResult<Self> {
         let sort = PackageSort::default().include_virtual();
         let packages = cache.packages(&sort);
 
@@ -198,8 +196,25 @@ impl<'a> IndiciumSearch<'a> {
                 PackageStatus::Avail
             };
 
+            let extract_versions = |p: &Package| -> (Option<String>, String) {
+                let old = if status == PackageStatus::Upgrade {
+                    p.installed().map(|x| x.version().to_string())
+                } else {
+                    None
+                };
+
+                let new = p
+                    .candidate()
+                    .map(|x| x.version().to_string())
+                    .unwrap_or_else(|| "Unknown".to_string());
+
+                (old, new)
+            };
+
             if let Some(cand) = pkg.candidate() {
-                if let Entry::Vacant(e) = pkg_map.entry(name.clone()) {
+                if let indexmap::map::Entry::Vacant(e) = pkg_map.entry(name.clone()) {
+                    let (old_version, new_version) = extract_versions(&pkg);
+
                     e.insert(SearchEntry {
                         name,
                         description: cand
@@ -208,22 +223,17 @@ impl<'a> IndiciumSearch<'a> {
                         status,
                         provides: pkg.provides().map(|x| x.to_string()).collect(),
                         has_dbg: has_dbg(cache, &pkg, &cand),
-                        raw_pkg: unsafe { pkg.unique() }
-                            .make_safe()
-                            .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
                         section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
+                        old_version,
+                        new_version,
                     });
                 }
             } else {
-                // Provides
                 let mut real_pkgs = vec![];
                 for i in pkg.provides() {
-                    real_pkgs.push((
-                        i.name().to_string(),
-                        unsafe { i.target_pkg() }
-                            .make_safe()
-                            .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
-                    ));
+                    if let Some(safe_pkg) = unsafe { i.target_pkg() }.make_safe() {
+                        real_pkgs.push((i.name().to_string(), safe_pkg));
+                    }
                 }
 
                 for (provide, i) in real_pkgs {
@@ -239,6 +249,8 @@ impl<'a> IndiciumSearch<'a> {
                     };
 
                     if let Some(cand) = pkg.candidate() {
+                        let (old_version, new_version) = extract_versions(&pkg);
+
                         pkg_map
                             .entry(name.clone())
                             .and_modify(|x| {
@@ -258,13 +270,12 @@ impl<'a> IndiciumSearch<'a> {
                                     set
                                 },
                                 has_dbg: has_dbg(cache, &pkg, &cand),
-                                raw_pkg: unsafe { pkg.unique() }
-                                    .make_safe()
-                                    .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?,
                                 section_is_base: cand
                                     .section()
                                     .map(|x| x == "Bases")
                                     .unwrap_or(false),
+                                old_version,
+                                new_version,
                             });
                     }
                 }
@@ -272,13 +283,11 @@ impl<'a> IndiciumSearch<'a> {
         }
 
         let mut search_index: SearchIndex<String> = SearchIndex::default();
-
-        pkg_map
-            .iter()
-            .for_each(|(key, value)| search_index.insert(key, value));
+        pkg_map.iter().for_each(|(key, value)| {
+            search_index.insert(key, value);
+        });
 
         Ok(Self {
-            cache,
             pkg_map,
             index: search_index,
         })
@@ -295,45 +304,23 @@ impl<'a> IndiciumSearch<'a> {
     ///
     /// * `Ok(SearchResult)` - If a match is found, returns `SearchResult` containing the package details.
     /// * `Err(OmaSearchError)` - If an error occurs during the search, returns an `OmaSearchError`.
-    fn search_result(&self, i: &str, query: Option<&str>) -> Result<SearchResult, OmaSearchError> {
-        let entry = self.pkg_map.get(i).unwrap();
-        let search_name = entry.name.clone();
-        let desc = entry.description.clone();
-        let status = entry.status;
-        let has_dbg = entry.has_dbg;
-        let pkg = unsafe { entry.raw_pkg.unique() }
-            .make_safe()
-            .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))?;
-        let pkg = Package::new(self.cache, pkg);
+    fn search_result(&self, i: &str, query: &str) -> Result<SearchResult, OmaSearchError> {
+        let entry = self
+            .pkg_map
+            .get(i)
+            .ok_or_else(|| OmaSearchError::NoResult(i.to_string()))?;
 
-        let full_match = if let Some(query) = query {
-            query == search_name || entry.provides.iter().any(|x| x == query)
-        } else {
-            false
-        };
-
-        let old_version = if status != PackageStatus::Upgrade {
-            None
-        } else {
-            pkg.installed().map(|x| x.version().to_string())
-        };
-
-        let new_version = pkg
-            .candidate()
-            .map(|x| x.version().to_string())
-            .ok_or_else(|| OmaSearchError::FailedGetCandidate(pkg.fullname(true)))?;
-
-        let is_base = entry.section_is_base;
+        let full_match = query == entry.name || entry.provides.iter().any(|x| x == query);
 
         Ok(SearchResult {
-            name: pkg.fullname(true),
-            desc,
-            old_version,
-            new_version,
+            name: entry.name.clone(),
+            desc: entry.description.clone(),
+            old_version: entry.old_version.clone(),
+            new_version: entry.new_version.clone(),
             full_match,
-            dbg_package: has_dbg,
-            status,
-            is_base,
+            dbg_package: entry.has_dbg,
+            status: entry.status,
+            is_base: entry.section_is_base,
         })
     }
 }
