@@ -2,18 +2,19 @@ use crate::dbus::change_status;
 use oma_apt::{progress::DynInstallProgress, raw::config as apt_config};
 use oma_utils::zbus;
 use once_cell::sync::OnceCell;
-use tokio::runtime::Handle;
+use tokio::runtime::{Handle, Runtime};
 use zbus::Connection;
 
 pub use oma_apt::util::{get_apt_progress_string, terminal_height, terminal_width};
 
 pub(crate) struct InstallProgressArgs {
-    pub tokio: OnceCell<Handle>,
+    pub async_handler: OnceCell<Handle>,
+    pub async_runtime: OnceCell<Runtime>,
     pub connection: OnceCell<Connection>,
 }
 
 pub(crate) struct OmaAptInstallProgress {
-    tokio: OnceCell<Handle>,
+    rt: (OnceCell<Runtime>, OnceCell<Handle>),
     connection: OnceCell<Connection>,
     pm: Box<dyn InstallProgressManager>,
 }
@@ -26,7 +27,11 @@ pub trait InstallProgressManager {
 
 impl OmaAptInstallProgress {
     pub fn new(args: InstallProgressArgs, pm: Box<dyn InstallProgressManager>) -> Self {
-        let InstallProgressArgs { tokio, connection } = args;
+        let InstallProgressArgs {
+            async_handler,
+            async_runtime,
+            connection,
+        } = args;
 
         if pm.no_interactive() {
             unsafe { std::env::set_var("DEBIAN_FRONTEND", "noninteractive") };
@@ -37,7 +42,7 @@ impl OmaAptInstallProgress {
         }
 
         Self {
-            tokio,
+            rt: (async_runtime, async_handler),
             connection,
             pm,
         }
@@ -56,7 +61,7 @@ impl DynInstallProgress for OmaAptInstallProgress {
 
         self.pm.status_change(&pkgname, steps_done, total_steps);
 
-        if let Some(tokio) = self.tokio.get()
+        if let Some(tokio) = self.rt.1.get()
             && let Some(conn) = conn.get()
         {
             tokio.block_on(async move {
