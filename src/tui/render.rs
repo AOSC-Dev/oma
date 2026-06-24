@@ -58,7 +58,7 @@ impl BgRenderMode {
 
 pub struct Tui<'a> {
     pub(crate) apt: &'a OmaApt,
-    pub(crate) searcher: IndiciumSearch<'a>,
+    pub(crate) searcher: IndiciumSearch,
     pub(crate) mode: Mode,
     pub(crate) input_cursor_position: usize,
     pub(crate) display_pending_detail: bool,
@@ -133,7 +133,7 @@ impl PackageStatus {
 }
 
 impl<'a> Tui<'a> {
-    pub fn new(apt: &'a OmaApt, status: PackageStatus, searcher: IndiciumSearch<'a>) -> Self {
+    pub fn new(apt: &'a OmaApt, status: PackageStatus, searcher: IndiciumSearch) -> Self {
         let pkg_results = vec![];
         let pkg_result_state = StatefulList::with_items(vec![]);
         let true_colors = Database::from_env()
@@ -464,7 +464,7 @@ fn show_packages(
 }
 
 pub(crate) fn update_search_result(
-    searcher: &IndiciumSearch<'_>,
+    searcher: &IndiciumSearch,
     s: &str,
     display_list: &mut StatefulList<Text<'_>>,
     result: &mut Vec<SearchResult>,
