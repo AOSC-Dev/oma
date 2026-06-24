@@ -11,7 +11,7 @@ use bon::Builder;
 pub use oma_apt::cache::Upgrade;
 use once_cell::sync::OnceCell;
 use reqwest_middleware::ClientWithMiddleware;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime};
 
 use oma_apt::{
     DepFlags, Dependency, Package, PkgCurrentState, Version,
@@ -90,7 +90,8 @@ pub struct OmaApt {
     unmet: Vec<Vec<BrokenPackage>>,
     /// The path for archive.
     archive_dir: OnceCell<PathBuf>,
-    pub(crate) tokio: OnceCell<Runtime>,
+    pub(crate) async_handler: OnceCell<Handle>,
+    pub(crate) async_runtime: OnceCell<Runtime>,
     pub(crate) conn: OnceCell<Connection>,
     sysroot: PathBuf,
     pub(crate) apt_lock: RefCell<Option<AptLockGuard>>,
@@ -219,7 +220,8 @@ impl OmaApt {
             select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
             unmet: vec![],
             archive_dir: OnceCell::new(),
-            tokio: OnceCell::new(),
+            async_handler: OnceCell::new(),
+            async_runtime: OnceCell::new(),
             conn: OnceCell::new(),
             sysroot: sysroot.into(),
             apt_lock: RefCell::new(None),
@@ -378,13 +380,21 @@ impl OmaApt {
         Ok(())
     }
 
-    pub(crate) fn get_or_init_async_runtime(&self) -> Result<&Runtime, OmaAptError> {
-        self.tokio
+    pub(crate) fn get_or_init_async_runtime(&self) -> Result<&Handle, OmaAptError> {
+        self.async_handler
             .get_or_try_init(|| -> Result<_, _> {
-                tokio::runtime::Builder::new_multi_thread()
-                    .enable_time()
-                    .enable_io()
-                    .build()
+                if let Ok(h) = tokio::runtime::Handle::try_current() {
+                    Ok(h)
+                } else {
+                    let rt = self.async_runtime.get_or_try_init(|| {
+                        tokio::runtime::Builder::new_multi_thread()
+                            .enable_time()
+                            .enable_io()
+                            .build()
+                    })?;
+
+                    Ok(rt.handle().to_owned())
+                }
             })
             .map_err(OmaAptError::FailedCreateAsyncRuntime)
     }
