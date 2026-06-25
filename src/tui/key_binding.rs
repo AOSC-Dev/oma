@@ -2,7 +2,6 @@ use std::ops::ControlFlow;
 
 use ansi_to_tui::IntoText;
 use oma_pm::pkginfo::OmaPackage;
-use oma_pm::search::OmaSearch;
 use ratatui::crossterm::event::KeyModifiers;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 

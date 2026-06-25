@@ -10,6 +10,7 @@ use oma_pm::{
     search::{IndiciumSearch, OmaSearch, SearchResult, StrSimSearch, TextSearch},
 };
 use oma_utils::zbus::proxy;
+use spdlog::debug;
 use zbus::Connection;
 
 use crate::{
@@ -27,7 +28,7 @@ use super::utils::create_progress_spinner;
     default_service = "io.aosc.Amo",
     default_path = "/io/aosc/Amo"
 )]
-trait Amo {
+pub trait Amo {
     async fn search(&self, query: String) -> zbus::Result<String>;
 }
 
@@ -236,6 +237,18 @@ pub fn search(
 
 async fn amo_search(query: String) -> anyhow::Result<Vec<SearchResult>> {
     let connection = Connection::system().await?;
+
+    let peer_proxy = zbus::fdo::PeerProxy::builder(&connection)
+        .destination("io.aosc.Amo")?
+        .path("/io/aosc/Amo")?
+        .build()
+        .await?;
+
+    peer_proxy
+        .ping()
+        .await
+        .inspect_err(|e| debug!("Failed to connect amo: {e}"))?;
+
     let proxy = AmoProxy::new(&connection).await?;
     let result = proxy.search(query).await?;
     let result: Vec<SearchResult> = serde_json::from_str(&result)?;
