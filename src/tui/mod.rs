@@ -61,7 +61,7 @@ pub struct Tui {
 }
 
 pub(crate) enum Searcher {
-    Local(IndiciumSearch),
+    Local(Box<IndiciumSearch>),
     Amo {
         _connection: Connection,
         proxy: AmoProxy<'static>,
@@ -93,7 +93,7 @@ impl Searcher {
 
     pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResult>> {
         match self {
-            Searcher::Local(indicium_search) => Ok(indicium_search.search(&query)?),
+            Searcher::Local(indicium_search) => Ok(indicium_search.search(query)?),
             Searcher::Amo { proxy, .. } => Ok(serde_json::from_str(
                 &RT.block_on(proxy.search(query.to_string()))?,
             )?),
@@ -153,7 +153,7 @@ impl CliExecuter for Tui {
                             .set_message(fl!("reading-database-with-count", count = n));
                     }
                 })?;
-                Searcher::Local(searcher)
+                Searcher::Local(searcher.into())
             }
         };
 
