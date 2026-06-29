@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::io::stdout;
+use std::process::Command;
+use std::process::exit;
 use std::str::FromStr;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -45,6 +47,7 @@ use spdlog::{error, info, warn};
 use std::io::Write;
 use tabled::Tabled;
 
+use crate::NOT_ALLOW_CTRLC;
 use crate::RT;
 use crate::args::HELP_TEMPLATE;
 use crate::config::OmaConfig;
@@ -58,6 +61,7 @@ use crate::menu::select_tui_display_msg;
 use crate::menu::tui_select_list_size;
 use crate::pb::OmaProgressBar;
 use crate::pb::Print;
+use crate::root::is_root;
 use crate::root::root;
 use crate::success;
 use crate::table::PagerPrinter;
@@ -595,10 +599,6 @@ fn speedtest(
     no_refresh: bool,
     config: &OmaConfig,
 ) -> Result<ExitHandle, OutputError> {
-    if set_fastest {
-        root()?;
-    }
-
     let mut mm = MirrorManager::new("/")?;
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
@@ -710,13 +710,34 @@ fn speedtest(
     }
 
     if set_fastest {
-        let name: Box<str> = Box::from(**name);
-        mm.set(&[&name])?;
-        mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
+        if is_root() {
+            let name: Box<str> = Box::from(**name);
+            mm.set(&[&name])?;
+            mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
-        if !no_refresh {
-            refresh_enabled_topics_sources_list(config.http_client()?, config.no_progress())?;
-            refresh(config)?;
+            if !no_refresh {
+                refresh_enabled_topics_sources_list(config.http_client()?, config.no_progress())?;
+                refresh(config)?;
+            }
+        } else {
+            NOT_ALLOW_CTRLC.store(true, std::sync::atomic::Ordering::Relaxed);
+
+            let arg0 = std::env::args().next().expect("Should has arg0");
+            let out = Command::new(&arg0)
+                .envs(std::env::vars())
+                .arg("mirror")
+                .arg("set")
+                .arg(name)
+                .spawn()
+                .and_then(|x| x.wait_with_output())
+                .with_context(|| {
+                    format!(
+                        "Failed to run `{}'",
+                        [&arg0, "mirror", "set", name].join(" ")
+                    )
+                })?;
+
+            exit(out.status.code().unwrap_or(1));
         }
     }
 
