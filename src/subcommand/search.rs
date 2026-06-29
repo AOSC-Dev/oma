@@ -154,6 +154,7 @@ impl CliExecuter for Search {
                 ConfigSearchEngine::StrSim => SearchEngine::Strsim,
                 ConfigSearchEngine::Text => SearchEngine::Text,
             },
+            &config,
         )?;
 
         if let Some(pb) = pb {
@@ -201,16 +202,19 @@ pub fn search(
     apt: &OmaApt,
     keywords: &[String],
     engine: SearchEngine,
+    config: &OmaConfig,
 ) -> Result<Vec<SearchResult>, OutputError> {
     match engine {
         SearchEngine::Indicium(f) => {
             let query = keywords.join(" ");
-            match RT.block_on(amo_search(query.clone())) {
-                Ok(r) => Ok(r),
-                Err(_) => {
-                    let searcher = IndiciumSearch::new(&apt.cache, f)?;
-                    Ok(searcher.search(&query)?)
+
+            if config.amo && !config.no_check_dbus {
+                match RT.block_on(amo_search(query.clone())) {
+                    Ok(r) => Ok(r),
+                    Err(_) => local_indicium_search(apt, f, query),
                 }
+            } else {
+                local_indicium_search(apt, f, query)
             }
         }
         SearchEngine::Strsim => {
@@ -233,6 +237,15 @@ pub fn search(
             Ok(result)
         }
     }
+}
+
+fn local_indicium_search(
+    apt: &OmaApt,
+    f: Box<dyn Fn(usize) + 'static>,
+    query: String,
+) -> Result<Vec<SearchResult>, OutputError> {
+    let searcher = IndiciumSearch::new(&apt.cache, f)?;
+    Ok(searcher.search(&query)?)
 }
 
 async fn amo_search(query: String) -> anyhow::Result<Vec<SearchResult>> {

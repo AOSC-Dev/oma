@@ -144,17 +144,13 @@ impl CliExecuter for Tui {
         let autoremove = apt.count_pending_autoremovable_pkgs();
         let installed = apt.count_installed_packages();
 
-        let searcher = match RT.block_on(Searcher::connect_amo()) {
-            Ok(searcher) => searcher,
-            Err(_) => {
-                let searcher = IndiciumSearch::new(&apt.cache, |n| {
-                    if let Some(ref pb) = pb {
-                        pb.inner
-                            .set_message(fl!("reading-database-with-count", count = n));
-                    }
-                })?;
-                Searcher::Local(searcher.into())
+        let searcher = if config.amo && !config.no_check_dbus {
+            match RT.block_on(Searcher::connect_amo()) {
+                Ok(searcher) => searcher,
+                Err(_) => local_searcher(&apt, &pb)?,
             }
+        } else {
+            local_searcher(&apt, &pb)?
         };
 
         if let Some(pb) = pb {
@@ -223,4 +219,17 @@ impl CliExecuter for Tui {
 
         Ok(exit)
     }
+}
+
+fn local_searcher(
+    apt: &OmaApt,
+    pb: &Option<crate::pb::OmaProgressBar>,
+) -> Result<Searcher, OutputError> {
+    let searcher = IndiciumSearch::new(&apt.cache, |n| {
+        if let Some(ref pb) = *pb {
+            pb.inner
+                .set_message(fl!("reading-database-with-count", count = n));
+        }
+    })?;
+    Ok(Searcher::Local(searcher.into()))
 }

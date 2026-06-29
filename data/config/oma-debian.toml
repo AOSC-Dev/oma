@@ -44,6 +44,8 @@ take_wake_lock = "yes"
 #
 # [q] will be used as equivalent to [n]/[Ctrl-c] if set to true.
 yn_mode = false
+# Use amo to speed up `oma search`/`cnf`
+amo = false
 
 [network]
 # Number of network threads to use when downloading metadata and packages.

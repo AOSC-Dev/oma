@@ -25,6 +25,7 @@ impl Default for ConfigFile {
                 search_engine: GeneralConfig::default_search_engine(),
                 save_log_count: GeneralConfig::default_save_log_count(),
                 yn_mode: GeneralConfig::default_yn_mode(),
+                amo: GeneralConfig::default_amo(),
             }),
             network: Some(NetworkConfig {
                 network_threads: NetworkConfig::default_network_thread(),
@@ -59,6 +60,8 @@ pub struct GeneralConfig {
     pub save_log_count: usize,
     #[serde(default = "GeneralConfig::default_yn_mode")]
     pub yn_mode: bool,
+    #[serde(default = "GeneralConfig::default_amo")]
+    pub amo: bool,
 }
 
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -150,6 +153,10 @@ impl GeneralConfig {
 
     pub const fn default_yn_mode() -> bool {
         false
+    }
+
+    pub const fn default_amo() -> bool {
+        cfg!(feature = "aosc")
     }
 }
 
