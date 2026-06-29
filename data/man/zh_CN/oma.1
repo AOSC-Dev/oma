@@ -4,7 +4,7 @@
 .SH NAME
 oma \- 易用、防呆的 APT 软件包管理器
 .SH SYNOPSIS
-\fBoma\fR [\fB\-\-dry\-run\fR] [\fB\-\-debug\fR] [\fB\-\-color\fR] [\fB\-\-follow\-terminal\-color\fR] [\fB\-\-no\-progress\fR] [\fB\-\-no\-check\-dbus\fR] [\fB\-\-no\-check\-battery\fR] [\fB\-\-no\-take\-wake\-lock\fR] [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-sysroot\fR] [\fB\-o\fR|\fB\-\-apt\-options\fR] [\fB\-\-no\-bell\fR] [\fB\-t\fR|\fB\-\-download\-threads\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-\-no\-config\fR] [\fB\-\-user\-agent\fR] [\fI命令\fR]
+\fBoma\fR [\fB\-\-dry\-run\fR] [\fB\-\-debug\fR] [\fB\-\-color\fR] [\fB\-\-follow\-terminal\-color\fR] [\fB\-\-no\-progress\fR] [\fB\-\-no\-check\-dbus\fR] [\fB\-\-no\-check\-battery\fR] [\fB\-\-no\-take\-wake\-lock\fR] [\fB\-v\fR|\fB\-\-version\fR] [\fB\-\-sysroot\fR] [\fB\-o\fR|\fB\-\-apt\-options\fR] [\fB\-\-no\-bell\fR] [\fB\-t\fR|\fB\-\-download\-threads\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-\-no\-config\fR] [\fB\-\-user\-agent\fR] [\fB\-\-no\-amo\fR] [\fI命令\fR]
 .SH DESCRIPTION
 易用、防呆的 APT 软件包管理器
 .SH 选项
@@ -68,6 +68,9 @@ never
 .TP
 \fB\-\-user\-agent\fR \fI<USER_AGENT>\fR
 指定用于 HTTP 请求的 User\-Agent 字串
+.TP
+\fB\-\-no\-amo\fR
+Use amo to speed up oma
 .SH 命令
 .TP
 oma\-install(1)
