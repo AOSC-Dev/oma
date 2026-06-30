@@ -8,11 +8,7 @@ use std::{
 use super::state::StatefulList;
 use ansi_to_tui::IntoText;
 use dialoguer::console;
-use oma_pm::{
-    apt::OmaApt,
-    pkginfo::OmaPackage,
-    search::{IndiciumSearch, OmaSearch, SearchResult},
-};
+use oma_pm::{apt::OmaApt, pkginfo::OmaPackage, search::SearchResult};
 use ratatui::{
     crossterm::event::{self},
     style::Modifier,
@@ -35,7 +31,7 @@ use terminfo::{Database, capability::MaxColors};
 use crate::{
     WRITER, fl,
     subcommand::search::SearchResultDisplay,
-    tui::{key_binding::Control, window::Mode},
+    tui::{Searcher, key_binding::Control, window::Mode},
 };
 
 #[derive(Clone, Copy)]
@@ -58,7 +54,7 @@ impl BgRenderMode {
 
 pub struct Tui<'a> {
     pub(crate) apt: &'a OmaApt,
-    pub(crate) searcher: IndiciumSearch,
+    pub(crate) searcher: Searcher,
     pub(crate) mode: Mode,
     pub(crate) input_cursor_position: usize,
     pub(crate) display_pending_detail: bool,
@@ -133,7 +129,7 @@ impl PackageStatus {
 }
 
 impl<'a> Tui<'a> {
-    pub fn new(apt: &'a OmaApt, status: PackageStatus, searcher: IndiciumSearch) -> Self {
+    pub fn new(apt: &'a OmaApt, status: PackageStatus, searcher: Searcher) -> Self {
         let pkg_results = vec![];
         let pkg_result_state = StatefulList::with_items(vec![]);
         let true_colors = Database::from_env()
@@ -464,7 +460,7 @@ fn show_packages(
 }
 
 pub(crate) fn update_search_result(
-    searcher: &IndiciumSearch,
+    searcher: &Searcher,
     s: &str,
     display_list: &mut StatefulList<Text<'_>>,
     result: &mut Vec<SearchResult>,

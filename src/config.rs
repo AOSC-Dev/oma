@@ -47,6 +47,7 @@ pub struct OmaConfig {
     #[cfg(feature = "aosc")]
     http_client_blocking: OnceCell<reqwest::blocking::Client>,
     rustls_crypto_provider: OnceCell<()>,
+    pub amo: bool,
 }
 
 impl Default for OmaConfig {
@@ -78,6 +79,7 @@ impl Default for OmaConfig {
             rustls_crypto_provider: OnceCell::new(),
             #[cfg(feature = "aosc")]
             http_client_blocking: OnceCell::new(),
+            amo: GeneralConfig::default_amo(),
         }
     }
 }
@@ -98,6 +100,7 @@ impl OmaConfig {
                 search_contents_println,
                 search_engine,
                 yn_mode,
+                amo,
                 ..
             } = general;
 
@@ -113,6 +116,7 @@ impl OmaConfig {
             oma_config.search_contents_println = search_contents_println;
             oma_config.search_engine = search_engine;
             oma_config.yn_mode = yn_mode;
+            oma_config.amo = amo;
         }
 
         if let Some(network) = network {
@@ -140,6 +144,7 @@ impl OmaConfig {
             no_bell,
             download_threads,
             user_agent,
+            no_amo,
             ..
         } = global;
 
@@ -152,6 +157,7 @@ impl OmaConfig {
         self.no_bell |= no_bell;
         self.follow_terminal_color |= follow_terminal_color;
         self.no_check_dbus |= no_check_dbus;
+        self.amo |= !no_amo;
 
         if let Some(download_threads) = download_threads {
             self.download_threads = download_threads;

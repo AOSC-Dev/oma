@@ -159,6 +159,9 @@ pub struct GlobalOptions {
     /// User agent string to use for HTTP requests.
     #[arg(long, global = true, env = "OMA_USER_AGENT", help = fl!("clap-user-agent-help"))]
     user_agent: Option<String>,
+    /// Use amo to speed up oma
+    #[arg(long, global = true, env = "OMA_USE_AMO")]
+    no_amo: bool,
 }
 
 fn main() {

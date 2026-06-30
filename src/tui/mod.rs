@@ -4,14 +4,19 @@ use clap::Args;
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs, Upgrade},
-    search::IndiciumSearch,
+    search::{IndiciumSearch, OmaSearch, SearchResult},
 };
 use render::{Task, Tui as TuiInner};
-use spdlog::info;
+use spdlog::{debug, info};
+use zbus::Connection;
 
 use crate::{
-    args::CliExecuter, config::OmaConfig, exit_handle::ExitHandle,
-    subcommand::utils::create_progress_spinner, tui::render::PackageStatus,
+    RT,
+    args::CliExecuter,
+    config::OmaConfig,
+    exit_handle::ExitHandle,
+    subcommand::{search::AmoProxy, utils::create_progress_spinner},
+    tui::render::PackageStatus,
 };
 use crate::{
     core::{commit_changes::CommitChanges, refresh::Refresh},
@@ -53,6 +58,47 @@ pub struct Tui {
     /// Do not clean local package cache
     #[arg(long, help = fl!("clap-noclean-help"), env = "OMA_NO_CLEAN", value_parser = clap::builder::FalseyValueParser::new())]
     no_clean: bool,
+}
+
+pub(crate) enum Searcher {
+    Local(Box<IndiciumSearch>),
+    Amo {
+        _connection: Connection,
+        proxy: AmoProxy<'static>,
+    },
+}
+
+impl Searcher {
+    async fn connect_amo() -> anyhow::Result<Searcher> {
+        let connection = Connection::system().await?;
+
+        let peer_proxy = zbus::fdo::PeerProxy::builder(&connection)
+            .destination("io.aosc.Amo")?
+            .path("/io/aosc/Amo")?
+            .build()
+            .await?;
+
+        peer_proxy
+            .ping()
+            .await
+            .inspect_err(|e| debug!("Failed to connect amo: {e}"))?;
+
+        let proxy = AmoProxy::new(&connection).await?;
+
+        Ok(Searcher::Amo {
+            _connection: connection,
+            proxy,
+        })
+    }
+
+    pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResult>> {
+        match self {
+            Searcher::Local(indicium_search) => Ok(indicium_search.search(query)?),
+            Searcher::Amo { proxy, .. } => Ok(serde_json::from_str(
+                &RT.block_on(proxy.search(query.to_string()))?,
+            )?),
+        }
+    }
 }
 
 impl CliExecuter for Tui {
@@ -98,12 +144,14 @@ impl CliExecuter for Tui {
         let autoremove = apt.count_pending_autoremovable_pkgs();
         let installed = apt.count_installed_packages();
 
-        let searcher = IndiciumSearch::new(&apt.cache, |n| {
-            if let Some(ref pb) = pb {
-                pb.inner
-                    .set_message(fl!("reading-database-with-count", count = n));
+        let searcher = if config.amo && !config.no_check_dbus {
+            match RT.block_on(Searcher::connect_amo()) {
+                Ok(searcher) => searcher,
+                Err(_) => local_searcher(&apt, &pb)?,
             }
-        })?;
+        } else {
+            local_searcher(&apt, &pb)?
+        };
 
         if let Some(pb) = pb {
             pb.inner.finish_and_clear();
@@ -171,4 +219,17 @@ impl CliExecuter for Tui {
 
         Ok(exit)
     }
+}
+
+fn local_searcher(
+    apt: &OmaApt,
+    pb: &Option<crate::pb::OmaProgressBar>,
+) -> Result<Searcher, OutputError> {
+    let searcher = IndiciumSearch::new(&apt.cache, |n| {
+        if let Some(ref pb) = *pb {
+            pb.inner
+                .set_message(fl!("reading-database-with-count", count = n));
+        }
+    })?;
+    Ok(Searcher::Local(searcher.into()))
 }

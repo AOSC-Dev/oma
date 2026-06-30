@@ -9,9 +9,12 @@ use oma_pm::{
     matches::SearchEngine,
     search::{IndiciumSearch, OmaSearch, SearchResult, StrSimSearch, TextSearch},
 };
+use oma_utils::zbus::proxy;
+use spdlog::debug;
+use zbus::Connection;
 
 use crate::{
-    WRITER, color_formatter, completions::pkgnames_completions, config::OmaConfig,
+    RT, WRITER, color_formatter, completions::pkgnames_completions, config::OmaConfig,
     config_file::SearchEngine as ConfigSearchEngine, exit_handle::ExitHandle, fl,
 };
 use crate::{error::OutputError, table::oma_display_with_normal_output};
@@ -19,6 +22,15 @@ use crate::{error::OutputError, table::oma_display_with_normal_output};
 use crate::args::CliExecuter;
 
 use super::utils::create_progress_spinner;
+
+#[proxy(
+    interface = "io.aosc.Amo1",
+    default_service = "io.aosc.Amo",
+    default_path = "/io/aosc/Amo"
+)]
+pub trait Amo {
+    async fn search(&self, query: String) -> zbus::Result<String>;
+}
 
 #[derive(Debug, Args)]
 pub struct Search {
@@ -142,6 +154,7 @@ impl CliExecuter for Search {
                 ConfigSearchEngine::StrSim => SearchEngine::Strsim,
                 ConfigSearchEngine::Text => SearchEngine::Text,
             },
+            &config,
         )?;
 
         if let Some(pb) = pb {
@@ -189,11 +202,20 @@ pub fn search(
     apt: &OmaApt,
     keywords: &[String],
     engine: SearchEngine,
+    config: &OmaConfig,
 ) -> Result<Vec<SearchResult>, OutputError> {
     match engine {
         SearchEngine::Indicium(f) => {
-            let searcher = IndiciumSearch::new(&apt.cache, f)?;
-            Ok(searcher.search(&keywords.join(" "))?)
+            let query = keywords.join(" ");
+
+            if config.amo && !config.no_check_dbus {
+                match RT.block_on(amo_search(query.clone())) {
+                    Ok(r) => Ok(r),
+                    Err(_) => local_indicium_search(apt, f, query),
+                }
+            } else {
+                local_indicium_search(apt, f, query)
+            }
         }
         SearchEngine::Strsim => {
             let searcher = StrSimSearch::new(&apt.cache);
@@ -215,4 +237,34 @@ pub fn search(
             Ok(result)
         }
     }
+}
+
+fn local_indicium_search(
+    apt: &OmaApt,
+    f: Box<dyn Fn(usize) + 'static>,
+    query: String,
+) -> Result<Vec<SearchResult>, OutputError> {
+    let searcher = IndiciumSearch::new(&apt.cache, f)?;
+    Ok(searcher.search(&query)?)
+}
+
+async fn amo_search(query: String) -> anyhow::Result<Vec<SearchResult>> {
+    let connection = Connection::system().await?;
+
+    let peer_proxy = zbus::fdo::PeerProxy::builder(&connection)
+        .destination("io.aosc.Amo")?
+        .path("/io/aosc/Amo")?
+        .build()
+        .await?;
+
+    peer_proxy
+        .ping()
+        .await
+        .inspect_err(|e| debug!("Failed to connect amo: {e}"))?;
+
+    let proxy = AmoProxy::new(&connection).await?;
+    let result = proxy.search(query).await?;
+    let result: Vec<SearchResult> = serde_json::from_str(&result)?;
+
+    Ok(result)
 }
