@@ -29,7 +29,7 @@ use super::utils::create_progress_spinner;
     default_path = "/io/aosc/Amo"
 )]
 pub trait Amo {
-    async fn search(&self, query: String) -> zbus::Result<String>;
+    async fn search(&self, query: &str) -> zbus::Result<String>;
 }
 
 #[derive(Debug, Args)]
@@ -209,7 +209,7 @@ pub fn search(
             let query = keywords.join(" ");
 
             if config.amo && !config.no_check_dbus {
-                match RT.block_on(amo_search(query.clone())) {
+                match RT.block_on(amo_search(&query)) {
                     Ok(r) => Ok(r),
                     Err(_) => local_indicium_search(apt, f, query),
                 }
@@ -248,7 +248,7 @@ fn local_indicium_search(
     Ok(searcher.search(&query)?)
 }
 
-async fn amo_search(query: String) -> anyhow::Result<Vec<SearchResult>> {
+async fn amo_search(query: &str) -> anyhow::Result<Vec<SearchResult>> {
     let connection = Connection::system().await?;
 
     let peer_proxy = zbus::fdo::PeerProxy::builder(&connection)
