@@ -72,6 +72,8 @@ impl<'a> DoInstall<'a> {
             self.do_install(install_progress_manager, op)?;
         }
 
+        apt_unlock();
+
         Ok(())
     }
 
