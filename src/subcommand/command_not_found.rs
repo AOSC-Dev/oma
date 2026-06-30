@@ -2,25 +2,36 @@ use std::error::Error;
 use std::io::stderr;
 
 use ahash::AHashMap;
+use anyhow::Context;
 use clap::Args;
 use oma_console::print::Action;
 use oma_contents::OmaContentsError;
 use oma_contents::searcher::{Mode, search};
 use oma_pm::apt::{OmaApt, OmaAptArgs};
-use spdlog::error;
+use spdlog::{debug, error};
+use zbus::{Connection, proxy};
 
 use crate::config::OmaConfig;
 use crate::error::OutputError;
 use crate::exit_handle::{ExitHandle, ExitStatus};
 use crate::table::PagerPrinter;
 use crate::utils::get_lists_dir;
-use crate::{color_formatter, due_to, fl};
+use crate::{RT, color_formatter, due_to, fl};
 
 use crate::args::CliExecuter;
 
 const FILTER_JARO_NUM: u8 = 204;
 
 type IndexSet<T> = indexmap::IndexSet<T, ahash::RandomState>;
+
+#[proxy(
+    interface = "io.aosc.Amo1",
+    default_service = "io.aosc.Amo",
+    default_path = "/io/aosc/Amo"
+)]
+pub trait Amo {
+    async fn get_description(&self, query: &str) -> zbus::Result<String>;
+}
 
 #[derive(Debug, Args)]
 pub struct CommandNotFound {
@@ -30,7 +41,7 @@ pub struct CommandNotFound {
 }
 
 impl CliExecuter for CommandNotFound {
-    fn execute(self, _config: OmaConfig) -> Result<ExitHandle, OutputError> {
+    fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let CommandNotFound { keyword } = self;
 
         let mut res = IndexSet::with_hasher(ahash::RandomState::new());
@@ -68,6 +79,13 @@ impl CliExecuter for CommandNotFound {
                 let mut too_many = false;
 
                 let mut map: AHashMap<String, String> = AHashMap::new();
+                let handle = RT.handle();
+
+                let amo = if config.amo && !config.no_check_dbus {
+                    handle.block_on(amo_connect()).ok()
+                } else {
+                    None
+                };
 
                 for (pkg, file, jaro) in jaro {
                     if res.len() == 10 {
@@ -79,7 +97,14 @@ impl CliExecuter for CommandNotFound {
                         break;
                     }
 
-                    let desc = if let Some(desc) = map.get(&pkg) {
+                    let desc = if let Some(ref amo) = amo {
+                        let desc = handle
+                            .block_on(amo.get_description(&pkg))
+                            .context("Failed to get description on amo server")?;
+                        map.insert(pkg.to_string(), desc.to_string());
+
+                        desc
+                    } else if let Some(desc) = map.get(&pkg) {
                         desc.to_string()
                     } else if let Some(pkg) = apt.cache.get(&pkg) {
                         let desc = pkg
@@ -169,4 +194,23 @@ fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, Str
     output.sort_unstable_by_key(|b| std::cmp::Reverse(b.2));
 
     output
+}
+
+async fn amo_connect() -> anyhow::Result<AmoProxy<'static>> {
+    let conn = Connection::system().await?;
+
+    let peer_proxy = zbus::fdo::PeerProxy::builder(&conn)
+        .destination("io.aosc.Amo")?
+        .path("/io/aosc/Amo")?
+        .build()
+        .await?;
+
+    peer_proxy
+        .ping()
+        .await
+        .inspect_err(|e| debug!("Failed to connect amo: {e}"))?;
+
+    let amo = AmoProxy::new(&conn).await?;
+
+    Ok(amo)
 }

@@ -157,7 +157,7 @@ impl OmaConfig {
         self.no_bell |= no_bell;
         self.follow_terminal_color |= follow_terminal_color;
         self.no_check_dbus |= no_check_dbus;
-        self.amo |= !no_amo;
+        self.amo &= !no_amo;
 
         if let Some(download_threads) = download_threads {
             self.download_threads = download_threads;
