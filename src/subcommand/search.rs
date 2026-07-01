@@ -7,7 +7,7 @@ use oma_pm::{
     PackageStatus,
     apt::{OmaApt, OmaAptArgs},
     matches::SearchEngine,
-    search::{IndiciumSearch, OmaSearch, SearchResult, StrSimSearch, TextSearch},
+    search::{IndiciumSearch, OmaSearch, SearchResult, SearchType, StrSimSearch, TextSearch},
 };
 use oma_utils::zbus::proxy;
 use spdlog::debug;
@@ -244,7 +244,7 @@ fn local_indicium_search(
     f: Box<dyn Fn(usize) + 'static>,
     query: String,
 ) -> Result<Vec<SearchResult>, OutputError> {
-    let searcher = IndiciumSearch::new(&apt.cache, f)?;
+    let searcher = IndiciumSearch::new(&apt.cache, SearchType::Live, f)?;
     Ok(searcher.search(&query)?)
 }
 
