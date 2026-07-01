@@ -256,6 +256,7 @@ impl OmaMultiProgressBar {
                 let pb = self
                     .mb
                     .insert(index + 1, ProgressBar::new(size).with_style(sty));
+                pb.enable_steady_tick(Duration::from_millis(10));
                 let total_width = total_width(total);
                 pb.set_message(format!("({:>total_width$}/{total}) {msg}", index + 1));
                 self.pb_map.insert(index + 1, pb);
@@ -290,6 +291,7 @@ impl OmaMultiProgressBar {
                 let pb = self
                     .mb
                     .insert(0, ProgressBar::new(total_size).with_style(sty));
+                pb.enable_steady_tick(Duration::from_millis(10));
                 self.pb_map.insert(0, pb);
             }
             Event::Failed { file_name, error } => {
