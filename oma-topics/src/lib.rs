@@ -181,11 +181,11 @@ impl TopicManager {
     }
 
     pub fn refresh(&mut self) -> Result<()> {
-        let mirrors: Vec<String> = self
+        let mirrors: Vec<_> = self
             .mm
             .enabled_mirrors()
             .iter()
-            .map(|(_, url)| url.to_string())
+            .map(|(_, url)| url.to_owned())
             .collect();
 
         let client = self.client.clone();
