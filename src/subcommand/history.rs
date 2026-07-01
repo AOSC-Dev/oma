@@ -245,7 +245,7 @@ impl CliExecuter for Undo {
                 config.dry_run,
             )?;
 
-            tm.refresh()?;
+            tm.refresh_blocking()?;
 
             for i in opt_in {
                 if let Err(e) = tm.remove(&i) {

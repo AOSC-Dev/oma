@@ -31,7 +31,7 @@ fn main() -> Result<()> {
         .map(|x| x.name.to_string())
         .collect::<Vec<_>>();
 
-    tm.refresh()?;
+    tm.refresh_blocking()?;
 
     let all_names = tm
         .available_topics()

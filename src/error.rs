@@ -576,10 +576,15 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             ),
             source: None,
         },
-        OmaTopicsError::FailedToCreateTokioRuntime(error) =>  OutputError {
+        OmaTopicsError::FailedToCreateTokioRuntime(error) => OutputError {
             description: error.to_string(),
             source: None,
-        }
+        },
+        OmaTopicsError::NotSupportCurrentThread => unreachable!(),
+        OmaTopicsError::CreateTokioRuntime(error) => OutputError {
+            description: "Failed to create tokio runtime".to_string(),
+            source: Some(Box::new(error)),
+        },
     }
 }
 

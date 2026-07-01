@@ -46,6 +46,12 @@ pub enum OmaTopicsError {
     MirrorError(#[from] oma_mirror::MirrorError),
     #[error("Topic entry contains illegal character(s): {0:?}")]
     IllegalTopicEntry(String),
+    #[error(
+        "Cannot use refresh_blocking within a current_thread tokio runtime. Please use .refresh().await instead."
+    )]
+    NotSupportCurrentThread,
+    #[error("Failed to create tokio runtime")]
+    CreateTokioRuntime(#[source] std::io::Error),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -172,22 +178,33 @@ impl<'a> TopicManager<'a> {
         &self.enabled
     }
 
-    pub fn refresh(&mut self) -> Result<()> {
+    pub async fn refresh(&mut self) -> Result<()> {
+        self.all = fetch_all_task(&self.mm, self.client.clone(), self.arch).await?;
+
+        Ok(())
+    }
+
+    pub fn refresh_blocking(&mut self) -> Result<()> {
         let mm = Arc::from(&self.mm);
         let client = self.client.clone();
         let arch = self.arch;
-        let future = fetch_all_task(&mm, &client, arch);
 
-        self.all = if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            tokio::task::block_in_place(|| handle.block_on(future))?
+        let future = fetch_all_task(&mm, client, arch);
+
+        let all_topics = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::CurrentThread {
+                return Err(OmaTopicsError::NotSupportCurrentThread);
+            }
+            tokio::task::block_in_place(move || handle.block_on(future))?
         } else {
             tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()
-                .map_err(OmaTopicsError::FailedToCreateTokioRuntime)?
-                .handle()
+                .map_err(OmaTopicsError::CreateTokioRuntime)?
                 .block_on(future)?
         };
+
+        self.all = all_topics;
 
         Ok(())
     }
@@ -468,13 +485,13 @@ async fn refresh_inner<'a>(
 
 async fn fetch_all_task(
     mm: &MirrorManager,
-    client: &ClientWithMiddleware,
+    client: ClientWithMiddleware,
     arch: &str,
 ) -> Result<HashMap<Box<str>, Vec<Topic>>> {
     let enabled_mirrors = mm.enabled_mirrors();
     let tasks = enabled_mirrors
         .iter()
-        .map(|x| refresh_inner(client, x.1, arch));
+        .map(|x| refresh_inner(&client, x.1, arch));
     let res = try_join_all(tasks).await?;
 
     Ok(res

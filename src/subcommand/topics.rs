@@ -506,7 +506,7 @@ fn select_prompt(
 fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
     let pb = create_progress_spinner(no_progress, fl!("refreshing-topic-metadata"));
 
-    tm.refresh()?;
+    tm.refresh_blocking()?;
     tm.remove_closed_topics()?;
     tm.write_enabled(false)?;
 
