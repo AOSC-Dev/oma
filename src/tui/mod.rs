@@ -4,7 +4,7 @@ use clap::Args;
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs, Upgrade},
-    search::{IndiciumSearch, OmaSearch, SearchResult},
+    search::{IndiciumSearch, OmaSearch, SearchResult, SearchType},
 };
 use render::{Task, Tui as TuiInner};
 use spdlog::{debug, info};
@@ -225,7 +225,7 @@ fn local_searcher(
     apt: &OmaApt,
     pb: &Option<crate::pb::OmaProgressBar>,
 ) -> Result<Searcher, OutputError> {
-    let searcher = IndiciumSearch::new(&apt.cache, |n| {
+    let searcher = IndiciumSearch::new(&apt.cache, SearchType::Live, |n| {
         if let Some(ref pb) = *pb {
             pb.inner
                 .set_message(fl!("reading-database-with-count", count = n));

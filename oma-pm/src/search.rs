@@ -4,7 +4,8 @@
 //! - TextSearch: Text match search based on `memmem`
 use ahash::{AHashMap, RandomState};
 use glob_match::glob_match;
-use indicium::simple::{Indexable, SearchIndex};
+pub use indicium::simple::SearchType;
+use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
 use memchr::memmem;
 use oma_apt::{
     Package,
@@ -174,7 +175,11 @@ impl OmaSearch for IndiciumSearch {
 }
 
 impl IndiciumSearch {
-    pub fn new(cache: &Cache, progress: impl Fn(usize)) -> OmaSearchResult<Self> {
+    pub fn new(
+        cache: &Cache,
+        search_type: SearchType,
+        progress: impl Fn(usize),
+    ) -> OmaSearchResult<Self> {
         let sort = PackageSort::default().include_virtual();
         let packages = cache.packages(&sort);
 
@@ -282,7 +287,10 @@ impl IndiciumSearch {
             }
         }
 
-        let mut search_index: SearchIndex<String> = SearchIndex::default();
+        let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
+            .search_type(search_type)
+            .exclude_keywords(None)
+            .build();
         pkg_map.iter().for_each(|(key, value)| {
             search_index.insert(key, value);
         });
@@ -547,7 +555,7 @@ fn test() {
         .join("Packages");
     let cache = new_cache!(&[packages.to_string_lossy().to_string()]).unwrap();
 
-    let searcher = IndiciumSearch::new(&cache, |_| {}).unwrap();
+    let searcher = IndiciumSearch::new(&cache, SearchType::Live, |_| {}).unwrap();
     let res = searcher.search("windows-nt-kernel").unwrap();
     let res2 = searcher.search("pwp").unwrap();
 
