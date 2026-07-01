@@ -218,8 +218,8 @@ impl CommitChanges<'_> {
                 download_only,
             },
             download_message(),
-            async |event| {
-                if let Err(e) = tx.send_async(event).await {
+            move |event| {
+                if let Err(e) = tx.send(event) {
                     debug!("Send progress channel got error: {}; maybe check archive work still in progress", e);
                 }
             },

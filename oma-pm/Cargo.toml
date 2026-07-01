@@ -39,6 +39,8 @@ once_cell = { workspace = true }
 sysinfo = { workspace = true, optional = true }
 deb822-lossless = { workspace = true }
 reqwest-middleware = { workspace = true }
+flume = { workspace = true }
+anyhow = { workspace = true }
 
 [dev-dependencies]
 flume = { workspace = true }

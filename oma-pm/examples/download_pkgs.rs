@@ -40,11 +40,11 @@ fn main() -> Result<(), OmaAptError> {
         pkgs.0,
         DownloadConfig {
             network_thread: None,
-            download_dir: Some(Path::new("test")),
+            download_dir: Some(Path::new("test").into()),
         },
         None,
-        |event| async {
-            if let Err(e) = tx.send_async(event).await {
+        move |event| {
+            if let Err(e) = tx.send(event) {
                 eprintln!("{e:#?}");
             }
         },

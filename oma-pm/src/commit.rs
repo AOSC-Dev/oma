@@ -1,4 +1,10 @@
-use std::{borrow::Cow, fs::create_dir_all, os::fd::OwnedFd, path::Path, sync::OnceLock};
+use std::{
+    borrow::Cow,
+    fs::create_dir_all,
+    os::fd::OwnedFd,
+    path::Path,
+    sync::{Arc, OnceLock},
+};
 
 use chrono::Local;
 use oma_apt::{
@@ -18,6 +24,7 @@ use crate::{
     dbus::change_status,
     download::download_pkgs,
     progress::{InstallProgressArgs, OmaAptInstallProgress},
+    utils::run_task_with_pump,
 };
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
@@ -35,7 +42,8 @@ pub struct DoInstall<'a> {
     archive_lock: OnceLock<OwnedFd>,
 }
 
-pub type CustomDownloadMessage = Box<dyn Fn(&InstallEntry) -> Cow<'static, str>>;
+pub type CustomDownloadMessage =
+    Box<dyn Fn(&InstallEntry) -> Cow<'static, str> + Send + Sync + 'static>;
 
 impl<'a> DoInstall<'a> {
     pub fn new(
@@ -53,13 +61,16 @@ impl<'a> DoInstall<'a> {
         })
     }
 
-    pub fn commit(
+    pub fn commit<F>(
         self,
         op: &OmaOperation,
         install_progress_manager: InstallProgressOpt,
         custom_download_message: CustomDownloadMessage,
-        callback: impl AsyncFn(Event),
-    ) -> OmaAptResult<()> {
+        callback: F,
+    ) -> OmaAptResult<()>
+    where
+        F: FnMut(Event) + 'static,
+    {
         self.apt.ensure_apt_frontend_locked()?;
 
         let summary = self.download_pkgs(&op.install, custom_download_message, callback)?;
@@ -77,12 +88,15 @@ impl<'a> DoInstall<'a> {
         Ok(())
     }
 
-    fn download_pkgs(
+    fn download_pkgs<F>(
         &self,
         download_pkg_list: &[InstallEntry],
         custom_download_message: CustomDownloadMessage,
-        callback: impl AsyncFn(Event),
-    ) -> OmaAptResult<Summary> {
+        mut callback: F,
+    ) -> OmaAptResult<Summary>
+    where
+        F: FnMut(Event) + 'static,
+    {
         let path = self.apt.get_archive_dir();
 
         create_dir_all(path)
@@ -91,23 +105,28 @@ impl<'a> DoInstall<'a> {
         let fd = get_file_lock(&path.join("lock")).map_err(OmaAptError::FailedGetArchiveDirLock)?;
         self.archive_lock.get_or_init(|| fd);
 
-        self.apt.get_or_init_async_runtime()?.block_on(async {
-            if let Some(conn) = self.apt.conn.get() {
-                change_status(conn, "Downloading").await.ok();
+        let (tx, rx) = flume::unbounded();
+        let handle = self.apt.get_or_init_async_runtime()?;
+        let download_pkg_list = Arc::from(download_pkg_list);
+        let conn = self.apt.conn.get().map(|c| c.to_owned());
+        let config = DownloadConfig {
+            network_thread: self.config.network_thread,
+            download_dir: Some(Arc::from(path)),
+        };
+        let client_ptr = self.client.clone();
+
+        run_task_with_pump(handle, Some(&mut callback), Some(rx), async move {
+            if let Some(conn) = conn {
+                change_status(&conn, "Downloading").await.ok();
             }
 
-            let config = DownloadConfig {
-                network_thread: self.config.network_thread,
-                download_dir: Some(path),
-            };
-
             download_pkgs(
-                self.client,
+                client_ptr,
                 download_pkg_list,
                 config,
                 false,
                 custom_download_message,
-                callback,
+                tx,
             )
             .await
         })

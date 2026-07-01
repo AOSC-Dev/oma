@@ -137,8 +137,8 @@ fn main() -> Result<(), OmaAptError> {
             download_only: false,
         },
         None,
-        async |event| {
-            if let Err(e) = tx.send_async(event).await {
+        move |event| {
+            if let Err(e) = tx.send(event) {
                 eprintln!("{e:#?}");
             }
         },

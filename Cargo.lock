@@ -3376,6 +3376,7 @@ name = "oma-pm"
 version = "0.63.1"
 dependencies = [
  "ahash",
+ "anyhow",
  "bon",
  "chrono",
  "cxx",
