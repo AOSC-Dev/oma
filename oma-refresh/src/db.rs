@@ -450,9 +450,8 @@ impl OmaRefresh {
             return Ok(());
         }
 
-        let mut tm =
-            TopicManager::new(self.client.clone(), &self.source, &self.arch, false).await?;
-        tm.refresh().await?;
+        let mut tm = TopicManager::new(self.client.clone(), &self.source, &self.arch, false)?;
+        tm.refresh()?;
         let removed_suites = tm.remove_closed_topics()?;
 
         debug!("Removed suites: {:?}", removed_suites);
@@ -475,15 +474,12 @@ impl OmaRefresh {
             let _ = tx.send_async(Event::ClosingTopic(suite)).await;
         }
 
-        tm.write_enabled(false).await?;
+        tm.write_enabled(false)?;
 
         let txc = tx.clone();
-        tm.write_sources_list(&self.topic_msg, false, async move |topic, mirror| {
-            let _ = txc
-                .send_async(Event::TopicNotInMirror { topic, mirror })
-                .await;
-        })
-        .await?;
+        tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
+            let _ = txc.send(Event::TopicNotInMirror { topic, mirror });
+        })?;
 
         let _ = tx
             .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)))

@@ -34,10 +34,6 @@ reqwest-middleware = { workspace = true }
 [dev-dependencies]
 oma-inquire = { workspace = true }
 oma-console = { workspace = true }
-tokio = { workspace = true, default-features = false, features = [
-    "macros",
-    "rt-multi-thread",
-] }
 
 [features]
 rustls = ["reqwest/rustls-no-provider", "dep:rustls"]

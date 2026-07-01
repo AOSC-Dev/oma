@@ -576,6 +576,10 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             ),
             source: None,
         },
+        OmaTopicsError::FailedToCreateTokioRuntime(error) =>  OutputError {
+            description: error.to_string(),
+            source: None,
+        }
     }
 }
 

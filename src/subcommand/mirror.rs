@@ -48,7 +48,6 @@ use std::io::Write;
 use tabled::Tabled;
 
 use crate::NOT_ALLOW_CTRLC;
-use crate::RT;
 use crate::args::HELP_TEMPLATE;
 use crate::config::OmaConfig;
 use crate::core::refresh::Refresh;
@@ -786,20 +785,20 @@ fn refresh_enabled_topics_sources_list(
 
     let try_refresh = Ok(()).and_then(|_| -> Result<(), OutputError> {
         let arch = dpkg_arch("/")?;
-        let mut tm = TopicManager::new_blocking(client.clone(), "/", &arch, false)?;
-        RT.block_on(tm.refresh())?;
+        let mut tm = TopicManager::new(client.clone(), "/", &arch, false)?;
+        tm.refresh()?;
         tm.remove_closed_topics()?;
-        RT.block_on(tm.write_sources_list(
+        tm.write_sources_list(
             &fl!("do-not-edit-topic-sources-list"),
             false,
-            async |topic, mirror| {
+            |topic, mirror| {
                 warn!(
                     "{}",
                     fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
                 );
                 warn!("{}", fl!("skip-write-mirror"));
             },
-        ))?;
+        )?;
         Ok(())
     });
 

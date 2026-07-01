@@ -234,19 +234,18 @@ impl CliExecuter for Undo {
 
         #[cfg(feature = "aosc")]
         if exit.get_status() == ExitStatus::Success && (!opt_in.is_empty() || !opt_out.is_empty()) {
-            use crate::RT;
             use crate::fl;
             use spdlog::warn;
 
             let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
-            let mut tm = oma_topics::TopicManager::new_blocking(
+            let mut tm = oma_topics::TopicManager::new(
                 config.http_client()?.clone(),
                 &config.sysroot,
                 &arch,
                 config.dry_run,
             )?;
 
-            RT.block_on(tm.refresh())?;
+            tm.refresh()?;
 
             for i in opt_in {
                 if let Err(e) = tm.remove(&i) {
@@ -260,18 +259,18 @@ impl CliExecuter for Undo {
                 }
             }
 
-            RT.block_on(tm.write_enabled(false))?;
-            RT.block_on(tm.write_sources_list(
+            tm.write_enabled(false)?;
+            tm.write_sources_list(
                 &fl!("do-not-edit-topic-sources-list"),
                 false,
-                async |topic, mirror| {
+                |topic, mirror| {
                     warn!(
                         "{}",
                         fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
                     );
                     warn!("{}", fl!("skip-write-mirror"));
                 },
-            ))?;
+            )?;
         }
 
         Ok(exit)

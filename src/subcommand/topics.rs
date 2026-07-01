@@ -155,7 +155,7 @@ impl CliExecuter for Topics {
         let _fds = dbus_check(false, &config)?;
 
         let dpkg_arch = dpkg_arch(&config.sysroot)?;
-        let mut tm = TopicManager::new_blocking(
+        let mut tm = TopicManager::new(
             config.http_client()?.clone(),
             &config.sysroot,
             &dpkg_arch,
@@ -177,18 +177,18 @@ impl CliExecuter for Topics {
         debug!("downgrade_pkgs = {downgrade_pkgs:?}");
 
         if !opt_in.is_empty() || !opt_out.is_empty() {
-            RT.block_on(tm.write_sources_list(
+            tm.write_sources_list(
                 &fl!("do-not-edit-topic-sources-list"),
                 false,
-                async |topic, mirror| {
+                |topic, mirror| {
                     warn!(
                         "{}",
                         fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
                     );
                     warn!("{}", fl!("skip-write-mirror"));
                 },
-            ))?;
-            RT.block_on(tm.write_enabled(false))?;
+            )?;
+            tm.write_enabled(false)?;
         }
 
         let code = Ok(()).and_then(|_| -> Result<ExitHandle, OutputError> {
@@ -344,7 +344,7 @@ impl CliExecuter for Topics {
                     NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
-                    RT.block_on(tm.write_enabled(true))?;
+                    tm.write_enabled(true)?;
                     refresh(&config)?;
                 }
             }
@@ -352,7 +352,7 @@ impl CliExecuter for Topics {
                 if !always_write_status && !download_only {
                     error!("{}", fl!("topics-unchanged"));
                     revert_sources_list(&tm)?;
-                    RT.block_on(tm.write_enabled(true))?;
+                    tm.write_enabled(true)?;
                 }
                 return Err(e);
             }
@@ -367,17 +367,17 @@ fn refresh(config: &OmaConfig) -> Result<(), OutputError> {
 }
 
 fn revert_sources_list(tm: &TopicManager<'_>) -> Result<(), OutputError> {
-    RT.block_on(tm.write_sources_list(
+    tm.write_sources_list(
         &fl!("do-not-edit-topic-sources-list"),
         true,
-        async |topic, mirror| {
+        |topic, mirror| {
             warn!(
                 "{}",
                 fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
             );
             warn!("{}", fl!("skip-write-mirror"));
         },
-    ))?;
+    )?;
     Ok(())
 }
 
@@ -388,7 +388,7 @@ async fn topics_inner(
     tm: &mut TopicManager<'_>,
     all: bool,
 ) -> Result<TopicChanged, OutputError> {
-    refresh_topics(no_progress, tm).await?;
+    refresh_topics(no_progress, tm)?;
 
     let all_topics = tm
         .available_topics()
@@ -503,12 +503,12 @@ fn select_prompt(
     Ok((opt_in, opt_out))
 }
 
-async fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
+fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
     let pb = create_progress_spinner(no_progress, fl!("refreshing-topic-metadata"));
 
-    tm.refresh().await?;
+    tm.refresh()?;
     tm.remove_closed_topics()?;
-    tm.write_enabled(false).await?;
+    tm.write_enabled(false)?;
 
     if let Some(pb) = pb {
         pb.inner.finish_and_clear();
