@@ -87,7 +87,7 @@ pub struct TopicManager {
     enabled: Vec<Topic>,
     all: HashMap<Box<str>, Vec<Topic>>,
     client: ClientWithMiddleware,
-    arch: Cow<'static, str>,
+    arch: Arc<str>,
     atm_state_path: PathBuf,
     atm_source_list_path: PathBuf,
     atm_source_list_path_new: PathBuf,
@@ -105,7 +105,7 @@ impl TopicManager {
     pub fn new(
         client: ClientWithMiddleware,
         sysroot: impl AsRef<Path>,
-        arch: impl Into<Cow<'static, str>>,
+        arch: impl Into<Arc<str>>,
         dry_run: bool,
     ) -> Result<Self> {
         let atm_state_path = sysroot.as_ref().join(Self::ATM_STATE_PATH_SUFFIX);
@@ -311,7 +311,6 @@ impl TopicManager {
         Ok(())
     }
 
-    /// 💡 纯同步方法：剥离了繁重的生成逻辑，支持最舒适的普通同步闭包作为回调
     pub fn render_sources_list(
         &self,
         source_list_comment: &str,

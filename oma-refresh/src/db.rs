@@ -238,21 +238,13 @@ impl OmaRefresh {
         };
 
         let mirror_sources = MirrorSources::from_sourcelist(&sourcelist, &replacer)?;
-        let (mut mirror_sources, not_found) = run_task_with_pump(
-            &async_rt_handle,
-            &rx,
-            &mut callback,
-            async move {
+        let (mut mirror_sources, not_found) =
+            run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
                 sc.download_releases(mirror_sources, &replacer_clone, tx)
                     .await
-            },
-        )?;
+            })?;
 
-        self_arc.refresh_topics(
-            not_found,
-            &mut mirror_sources,
-            &mut callback,
-        )?;
+        self_arc.refresh_topics(not_found, &mut mirror_sources, &mut callback)?;
 
         download_list.extend(
             mirror_sources
@@ -278,15 +270,10 @@ impl OmaRefresh {
 
         let sc2 = self_arc.clone();
         let (tx, rx) = flume::unbounded::<Event>();
-        let res = run_task_with_pump(
-            &async_rt_handle,
-            &rx,
-            &mut callback,
-            async move {
-                sc2.download_release_data(tx, tasks, total, optional_index_files)
-                    .await
-            },
-        )?;
+        let res = run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
+            sc2.download_release_data(tx, tasks, total, optional_index_files)
+                .await
+        })?;
 
         // 有元数据更新才执行 success invoke
         let should_run_invoke = res.has_wrote();
