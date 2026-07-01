@@ -3458,6 +3458,7 @@ name = "oma-topics"
 version = "0.27.0"
 dependencies = [
  "ahash",
+ "flume",
  "futures",
  "oma-console",
  "oma-inquire",

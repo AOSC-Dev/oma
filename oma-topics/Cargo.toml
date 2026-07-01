@@ -30,6 +30,7 @@ url = { workspace = true }
 oma-mirror = { workspace = true }
 ahash = { workspace = true }
 reqwest-middleware = { workspace = true }
+flume = { workspace = true }
 
 [dev-dependencies]
 oma-inquire = { workspace = true }

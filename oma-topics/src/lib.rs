@@ -52,6 +52,8 @@ pub enum OmaTopicsError {
     NotSupportCurrentThread,
     #[error("Failed to create tokio runtime")]
     CreateTokioRuntime(#[source] std::io::Error),
+    #[error("recv async event error")]
+    RecvError,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -81,11 +83,11 @@ impl Hash for Topic {
     }
 }
 
-pub struct TopicManager<'a> {
+pub struct TopicManager {
     enabled: Vec<Topic>,
     all: HashMap<Box<str>, Vec<Topic>>,
     client: ClientWithMiddleware,
-    arch: &'a str,
+    arch: Cow<'static, str>,
     atm_state_path: PathBuf,
     atm_source_list_path: PathBuf,
     atm_source_list_path_new: PathBuf,
@@ -95,15 +97,15 @@ pub struct TopicManager<'a> {
     template: PathBuf,
 }
 
-impl<'a> TopicManager<'a> {
-    const ATM_STATE_PATH_SUFFIX: &'a str = "var/lib/atm/state";
-    const ATM_SOURCE_LIST_PATH_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.list";
-    const ATM_SOURCE_LIST_PATH_NEW_SUFFIX: &'a str = "etc/apt/sources.list.d/atm.sources";
+impl TopicManager {
+    const ATM_STATE_PATH_SUFFIX: &str = "var/lib/atm/state";
+    const ATM_SOURCE_LIST_PATH_SUFFIX: &str = "etc/apt/sources.list.d/atm.list";
+    const ATM_SOURCE_LIST_PATH_NEW_SUFFIX: &str = "etc/apt/sources.list.d/atm.sources";
 
     pub fn new(
         client: ClientWithMiddleware,
         sysroot: impl AsRef<Path>,
-        arch: &'a str,
+        arch: impl Into<Cow<'static, str>>,
         dry_run: bool,
     ) -> Result<Self> {
         let atm_state_path = sysroot.as_ref().join(Self::ATM_STATE_PATH_SUFFIX);
@@ -144,7 +146,7 @@ impl<'a> TopicManager<'a> {
             enabled: enabled.clone(),
             all: HashMap::with_hasher(ahash::RandomState::new()),
             client,
-            arch,
+            arch: arch.into(),
             atm_state_path,
             dry_run,
             atm_source_list_path: sysroot.as_ref().join(Self::ATM_SOURCE_LIST_PATH_SUFFIX),
@@ -178,24 +180,31 @@ impl<'a> TopicManager<'a> {
         &self.enabled
     }
 
-    pub async fn refresh(&mut self) -> Result<()> {
-        self.all = fetch_all_task(&self.mm, self.client.clone(), self.arch).await?;
+    pub fn refresh(&mut self) -> Result<()> {
+        let mirrors: Vec<String> = self
+            .mm
+            .enabled_mirrors()
+            .iter()
+            .map(|(_, url)| url.to_string())
+            .collect();
 
-        Ok(())
-    }
-
-    pub fn refresh_blocking(&mut self) -> Result<()> {
-        let mm = Arc::from(&self.mm);
         let client = self.client.clone();
-        let arch = self.arch;
+        let arch = Arc::from(self.arch.to_string().as_str());
 
-        let future = fetch_all_task(&mm, client, arch);
+        let future = async move {
+            let tasks = mirrors.iter().map(|url| refresh_inner(&client, url, &arch));
+            let res = try_join_all(tasks).await?;
+
+            let hash_map = res
+                .into_iter()
+                .map(|(x, y)| (Box::from(x), y))
+                .collect::<HashMap<Box<str>, _>>();
+
+            Ok(hash_map)
+        };
 
         let all_topics = if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::CurrentThread {
-                return Err(OmaTopicsError::NotSupportCurrentThread);
-            }
-            tokio::task::block_in_place(move || handle.block_on(future))?
+            run_task_with_pump(&handle, future)?
         } else {
             tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -456,9 +465,9 @@ async fn get<T: DeserializeOwned>(client: &ClientWithMiddleware, url: Url) -> Re
 }
 
 async fn refresh_inner<'a>(
-    client: &'a ClientWithMiddleware,
+    client: &ClientWithMiddleware,
     url: &'a str,
-    arch: &'a str,
+    arch: &str,
 ) -> Result<(Cow<'a, str>, Vec<Topic>)> {
     let url = if !url.ends_with('/') {
         format!("{url}/").into()
@@ -483,19 +492,16 @@ async fn refresh_inner<'a>(
     Ok((url, json))
 }
 
-async fn fetch_all_task(
-    mm: &MirrorManager,
-    client: ClientWithMiddleware,
-    arch: &str,
-) -> Result<HashMap<Box<str>, Vec<Topic>>> {
-    let enabled_mirrors = mm.enabled_mirrors();
-    let tasks = enabled_mirrors
-        .iter()
-        .map(|x| refresh_inner(&client, x.1, arch));
-    let res = try_join_all(tasks).await?;
+fn run_task_with_pump<Fut, T>(handle: &tokio::runtime::Handle, task: Fut) -> Result<T>
+where
+    Fut: std::future::Future<Output = Result<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    let (result_tx, result_rx) = flume::bounded(1);
+    handle.spawn(async move {
+        let res = task.await;
+        let _ = result_tx.send(res);
+    });
 
-    Ok(res
-        .into_iter()
-        .map(|(x, y)| (Box::from(x), y))
-        .collect::<HashMap<Box<str>, _>>())
+    result_rx.recv().map_err(|_| OmaTopicsError::RecvError)?
 }

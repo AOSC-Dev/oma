@@ -158,7 +158,7 @@ impl CliExecuter for Topics {
         let mut tm = TopicManager::new(
             config.http_client()?.clone(),
             &config.sysroot,
-            &dpkg_arch,
+            dpkg_arch,
             config.dry_run,
         )?;
 
@@ -366,7 +366,7 @@ fn refresh(config: &OmaConfig) -> Result<(), OutputError> {
     Refresh::builder().config(config).build().run()
 }
 
-fn revert_sources_list(tm: &TopicManager<'_>) -> Result<(), OutputError> {
+fn revert_sources_list(tm: &TopicManager) -> Result<(), OutputError> {
     tm.write_sources_list(
         &fl!("do-not-edit-topic-sources-list"),
         true,
@@ -385,7 +385,7 @@ async fn topics_inner(
     opt_in: &mut Vec<String>,
     opt_out: &mut Vec<String>,
     no_progress: bool,
-    tm: &mut TopicManager<'_>,
+    tm: &mut TopicManager,
     all: bool,
 ) -> Result<TopicChanged, OutputError> {
     refresh_topics(no_progress, tm)?;
@@ -503,10 +503,10 @@ fn select_prompt(
     Ok((opt_in, opt_out))
 }
 
-fn refresh_topics(no_progress: bool, tm: &mut TopicManager<'_>) -> Result<(), OutputError> {
+fn refresh_topics(no_progress: bool, tm: &mut TopicManager) -> Result<(), OutputError> {
     let pb = create_progress_spinner(no_progress, fl!("refreshing-topic-metadata"));
 
-    tm.refresh_blocking()?;
+    tm.refresh()?;
     tm.remove_closed_topics()?;
     tm.write_enabled(false)?;
 

@@ -469,8 +469,14 @@ impl OmaRefresh {
             return Ok(());
         }
 
-        let mut tm = TopicManager::new(self.client.clone(), &self.source, &self.arch, false)?;
-        tm.refresh_blocking()?;
+        let mut tm = TopicManager::new(
+            self.client.clone(),
+            &self.source,
+            self.arch.to_string(),
+            false,
+        )?;
+
+        tm.refresh()?;
         let removed_suites = tm.remove_closed_topics()?;
 
         debug!("Removed suites: {:?}", removed_suites);

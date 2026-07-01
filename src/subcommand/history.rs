@@ -241,11 +241,11 @@ impl CliExecuter for Undo {
             let mut tm = oma_topics::TopicManager::new(
                 config.http_client()?.clone(),
                 &config.sysroot,
-                &arch,
+                arch,
                 config.dry_run,
             )?;
 
-            tm.refresh_blocking()?;
+            tm.refresh()?;
 
             for i in opt_in {
                 if let Err(e) = tm.remove(&i) {

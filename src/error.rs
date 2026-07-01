@@ -585,6 +585,10 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             description: "Failed to create tokio runtime".to_string(),
             source: Some(Box::new(error)),
         },
+        OmaTopicsError::RecvError => OutputError {
+            description: e.to_string(),
+            source: None,
+        },
     }
 }
 
