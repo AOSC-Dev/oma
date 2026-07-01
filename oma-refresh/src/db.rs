@@ -126,7 +126,7 @@ pub enum Event {
 }
 
 impl OmaRefresh {
-    pub fn start(self, callback: impl FnMut(Event) + 'static) -> Result<Vec<SuccessSummary>> {
+    pub fn start(self, mut callback: impl FnMut(Event) + 'static) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
@@ -191,8 +191,6 @@ impl OmaRefresh {
             )
         };
 
-        let callback = std::sync::Mutex::new(callback);
-
         #[cfg(feature = "apt")]
         let ignores = crate::sourceslist::ignores();
 
@@ -203,7 +201,7 @@ impl OmaRefresh {
             &paths,
             Arc::from(self.arch.as_str()),
             &ignores,
-            &mut *callback.lock().unwrap(),
+            &mut callback,
         )
         .map_err(RefreshError::ScanSourceError)?;
 
@@ -243,7 +241,7 @@ impl OmaRefresh {
         let (mut mirror_sources, not_found) = run_task_with_pump(
             &async_rt_handle,
             &rx,
-            &mut *callback.lock().unwrap(),
+            &mut callback,
             async move {
                 sc.download_releases(mirror_sources, &replacer_clone, tx)
                     .await
@@ -253,7 +251,7 @@ impl OmaRefresh {
         self_arc.refresh_topics(
             not_found,
             &mut mirror_sources,
-            &mut *callback.lock().unwrap(),
+            &mut callback,
         )?;
 
         download_list.extend(
@@ -283,7 +281,7 @@ impl OmaRefresh {
         let res = run_task_with_pump(
             &async_rt_handle,
             &rx,
-            &mut *callback.lock().unwrap(),
+            &mut callback,
             async move {
                 sc2.download_release_data(tx, tasks, total, optional_index_files)
                     .await
@@ -292,8 +290,6 @@ impl OmaRefresh {
 
         // 有元数据更新才执行 success invoke
         let should_run_invoke = res.has_wrote();
-
-        let callback = &mut *callback.lock().unwrap();
 
         if should_run_invoke {
             callback(Event::RunInvokeScript);
