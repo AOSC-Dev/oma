@@ -80,7 +80,7 @@ pub fn is_installed_pkg_contains_file(
     Ok(false)
 }
 
-pub fn run_task_with_pump<Fut, T, F>(
+pub(crate) fn run_task_with_pump<Fut, T, F>(
     handle: &tokio::runtime::Handle,
     callback: Option<&mut F>,
     rx: Option<flume::Receiver<Event>>,
