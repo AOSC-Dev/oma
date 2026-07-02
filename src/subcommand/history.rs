@@ -52,8 +52,15 @@ fn tui(history: &oma_history::History, undo: bool) -> Result<Option<i64>, Output
         .run(&mut terminal, Duration::from_millis(250))
         .context("Failed to run history tui")?;
 
-    terminal.clear().context("Failed to clear terminal")?;
-    disable_raw_mode().context("Failed to disable terminal raw mode")?;
+    let target_position = {
+        let frame = terminal.get_frame();
+        frame.area().as_position()
+    };
+
+    terminal.set_cursor_position(target_position).ok();
+    terminal.clear().ok();
+    terminal.autoresize().ok();
+    disable_raw_mode().context("Failed to disable raw mode")?;
     terminal.show_cursor().ok();
 
     Ok(id)

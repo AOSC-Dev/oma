@@ -1,4 +1,7 @@
-use std::{io, ops::ControlFlow};
+use std::{
+    io::{self},
+    ops::ControlFlow,
+};
 
 use chrono::{Local, TimeZone, offset::LocalResult};
 use ratatui::{
@@ -54,9 +57,23 @@ impl<'a> HistorySelectTui<'a> {
 
                 let entry = self.db.find_history_by_id(id).map_err(io::Error::other)?;
 
+                let target_position = {
+                    let frame = terminal.get_frame();
+                    frame.area().as_position()
+                };
+
+                terminal
+                    .set_cursor_position(target_position)
+                    .map_err(|e| io::Error::other(e.to_string()))?;
+
                 terminal
                     .clear()
                     .map_err(|e| io::Error::other(e.to_string()))?;
+
+                terminal
+                    .autoresize()
+                    .map_err(|e| io::Error::other(e.to_string()))?;
+
                 disable_raw_mode()?;
                 terminal
                     .show_cursor()
