@@ -195,19 +195,19 @@ http = "1.4.2"
 tui-input = { version = "0.15", features = ["ratatui"] }
 
 # oma crates
-oma-utils = { path = "./oma-utils", default-features = false }
-oma-console = { path = "./oma-console" }
-oma-pm = { path = "./oma-pm" }
-oma-refresh = { path = "./oma-refresh", default-features = false }
-oma-contents = { path = "./oma-contents" }
-oma-fetch = { path = "./oma-fetch", default-features = false }
-oma-topics = { path = "./oma-topics", default-features = false }
-oma-history = { path = "./oma-history" }
-oma-repo-verify = { path = "./oma-repo-verify", default-features = false }
-oma-mirror = { path = "./oma-mirror" }
-apt-auth-config = { path = "./apt-auth-config" }
-oma-tum = { path = "./oma-tum" }
-oma-pm-operation-type = { path = "./oma-pm-operation-type" }
+oma-utils = { version = "0.13.1", path = "./oma-utils", default-features = false }
+oma-console = { version = "0.31.0", path = "./oma-console" }
+oma-pm = { version = "0.64.0", path = "./oma-pm" }
+oma-refresh = { version = "0.56.0", path = "./oma-refresh", default-features = false }
+oma-contents = { version = "0.19.1", path = "./oma-contents" }
+oma-fetch = { version = "0.38.0", path = "./oma-fetch", default-features = false }
+oma-topics = { version = "0.28.0", path = "./oma-topics", default-features = false }
+oma-history = { version = "0.11.0", path = "./oma-history" }
+oma-repo-verify = { version = "0.10.0", path = "./oma-repo-verify", default-features = false }
+oma-mirror = { version = "0.8.2", path = "./oma-mirror" }
+apt-auth-config = { version = "0.6.0", path = "./apt-auth-config" }
+oma-tum = { version = "0.6.1", path = "./oma-tum" }
+oma-pm-operation-type = { version = "0.10.1", path = "./oma-pm-operation-type" }
 oma-apt = "0.13"
 oma-apt-sources-lists = "0.9"
 oma-inquire = "0.3"
