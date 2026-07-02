@@ -1,5 +1,6 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
+use flume::Sender;
 use oma_fetch::{
     DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event, Summary,
     checksum::Checksum,
@@ -16,12 +17,12 @@ use crate::{
 
 /// Download packages (inner)
 pub async fn download_pkgs(
-    client: &ClientWithMiddleware,
-    download_pkg_list: &[InstallEntry],
-    config: DownloadConfig<'_>,
+    client: ClientWithMiddleware,
+    download_pkg_list: Arc<[InstallEntry]>,
+    config: DownloadConfig,
     download_only: bool,
     custom_download_message: CustomDownloadMessage,
-    callback: impl AsyncFn(Event),
+    tx: Sender<Event>,
 ) -> OmaAptResult<Summary> {
     let DownloadConfig {
         network_thread,
@@ -30,7 +31,10 @@ pub async fn download_pkgs(
 
     debug!(
         "Download list: {download_pkg_list:?}, download to: {}",
-        download_dir.unwrap_or(Path::new(".")).display()
+        download_dir
+            .clone()
+            .unwrap_or(Path::new(".").into())
+            .display()
     );
 
     if download_pkg_list.is_empty() {
@@ -43,7 +47,7 @@ pub async fn download_pkgs(
     let mut download_list = vec![];
     let mut total_size = 0;
 
-    for entry in download_pkg_list {
+    for entry in download_pkg_list.iter() {
         let uris = entry.pkg_urls();
         let sources = uris
             .iter()
@@ -70,6 +74,7 @@ pub async fn download_pkgs(
             .filename(apt_style_filename(entry))
             .dir(
                 download_dir
+                    .clone()
                     .map(|x| x.to_path_buf())
                     .unwrap_or_else(|| ".".into()),
             )
@@ -100,9 +105,14 @@ pub async fn download_pkgs(
         .total_size(total_size)
         .build();
 
+    let tx_for_closure = tx.clone();
+
     let res = downloader
-        .start_download(|event| async {
-            callback(event).await;
+        .start_download(move |event| {
+            let tx_inner = tx_for_closure.clone();
+            async move {
+                let _ = tx_inner.send_async(event).await;
+            }
         })
         .await
         .unwrap();

@@ -3376,6 +3376,7 @@ name = "oma-pm"
 version = "0.63.1"
 dependencies = [
  "ahash",
+ "anyhow",
  "bon",
  "chrono",
  "cxx",
@@ -3458,6 +3459,7 @@ name = "oma-topics"
 version = "0.27.0"
 dependencies = [
  "ahash",
+ "flume",
  "futures",
  "oma-console",
  "oma-inquire",

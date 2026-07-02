@@ -10,14 +10,18 @@ use oma_topics::TopicManager;
 use oma_topics::{OmaTopicsError, Result};
 use reqwest::Client;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     let client = Client::builder()
         .user_agent("oma")
         .build()
         .map_err(|e| OmaTopicsError::ReqwestError(e.into()))?;
+
     let client = reqwest_middleware::ClientBuilder::new(client).build();
-    let mut tm = TopicManager::new(client, Path::new("/"), "amd64", false).await?;
+    let mut tm = TopicManager::new(client, Path::new("/"), "amd64", false)?;
     let mut opt_in = vec![];
     let mut opt_out = vec![];
 
@@ -27,7 +31,7 @@ async fn main() -> Result<()> {
         .map(|x| x.name.to_string())
         .collect::<Vec<_>>();
 
-    tm.refresh().await?;
+    tm.refresh()?;
 
     let all_names = tm
         .available_topics()
@@ -91,12 +95,10 @@ async fn main() -> Result<()> {
         tm.remove(&i)?;
     }
 
-    tm.write_enabled(false).await?;
-
-    tm.write_sources_list("test", false, async move |topic, mirror| {
+    tm.write_enabled(false)?;
+    tm.write_sources_list("test", false, |topic, mirror| {
         println!("{topic} not in {mirror}");
-    })
-    .await?;
+    })?;
 
     Ok(())
 }

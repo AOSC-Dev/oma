@@ -35,6 +35,7 @@ use oma_utils::{GetLockError, get_file_lock, is_termux};
 use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize};
 use spdlog::{debug, warn};
+use url::Url;
 
 use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
 use crate::{
@@ -236,10 +237,14 @@ impl OmaRefresh {
             h
         };
 
-        let mirror_sources =
+        let mirror_sources = MirrorSources::from_sourcelist(&sourcelist, &replacer)?;
+        let (mut mirror_sources, not_found) =
             run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
-                sc.download_releases(&sourcelist, &replacer_clone, tx).await
+                sc.download_releases(mirror_sources, &replacer_clone, tx)
+                    .await
             })?;
+
+        self_arc.refresh_topics(not_found, &mut mirror_sources, &mut callback)?;
 
         download_list.extend(
             mirror_sources
@@ -386,17 +391,15 @@ impl OmaRefresh {
 
     async fn download_releases(
         &self,
-        sourcelist: &[OmaSourceEntry],
+        mut mirror_sources: MirrorSources,
         replacer: &Arc<DatabaseFilenameReplacer>,
         sender: Sender<Event>,
-    ) -> Result<MirrorSources> {
+    ) -> Result<(MirrorSources, Vec<Url>)> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
         #[cfg(not(feature = "aosc"))]
         let not_found = vec![];
-
-        let mut mirror_sources = MirrorSources::from_sourcelist(sourcelist, replacer)?;
 
         let results = mirror_sources
             .fetch_all_release(
@@ -433,26 +436,30 @@ impl OmaRefresh {
         #[cfg(not(feature = "aosc"))]
         results.into_iter().collect::<Result<Vec<_>>>()?;
 
-        self.refresh_topics(sender, not_found, &mut mirror_sources)
-            .await?;
-
-        Ok(mirror_sources)
+        Ok((mirror_sources, not_found))
     }
 
     #[cfg(feature = "aosc")]
-    async fn refresh_topics(
+    fn refresh_topics(
         &self,
-        tx: Sender<Event>,
         not_found: Vec<url::Url>,
         sources: &mut MirrorSources,
+        callback: &mut (impl FnMut(Event) + 'static),
     ) -> Result<()> {
+        use std::cell::RefCell;
+
         if !self.refresh_topics || not_found.is_empty() {
             return Ok(());
         }
 
-        let mut tm =
-            TopicManager::new(self.client.clone(), &self.source, &self.arch, false).await?;
-        tm.refresh().await?;
+        let mut tm = TopicManager::new(
+            self.client.clone(),
+            &self.source,
+            self.arch.to_string(),
+            false,
+        )?;
+
+        tm.refresh()?;
         let removed_suites = tm.remove_closed_topics()?;
 
         debug!("Removed suites: {:?}", removed_suites);
@@ -472,32 +479,29 @@ impl OmaRefresh {
             let pos = sources.0.iter().position(|x| x.suite() == suite).unwrap();
             sources.0.remove(pos);
 
-            let _ = tx.send_async(Event::ClosingTopic(suite)).await;
+            callback(Event::ClosingTopic(suite));
         }
 
-        tm.write_enabled(false).await?;
+        tm.write_enabled(false)?;
 
-        let txc = tx.clone();
-        tm.write_sources_list(&self.topic_msg, false, async move |topic, mirror| {
-            let _ = txc
-                .send_async(Event::TopicNotInMirror { topic, mirror })
-                .await;
-        })
-        .await?;
+        let cb_cell = RefCell::new(&mut *callback);
 
-        let _ = tx
-            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)))
-            .await;
+        tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
+            let mut cb = cb_cell.borrow_mut();
+            cb(Event::TopicNotInMirror { topic, mirror });
+        })?;
+
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
 
         Ok(())
     }
 
     #[cfg(not(feature = "aosc"))]
-    async fn refresh_topics(
+    fn refresh_topics(
         &self,
-        _tx: Sender<Event>,
         _not_found: Vec<url::Url>,
         _sources: &mut MirrorSources,
+        _callback: &mut (impl FnMut(Event) + 'static),
     ) -> Result<()> {
         Ok(())
     }

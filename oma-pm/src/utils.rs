@@ -1,5 +1,9 @@
 use std::{fs, io, path::Path};
 
+use oma_fetch::Event;
+
+use crate::apt::OmaAptError;
+
 #[cfg(feature = "aosc")]
 pub fn pkg_is_current_kernel(
     sysroot: &Path,
@@ -74,4 +78,32 @@ pub fn is_installed_pkg_contains_file(
     }
 
     Ok(false)
+}
+
+pub(crate) fn run_task_with_pump<Fut, T, F>(
+    handle: &tokio::runtime::Handle,
+    callback: Option<&mut F>,
+    rx: Option<flume::Receiver<Event>>,
+    task: Fut,
+) -> Result<T, OmaAptError>
+where
+    Fut: std::future::Future<Output = Result<T, OmaAptError>> + Send + 'static,
+    T: Send + 'static,
+    F: FnMut(Event) + 'static,
+{
+    let (result_tx, result_rx) = flume::bounded(1);
+    handle.spawn(async move {
+        let res = task.await;
+        let _ = result_tx.send(res);
+    });
+
+    if let Some(callback) = callback
+        && let Some(rx) = rx
+    {
+        while let Ok(msg) = rx.recv() {
+            callback(msg);
+        }
+    }
+
+    result_rx.recv().map_err(|_| OmaAptError::RecvError)?
 }

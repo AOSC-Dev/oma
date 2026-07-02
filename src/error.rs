@@ -576,6 +576,19 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
             ),
             source: None,
         },
+        OmaTopicsError::FailedToCreateTokioRuntime(error) => OutputError {
+            description: error.to_string(),
+            source: None,
+        },
+        OmaTopicsError::NotSupportCurrentThread => unreachable!(),
+        OmaTopicsError::CreateTokioRuntime(error) => OutputError {
+            description: "Failed to create tokio runtime".to_string(),
+            source: Some(Box::new(error)),
+        },
+        OmaTopicsError::RecvError => OutputError {
+            description: e.to_string(),
+            source: None,
+        },
     }
 }
 
@@ -917,6 +930,8 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 )))),
             },
         },
+        OmaAptError::RecvError => anyhow::anyhow!("{err}").into(),
+        OmaAptError::Anyhow(error) => error.into(),
     }
 }
 

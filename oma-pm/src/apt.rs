@@ -4,6 +4,7 @@ use std::{
     io::{self},
     path::{Path, PathBuf},
     process::Command,
+    sync::Arc,
 };
 
 use ahash::HashSet;
@@ -45,6 +46,7 @@ use crate::{
     pkginfo::{OmaDependency, OmaPackage, OmaPackageWithoutVersion, PtrIsNone},
     progress::InstallProgressManager,
     sort::SummarySort,
+    utils::run_task_with_pump,
 };
 
 pub enum InstallProgressOpt {
@@ -167,15 +169,20 @@ pub enum OmaAptError {
     DpkgStatusBroken(String),
     #[error(transparent)]
     FailedGetArchiveDirLock(#[from] GetLockError),
+    #[error("recv async event error")]
+    RecvError,
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
 }
 
 pub type OmaAptResult<T> = Result<T, OmaAptError>;
 
-pub struct DownloadConfig<'a> {
+#[derive(Debug, Clone)]
+pub struct DownloadConfig {
     /// The number of threads to be used for downloads.
     pub network_thread: Option<usize>,
     /// Path to downloaded files/archives.
-    pub download_dir: Option<&'a Path>,
+    pub download_dir: Option<Arc<Path>>,
 }
 
 pub fn apt_config_get(key: String) -> Option<String> {
@@ -373,7 +380,13 @@ impl OmaApt {
         let tokio = self.get_or_init_async_runtime()?;
 
         self.conn
-            .get_or_try_init(|| -> Result<_, _> { tokio.block_on(create_session()) })
+            .get_or_try_init(|| -> Result<_, _> {
+                run_task_with_pump(tokio, None::<&mut fn(Event)>, None, async {
+                    create_session()
+                        .await
+                        .map_err(|e| anyhow::anyhow!("{e}").into())
+                })
+            })
             .inspect_err(|e| debug!("Failed to connect zbus session: {}", e))
             .ok();
 
@@ -447,12 +460,12 @@ impl OmaApt {
         &self,
         client: &ClientWithMiddleware,
         pkgs: Vec<OmaPackage>,
-        config: DownloadConfig<'_>,
+        config: DownloadConfig,
         custom_download_message: Option<CustomDownloadMessage>,
-        callback: F,
+        mut callback: F,
     ) -> OmaAptResult<Summary>
     where
-        F: AsyncFn(Event),
+        F: FnMut(Event) + 'static,
     {
         let mut download_list = vec![];
         for pkg in pkgs {
@@ -501,16 +514,24 @@ impl OmaApt {
             });
         }
 
-        let res = self.get_or_init_async_runtime()?.block_on(download_pkgs(
-            client,
-            &download_list,
-            config,
-            true,
-            custom_download_message.unwrap_or(Box::new(|i: &InstallEntry| {
+        let download_list = Arc::from(download_list.as_ref());
+
+        let client_ptr = client.clone();
+        let msg_formatter = custom_download_message.unwrap_or_else(|| {
+            Box::new(|i: &InstallEntry| {
                 format!("{} {} {}", i.name(), i.new_version(), i.arch()).into()
-            })),
-            callback,
-        ))?;
+            })
+        });
+
+        let (tx, rx) = flume::unbounded();
+        let res = run_task_with_pump(
+            self.get_or_init_async_runtime()?,
+            Some(&mut callback),
+            Some(rx),
+            async move {
+                download_pkgs(client_ptr, download_list, config, true, msg_formatter, tx).await
+            },
+        )?;
 
         Ok(res)
     }
@@ -600,15 +621,18 @@ impl OmaApt {
     }
 
     /// Commit changes
-    pub fn commit(
+    pub fn commit<F>(
         self,
         install_progress_manager: InstallProgressOpt,
         op: &OmaOperation,
         client: &ClientWithMiddleware,
         config: CommitConfig,
         custom_download_message: Option<CustomDownloadMessage>,
-        callback: impl AsyncFn(Event),
-    ) -> OmaAptResult<()> {
+        callback: F,
+    ) -> OmaAptResult<()>
+    where
+        F: FnMut(Event) + 'static,
+    {
         let sysroot = self.sysroot();
 
         if self.dry_run {

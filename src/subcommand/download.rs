@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::thread;
 
 use clap::Args;
@@ -38,6 +39,7 @@ impl CliExecuter for Download {
             description: format!("Failed to canonicalize path: {}", path.display()),
             source: Some(Box::new(e)),
         })?;
+        let path: Arc<Path> = Arc::from(path.as_ref());
 
         let oma_apt_args = OmaAptArgs::builder()
             .another_apt_options(&config.apt_options)
@@ -72,11 +74,11 @@ impl CliExecuter for Download {
             pkgs,
             DownloadConfig {
                 network_thread: Some(config.download_threads),
-                download_dir: Some(&path),
+                download_dir: Some(path.clone()),
             },
             download_message(),
-            |event| async {
-                if let Err(e) = tx.send_async(event).await {
+            move |event| {
+                if let Err(e) = tx.send(event) {
                     error!("{}", e);
                 }
             },
