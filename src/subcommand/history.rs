@@ -31,14 +31,14 @@ impl CliExecuter for History {
         let history =
             oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
 
-        tui(&history)?;
+        tui(&history, false)?;
 
         Ok(ExitHandle::default())
     }
 }
 
-fn tui(history: &oma_history::History) -> Result<Option<i64>, OutputError> {
-    let tui = HistorySelectTui::new(history, false)?;
+fn tui(history: &oma_history::History, undo: bool) -> Result<Option<i64>, OutputError> {
+    let tui = HistorySelectTui::new(history, undo)?;
     enable_raw_mode().context("Failed to enable termin raw mode")?;
     let height = WRITER.get_height();
     let options = TerminalOptions {
@@ -120,7 +120,7 @@ impl CliExecuter for Undo {
         let history =
             oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
 
-        let Some(id) = tui(&history)? else {
+        let Some(id) = tui(&history, true)? else {
             return Ok(ExitHandle::default().status(ExitStatus::Other(130)));
         };
 
