@@ -38,7 +38,7 @@ jobs:
           git config user.name "eatradish"
           git config user.email "sakiiily@aosc.io"
           # Unconditionally delete then create a new branch, since oma-preview is non-volatile.
-          git branch -D oma-preview
+          git branch -D oma-preview || true
           git checkout -b oma-preview
           # Get the baseline version.
           source ./spec
