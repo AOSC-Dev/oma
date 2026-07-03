@@ -24,7 +24,7 @@ jobs:
           TARGET_DISTRO: "${{ matrix.target }}"
         run: |
           if [[ "${TARGET_DISTRO}" = "linuxdeepin/deepin:beige-loong64-v1.4.0" ]]; then
-            sed -e 's|https://community-packages.deepin.com|https://mirrors.bfsu.edu.cn/deepin|g' -i /etc/apt/sources.list;
+            sed -e 's|https://community-packages.deepin.com|https://mirrors.jlu.edu.cn/deepin|g' -i /etc/apt/sources.list;
           fi
           apt-get update
           env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential pkgconf nettle-dev libapt-pkg-dev curl xz-utils clang openssh-client rsync libbz2-dev liblzma-dev libzstd-dev nodejs locales
