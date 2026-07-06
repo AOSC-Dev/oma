@@ -1,6 +1,6 @@
 [package]
 name = "oma"
-version = "1.27.0-rc.1"
+version = "1.27.0-rc.2"
 edition = "2024"
 description = "User-friendly and performant package manager for APT repositories"
 license = "GPL-3.0-or-later"
@@ -166,7 +166,7 @@ md-5 = "0.11"
 headers = "0.4.1"
 rusqlite = { version = "0.40", features = ["bundled"] }
 indicium = "0.6"
-cxx = "1.0.121"
+cxx = "1.0.196"
 deb822-lossless = "0.5"
 deb822-fast = { version = "0.2", features = ["derive"] }
 zbus = { version = "5", default-features = false, features = ["tokio"] }
