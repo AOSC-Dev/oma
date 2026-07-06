@@ -35,6 +35,10 @@ jobs:
             sed -e 's|https://community-packages.deepin.com|https://mirrors.jlu.edu.cn/deepin|g' -i /etc/apt/sources.list;
           fi
 
+          if [[ "${TARGET_DISTRO}" = "chenchongbiao/openkylin:nile-arm64" ]]; then
+            sed -e 's|http://archive.build.openkylin.top/openkylin|https://mirror.accum.se/mirror/openkylin.top|g' -i /etc/apt/sources.list;
+          fi
+
           apt-get update
           env DEBIAN_FRONTEND=noninteractive apt-get install -y curl
 
