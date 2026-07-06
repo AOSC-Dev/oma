@@ -326,17 +326,21 @@ impl OmaRefresh {
         let optional_files_ref = optional_index_files.clone();
 
         let res = dm
-            .start_download(async move |event| {
-                let mut optional = false;
+            .start_download(move |event| {
+                let tx = tx.clone();
+                let optional_files_ref = optional_files_ref.clone();
+                async move {
+                    let mut optional = false;
 
-                if let oma_fetch::Event::Failed { file_name, .. } = &event
-                    && optional_files_ref.contains(file_name)
-                {
-                    optional = true;
-                }
+                    if let oma_fetch::Event::Failed { file_name, .. } = &event
+                        && optional_files_ref.contains(file_name)
+                    {
+                        optional = true;
+                    }
 
-                if !optional {
-                    let _ = tx.send_async(Event::DownloadEvent(event)).await;
+                    if !optional {
+                        let _ = tx.send_async(Event::DownloadEvent(event)).await;
+                    }
                 }
             })
             .await

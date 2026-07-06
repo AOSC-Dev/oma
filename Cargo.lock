@@ -3320,6 +3320,7 @@ dependencies = [
 name = "oma-fetch"
 version = "0.38.0"
 dependencies = [
+ "ahash",
  "anyhow",
  "async-compression",
  "bon",

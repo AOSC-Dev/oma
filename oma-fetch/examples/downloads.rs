@@ -64,9 +64,12 @@ async fn main() {
         .unwrap();
 
     let summary = download_manager
-        .start_download(async |event| {
-            if let Err(e) = tx.send_async(event).await {
-                eprintln!("Got Error: {:#?}", e);
+        .start_download(move |event| {
+            let tx = tx.clone();
+            async move {
+                if let Err(e) = tx.send_async(event).await {
+                    eprintln!("Got Error: {:#?}", e);
+                }
             }
         })
         .await;

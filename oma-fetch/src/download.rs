@@ -230,7 +230,11 @@ impl SingleDownloader {
         })
     }
 
-    pub(crate) async fn try_download(self, callback: &impl AsyncFn(Event)) -> DownloadResult {
+    pub(crate) async fn try_download<F, Fut>(self, callback: &F) -> DownloadResult
+    where
+        F: Fn(Event) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+    {
         let mut sources = self.entry.source.clone();
         assert!(!sources.is_empty());
 
@@ -288,11 +292,15 @@ impl SingleDownloader {
     }
 
     /// Download file with retry (http)
-    async fn try_http_download(
+    async fn try_http_download<F, Fut>(
         &self,
         source: &DownloadSource,
-        callback: &impl AsyncFn(Event),
-    ) -> Result<bool, SingleDownloadError> {
+        callback: &F,
+    ) -> Result<bool, SingleDownloadError>
+    where
+        F: Fn(Event) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+    {
         let mut times = 1;
         let mut allow_resume = self.entry.allow_resume;
         loop {
@@ -341,12 +349,16 @@ impl SingleDownloader {
         }
     }
 
-    async fn http_download(
+    async fn http_download<F, Fut>(
         &self,
         allow_resume: bool,
         source: &DownloadSource,
-        callback: &impl AsyncFn(Event),
-    ) -> Result<bool, SingleDownloadError> {
+        callback: &F,
+    ) -> Result<bool, SingleDownloadError>
+    where
+        F: Fn(Event) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+    {
         let file = self.entry.dir.join(&*self.entry.filename);
         let file_exist = file.exists();
         let file_size = file.metadata().ok().map(|x| x.len()).unwrap_or(0);
@@ -726,12 +738,16 @@ impl SingleDownloader {
     }
 
     /// Download local source file
-    async fn download_local(
+    async fn download_local<F, Fut>(
         &self,
         source: &DownloadSource,
         as_symlink: bool,
-        callback: &impl AsyncFn(Event),
-    ) -> Result<bool, SingleDownloadError> {
+        callback: &F,
+    ) -> Result<bool, SingleDownloadError>
+    where
+        F: Fn(Event) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+    {
         debug!("{:?}", self.entry);
 
         let url = source.url.strip_prefix("file:").unwrap();
@@ -837,12 +853,16 @@ impl SingleDownloader {
         Ok(true)
     }
 
-    async fn checksum_local(
+    async fn checksum_local<F, Fut>(
         &self,
-        callback: &impl AsyncFn(Event),
+        callback: &F,
         url_path: &Path,
         hash: &crate::checksum::Checksum,
-    ) -> Result<(), SingleDownloadError> {
+    ) -> Result<(), SingleDownloadError>
+    where
+        F: Fn(Event) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+    {
         let mut f = fs::File::open(url_path).await.context(OpenSnafu)?;
         let (size, finish) = checksum(callback, &mut f, &mut hash.get_validator()).await;
 
@@ -864,11 +884,11 @@ impl SingleDownloader {
     }
 }
 
-async fn checksum(
-    callback: &impl AsyncFn(Event),
-    f: &mut File,
-    v: &mut ChecksumValidator,
-) -> (u64, bool) {
+async fn checksum<F, Fut>(callback: &F, f: &mut File, v: &mut ChecksumValidator) -> (u64, bool)
+where
+    F: Fn(Event) -> Fut + Send + Sync + 'static,
+    Fut: std::future::Future<Output = ()> + Send + 'static,
+{
     let mut reader = tokio::io::BufReader::with_capacity(READ_FILE_BUFSIZE, f);
 
     let mut read = 0;
