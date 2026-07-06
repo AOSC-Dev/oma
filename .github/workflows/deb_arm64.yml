@@ -6,7 +6,7 @@ on:
 
 jobs:
   package:
-    runs-on: arm64
+    runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
         target:
@@ -33,6 +33,13 @@ jobs:
           echo "${TARGET_DISTRO}"
           if [[ "${TARGET_DISTRO}" = "linuxdeepin/deepin:beige-arm64-v1.4.0" ]]; then
             sed -e 's|https://community-packages.deepin.com|https://mirrors.jlu.edu.cn/deepin|g' -i /etc/apt/sources.list;
+          fi
+
+          # For accessibility on GitHub-hosted runners
+          if [[ "${TARGET_DISTRO}" = "chenchongbiao/openkylin:nile-arm64" ]]; then
+            sed -e 's|http://archive.build.openkylin.top/openkylin|https://mirror.accum.se/mirror/openkylin.top/archive|g' -i /etc/apt/sources.list;
+            sed -e 's|deb http://ppa.build.openkylin.top/kylinsoft/anything/openkylin/ yangtze main||g' -i /etc/apt/sources.list;
+            sed -e 's|deb http://ppa.build.openkylin.top/kylinsoft/anything2.0/openkylin/ nile main||g' -i /etc/apt/sources.list.d/openkylin-anything.list;
           fi
 
           apt-get update
