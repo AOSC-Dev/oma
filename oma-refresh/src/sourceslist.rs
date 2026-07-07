@@ -650,7 +650,7 @@ impl MirrorSources {
             let download_dir = download_dir.clone();
             let sender = sender.clone();
 
-            let source_key = if let Ok(url) = Url::parse(&m.dist_path()) {
+            let source_key = if let Ok(url) = Url::parse(m.dist_path()) {
                 format!("{}://{}", url.scheme(), url.host_str().unwrap_or("unknown"))
             } else {
                 m.dist_path().to_string()
