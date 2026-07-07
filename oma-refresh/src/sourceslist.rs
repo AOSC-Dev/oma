@@ -364,15 +364,15 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: Sender<Event>,
+        tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
-                self.fetch_http_release(client, replacer, index, total, download_dir, callback)
+                self.fetch_http_release(client, replacer, index, total, download_dir, tx)
                     .await
             }
             OmaSourceEntryFrom::Local => {
-                self.fetch_local_release(replacer, index, total, download_dir, callback)
+                self.fetch_local_release(replacer, index, total, download_dir, tx)
                     .await
             }
         }
@@ -642,8 +642,6 @@ impl MirrorSources {
         let sources = std::mem::take(&mut self.0);
 
         let mut set = JoinSet::new();
-
-        // 核心：在局部建立一个按源隔离的信号量锁 Map，控制获取 InRelease 时的单源并发
         let mut source_locks = AHashMap::new();
 
         for (index, m) in sources.into_iter().enumerate() {

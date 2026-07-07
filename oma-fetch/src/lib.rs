@@ -257,7 +257,6 @@ impl DownloadManager {
                     }
                 };
 
-                // 抢到单源的并发坑位后，执行实际下载
                 single.try_download(&*cb).await
             });
         }
