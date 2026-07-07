@@ -235,12 +235,46 @@ impl SingleDownloader {
         F: Fn(Event) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
+        let msg = self.entry.msg.as_deref().unwrap_or(&*self.entry.filename);
+
+        if let Some(ref final_dir) = self.entry.final_dir {
+            let local_file_in_formal = final_dir.join(&*self.entry.filename);
+
+            if local_file_in_formal.is_file() {
+                if let Some(ref hash) = self.entry.hash {
+                    let mut validator = hash.get_validator();
+
+                    if let Ok(mut f) = tokio::fs::File::open(&local_file_in_formal).await {
+                        let (_, finish) =
+                            crate::download::checksum(callback, &mut f, &mut validator).await;
+
+                        if finish {
+                            callback(Event::DownloadDone {
+                                index: self.download_list_index,
+                                msg: msg.into(),
+                            })
+                            .await;
+
+                            return DownloadResult::Success(SuccessSummary {
+                                file_name: self.entry.filename.to_string(),
+                                url: self.entry.source.first().unwrap().url.to_string(),
+                                index: self.download_list_index,
+                                wrote: false,
+                            });
+                        }
+                    }
+
+                    if !self.entry.dir.is_dir() {
+                        let _ = tokio::fs::create_dir_all(&self.entry.dir).await;
+                    }
+                }
+            }
+        }
+
         let mut sources = self.entry.source.clone();
         assert!(!sources.is_empty());
 
         sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
-
-        let msg = self.entry.msg.as_deref().unwrap_or(&*self.entry.filename);
 
         for (index, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
@@ -251,7 +285,43 @@ impl SingleDownloader {
             };
 
             match download_res {
-                Ok(b) => {
+                Ok(wrote) => {
+                    if let Some(ref final_dir) = self.entry.final_dir {
+                        let current_path = self.entry.dir.join(&*self.entry.filename);
+                        let target_path = final_dir.join(&*self.entry.filename);
+
+                        if !final_dir.is_dir() {
+                            if let Err(e) = tokio::fs::create_dir_all(final_dir).await {
+                                callback(Event::Failed {
+                                    file_name: final_dir.to_string_lossy().to_string(),
+                                    error: SingleDownloadError::Create { source: e },
+                                })
+                                .await;
+                                return DownloadResult::Failed {
+                                    file_name: self.entry.filename.to_string(),
+                                };
+                            }
+                        }
+
+                        if current_path.is_file() {
+                            trace!(
+                                "Moving completed file from {} to {}",
+                                current_path.display(),
+                                target_path.display()
+                            );
+                            if let Err(e) = tokio::fs::rename(&current_path, &target_path).await {
+                                callback(Event::Failed {
+                                    file_name: self.entry.filename.clone(),
+                                    error: SingleDownloadError::Write { source: e },
+                                })
+                                .await;
+                                return DownloadResult::Failed {
+                                    file_name: self.entry.filename.to_string(),
+                                };
+                            }
+                        }
+                    }
+
                     callback(Event::DownloadDone {
                         index: self.download_list_index,
                         msg: msg.into(),
@@ -262,7 +332,7 @@ impl SingleDownloader {
                         file_name: self.entry.filename.to_string(),
                         url: c.url.clone(),
                         index: self.download_list_index,
-                        wrote: b,
+                        wrote,
                     });
                 }
                 Err(e) => {
@@ -272,12 +342,10 @@ impl SingleDownloader {
                             error: e,
                         })
                         .await;
-
                         return DownloadResult::Failed {
                             file_name: self.entry.filename.to_string(),
                         };
                     }
-
                     callback(Event::NextUrl {
                         index: self.download_list_index,
                         file_name: self.entry.filename.to_string(),

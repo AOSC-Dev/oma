@@ -22,6 +22,7 @@ pub struct DownloadEntry {
     pub source: Vec<DownloadSource>,
     pub filename: String,
     dir: PathBuf,
+    final_dir: Option<PathBuf>,
     hash: Option<Checksum>,
     allow_resume: bool,
     msg: Option<Cow<'static, str>>,
