@@ -194,7 +194,6 @@ impl Summary {
     }
 }
 
-
 impl DownloadManager {
     /// Start download
     pub async fn start_download<F, Fut>(mut self, callback: F) -> Result<Summary, BuilderError>
