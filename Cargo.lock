@@ -3320,6 +3320,7 @@ dependencies = [
 name = "oma-fetch"
 version = "0.38.0"
 dependencies = [
+ "ahash",
  "anyhow",
  "async-compression",
  "bon",
@@ -3436,7 +3437,6 @@ dependencies = [
  "deb822-fast",
  "fancy-regex 0.18.0",
  "flume",
- "futures",
  "oma-apt",
  "oma-apt-sources-lists",
  "oma-fetch",

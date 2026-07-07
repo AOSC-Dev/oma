@@ -43,6 +43,7 @@ headers = { workspace = true }
 digest-io = { workspace = true }
 reqwest-middleware = { workspace = true }
 anyhow = { workspace = true }
+ahash = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

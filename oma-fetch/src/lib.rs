@@ -1,14 +1,15 @@
-use std::{borrow::Cow, cmp::Ordering, fmt::Debug, path::PathBuf, time::Duration};
+use std::{borrow::Cow, cmp::Ordering, fmt::Debug, path::PathBuf, sync::Arc, time::Duration};
 
+use ahash::AHashMap;
 use bon::Builder;
 use checksum::Checksum;
 use download::{BuilderError, SingleDownloader, SuccessSummary};
-use futures::StreamExt;
 
-use reqwest::{Method, Response};
+use reqwest::{Method, Response, Url};
 use reqwest_middleware::{ClientWithMiddleware, RequestBuilder};
 use serde::{Deserialize, Serialize};
 use spdlog::debug;
+use tokio::task::JoinSet;
 
 pub mod checksum;
 pub mod download;
@@ -195,23 +196,35 @@ impl Summary {
 
 impl DownloadManager {
     /// Start download
-    pub async fn start_download(
-        mut self,
-        callback: impl AsyncFn(Event),
-    ) -> Result<Summary, BuilderError> {
-        if self.threads == 0 || self.threads > 255 {
-            return Err(BuilderError::IllegalDownloadThread {
-                count: self.threads,
-            });
-        }
-
-        let mut tasks = Vec::new();
+    pub async fn start_download<F, Fut>(mut self, callback: F) -> Result<Summary, BuilderError>
+    where
+        F: Fn(Event) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+    {
         let mut list = vec![];
         let len = self.download_list.len();
+
+        let mut source_locks = AHashMap::new();
+
         for (i, c) in std::mem::take(&mut self.download_list)
             .into_iter()
             .enumerate()
         {
+            let source_key = if let Some(src) = c.source.first() {
+                if let Ok(url) = Url::parse(&src.url) {
+                    format!("{}://{}", url.scheme(), url.host_str().unwrap_or("unknown"))
+                } else {
+                    "fallback_source".to_string()
+                }
+            } else {
+                "unknown_source".to_string()
+            };
+
+            let source_sem = source_locks
+                .entry(source_key)
+                .or_insert_with(|| Arc::new(tokio::sync::Semaphore::new(self.threads)))
+                .clone();
+
             let single = SingleDownloader::builder()
                 .client(self.client.clone())
                 .download_list_index(i)
@@ -221,33 +234,51 @@ impl DownloadManager {
                 .timeout(self.timeout)
                 .build()?;
 
-            list.push(single);
-        }
-
-        for single in list {
-            tasks.push(single.try_download(&callback));
+            list.push((single, source_sem));
         }
 
         if self.total_size != 0 {
             callback(Event::NewGlobalProgressBar(self.total_size)).await;
         }
 
-        let stream = futures::stream::iter(tasks).buffer_unordered(self.threads);
-        let res = stream.collect::<Vec<_>>().await;
-        callback(Event::AllDone).await;
+        let mut set = JoinSet::new();
+        let callback_arc = Arc::new(callback);
 
-        let (mut success, mut failed) = (vec![], vec![]);
+        for (single, source_sem) in list {
+            let cb = callback_arc.clone();
 
-        for i in res {
-            match i {
-                download::DownloadResult::Success(success_summary) => {
+            set.spawn(async move {
+                let _permit = match source_sem.acquire_owned().await {
+                    Ok(p) => Some(p),
+                    Err(_) => {
+                        return download::DownloadResult::Failed {
+                            file_name: "semaphore_closed_error".to_string(),
+                        };
+                    }
+                };
+
+                single.try_download(&*cb).await
+            });
+        }
+
+        let mut success = vec![];
+        let mut failed = vec![];
+
+        while let Some(res) = set.join_next().await {
+            match res {
+                Ok(download::DownloadResult::Success(success_summary)) => {
                     success.push(success_summary);
                 }
-                download::DownloadResult::Failed { file_name } => {
+                Ok(download::DownloadResult::Failed { file_name }) => {
                     failed.push(file_name);
+                }
+                Err(_) => {
+                    failed.push("task_panicked".to_string());
                 }
             }
         }
+
+        callback_arc(Event::AllDone).await;
 
         Ok(Summary { success, failed })
     }

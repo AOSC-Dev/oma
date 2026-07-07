@@ -5,10 +5,9 @@ use std::{
     sync::Arc,
 };
 
-use ahash::HashMap;
+use ahash::{AHashMap, HashMap};
 use fancy_regex::Regex;
 use flume::Sender;
-use futures::StreamExt;
 use oma_apt_sources_lists::{
     Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
 };
@@ -24,6 +23,8 @@ use spdlog::debug;
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
+    sync::Semaphore,
+    task::JoinSet,
 };
 use url::Url;
 
@@ -363,15 +364,15 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
-        callback: Sender<Event>,
+        tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
-                self.fetch_http_release(client, replacer, index, total, download_dir, callback)
+                self.fetch_http_release(client, replacer, index, total, download_dir, tx)
                     .await
             }
             OmaSourceEntryFrom::Local => {
-                self.fetch_local_release(replacer, index, total, download_dir, callback)
+                self.fetch_local_release(replacer, index, total, download_dir, tx)
                     .await
             }
         }
@@ -638,33 +639,54 @@ impl MirrorSources {
         sender: Sender<Event>,
     ) -> Vec<Result<(), RefreshError>> {
         let total_len = self.0.len();
-
         let sources = std::mem::take(&mut self.0);
 
-        let tasks = sources.into_iter().enumerate().map(|(index, m)| {
+        let mut set = JoinSet::new();
+        let mut source_locks = AHashMap::new();
+
+        for (index, m) in sources.into_iter().enumerate() {
             let client = client.clone();
             let replacer = replacer.clone();
             let download_dir = download_dir.clone();
             let sender = sender.clone();
 
-            async move {
+            let source_key = if let Ok(url) = Url::parse(m.dist_path()) {
+                format!("{}://{}", url.scheme(), url.host_str().unwrap_or("unknown"))
+            } else {
+                m.dist_path().to_string()
+            };
+
+            let source_sem = source_locks
+                .entry(source_key)
+                .or_insert_with(|| Arc::new(Semaphore::new(threads)))
+                .clone();
+
+            set.spawn(async move {
+                let _permit = match source_sem.acquire_owned().await {
+                    Ok(p) => Some(p),
+                    Err(_) => return (m, Err(RefreshError::DownloadFailed(None))),
+                };
+
                 let res = m
                     .fetch(&client, &replacer, index, total_len, &download_dir, sender)
                     .await;
 
                 (m, res)
+            });
+        }
+
+        let mut results = Vec::with_capacity(total_len);
+
+        while let Some(task_res) = set.join_next().await {
+            match task_res {
+                Ok((m, res)) => {
+                    self.0.push(m);
+                    results.push(res);
+                }
+                Err(_) => {
+                    results.push(Err(RefreshError::DownloadFailed(None)));
+                }
             }
-        });
-
-        let execution_results = futures::stream::iter(tasks)
-            .buffer_unordered(threads)
-            .collect::<Vec<(MirrorSource, Result<(), RefreshError>)>>()
-            .await;
-
-        let mut results = Vec::with_capacity(execution_results.len());
-        for (m, res) in execution_results {
-            self.0.push(m);
-            results.push(res);
         }
 
         results
