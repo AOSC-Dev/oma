@@ -235,6 +235,17 @@ impl SingleDownloader {
         F: Fn(Event) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
+        if let Err(e) = tokio::fs::create_dir_all(&self.entry.dir).await {
+            callback(Event::Failed {
+                file_name: self.entry.filename.clone(),
+                error: SingleDownloadError::Create { source: e },
+            })
+            .await;
+            return DownloadResult::Failed {
+                file_name: self.entry.filename.to_string(),
+            };
+        }
+
         let msg = self.entry.msg.as_deref().unwrap_or(&*self.entry.filename);
 
         if let Some(ref final_dir) = self.entry.final_dir {
@@ -262,10 +273,6 @@ impl SingleDownloader {
                                 wrote: false,
                             });
                         }
-                    }
-
-                    if !self.entry.dir.is_dir() {
-                        let _ = tokio::fs::create_dir_all(&self.entry.dir).await;
                     }
                 }
             }

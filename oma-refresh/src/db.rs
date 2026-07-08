@@ -860,9 +860,10 @@ fn collect_download_task(
     let task = DownloadEntry::builder()
         .source(sources)
         .filename(file_name)
-        .dir(download_dir.to_path_buf())
+        .dir(download_dir.join("partial"))
         .allow_resume(false)
         .msg(msg.into())
+        .final_dir(download_dir.to_path_buf())
         .file_type({
             if c.keep_compress {
                 CompressType::None

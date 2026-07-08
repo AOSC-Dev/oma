@@ -7,34 +7,46 @@ use reqwest::ClientBuilder;
 
 #[tokio::main]
 async fn main() {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .unwrap();
+
     let source_1 = DownloadSource {
-        url: "https://mirrors.bfsu.edu.cn/anthon/mascots/zhaxia-stickers-v1.zip".to_string(),
+        url: "https://mirrors.jlu.edu.cn/anthon/aosc-os/os-amd64/base/aosc-os_base_20260312_amd64.squashfs".to_string(),
         source_type: DownloadSourceType::Http,
     };
 
     let file_1 = DownloadEntry::builder()
         .source(vec![source_1])
-        .filename("zhaxia-stickers-v1.zip".to_string().into())
-        .dir(PathBuf::from("./oma-fetcher-test"))
+        .filename("aosc-os_base_20260312_amd64.squashfs".to_string())
+        .dir(PathBuf::from("./oma-fetcher-test/partial"))
         .hash(
             Checksum::from_sha256_str(
-                "de700bdb45a4b8ab322d7eb2d30a7b448f117693b5a4164a3f05345177884134",
+                "675eef205388e2f3afb27ddbcbb61856f497986c2813d04b4e983078bb464d33",
             )
             .unwrap(),
         )
+        .final_dir(PathBuf::from("./oma-fetcher-test"))
         .allow_resume(true)
         .build();
 
     let source_2 = DownloadSource {
-        url: "https://mirrors.bfsu.edu.cn/anthon/mascots/mascots.zip".to_string(),
+        url: "https://mirrors.jlu.edu.cn/anthon/oma/pool/beige/main/o/oma_1.27.0~rc.1-1_amd64-deepin23.deb".to_string(),
         source_type: DownloadSourceType::Http,
     };
 
     let file_2 = DownloadEntry::builder()
         .source(vec![source_2])
-        .filename("mascots.zip".to_string().into())
-        .dir(PathBuf::from("./oma-fetcher-test"))
-        .allow_resume(false)
+        .filename("oma_1.27.0~rc.1-1_amd64-deepin23.deb".to_string().into())
+        .dir(PathBuf::from("./oma-fetcher-test/partial"))
+        .hash(
+            Checksum::from_sha256_str(
+                "82d61126e3a01506726bf7863cd2d7fbbfbf51c5674bd6fc43854265fc0aedcf",
+            )
+            .unwrap(),
+        )
+        .final_dir(PathBuf::from("./oma-fetcher-test"))
+        .allow_resume(true)
         .build();
 
     // let mut test_local_file = tokio::fs::File::create("test_file").await.unwrap();
