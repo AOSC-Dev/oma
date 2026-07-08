@@ -163,6 +163,7 @@ pub(crate) enum SingleDownloadErrorHelper {
     SendRequestTimeout,
     DownloadTimeout,
     ChecksumMismatch,
+    AcquireError,
 }
 
 #[derive(Builder)]
@@ -252,8 +253,14 @@ impl DownloadManager {
                 let _permit = match source_sem.acquire_owned().await {
                     Ok(p) => Some(p),
                     Err(_) => {
+                        cb(Event::Failed {
+                            file_name: single.entry.filename.to_string(),
+                            error: SingleDownloadError::AcquireError,
+                        })
+                        .await;
+
                         return download::DownloadResult::Failed {
-                            file_name: "semaphore_closed_error".to_string(),
+                            file_name: single.entry.filename,
                         };
                     }
                 };

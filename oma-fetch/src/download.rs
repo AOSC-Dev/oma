@@ -95,6 +95,8 @@ pub enum SingleDownloadError {
     DownloadTimeout,
     #[snafu(display("checksum mismatch"))]
     ChecksumMismatch,
+    #[snafu(display("semaphore acquire error"))]
+    AcquireError,
 }
 
 impl Serialize for SingleDownloadError {
@@ -141,6 +143,7 @@ impl Serialize for SingleDownloadError {
             Self::SendRequestTimeout => SingleDownloadErrorHelper::SendRequestTimeout,
             Self::DownloadTimeout => SingleDownloadErrorHelper::DownloadTimeout,
             Self::ChecksumMismatch => SingleDownloadErrorHelper::ChecksumMismatch,
+            Self::AcquireError => SingleDownloadErrorHelper::AcquireError,
         };
 
         helper.serialize(serializer)
@@ -197,6 +200,7 @@ impl<'de> Deserialize<'de> for SingleDownloadError {
             SingleDownloadErrorHelper::SendRequestTimeout => Self::SendRequestTimeout,
             SingleDownloadErrorHelper::DownloadTimeout => Self::DownloadTimeout,
             SingleDownloadErrorHelper::ChecksumMismatch => Self::ChecksumMismatch,
+            SingleDownloadErrorHelper::AcquireError => Self::AcquireError,
         };
 
         Ok(error)

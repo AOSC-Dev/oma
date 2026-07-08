@@ -1137,6 +1137,10 @@ impl From<SingleDownloadError> for OutputError {
                 description: fl!("checksum-mismatch-download-err"),
                 source: None,
             },
+            SingleDownloadError::AcquireError => Self {
+                description: value.to_string(),
+                source: None,
+            },
         }
     }
 }
