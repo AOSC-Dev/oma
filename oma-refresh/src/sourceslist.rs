@@ -683,7 +683,8 @@ impl MirrorSources {
 
         let mut set = JoinSet::new();
         let mut source_locks = AHashMap::new();
-        let final_dir = Arc::new(download_dir.join("partial"));
+        let final_dir = download_dir;
+        let download_dir = Arc::new(final_dir.join("partial"));
 
         for (index, m) in sources.into_iter().enumerate() {
             let client = client.clone();
