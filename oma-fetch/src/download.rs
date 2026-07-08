@@ -251,28 +251,28 @@ impl SingleDownloader {
         if let Some(ref final_dir) = self.entry.final_dir {
             let local_file_in_formal = final_dir.join(&*self.entry.filename);
 
-            if local_file_in_formal.is_file() {
-                if let Some(ref hash) = self.entry.hash {
-                    let mut validator = hash.get_validator();
+            if local_file_in_formal.is_file()
+                && let Some(ref hash) = self.entry.hash
+            {
+                let mut validator = hash.get_validator();
 
-                    if let Ok(mut f) = tokio::fs::File::open(&local_file_in_formal).await {
-                        let (_, finish) =
-                            crate::download::checksum(callback, &mut f, &mut validator).await;
+                if let Ok(mut f) = tokio::fs::File::open(&local_file_in_formal).await {
+                    let (_, finish) =
+                        crate::download::checksum(callback, &mut f, &mut validator).await;
 
-                        if finish {
-                            callback(Event::DownloadDone {
-                                index: self.download_list_index,
-                                msg: msg.into(),
-                            })
-                            .await;
+                    if finish {
+                        callback(Event::DownloadDone {
+                            index: self.download_list_index,
+                            msg: msg.into(),
+                        })
+                        .await;
 
-                            return DownloadResult::Success(SuccessSummary {
-                                file_name: self.entry.filename.to_string(),
-                                url: self.entry.source.first().unwrap().url.to_string(),
-                                index: self.download_list_index,
-                                wrote: false,
-                            });
-                        }
+                        return DownloadResult::Success(SuccessSummary {
+                            file_name: self.entry.filename.to_string(),
+                            url: self.entry.source.first().unwrap().url.to_string(),
+                            index: self.download_list_index,
+                            wrote: false,
+                        });
                     }
                 }
             }
@@ -297,17 +297,17 @@ impl SingleDownloader {
                         let current_path = self.entry.dir.join(&*self.entry.filename);
                         let target_path = final_dir.join(&*self.entry.filename);
 
-                        if !final_dir.is_dir() {
-                            if let Err(e) = tokio::fs::create_dir_all(final_dir).await {
-                                callback(Event::Failed {
-                                    file_name: final_dir.to_string_lossy().to_string(),
-                                    error: SingleDownloadError::Create { source: e },
-                                })
-                                .await;
-                                return DownloadResult::Failed {
-                                    file_name: self.entry.filename.to_string(),
-                                };
-                            }
+                        if !final_dir.is_dir()
+                            && let Err(e) = tokio::fs::create_dir_all(final_dir).await
+                        {
+                            callback(Event::Failed {
+                                file_name: final_dir.to_string_lossy().to_string(),
+                                error: SingleDownloadError::Create { source: e },
+                            })
+                            .await;
+                            return DownloadResult::Failed {
+                                file_name: self.entry.filename.to_string(),
+                            };
                         }
 
                         if current_path.is_file() {
