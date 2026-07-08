@@ -183,6 +183,11 @@ logind-zbus = { version = "5.1", default-features = false, features = [
     "tokio",
 ], package = "logind-zbus-tokio" }
 nix = "0.31"
+reqwest-middleware = "0.5"
+http = "1.4.2"
+tui-input = { version = "0.15", features = ["ratatui"] }
+landlock = "0.4.5"
+
 # i18n
 i18n-embed = { version = "0.16.0", features = [
     "fluent-system",
@@ -190,9 +195,7 @@ i18n-embed = { version = "0.16.0", features = [
 ] }
 i18n-embed-fl = { version = "0.10.0", package = "i18n-embed-fl-no-check-hashmap-on-ra" }
 rust-embed = "8.11.0"
-reqwest-middleware = "0.5"
-http = "1.4.2"
-tui-input = { version = "0.15", features = ["ratatui"] }
+
 
 # oma crates
 oma-utils = { version = "0.13.1", path = "./oma-utils", default-features = false }

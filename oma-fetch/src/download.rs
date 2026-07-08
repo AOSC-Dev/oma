@@ -17,10 +17,15 @@ use async_compression::futures::bufread::{
 use bon::bon;
 use futures::{AsyncBufRead, AsyncRead, TryStreamExt, io::BufReader};
 use headers::{ContentLength, ContentRange, HeaderMapExt};
+use landlock::{
+    ABI, Access, AccessFs, AccessNet, CompatLevel, Compatible, NetPort, PathBeneath, Ruleset,
+    RulesetAttr, RulesetCreatedAttr, RulesetStatus,
+};
 use reqwest::{Method, StatusCode, header::RANGE};
 use reqwest_middleware::ClientWithMiddleware;
+use rustix::process::getuid;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use snafu::{ResultExt, Snafu};
+use snafu::{ResultExt, Snafu, Whatever};
 use tokio::{
     fs::{self, File},
     io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
@@ -50,6 +55,7 @@ pub(crate) struct SingleDownloader {
     retry_times: usize,
     download_list_index: usize,
     timeout: Duration,
+    sandbox: bool,
 }
 
 pub enum DownloadResult {
@@ -207,6 +213,62 @@ impl<'de> Deserialize<'de> for SingleDownloadError {
     }
 }
 
+fn enforce_download_sandbox(temp_dir: &Path, final_dir: Option<&Path>) -> Result<(), Whatever> {
+    let abi = ABI::V4;
+    let ruleset = Ruleset::default()
+        .handle_access(AccessFs::from_all(ABI::V4))
+        .whatever_context("Failed to use landlock to handle fs access")?
+        .handle_access(AccessNet::from_all(ABI::V4))
+        .whatever_context("Failed to use landlock to handle network access")?;
+
+    let temp_dir_fd = std::fs::File::open(temp_dir)
+        .with_whatever_context(|_| format!("Failed to open temp_dir: {}", temp_dir.display()))?;
+
+    let mut ruleset_created = ruleset
+        .create()
+        .whatever_context("Failed to create landlock ruleset")?
+        .add_rule(PathBeneath::new(temp_dir_fd, AccessFs::from_all(abi)))
+        .with_whatever_context(|_| {
+            format!(
+                "Failed to add access fs rule from path: {}",
+                temp_dir.display()
+            )
+        })?
+        .add_rule(NetPort::new(80, AccessNet::from_all(abi)))
+        .whatever_context("Failed to add access net rule from port 80")?
+        .add_rule(NetPort::new(443, AccessNet::from_all(abi)))
+        .whatever_context("Failed to add access net rule from port 443")?;
+
+    if let Some(final_path) = final_dir {
+        let final_dir_fd = std::fs::File::open(final_path).with_whatever_context(|_| {
+            format!("Failed to open final_path fd: {}", final_path.display())
+        })?;
+
+        ruleset_created = ruleset_created
+            .add_rule(PathBeneath::new(final_dir_fd, AccessFs::from_all(abi)))
+            .with_whatever_context(|_| {
+                format!(
+                    "Failed to add access fs rule from path: {}",
+                    final_path.display()
+                )
+            })?;
+    }
+
+    let status = ruleset_created
+        .set_compatibility(CompatLevel::BestEffort)
+        .restrict_self()
+        .whatever_context("Failed to set compatibility")?;
+
+    if status.ruleset == RulesetStatus::NotEnforced {
+        debug!("Warning: Landlock sandbox is not enforced by kernel.");
+    } else {
+        debug!("Landlock network & fs sandbox successfully armed for this download task.");
+        debug!("landlock status: {:?}", status);
+    }
+
+    Ok(())
+}
+
 #[bon]
 impl SingleDownloader {
     #[builder]
@@ -217,6 +279,7 @@ impl SingleDownloader {
         retry_times: usize,
         download_list_index: usize,
         timeout: Duration,
+        sandbox: bool,
     ) -> Result<SingleDownloader, BuilderError> {
         if entry.source.is_empty() {
             return Err(BuilderError::EmptySource {
@@ -231,6 +294,7 @@ impl SingleDownloader {
             retry_times,
             download_list_index,
             timeout,
+            sandbox,
         })
     }
 
@@ -241,10 +305,11 @@ impl SingleDownloader {
     {
         if let Err(e) = tokio::fs::create_dir_all(&self.entry.dir).await {
             callback(Event::Failed {
-                file_name: self.entry.filename.clone(),
+                file_name: self.entry.dir.to_string_lossy().to_string(),
                 error: SingleDownloadError::Create { source: e },
             })
             .await;
+
             return DownloadResult::Failed {
                 file_name: self.entry.filename.to_string(),
             };
@@ -253,6 +318,18 @@ impl SingleDownloader {
         let msg = self.entry.msg.as_deref().unwrap_or(&*self.entry.filename);
 
         if let Some(ref final_dir) = self.entry.final_dir {
+            if let Err(e) = tokio::fs::create_dir_all(final_dir).await {
+                callback(Event::Failed {
+                    file_name: final_dir.to_string_lossy().to_string(),
+                    error: SingleDownloadError::Create { source: e },
+                })
+                .await;
+
+                return DownloadResult::Failed {
+                    file_name: final_dir.to_string_lossy().to_string(),
+                };
+            }
+
             let local_file_in_formal = final_dir.join(&*self.entry.filename);
 
             if local_file_in_formal.is_file()
@@ -279,6 +356,16 @@ impl SingleDownloader {
                         });
                     }
                 }
+            }
+        }
+
+        if self.sandbox && getuid().is_root() {
+            if let Err(e) =
+                enforce_download_sandbox(&self.entry.dir, self.entry.final_dir.as_deref())
+            {
+                debug!("Landlock sandbox bypass or not supported: {e}");
+            } else {
+                debug!("Landlock sandbox successfully locked this worker thread.");
             }
         }
 

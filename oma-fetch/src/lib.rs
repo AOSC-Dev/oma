@@ -178,6 +178,8 @@ pub struct DownloadManager {
     total_size: u64,
     #[builder(default = Duration::from_secs(15))]
     timeout: Duration,
+    #[builder(default = true)]
+    sandbox: bool,
 }
 
 #[derive(Debug)]
@@ -234,6 +236,7 @@ impl DownloadManager {
                 .total(len)
                 .retry_times(self.retry_times)
                 .timeout(self.timeout)
+                .sandbox(self.sandbox)
                 .build()?;
 
             list.push((single, source_sem));

@@ -44,6 +44,8 @@ digest-io = { workspace = true }
 reqwest-middleware = { workspace = true }
 anyhow = { workspace = true }
 ahash = { workspace = true }
+landlock = { workspace = true }
+rustix = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
