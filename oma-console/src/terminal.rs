@@ -1,6 +1,5 @@
-use std::io::{self, Write};
-
-use console::Term;
+use ratatui::crossterm::{ExecutableCommand, cursor::Show, terminal};
+use std::io::{self, IsTerminal, Write, stderr, stdout};
 
 /// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
@@ -21,20 +20,77 @@ pub fn wrap_content<'a>(
     msg: &str,
     max_len: u16,
     prefix_len: u16,
-) -> Vec<(&'a str, String)> {
+) -> impl Iterator<Item = (&'a str, String)> {
     let len = (max_len - prefix_len) as usize;
 
     textwrap::wrap(msg, len)
         .into_iter()
         .enumerate()
-        .map(|(i, s)| (if i == 0 { prefix } else { "" }, format!("{s}\n")))
-        .collect()
+        .map(move |(i, s)| (if i == 0 { prefix } else { "" }, format!("{s}\n")))
+}
+
+#[derive(Clone)]
+pub enum TermOutput {
+    Stdout,
+    Stderr,
+}
+
+impl TermOutput {
+    fn show_cursor(&self) -> io::Result<()> {
+        match self {
+            TermOutput::Stdout => {
+                stdout().execute(Show)?;
+            }
+            TermOutput::Stderr => {
+                stderr().execute(Show)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn write_str(&self, s: &str) -> io::Result<()> {
+        match self {
+            TermOutput::Stdout => stdout().write_all(s.as_bytes()),
+            TermOutput::Stderr => stderr().write_all(s.as_bytes()),
+        }
+    }
+
+    fn is_terminal(&self) -> bool {
+        match self {
+            TermOutput::Stdout => stdout().is_terminal(),
+            TermOutput::Stderr => stderr().is_terminal(),
+        }
+    }
+
+    fn get_lock_writer(&self) -> Box<dyn Write> {
+        match self {
+            TermOutput::Stdout => Box::new(stdout().lock()),
+            TermOutput::Stderr => Box::new(stderr().lock()),
+        }
+    }
+}
+
+impl Write for TermOutput {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self {
+            TermOutput::Stdout => stdout().write(buf),
+            TermOutput::Stderr => stderr().write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        match self {
+            TermOutput::Stdout => stdout().flush(),
+            TermOutput::Stderr => stderr().flush(),
+        }
+    }
 }
 
 /// Providing information about terminal
 #[derive(Clone)]
 pub struct Terminal {
-    term: Term,
+    term: TermOutput,
     pub(crate) limit_max_len: Option<u16>,
     pub(crate) prefix_len: u16,
 }
@@ -46,7 +102,7 @@ impl Terminal {
 
     pub fn new_stdout() -> Self {
         Self {
-            term: Term::stdout(),
+            term: TermOutput::Stdout,
             ..Default::default()
         }
     }
@@ -55,22 +111,17 @@ impl Terminal {
         self.limit_max_len = max_len;
     }
 
-    pub fn with_term(&mut self, term: Term) {
-        self.term = term;
-    }
-
     pub fn with_prefix_len(&mut self, prefix_len: u16) {
         self.prefix_len = prefix_len;
     }
 
     pub fn is_terminal(&self) -> bool {
-        self.term.is_term()
+        self.term.is_terminal()
     }
 
     /// Show terminal cursor
     pub fn show_cursor(&self) -> io::Result<()> {
-        self.term.show_cursor()?;
-        Ok(())
+        self.term.show_cursor()
     }
 
     /// Get terminal max len to writer message to terminal
@@ -94,20 +145,24 @@ impl Terminal {
 
     /// Get terminal height
     pub fn get_height(&self) -> u16 {
-        self.term.size_checked().unwrap_or((25, 80)).0
+        terminal::size().map(|s| s.1).unwrap_or(25)
     }
 
     /// Get terminal width
     pub fn get_length(&self) -> u16 {
-        self.term.size_checked().unwrap_or((25, 80)).1
+        terminal::size().map(|s| s.0).unwrap_or(80)
     }
 
     /// Get writer to write something to terminal
     pub fn get_writer(&self) -> Box<dyn Write> {
-        Box::new(self.term.clone())
+        self.term.get_lock_writer()
     }
 
-    pub fn wrap_content<'a>(&self, prefix: &'a str, msg: &str) -> Vec<(&'a str, String)> {
+    pub fn wrap_content<'a>(
+        &self,
+        prefix: &'a str,
+        msg: &str,
+    ) -> impl Iterator<Item = (&'a str, String)> {
         wrap_content(prefix, msg, self.get_max_len(), self.prefix_len)
     }
 
@@ -119,7 +174,7 @@ impl Terminal {
 impl Default for Terminal {
     fn default() -> Self {
         Self {
-            term: Term::stderr(),
+            term: TermOutput::Stderr,
             limit_max_len: Some(80),
             prefix_len: 10,
         }
