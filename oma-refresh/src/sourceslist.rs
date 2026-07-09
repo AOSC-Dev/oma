@@ -357,6 +357,7 @@ impl MirrorSource {
         self.release_file_name.get().map(|x| x.as_str())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn fetch(
         &self,
         client: &ClientWithMiddleware,
@@ -364,11 +365,12 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
+        final_dir: &Path,
         tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
-                self.fetch_http_release(client, replacer, index, total, download_dir, tx)
+                self.fetch_http_release(client, replacer, index, total, download_dir, final_dir, tx)
                     .await
             }
             OmaSourceEntryFrom::Local => {
@@ -378,6 +380,7 @@ impl MirrorSource {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn fetch_http_release(
         &self,
         client: &ClientWithMiddleware,
@@ -385,6 +388,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
+        final_dir: &Path,
         tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
         let msg = self.get_human_download_message(None)?;
@@ -434,9 +438,17 @@ impl MirrorSource {
             self.get_download_file_name(Some("InRelease"), replacer)?
         };
 
-        self.download_file(&file_name, resp, index, total, download_dir, tx.clone())
-            .await
-            .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+        self.download_file(
+            &file_name,
+            resp,
+            index,
+            total,
+            download_dir,
+            final_dir,
+            tx.clone(),
+        )
+        .await
+        .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
         self.set_release_file_name(file_name);
 
@@ -451,14 +463,23 @@ impl MirrorSource {
 
             let file_name = self.get_download_file_name(Some("Release.gpg"), replacer)?;
 
-            self.download_file(&file_name, resp, index, total, download_dir, tx.clone())
-                .await
-                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+            self.download_file(
+                &file_name,
+                resp,
+                index,
+                total,
+                download_dir,
+                final_dir,
+                tx.clone(),
+            )
+            .await
+            .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
         }
 
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn download_file(
         &self,
         file_name: &str,
@@ -466,6 +487,7 @@ impl MirrorSource {
         index: usize,
         total: usize,
         download_dir: &Path,
+        final_dir: &Path,
         tx: Sender<Event>,
     ) -> std::result::Result<(), SingleDownloadError> {
         let total_size = content_length(&resp);
@@ -479,7 +501,10 @@ impl MirrorSource {
             }))
             .await;
 
-        let mut f = File::create(download_dir.join(file_name))
+        let tmp_path = download_dir.join(file_name);
+        let final_path = final_dir.join(file_name);
+
+        let mut f = File::create(&tmp_path)
             .await
             .map_err(|e| SingleDownloadError::Create { source: e })?;
 
@@ -503,6 +528,21 @@ impl MirrorSource {
         f.shutdown()
             .await
             .map_err(|e| SingleDownloadError::Flush { source: e })?;
+
+        if !final_dir.is_dir() {
+            tokio::fs::create_dir_all(final_dir)
+                .await
+                .map_err(|e| SingleDownloadError::Create { source: e })?;
+        }
+
+        debug!(
+            "Atomic rename release metadata from {} to {}",
+            tmp_path.display(),
+            final_path.display()
+        );
+        tokio::fs::rename(&tmp_path, &final_path)
+            .await
+            .map_err(|e| SingleDownloadError::Write { source: e })?;
 
         let _ = tx
             .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
@@ -643,6 +683,8 @@ impl MirrorSources {
 
         let mut set = JoinSet::new();
         let mut source_locks = AHashMap::new();
+        let final_dir = download_dir;
+        let download_dir = Arc::new(final_dir.join("partial"));
 
         for (index, m) in sources.into_iter().enumerate() {
             let client = client.clone();
@@ -661,6 +703,7 @@ impl MirrorSources {
                 .or_insert_with(|| Arc::new(Semaphore::new(threads)))
                 .clone();
 
+            let final_dir_ptr = final_dir.clone();
             set.spawn(async move {
                 let _permit = match source_sem.acquire_owned().await {
                     Ok(p) => Some(p),
@@ -668,7 +711,15 @@ impl MirrorSources {
                 };
 
                 let res = m
-                    .fetch(&client, &replacer, index, total_len, &download_dir, sender)
+                    .fetch(
+                        &client,
+                        &replacer,
+                        index,
+                        total_len,
+                        &download_dir,
+                        &final_dir_ptr,
+                        sender,
+                    )
                     .await;
 
                 (m, res)

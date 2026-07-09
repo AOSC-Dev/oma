@@ -69,15 +69,14 @@ pub async fn download_pkgs(
 
         let msg = custom_download_message(entry);
 
+        let download_dir = download_dir
+            .clone()
+            .map(|x| x.to_path_buf())
+            .unwrap_or_else(|| ".".into());
+
         let download_entry = DownloadEntry::builder()
             .source(sources)
             .filename(apt_style_filename(entry))
-            .dir(
-                download_dir
-                    .clone()
-                    .map(|x| x.to_path_buf())
-                    .unwrap_or_else(|| ".".into()),
-            )
             .allow_resume(true)
             .msg(msg)
             .maybe_hash({
@@ -90,8 +89,16 @@ pub async fn download_pkgs(
                 } else {
                     None
                 }
-            })
-            .build();
+            });
+
+        let download_entry = if download_only {
+            download_entry.dir(download_dir).build()
+        } else {
+            download_entry
+                .dir(download_dir.join("partial"))
+                .final_dir(download_dir)
+                .build()
+        };
 
         total_size += entry.download_size();
 
