@@ -210,8 +210,8 @@ impl Display for PackageInfo {
             .collect::<Vec<_>>();
 
         match apt_sources_without_dpkg.len() {
-            0 => writeln!(f, " {}", &apt_sources[0])?,
-            1 => writeln!(f, " {}", &apt_sources_without_dpkg[0])?,
+            0 => writeln!(f, " {}", apt_sources[0])?,
+            1 => writeln!(f, " {}", apt_sources_without_dpkg[0])?,
             2.. => {
                 writeln!(f)?;
                 for i in apt_sources_without_dpkg {
@@ -252,7 +252,7 @@ impl From<PackageFile<'_>> for AptSource {
 
 impl Display for AptSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self.archive_uri)?;
+        write!(f, "{}", self.archive_uri)?;
 
         if let Some(archive) = &self.archive {
             write!(f, " {archive}")?;
