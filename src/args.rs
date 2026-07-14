@@ -4,7 +4,6 @@ use clap::{
     Arg, Args, ColorChoice, Command, Parser, Subcommand, builder::Styles, crate_name, crate_version,
 };
 use enum_dispatch::enum_dispatch;
-use itertools::Itertools;
 use oma_console::OmaFormatter;
 
 use crate::{
@@ -310,7 +309,7 @@ fn list_helpers() -> Result<Vec<String>, anyhow::Error> {
         plugins_dir = Box::new(plugins_dir.chain(plugins_local_dir));
     }
 
-    let plugins = plugins_dir
+    let mut plugins: Vec<String> = plugins_dir
         .filter_map(|x| {
             if let Ok(x) = x {
                 let path = x.path();
@@ -319,13 +318,15 @@ fn list_helpers() -> Result<Vec<String>, anyhow::Error> {
                     .unwrap_or_else(|| OsStr::new(""))
                     .to_string_lossy();
                 if path.is_file() && filename.starts_with("oma-") {
-                    return Some(filename.to_string());
+                    return Some(filename.into_owned());
                 }
             }
             None
         })
-        .unique()
         .collect();
+
+    plugins.sort();
+    plugins.dedup();
 
     Ok(plugins)
 }
