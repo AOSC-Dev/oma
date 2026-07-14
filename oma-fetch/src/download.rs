@@ -629,9 +629,7 @@ impl SingleDownloader {
                 .bytes_stream()
                 .map_err(io::Error::other)
                 .into_async_read();
-            let stream = BufReader::new(stream);
-            let stream_counter = AtomicUsize::new(0);
-            let mut stream = Counter::new(stream, &stream_counter);
+            let mut stream = BufReader::new(stream);
 
             // initialize decompressor
             let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.entry.file_type {
@@ -643,7 +641,10 @@ impl SingleDownloader {
                 CompressType::Lz4 => &mut Lz4Decoder::new(&mut stream),
                 CompressType::None => &mut stream,
             };
-            let mut reader = reader.compat();
+
+            let stream_counter = AtomicUsize::new(0);
+            let counted_reader = Counter::new(reader, &stream_counter);
+            let mut reader = counted_reader.compat();
 
             // copy data
             loop {
