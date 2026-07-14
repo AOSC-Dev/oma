@@ -198,7 +198,7 @@ tui-input = { version = "0.15", features = ["ratatui"] }
 oma-utils = { version = "0.13.1", path = "./oma-utils", default-features = false }
 oma-console = { version = "0.31.0", path = "./oma-console" }
 oma-pm = { version = "0.64.0", path = "./oma-pm" }
-oma-refresh = { version = "0.56.0", path = "./oma-refresh", default-features = false }
+oma-refresh = { version = "0.56.1", path = "./oma-refresh", default-features = false }
 oma-contents = { version = "0.19.1", path = "./oma-contents" }
 oma-fetch = { version = "0.38.0", path = "./oma-fetch", default-features = false }
 oma-topics = { version = "0.28.0", path = "./oma-topics", default-features = false }
