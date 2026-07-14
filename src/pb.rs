@@ -94,7 +94,7 @@ impl Writeln for OmaProgressBar {
             .into_iter()
             .for_each(|(prefix, body)| {
                 self.inner
-                    .println(format!("{}{}", &gen_prefix(prefix, 10), &body));
+                    .println(format!("{}{}", gen_prefix(prefix, 10), body));
             });
 
         Ok(())
@@ -139,7 +139,7 @@ impl Writeln for OmaMultiProgressBar {
     fn writeln(&self, prefix: &str, msg: &str) -> std::io::Result<()> {
         for (prefix, body) in WRITER.get_terminal().wrap_content(prefix, msg).into_iter() {
             self.mb
-                .println(format!("{}{}", &gen_prefix(prefix, 10), &body))?;
+                .println(format!("{}{}", gen_prefix(prefix, 10), body))?;
         }
 
         Ok(())

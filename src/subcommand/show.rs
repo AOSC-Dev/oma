@@ -185,10 +185,10 @@ fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt)
 
     match apt_sources_without_dpkg.len() {
         0 => {
-            writeln!(stdout, " {}", &apt_sources[0]).ok();
+            writeln!(stdout, " {}", apt_sources[0]).ok();
         }
         1 => {
-            writeln!(stdout, " {}", &apt_sources_without_dpkg[0]).ok();
+            writeln!(stdout, " {}", apt_sources_without_dpkg[0]).ok();
         }
         2.. => {
             writeln!(stdout).ok();
