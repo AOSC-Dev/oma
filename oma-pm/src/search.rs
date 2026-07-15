@@ -13,6 +13,7 @@ use oma_apt::{
     raw::IntoRawIter,
 };
 use serde::{Deserialize, Serialize};
+use spdlog::error;
 use std::fmt::Debug;
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
@@ -320,7 +321,16 @@ impl IndiciumSearch {
 
 fn extract_versions(status: PackageStatus, p: &Package<'_>) -> (Option<String>, String) {
     let old = if status == PackageStatus::Upgrade {
-        p.installed().map(|x| x.version().to_string())
+        let result = p.installed().map(|x| x.version().to_string());
+
+        if result.is_none() {
+            error!(
+                "exception: package {} status is upgrade but old version is none",
+                p.fullname(true)
+            );
+        }
+
+        result
     } else {
         None
     };
