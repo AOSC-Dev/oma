@@ -2382,9 +2382,9 @@ dependencies = [
 
 [[package]]
 name = "indicium"
-version = "0.6.10"
+version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc45c34e11d393567d079ab1986795cd787c23f02d47780605e1ff360100d789"
+checksum = "20e0ca7d36f589435a8aa8dd41c305d38656eb3dff7416fc5ecfd35819115e4d"
 dependencies = [
  "beef",
  "icu_normalizer",
