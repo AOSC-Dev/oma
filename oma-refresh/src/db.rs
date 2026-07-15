@@ -211,6 +211,13 @@ impl OmaRefresh {
             })?;
         }
 
+        let final_dir = self.download_dir.join("partial");
+        if !final_dir.is_dir() {
+            std::fs::create_dir_all(&final_dir).map_err(|e| {
+                RefreshError::FailedToOperateDirOrFile(final_dir.display().to_string(), e)
+            })?;
+        }
+
         // Create `apt update` file lock
         let _fd = get_file_lock(&self.download_dir.join("lock")).map_err(RefreshError::SetLock)?;
 
