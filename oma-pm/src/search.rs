@@ -13,6 +13,7 @@ use oma_apt::{
     raw::IntoRawIter,
 };
 use serde::{Deserialize, Serialize};
+use spdlog::error;
 use std::fmt::Debug;
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
@@ -201,24 +202,9 @@ impl IndiciumSearch {
                 PackageStatus::Avail
             };
 
-            let extract_versions = |p: &Package| -> (Option<String>, String) {
-                let old = if status == PackageStatus::Upgrade {
-                    p.installed().map(|x| x.version().to_string())
-                } else {
-                    None
-                };
-
-                let new = p
-                    .candidate()
-                    .map(|x| x.version().to_string())
-                    .unwrap_or_else(|| "Unknown".to_string());
-
-                (old, new)
-            };
-
             if let Some(cand) = pkg.candidate() {
                 if let indexmap::map::Entry::Vacant(e) = pkg_map.entry(name.clone()) {
-                    let (old_version, new_version) = extract_versions(&pkg);
+                    let (old_version, new_version) = extract_versions(status, &pkg);
 
                     e.insert(SearchEntry {
                         name,
@@ -254,7 +240,7 @@ impl IndiciumSearch {
                     };
 
                     if let Some(cand) = pkg.candidate() {
-                        let (old_version, new_version) = extract_versions(&pkg);
+                        let (old_version, new_version) = extract_versions(status, &pkg);
 
                         pkg_map
                             .entry(name.clone())
@@ -331,6 +317,30 @@ impl IndiciumSearch {
             is_base: entry.section_is_base,
         })
     }
+}
+
+fn extract_versions(status: PackageStatus, p: &Package<'_>) -> (Option<String>, String) {
+    let old = if status == PackageStatus::Upgrade {
+        let result = p.installed().map(|x| x.version().to_string());
+
+        if result.is_none() {
+            error!(
+                "exception: package {} status is upgrade but old version is none",
+                p.fullname(true)
+            );
+        }
+
+        result
+    } else {
+        None
+    };
+
+    let new = p
+        .candidate()
+        .map(|x| x.version().to_string())
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    (old, new)
 }
 
 /// strsim: Sort search results based on based on string matching similarity (score).
