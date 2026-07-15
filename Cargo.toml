@@ -13,7 +13,6 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 clap = { workspace = true }
 anyhow = { workspace = true }
 ctrlc = { workspace = true }
-dialoguer = { workspace = true }
 tabled = { workspace = true }
 tokio = { workspace = true }
 oma-inquire = { workspace = true }
@@ -87,7 +86,6 @@ i18n-embed-fl = { workspace = true }
 rust-embed = { workspace = true }
 
 [workspace.dependencies]
-dialoguer = "0.12.0"
 clap = { version = "4.6", features = [
     "cargo",
     "wrap_help",
@@ -208,7 +206,7 @@ oma-tum = { version = "0.6.1", path = "./oma-tum" }
 oma-pm-operation-type = { version = "0.10.1", path = "./oma-pm-operation-type" }
 oma-apt = "0.13"
 oma-apt-sources-lists = "0.9"
-oma-inquire = "0.3"
+oma-inquire = "0.5"
 
 [features]
 aosc = [

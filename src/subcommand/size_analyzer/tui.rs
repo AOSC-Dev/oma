@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use dialoguer::console;
+use oma_console::console;
 use oma_pm::apt::OmaApt;
 use ratatui::{
     Frame, Terminal,

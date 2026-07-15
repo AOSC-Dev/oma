@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::Args;
-use dialoguer::console::style;
+use oma_console::console::style;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::apt::{OmaApt, OmaAptArgs};

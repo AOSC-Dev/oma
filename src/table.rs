@@ -10,7 +10,7 @@ use crate::subcommand::utils::is_terminal;
 use crate::{NO_COLOR, NOT_DISPLAY_ABORT, WRITER, color_formatter, fl};
 use ahash::HashMap;
 use ahash::HashSet;
-use dialoguer::console;
+use oma_console::console;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{Pager, PagerExit, PagerUIText};
 use oma_console::print::Action;

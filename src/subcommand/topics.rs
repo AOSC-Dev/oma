@@ -1,11 +1,11 @@
 use std::{fmt::Display, sync::atomic::Ordering};
 
 use clap::{ArgAction, ArgGroup, Args};
-use dialoguer::console::style;
 use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
+use oma_console::console::style;
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},

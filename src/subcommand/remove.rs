@@ -1,9 +1,8 @@
 use anyhow::anyhow;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
-use dialoguer::console::style;
-use dialoguer::theme::ColorfulTheme;
-use dialoguer::{Confirm, Input};
+use inquire::{Confirm, Text};
+use oma_console::console::style;
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use spdlog::{info, warn};
@@ -261,14 +260,11 @@ fn check_is_current_kernel_deleting(
 
 /// "Yes Do as I say" steps
 pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
-    let theme = ColorfulTheme::default();
-
     warn!("{}", fl!("essential-tips", pkg = pkg));
 
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(fl!("essential-continue"))
-        .default(false)
-        .interact()
+    let delete = Confirm::new(&fl!("essential-continue"))
+        .with_default(false)
+        .prompt()
         .map_err(|_| anyhow!(""))?;
 
     if !delete {
@@ -283,11 +279,7 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
         ),
     );
 
-    if Input::<String>::with_theme(&theme)
-        .with_prompt(fl!("yes-do-as-i-say-prompt"))
-        .interact()?
-        != "Do as I say!"
-    {
+    if Text::new(&fl!("yes-do-as-i-say-prompt")).prompt()? != "Do as I say!" {
         info!("{}", fl!("yes-do-as-i-say-abort"));
         return Ok(false);
     }
@@ -297,14 +289,11 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
 
 #[cfg(feature = "aosc")]
 fn ask_user_delete_current_kernel(pkg: &str) -> anyhow::Result<bool> {
-    let theme = ColorfulTheme::default();
-
     warn!("{}", fl!("delete-current-kernel-tips", kernel = pkg));
 
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(fl!("essential-continue"))
-        .default(false)
-        .interact()
+    let delete = Confirm::new(&fl!("essential-continue"))
+        .with_default(false)
+        .prompt()
         .map_err(|_| anyhow!(""))?;
 
     if !delete {

@@ -1,6 +1,6 @@
 use clap::Args;
 use clap_complete::ArgValueCompleter;
-use dialoguer::{Select, theme::ColorfulTheme};
+use inquire::Select;
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     oma_apt::VersionFile,
@@ -142,11 +142,6 @@ impl CliExecuter for Pick {
             }
         }
 
-        let theme = ColorfulTheme::default();
-        let mut dialoguer = Select::with_theme(&theme)
-            .items(&version_str_display)
-            .with_prompt(fl!("pick-tips", pkgname = pkg.fullname(true)));
-
         let pos = if let Some(installed) = pkg.installed() {
             versions
                 .iter()
@@ -161,15 +156,22 @@ impl CliExecuter for Pick {
             0
         };
 
-        dialoguer = dialoguer.default(pos);
+        let selected = Select::new(
+            &fl!("pick-tips", pkgname = pkg.fullname(true)),
+            version_str_display.clone(),
+        )
+        .with_page_size(tui_select_list_size() as usize)
+        .with_starting_cursor(pos)
+        .prompt()
+        .map_err(|_| anyhow!(""))?;
 
-        let size = tui_select_list_size();
-        dialoguer = dialoguer.max_length(size.into());
-
-        let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
+        let pos = version_str_display
+            .iter()
+            .position(|v| *v == selected)
+            .unwrap();
 
         let pkgs = vec![
-            OmaPackage::new(&versions[sel], &pkg).map_err(|e| OutputError {
+            OmaPackage::new(&versions[pos], &pkg).map_err(|e| OutputError {
                 description: e.to_string(),
                 source: None,
             })?,

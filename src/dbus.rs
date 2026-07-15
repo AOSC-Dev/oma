@@ -1,6 +1,6 @@
-use std::{io::ErrorKind, process::exit};
+use std::process::exit;
 
-use dialoguer::{Confirm, theme::ColorfulTheme};
+use inquire::Confirm;
 use oma_utils::{
     dbus::{
         InhibitTypeUnion, create_dbus_connection, get_another_oma_status, is_using_battery,
@@ -101,13 +101,9 @@ fn connect_dbus_impl() -> Option<Connection> {
         info!("{}", fl!("failed-check-dbus-tips-2"));
         info!("{}", fl!("failed-check-dbus-tips-3"));
 
-        let theme = ColorfulTheme::default();
-        let ans = Confirm::with_theme(&theme)
-            .with_prompt(fl!("continue"))
-            .default(false)
-            .interact();
+        let ans = Confirm::new(&fl!("continue")).with_default(false).prompt();
 
-        handle_dialoguer_question_result(ans);
+        handle_question_result(ans);
 
         return None;
     };
@@ -122,33 +118,30 @@ fn ask_continue_no_use_battery(conn: &Connection, yes: bool) {
         if yes {
             return;
         }
-        let theme = ColorfulTheme::default();
         warn!("{}", fl!("battery"));
-        let cont = Confirm::with_theme(&theme)
-            .with_prompt(fl!("continue"))
-            .default(false)
-            .interact();
+        let cont = Confirm::new(&fl!("continue")).with_default(false).prompt();
 
-        handle_dialoguer_question_result(cont);
+        handle_question_result(cont);
     }
 }
 
-fn handle_dialoguer_question_result(res: std::result::Result<bool, dialoguer::Error>) {
+fn handle_question_result(res: std::result::Result<bool, inquire::InquireError>) {
     match res {
         Ok(b) => {
             if !b {
                 exit(0);
             }
         }
-        Err(e) => {
-            let dialoguer::Error::IO(e) = e;
-            if e.kind() != ErrorKind::Interrupted {
-                error!("{e}");
-                exit(1);
-            } else {
+        Err(e) => match e {
+            inquire::InquireError::OperationCanceled => exit(0),
+            inquire::InquireError::OperationInterrupted => {
                 debug!("Interrupted by user.");
             }
-        }
+            _ => {
+                error!("{e}");
+                exit(1);
+            }
+        },
     }
 }
 
