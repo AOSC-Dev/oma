@@ -364,13 +364,13 @@ impl MirrorSource {
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
+        tmp_dir: &Path,
         download_dir: &Path,
-        final_dir: &Path,
         tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
-                self.fetch_http_release(client, replacer, index, total, download_dir, final_dir, tx)
+                self.fetch_http_release(client, replacer, index, total, tmp_dir, download_dir, tx)
                     .await
             }
             OmaSourceEntryFrom::Local => {
@@ -387,8 +387,8 @@ impl MirrorSource {
         replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
+        tmp_dir: &Path,
         download_dir: &Path,
-        final_dir: &Path,
         tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
         let msg = self.get_human_download_message(None)?;
@@ -443,8 +443,8 @@ impl MirrorSource {
             resp,
             index,
             total,
+            tmp_dir,
             download_dir,
-            final_dir,
             tx.clone(),
         )
         .await
@@ -468,8 +468,8 @@ impl MirrorSource {
                 resp,
                 index,
                 total,
+                tmp_dir,
                 download_dir,
-                final_dir,
                 tx.clone(),
             )
             .await
@@ -486,8 +486,8 @@ impl MirrorSource {
         mut resp: Response,
         index: usize,
         total: usize,
+        tmp_dir: &Path,
         download_dir: &Path,
-        final_dir: &Path,
         tx: Sender<Event>,
     ) -> std::result::Result<(), SingleDownloadError> {
         let total_size = content_length(&resp);
@@ -501,10 +501,15 @@ impl MirrorSource {
             }))
             .await;
 
-        let tmp_path = download_dir.join(file_name);
-        let final_path = final_dir.join(file_name);
+        if !tmp_dir.is_dir() {
+            tokio::fs::create_dir_all(tmp_dir)
+                .await
+                .map_err(|e| SingleDownloadError::Create { source: e })?;
+        }
 
-        let mut f = File::create(&tmp_path)
+        let tmp = tmp_dir.join(file_name);
+
+        let mut f = File::create(&tmp)
             .await
             .map_err(|e| SingleDownloadError::Create { source: e })?;
 
@@ -529,18 +534,12 @@ impl MirrorSource {
             .await
             .map_err(|e| SingleDownloadError::Flush { source: e })?;
 
-        if !final_dir.is_dir() {
-            tokio::fs::create_dir_all(final_dir)
-                .await
-                .map_err(|e| SingleDownloadError::Create { source: e })?;
-        }
-
         debug!(
-            "Atomic rename release metadata from {} to {}",
-            tmp_path.display(),
-            final_path.display()
+            "Rename release metadata from {} to {}",
+            tmp.display(),
+            download_dir.display()
         );
-        tokio::fs::rename(&tmp_path, &final_path)
+        tokio::fs::rename(&tmp, &download_dir.join(file_name))
             .await
             .map_err(|e| SingleDownloadError::Write { source: e })?;
 
@@ -683,13 +682,12 @@ impl MirrorSources {
 
         let mut set = JoinSet::new();
         let mut source_locks = AHashMap::new();
-        let final_dir = download_dir;
-        let download_dir = Arc::new(final_dir.join("partial"));
+        let tmp_dir = Arc::new(download_dir.join("partial"));
 
         for (index, m) in sources.into_iter().enumerate() {
             let client = client.clone();
             let replacer = replacer.clone();
-            let download_dir = download_dir.clone();
+            let tmp_dir = tmp_dir.clone();
             let sender = sender.clone();
 
             let source_key = if let Ok(url) = Url::parse(m.dist_path()) {
@@ -703,7 +701,7 @@ impl MirrorSources {
                 .or_insert_with(|| Arc::new(Semaphore::new(threads)))
                 .clone();
 
-            let final_dir_ptr = final_dir.clone();
+            let download_dir = download_dir.clone();
             set.spawn(async move {
                 let _permit = match source_sem.acquire_owned().await {
                     Ok(p) => Some(p),
@@ -716,8 +714,8 @@ impl MirrorSources {
                         &replacer,
                         index,
                         total_len,
+                        &tmp_dir,
                         &download_dir,
-                        &final_dir_ptr,
                         sender,
                     )
                     .await;
