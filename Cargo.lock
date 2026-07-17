@@ -156,10 +156,8 @@ dependencies = [
 name = "apt-auth-config"
 version = "0.6.0"
 dependencies = [
- "http",
  "reqwest-middleware",
  "rust-netrc",
- "spdlog-rs",
  "thiserror 2.0.18",
  "url",
 ]
