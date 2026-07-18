@@ -3,8 +3,8 @@ use std::{fs, path::Path, sync::atomic::Ordering, thread};
 use ahash::{HashMap, HashSet};
 use bon::Builder;
 use chrono::Local;
-use dialoguer::{Confirm, theme::ColorfulTheme};
 use flume::unbounded;
+use inquire::Confirm;
 use oma_console::{indicatif::HumanBytes, pager::PagerExit, print::Action};
 use oma_history::{DATABASE_PATH, HistoryInfo};
 use oma_pm::{
@@ -460,8 +460,6 @@ fn display_suggest_tips(suggest: &[(String, String)], recommend: &[(String, Stri
 fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, OutputError> {
     debug!("{:?}", features);
 
-    let theme = ColorfulTheme::default();
-
     let features = match format_features(features) {
         Ok(v) => v,
         Err(e) => {
@@ -474,10 +472,9 @@ fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, 
 
             warn!("{}", fl!("features-without-value"));
 
-            let delete = Confirm::with_theme(&theme)
-                .with_prompt(fl!("features-continue-prompt"))
-                .default(false)
-                .interact()
+            let delete = Confirm::new(&fl!("features-continue-prompt"))
+                .with_default(false)
+                .prompt()
                 .map_err(|_| anyhow::anyhow!(""))?;
 
             return Ok(delete);
@@ -493,10 +490,9 @@ fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, 
     warn!("{}", fl!("features-tips-1"));
     msg!("\n{}\n", features);
 
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(fl!("features-continue-prompt"))
-        .default(false)
-        .interact()
+    let delete = Confirm::new(&fl!("features-continue-prompt"))
+        .with_default(false)
+        .prompt()
         .map_err(|_| anyhow::anyhow!(""))?;
 
     Ok(delete)

@@ -13,7 +13,6 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 clap = { workspace = true }
 anyhow = { workspace = true }
 ctrlc = { workspace = true }
-dialoguer = { workspace = true }
 tabled = { workspace = true }
 tokio = { workspace = true }
 oma-inquire = { workspace = true }
@@ -55,7 +54,6 @@ termtree = { workspace = true }
 textwrap = { workspace = true }
 sysinfo = { workspace = true }
 once_cell = { workspace = true }
-itertools = { workspace = true }
 clap-i18n-richformatter = { workspace = true }
 debversion = { workspace = true }
 which = { workspace = true }
@@ -83,12 +81,11 @@ apt-auth-config = { workspace = true }
 oma-tum = { workspace = true, optional = true }
 
 # i18n
-i18n-embed = { workspace = true}
+i18n-embed = { workspace = true }
 i18n-embed-fl = { workspace = true }
 rust-embed = { workspace = true }
 
 [workspace.dependencies]
-dialoguer = "0.12.0"
 clap = { version = "4.6", features = [
     "cargo",
     "wrap_help",
@@ -131,9 +128,8 @@ bon = "3"
 fs4 = "1"
 dirs = "6.0.0"
 textwrap = "0.16.2"
-sysinfo = "0.39"
+sysinfo = { version = "0.39", default-features = false, features = ["system"] }
 once_cell = "1.21"
-itertools = "0.15.0"
 debversion = "0.5"
 which = "8"
 digest-io = "0.1"
@@ -210,7 +206,7 @@ oma-tum = { version = "0.6.1", path = "./oma-tum" }
 oma-pm-operation-type = { version = "0.10.1", path = "./oma-pm-operation-type" }
 oma-apt = "0.13"
 oma-apt-sources-lists = "0.9"
-oma-inquire = "0.3"
+oma-inquire = "0.6"
 
 [features]
 aosc = [

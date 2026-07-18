@@ -8,7 +8,7 @@ use std::{
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
-use dialoguer::console::style;
+use oma_console::console::style;
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},

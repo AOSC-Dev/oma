@@ -11,9 +11,11 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "decompress")]
 use async_compression::futures::bufread::{
     BzDecoder, GzipDecoder, Lz4Decoder, LzmaDecoder, XzDecoder, ZstdDecoder,
 };
+
 use bon::bon;
 use futures::{AsyncBufRead, AsyncRead, TryStreamExt, io::BufReader};
 use headers::{ContentLength, ContentRange, HeaderMapExt};
@@ -723,6 +725,7 @@ impl SingleDownloader {
             let mut stream = BufReader::new(stream);
 
             // initialize decompressor
+            #[cfg(feature = "decompress")]
             let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.entry.file_type {
                 CompressType::Xz => &mut XzDecoder::new(&mut stream),
                 CompressType::Gzip => &mut GzipDecoder::new(&mut stream),
@@ -732,6 +735,12 @@ impl SingleDownloader {
                 CompressType::Lz4 => &mut Lz4Decoder::new(&mut stream),
                 CompressType::None => &mut stream,
             };
+
+            #[cfg(not(feature = "decompress"))]
+            let reader = &mut stream;
+
+            #[cfg(not(feature = "decompress"))]
+            check_decompress_feature_enabled(self.entry.file_type);
 
             let stream_counter = AtomicUsize::new(0);
             let counted_reader = Counter::new(reader, &stream_counter);
@@ -875,6 +884,7 @@ impl SingleDownloader {
             .await
             .context(CreateSnafu)?;
 
+        #[cfg(feature = "decompress")]
         let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.entry.file_type {
             CompressType::Xz => &mut XzDecoder::new(BufReader::new(from)),
             CompressType::Gzip => &mut GzipDecoder::new(BufReader::new(from)),
@@ -884,6 +894,12 @@ impl SingleDownloader {
             CompressType::Lz4 => &mut Lz4Decoder::new(BufReader::new(from)),
             CompressType::None => &mut BufReader::new(from),
         };
+
+        #[cfg(not(feature = "decompress"))]
+        check_decompress_feature_enabled(self.entry.file_type);
+
+        #[cfg(not(feature = "decompress"))]
+        let reader: &mut (dyn AsyncRead + Unpin + Send) = &mut BufReader::new(from);
 
         let mut reader = reader.compat();
 
@@ -1042,5 +1058,13 @@ impl<R: AsyncBufRead + Unpin> AsyncBufRead for Counter<'_, R> {
         counter.bytes.fetch_add(amt, Ordering::AcqRel);
         let pin = Pin::new(&mut counter.inner);
         pin.consume(amt);
+    }
+}
+
+#[cfg(not(feature = "decompress"))]
+fn check_decompress_feature_enabled(file_type: CompressType) {
+    let b = matches!(file_type, CompressType::None);
+    if !b {
+        panic!("decompress feature is not enabled")
     }
 }

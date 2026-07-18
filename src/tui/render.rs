@@ -7,7 +7,7 @@ use std::{
 
 use super::state::StatefulList;
 use ansi_to_tui::IntoText;
-use dialoguer::console;
+use oma_console::console;
 use oma_pm::{apt::OmaApt, pkginfo::OmaPackage, search::SearchResult};
 use ratatui::{
     crossterm::event::{self},

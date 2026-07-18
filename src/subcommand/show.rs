@@ -2,8 +2,10 @@ use std::{borrow::Cow, io::stdout};
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
-use dialoguer::console::{StyledObject, style};
-use oma_console::indicatif::HumanBytes;
+use oma_console::{
+    console::{StyledObject, style},
+    indicatif::HumanBytes,
+};
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},

@@ -4,8 +4,8 @@ use std::{
     io::{Write, stderr},
 };
 
-use dialoguer::console;
 use inquire::{MultiSelect, ui::RenderConfig};
+use oma_console::console;
 
 use crate::{WRITER, fl};
 

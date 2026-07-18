@@ -29,7 +29,7 @@ async-compression = { workspace = true, features = [
     "bzip2",
     "zstd",
     "lz4",
-] }
+], optional = true }
 # Note: Use the `uncheck_liblzma_version` feature here to force dynamic linking
 # even with older liblzma (Ubuntu 22.04 uses 5.2.x). Be mindful, however, that
 # async-compression depends on a different liblzma-rs than what is specified here.
@@ -53,4 +53,5 @@ flume = { workspace = true }
 rustls = ["reqwest/rustls-no-provider", "dep:rustls"]
 native-tls = ["reqwest/native-tls"]
 default = ["rustls"]
-xz-parallel = ["async-compression/xz-parallel"]
+xz-parallel = ["decompress", "async-compression/xz-parallel"]
+decompress = ["dep:async-compression"]

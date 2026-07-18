@@ -16,17 +16,18 @@ use chrono::DateTime;
 use chrono::TimeDelta;
 use clap::Args;
 use clap::Subcommand;
-use dialoguer::Sort;
-use dialoguer::console::style;
-use dialoguer::theme::ColorfulTheme;
 use digest_io::IoWrapper;
 use faster_hex::hex_string;
 use humantime::format_duration;
+use inquire::Confirm;
+use inquire::InquireError;
+use inquire::Sort;
 use inquire::formatter::MultiOptionFormatter;
 use inquire::ui::Color;
 use inquire::ui::RenderConfig;
 use inquire::ui::StyleSheet;
 use inquire::ui::Styled;
+use oma_console::console::style;
 use oma_console::indicatif::HumanBytes;
 use oma_console::indicatif::ProgressBar;
 use oma_console::indicatif::ProgressStyle;
@@ -359,14 +360,30 @@ fn set_order(no_refresh: bool, config: &OmaConfig) -> Result<ExitHandle, OutputE
 
     let page_size = tui_select_list_size();
 
-    let sorted = Sort::with_theme(&ColorfulTheme::default())
-        .with_prompt(fl!("set-mirror-order-prompt"))
-        .items(&mirrors)
-        .max_length(page_size.into())
-        .interact()
-        .map_err(|_| anyhow!(""))?;
+    let sorted = match Sort::new(&fl!("set-mirror-order-prompt"), mirrors.clone())
+        .with_page_size(page_size as usize)
+        .prompt()
+    {
+        Ok(sorted) => sorted,
+        Err(e) => match e {
+            InquireError::OperationCanceled => {
+                exit(0);
+            }
+            InquireError::OperationInterrupted => {
+                info!("{}", fl!("user-aborted-op"));
+                exit(130);
+            }
+            _ => return Err(anyhow!("{e}").into()),
+        },
+    };
 
-    mm.set_order(&sorted);
+    mm.set_order(
+        &mirrors
+            .iter()
+            .map(|m| sorted.iter().position(|s| s == m).unwrap())
+            .collect::<Vec<_>>(),
+    );
+
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;
 
     if !no_refresh {
@@ -702,9 +719,8 @@ fn speedtest(
     if !set_fastest {
         eprintln!();
         let name = **name;
-        set_fastest = dialoguer::Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt(fl!("set-mirror-default", m = name))
-            .interact()
+        set_fastest = Confirm::new(&fl!("set-mirror-default", m = name))
+            .prompt()
             .unwrap_or(false);
     }
 
