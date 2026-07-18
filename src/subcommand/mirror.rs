@@ -20,6 +20,7 @@ use digest_io::IoWrapper;
 use faster_hex::hex_string;
 use humantime::format_duration;
 use inquire::Confirm;
+use inquire::InquireError;
 use inquire::Sort;
 use inquire::formatter::MultiOptionFormatter;
 use inquire::ui::Color;
@@ -359,10 +360,22 @@ fn set_order(no_refresh: bool, config: &OmaConfig) -> Result<ExitHandle, OutputE
 
     let page_size = tui_select_list_size();
 
-    let sorted = Sort::new(&fl!("set-mirror-order-prompt"), mirrors.clone())
+    let sorted = match Sort::new(&fl!("set-mirror-order-prompt"), mirrors.clone())
         .with_page_size(page_size as usize)
         .prompt()
-        .map_err(|_| anyhow!(""))?;
+    {
+        Ok(sorted) => sorted,
+        Err(e) => match e {
+            InquireError::OperationCanceled => {
+                exit(0);
+            }
+            InquireError::OperationInterrupted => {
+                info!("{}", fl!("user-aborted-op"));
+                exit(130);
+            }
+            _ => return Err(anyhow!("{e}").into()),
+        },
+    };
 
     mm.set_order(
         &mirrors
