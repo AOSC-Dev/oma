@@ -1,6 +1,6 @@
 use std::process::exit;
 
-use inquire::Confirm;
+use inquire::{Confirm, InquireError};
 use oma_utils::{
     dbus::{
         InhibitTypeUnion, create_dbus_connection, get_another_oma_status, is_using_battery,
@@ -125,7 +125,7 @@ fn ask_continue_no_use_battery(conn: &Connection, yes: bool) {
     }
 }
 
-fn handle_question_result(res: std::result::Result<bool, inquire::InquireError>) {
+fn handle_question_result(res: std::result::Result<bool, InquireError>) {
     match res {
         Ok(b) => {
             if !b {
@@ -133,9 +133,11 @@ fn handle_question_result(res: std::result::Result<bool, inquire::InquireError>)
             }
         }
         Err(e) => match e {
-            inquire::InquireError::OperationCanceled => exit(0),
-            inquire::InquireError::OperationInterrupted => {
+            InquireError::OperationCanceled => exit(0),
+            InquireError::OperationInterrupted => {
                 debug!("Interrupted by user.");
+                info!("{}", fl!("user-aborted-op"));
+                exit(130);
             }
             _ => {
                 error!("{e}");

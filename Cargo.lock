@@ -3340,9 +3340,9 @@ dependencies = [
 
 [[package]]
 name = "oma-inquire"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54d60b7bee401b36188f05b954436cce9fef8688d830ea701dd88ad64c101f76"
+checksum = "ba175b5654473d9568c6e46a16d35090af4099808b5d57fd30161d75d4b7d2bf"
 dependencies = [
  "bitflags 2.13.0",
  "crossterm",
