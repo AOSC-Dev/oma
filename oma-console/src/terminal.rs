@@ -1,4 +1,5 @@
 use std::io::{self, IsTerminal, Write};
+use std::sync::{Arc, Mutex};
 
 use ratatui::crossterm::cursor::Show;
 use ratatui::crossterm::execute;
@@ -33,12 +34,15 @@ pub fn wrap_content<'a>(
         .collect()
 }
 
-/// Providing information about terminal
+/// Providing information about terminal, with optional write buffering.
+///
+/// Use `write_str` for immediate output, or `write_buf` / `flush` for buffered writing.
 #[derive(Clone)]
 pub struct Terminal {
     is_stderr: bool,
     pub(crate) limit_max_len: Option<u16>,
     pub(crate) prefix_len: u16,
+    buf: Arc<Mutex<String>>,
 }
 
 impl Terminal {
@@ -121,6 +125,7 @@ impl Terminal {
         wrap_content(prefix, msg, self.get_max_len(), self.prefix_len)
     }
 
+    /// Write a string directly to the terminal (immediate output, no buffering).
     pub(crate) fn write_str(&self, s: &str) -> io::Result<()> {
         if self.is_stderr {
             let mut stderr = io::stderr();
@@ -130,6 +135,29 @@ impl Terminal {
             stdout.write_all(s.as_bytes())
         }
     }
+
+    /// Write a string into the internal buffer (deferred output).
+    /// Call `flush()` to write the accumulated buffer to the actual terminal.
+    pub fn write_buf(&self, s: &str) {
+        self.buf.lock().unwrap().push_str(s);
+    }
+
+    /// Flush the internal buffer to the terminal output (stdout / stderr).
+    pub fn flush(&self) -> io::Result<()> {
+        let mut buf = self.buf.lock().unwrap();
+        if buf.is_empty() {
+            return Ok(());
+        }
+        if self.is_stderr {
+            io::stderr().write_all(buf.as_bytes())?;
+            io::stderr().flush()?;
+        } else {
+            io::stdout().write_all(buf.as_bytes())?;
+            io::stdout().flush()?;
+        }
+        buf.clear();
+        Ok(())
+    }
 }
 
 impl Default for Terminal {
@@ -138,6 +166,7 @@ impl Default for Terminal {
             is_stderr: true,
             limit_max_len: Some(80),
             prefix_len: 10,
+            buf: Arc::new(Mutex::new(String::new())),
         }
     }
 }

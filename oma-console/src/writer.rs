@@ -76,6 +76,11 @@ impl Writer {
         self.term.get_writer()
     }
 
+    /// Flush the internal buffer to the actual terminal output
+    pub fn flush(&self) -> io::Result<()> {
+        self.term.flush()
+    }
+
     /// Write oma-style message prefix to terminal
     pub fn write_prefix(&self, prefix: &str) -> io::Result<()> {
         self.term.write_str(&self.term.gen_prefix(prefix))?;
