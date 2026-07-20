@@ -1,11 +1,10 @@
 use crate::completions::pkgnames_and_path_completions;
 use crate::config::OmaConfig;
-use crate::core::commit_changes::CommitChanges;
-use crate::core::refresh::Refresh;
+use crate::core::operation_pipeline::Pipeline;
 use crate::exit_handle::ExitHandle;
 use clap_complete::ArgValueCompleter;
 use oma_pm::oma_apt::PackageSort;
-use spdlog::{debug, info, warn};
+use spdlog::{debug, info};
 
 use clap::Args;
 use oma_pm::apt::OmaApt;
@@ -15,13 +14,10 @@ use oma_pm::apt::Upgrade as AptUpgrade;
 use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
 
-use crate::dbus::dbus_check;
 use crate::error::OutputError;
 use crate::fl;
-use crate::root::root;
 
 use super::utils::handle_no_result;
-use super::utils::lock_oma;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -91,115 +87,108 @@ impl CliExecuter for Upgrade {
             no_clean,
         } = self;
 
-        let _lock_fd = if !config.dry_run {
-            root()?;
-            Some(lock_oma(&config.sysroot)?)
-        } else {
-            None
-        };
-
-        let _fds = dbus_check(false, &config)?;
-
-        if !no_refresh {
-            Refresh::builder().config(&config).build().run()?;
-        }
-
-        if yes {
-            warn!("{}", fl!("automatic-mode-warn"));
-        }
-
-        let local_debs = packages
-            .iter()
-            .filter(|x| x.ends_with(".deb"))
-            .map(|x| x.to_owned())
-            .collect::<Vec<_>>();
-
-        let pkgs_unparse = packages.iter().map(|x| x.as_str()).collect::<Vec<_>>();
-
-        let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(config.sysroot.to_string_lossy().to_string())
-            .dpkg_force_confnew(force_confnew)
-            .force_yes(force_yes)
+        Pipeline::builder()
+            .config(&config)
             .yes(yes)
-            .another_apt_options(&config.apt_options)
-            .dpkg_force_unsafe_io(force_unsafe_io)
-            .build();
-
-        let mut apt = OmaApt::new(local_debs, oma_apt_args, config.dry_run)?;
-
-        let matcher = PackagesMatcher::builder()
-            .cache(&apt.cache)
-            .filter_candidate(true)
-            .filter_downloadable_candidate(false)
-            .select_dbg(false)
-            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
-            .build();
-
-        let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;
-
-        handle_no_result(no_result, config.no_progress())?;
-
-        let no_marked_install = apt.install(&pkgs, false)?;
-
-        if !no_marked_install.is_empty() {
-            for (pkg, version) in no_marked_install {
-                info!(
-                    "{}",
-                    fl!("already-installed", name = pkg, version = version)
-                );
-            }
-        }
-
-        #[cfg(feature = "aosc")]
-        let mode = AptUpgrade::FullUpgrade;
-
-        #[cfg(not(feature = "aosc"))]
-        let mode = if no_remove {
-            AptUpgrade::Upgrade
-        } else {
-            AptUpgrade::FullUpgrade
-        };
-
-        debug!("Upgrade mode is using: {:?}", mode);
-        apt.upgrade(mode)?;
-
-        let held_count = apt
-            .cache
-            .packages(&PackageSort::default().upgradable())
-            .filter(|pkg| !pkg.marked_upgrade())
-            .count();
-
-        let exit = CommitChanges::builder()
-            .apt(apt)
+            .need_refresh(!no_refresh)
             .no_fixbroken(no_fixbroken)
-            .check_tum(true)
-            .yes(yes)
+            .fix_dpkg_status(!no_fix_dpkg_status)
             .remove_config(remove_config)
             .autoremove(autoremove)
-            .fix_dpkg_status(!no_fix_dpkg_status)
             .download_only(download_only)
             .is_upgrade(true)
-            .config(&config)
+            .check_tum(true)
             .no_clean(no_clean)
             .build()
-            .run()?;
+            .run(|ctx| {
+                let local_debs = packages
+                    .iter()
+                    .filter(|x| x.ends_with(".deb"))
+                    .map(|x| x.to_owned())
+                    .collect::<Vec<_>>();
 
-        let apt = OmaApt::new(vec![], OmaAptArgs::builder().build(), config.dry_run)?;
+                let pkgs_unparse = packages.iter().map(|x| x.as_str()).collect::<Vec<_>>();
 
-        let (_, manual_held) = apt.count_pending_upgradable_pkgs();
+                let oma_apt_args = OmaAptArgs::builder()
+                    .sysroot(ctx.config.sysroot.to_string_lossy().to_string())
+                    .dpkg_force_confnew(force_confnew)
+                    .force_yes(force_yes)
+                    .yes(yes)
+                    .another_apt_options(&ctx.config.apt_options)
+                    .dpkg_force_unsafe_io(force_unsafe_io)
+                    .build();
 
-        if manual_held != 0 {
-            info!("{}", fl!("upgrade-manual-held-tips", count = manual_held));
-        }
+                let mut apt = OmaApt::new(local_debs, oma_apt_args, ctx.config.dry_run)?;
 
-        if held_count != manual_held {
-            let resolver_held = held_count - manual_held;
-            info!(
-                "{}",
-                fl!("upgrade-resolver-held-tips", count = resolver_held)
-            );
-        }
+                let matcher = PackagesMatcher::builder()
+                    .cache(&apt.cache)
+                    .filter_candidate(true)
+                    .filter_downloadable_candidate(false)
+                    .select_dbg(false)
+                    .native_arch(GetArchMethod::SpecifySysroot(&ctx.config.sysroot))
+                    .build();
 
-        Ok(exit)
+                let (pkgs, no_result) = matcher.match_pkgs_and_versions(pkgs_unparse.clone())?;
+
+                handle_no_result(no_result, ctx.config.no_progress())?;
+
+                let no_marked_install = apt.install(&pkgs, false)?;
+
+                if !no_marked_install.is_empty() {
+                    for (pkg, version) in no_marked_install {
+                        info!(
+                            "{}",
+                            fl!("already-installed", name = pkg, version = version)
+                        );
+                    }
+                }
+
+                #[cfg(feature = "aosc")]
+                let mode = AptUpgrade::FullUpgrade;
+
+                #[cfg(not(feature = "aosc"))]
+                let mode = if no_remove {
+                    AptUpgrade::Upgrade
+                } else {
+                    AptUpgrade::FullUpgrade
+                };
+
+                debug!("Upgrade mode is using: {:?}", mode);
+                apt.upgrade(mode)?;
+
+                let held_count = apt
+                    .cache
+                    .packages(&PackageSort::default().upgradable())
+                    .filter(|pkg| !pkg.marked_upgrade())
+                    .count();
+
+                let config = ctx.config;
+                let exit = ctx.commit(apt)?;
+
+                let apt = OmaApt::new(
+                    vec![],
+                    OmaAptArgs::builder().build(),
+                    config.dry_run,
+                )?;
+
+                let (_, manual_held) = apt.count_pending_upgradable_pkgs();
+
+                if manual_held != 0 {
+                    info!(
+                        "{}",
+                        fl!("upgrade-manual-held-tips", count = manual_held)
+                    );
+                }
+
+                if held_count != manual_held {
+                    let resolver_held = held_count - manual_held;
+                    info!(
+                        "{}",
+                        fl!("upgrade-resolver-held-tips", count = resolver_held)
+                    );
+                }
+
+                Ok(exit)
+            })
     }
 }
