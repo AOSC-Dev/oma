@@ -10,16 +10,14 @@ use oma_pm::{
 use crate::{
     completions::pkgnames_completions,
     config::OmaConfig,
-    core::{commit_changes::CommitChanges, refresh::Refresh},
-    dbus::dbus_check,
+    core::operation_pipeline::Pipeline,
     error::OutputError,
     exit_handle::ExitHandle,
     menu::tui_select_list_size,
 };
-use crate::{fl, root::root};
+use crate::fl;
 use anyhow::anyhow;
 
-use super::utils::lock_oma;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -79,116 +77,104 @@ impl CliExecuter for Pick {
             no_clean,
         } = self;
 
-        let _lock_fd = if !config.dry_run {
-            root()?;
-            Some(lock_oma(&config.sysroot)?)
-        } else {
-            None
-        };
-
-        let _fds = dbus_check(false, &config)?;
-
-        if !no_refresh {
-            Refresh::builder().config(&config).build().run()?;
-        }
-
-        let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(config.sysroot.to_string_lossy().to_string())
-            .another_apt_options(&config.apt_options)
-            .dpkg_force_confnew(force_confnew)
-            .dpkg_force_unsafe_io(force_unsafe_io)
-            .force_yes(force_yes)
-            .build();
-
-        let mut apt = OmaApt::new(vec![], oma_apt_args, config.dry_run)?;
-
-        let pkg = apt
-            .cache
-            .get(&package)
-            .ok_or_else(|| anyhow!(fl!("can-not-get-pkg-from-database", name = package)))?;
-
-        let versions = pkg.versions().collect::<Vec<_>>();
-        let versions_str = versions
-            .iter()
-            .map(|x| x.version().to_string())
-            .collect::<Vec<_>>();
-
-        let mut v = vec![];
-        for i in 0..versions.len() {
-            for j in 1..versions.len() {
-                if i == j {
-                    continue;
-                }
-
-                if versions_str[i] == versions_str[j] {
-                    v.push((i, j));
-                }
-            }
-        }
-
-        let mut version_str_display = versions_str.clone();
-        for (a, b) in v {
-            for i in [a, b] {
-                let mut site_branch_suite = vec![];
-                for i in versions[i].version_files() {
-                    site_branch_suite.push(get_source_from_version_file(i));
-                }
-
-                version_str_display[i] = format!(
-                    "{} ({})",
-                    versions[i].version(),
-                    site_branch_suite.join(",")
-                );
-            }
-        }
-
-        let theme = ColorfulTheme::default();
-        let mut dialoguer = Select::with_theme(&theme)
-            .items(&version_str_display)
-            .with_prompt(fl!("pick-tips", pkgname = pkg.fullname(true)));
-
-        let pos = if let Some(installed) = pkg.installed() {
-            versions
-                .iter()
-                .position(|v| {
-                    v.version() == installed.version()
-                        && v.uris()
-                            .iter()
-                            .any(|uri| installed.uris().iter().any(|uri2| uri == uri2))
-                })
-                .unwrap_or(0)
-        } else {
-            0
-        };
-
-        dialoguer = dialoguer.default(pos);
-
-        let size = tui_select_list_size();
-        dialoguer = dialoguer.max_length(size.into());
-
-        let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
-
-        let pkgs = vec![
-            OmaPackage::new(&versions[sel], &pkg).map_err(|e| OutputError {
-                description: e.to_string(),
-                source: None,
-            })?,
-        ];
-
-        apt.install(&pkgs, false)?;
-
-        CommitChanges::builder()
-            .apt(apt)
+        Pipeline::builder()
+            .config(&config)
+            .need_refresh(!no_refresh)
             .no_fixbroken(fix_broken)
             .fix_dpkg_status(!no_fix_dpkg_status)
-            .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
             .download_only(download_only)
-            .config(&config)
             .no_clean(no_clean)
             .build()
-            .run()
+            .run(|ctx| {
+                let oma_apt_args = OmaAptArgs::builder()
+                    .sysroot(ctx.config.sysroot.to_string_lossy().to_string())
+                    .another_apt_options(&ctx.config.apt_options)
+                    .dpkg_force_confnew(force_confnew)
+                    .dpkg_force_unsafe_io(force_unsafe_io)
+                    .force_yes(force_yes)
+                    .build();
+
+                let mut apt = OmaApt::new(vec![], oma_apt_args, ctx.config.dry_run)?;
+
+                let pkg = apt
+                    .cache
+                    .get(&package)
+                    .ok_or_else(|| anyhow!(fl!("can-not-get-pkg-from-database", name = package)))?;
+
+                let versions = pkg.versions().collect::<Vec<_>>();
+                let versions_str = versions
+                    .iter()
+                    .map(|x| x.version().to_string())
+                    .collect::<Vec<_>>();
+
+                let mut v = vec![];
+                for i in 0..versions.len() {
+                    for j in 1..versions.len() {
+                        if i == j {
+                            continue;
+                        }
+
+                        if versions_str[i] == versions_str[j] {
+                            v.push((i, j));
+                        }
+                    }
+                }
+
+                let mut version_str_display = versions_str.clone();
+                for (a, b) in v {
+                    for i in [a, b] {
+                        let mut site_branch_suite = vec![];
+                        for i in versions[i].version_files() {
+                            site_branch_suite.push(get_source_from_version_file(i));
+                        }
+
+                        version_str_display[i] = format!(
+                            "{} ({})",
+                            versions[i].version(),
+                            site_branch_suite.join(",")
+                        );
+                    }
+                }
+
+                let theme = ColorfulTheme::default();
+                let mut dialoguer = Select::with_theme(&theme)
+                    .items(&version_str_display)
+                    .with_prompt(fl!("pick-tips", pkgname = pkg.fullname(true)));
+
+                let pos = if let Some(installed) = pkg.installed() {
+                    versions
+                        .iter()
+                        .position(|v| {
+                            v.version() == installed.version()
+                                && v.uris()
+                                    .iter()
+                                    .any(|uri| installed.uris().iter().any(|uri2| uri == uri2))
+                        })
+                        .unwrap_or(0)
+                } else {
+                    0
+                };
+
+                dialoguer = dialoguer.default(pos);
+
+                let size = tui_select_list_size();
+                dialoguer = dialoguer.max_length(size.into());
+
+                let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
+
+                let pkgs = vec![
+                    OmaPackage::new(&versions[sel], &pkg).map_err(|e| OutputError {
+                        description: e.to_string(),
+                        source: None,
+                    })?,
+                ];
+
+                apt.install(&pkgs, false)?;
+
+                ctx.commit(apt)
+            })
     }
 }
 

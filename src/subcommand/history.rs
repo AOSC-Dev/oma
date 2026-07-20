@@ -13,14 +13,14 @@ use std::time::Duration;
 
 use crate::WRITER;
 use crate::config::OmaConfig;
-use crate::core::commit_changes::CommitChanges;
+use crate::core::operation_pipeline::Pipeline;
 use crate::core::refresh::Refresh;
 use crate::exit_handle::ExitHandle;
 use crate::exit_handle::ExitStatus;
 use crate::subcommand::history_tui::HistorySelectTui;
-use crate::{dbus::dbus_check, error::OutputError, fl, root::root};
+use crate::{error::OutputError, fl};
 
-use super::utils::{handle_no_result, lock_oma};
+use super::utils::handle_no_result;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -105,8 +105,6 @@ pub struct Undo {
 
 impl CliExecuter for Undo {
     fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
-        root()?;
-
         let Undo {
             no_fixbroken,
             force_unsafe_io,
@@ -120,166 +118,170 @@ impl CliExecuter for Undo {
             no_clean,
         } = self;
 
-        let _lock_fd = lock_oma(&config.sysroot)?;
-
-        let _fds = dbus_check(false, &config)?;
-
-        let history =
-            oma_history::History::new(config.sysroot.join(DATABASE_PATH), true, config.dry_run)?;
-
-        let Some(id) = tui(&history, true)? else {
-            return Ok(ExitHandle::default().status(ExitStatus::Other(130)));
-        };
-
-        let op = history.find_history_by_id(id)?;
-
-        #[cfg(feature = "aosc")]
-        let (opt_in, opt_out) = history.find_history_topics_status_by_id(id)?;
-
-        if !no_refresh {
-            Refresh::builder().config(&config).build().run()?;
-        }
-
-        let no_progress = config.no_progress();
-
-        let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(config.sysroot.to_string_lossy().to_string())
-            .another_apt_options(&config.apt_options)
-            .dpkg_force_confnew(force_confnew)
-            .dpkg_force_unsafe_io(force_unsafe_io)
-            .force_yes(force_yes)
-            .build();
-
-        let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
-
-        let mut remove = vec![];
-        let mut install = vec![];
-
-        if !op.install.is_empty() {
-            for i in &op.install {
-                match i.operation {
-                    InstallOperation::Default | InstallOperation::Download => unreachable!(),
-                    InstallOperation::Install => remove.push(&i.pkg_name),
-                    InstallOperation::ReInstall => continue,
-                    InstallOperation::Upgrade | InstallOperation::Downgrade => {
-                        install.push((&i.pkg_name, i.old_version.as_ref().unwrap()))
-                    }
-                }
-            }
-        }
-
-        if !op.remove.is_empty() {
-            for i in &op.remove {
-                install.push((&i.pkg_name, &i.version));
-            }
-        }
-
-        let matcher = PackagesMatcher::builder()
-            .cache(&apt.cache)
-            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
-            .build();
-
-        let mut delete = vec![];
-        let mut no_result = vec![];
-        for i in remove {
-            let res = matcher.match_pkgs_from_glob(i)?;
-            if res.is_empty() {
-                no_result.push(i.as_str());
-            } else {
-                delete.extend(res);
-            }
-        }
-
-        handle_no_result(no_result, no_progress)?;
-
-        apt.remove(delete, false, true)?;
-
-        let pkgs = apt
-            .cache
-            .packages(&PackageSort::default())
-            .collect::<Vec<_>>();
-
-        let install = install
-            .iter()
-            .filter_map(|(pkg, ver)| {
-                let select = pkgs.iter().find(move |y| y.name() == *pkg);
-
-                if let Some(pkg) = select {
-                    if let Some(v) = pkg.get_version(ver) {
-                        Some((pkg, v))
-                    } else {
-                        warn!("Failed to get package {} version: {}", pkg, ver);
-                        None
-                    }
-                } else {
-                    warn!("Failed to get package: {} {}", pkg, ver);
-                    None
-                }
-            })
-            .map(|(x, y)| OmaPackage::new(&y, x))
-            .collect::<Result<Vec<OmaPackage>, PtrIsNone>>()
-            .map_err(|e| OutputError {
-                description: e.to_string(),
-                source: None,
-            })?;
-
-        apt.install(&install, false)?;
-
-        let exit = CommitChanges::builder()
-            .apt(apt)
-            .is_undo(true)
+        Pipeline::builder()
+            .config(&config)
+            .always_escalate(true)
             .no_fixbroken(no_fixbroken)
             .fix_dpkg_status(!no_fix_dpkg_status)
-            .yes(false)
             .remove_config(remove_config)
             .autoremove(autoremove)
             .download_only(download_only)
-            .config(&config)
+            .is_undo(true)
             .no_clean(no_clean)
             .build()
-            .run()?;
+            .run(|ctx| {
+                let history = oma_history::History::new(
+                    ctx.config.sysroot.join(DATABASE_PATH),
+                    true,
+                    ctx.config.dry_run,
+                )?;
 
-        #[cfg(feature = "aosc")]
-        if exit.get_status() == ExitStatus::Success && (!opt_in.is_empty() || !opt_out.is_empty()) {
-            use crate::fl;
-            use spdlog::warn;
+                let Some(id) = tui(&history, true)? else {
+                    return Ok(ExitHandle::default().status(ExitStatus::Other(130)));
+                };
 
-            let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
-            let mut tm = oma_topics::TopicManager::new(
-                config.http_client()?.clone(),
-                &config.sysroot,
-                arch,
-                config.dry_run,
-            )?;
+                let op = history.find_history_by_id(id)?;
 
-            tm.refresh()?;
+                #[cfg(feature = "aosc")]
+                let (opt_in, opt_out) = history.find_history_topics_status_by_id(id)?;
 
-            for i in opt_in {
-                if let Err(e) = tm.remove(&i) {
-                    warn!("Could not disable topic {i}: {e}");
+                // Refresh after the TUI — the TUI reads local history,
+                // not the APT cache, so it doesn't need refresh first.
+                if !no_refresh {
+                    Refresh::builder().config(ctx.config).build().run()?;
                 }
-            }
 
-            for i in opt_out {
-                if let Err(e) = tm.add(&i) {
-                    warn!("Could not enable topic {i}: {e}");
+                let no_progress = ctx.config.no_progress();
+
+                let oma_apt_args = OmaAptArgs::builder()
+                    .sysroot(ctx.config.sysroot.to_string_lossy().to_string())
+                    .another_apt_options(&ctx.config.apt_options)
+                    .dpkg_force_confnew(force_confnew)
+                    .dpkg_force_unsafe_io(force_unsafe_io)
+                    .force_yes(force_yes)
+                    .build();
+
+                let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
+
+                let mut remove = vec![];
+                let mut install = vec![];
+
+                if !op.install.is_empty() {
+                    for i in &op.install {
+                        match i.operation {
+                            InstallOperation::Default | InstallOperation::Download => {
+                                unreachable!()
+                            }
+                            InstallOperation::Install => remove.push(&i.pkg_name),
+                            InstallOperation::ReInstall => continue,
+                            InstallOperation::Upgrade | InstallOperation::Downgrade => {
+                                install.push((&i.pkg_name, i.old_version.as_ref().unwrap()))
+                            }
+                        }
+                    }
                 }
-            }
 
-            tm.write_enabled(false)?;
-            tm.write_sources_list(
-                &fl!("do-not-edit-topic-sources-list"),
-                false,
-                |topic, mirror| {
-                    warn!(
-                        "{}",
-                        fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
-                    );
-                    warn!("{}", fl!("skip-write-mirror"));
-                },
-            )?;
-        }
+                if !op.remove.is_empty() {
+                    for i in &op.remove {
+                        install.push((&i.pkg_name, &i.version));
+                    }
+                }
 
-        Ok(exit)
+                let matcher = PackagesMatcher::builder()
+                    .cache(&apt.cache)
+                    .native_arch(GetArchMethod::SpecifySysroot(&ctx.config.sysroot))
+                    .build();
+
+                let mut delete = vec![];
+                let mut no_result = vec![];
+                for i in remove {
+                    let res = matcher.match_pkgs_from_glob(i)?;
+                    if res.is_empty() {
+                        no_result.push(i.as_str());
+                    } else {
+                        delete.extend(res);
+                    }
+                }
+
+                handle_no_result(no_result, no_progress)?;
+
+                apt.remove(delete, false, true)?;
+
+                let pkgs = apt
+                    .cache
+                    .packages(&PackageSort::default())
+                    .collect::<Vec<_>>();
+
+                let install = install
+                    .iter()
+                    .filter_map(|(pkg, ver)| {
+                        let select = pkgs.iter().find(move |y| y.name() == *pkg);
+
+                        if let Some(pkg) = select {
+                            if let Some(v) = pkg.get_version(ver) {
+                                Some((pkg, v))
+                            } else {
+                                warn!("Failed to get package {} version: {}", pkg, ver);
+                                None
+                            }
+                        } else {
+                            warn!("Failed to get package: {} {}", pkg, ver);
+                            None
+                        }
+                    })
+                    .map(|(x, y)| OmaPackage::new(&y, x))
+                    .collect::<Result<Vec<OmaPackage>, PtrIsNone>>()
+                    .map_err(|e| OutputError {
+                        description: e.to_string(),
+                        source: None,
+                    })?;
+
+                apt.install(&install, false)?;
+
+                let config = ctx.config;
+                let exit = ctx.commit(apt)?;
+
+                #[cfg(feature = "aosc")]
+                if exit.get_status() == ExitStatus::Success
+                    && (!opt_in.is_empty() || !opt_out.is_empty())
+                {
+                    let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
+                    let mut tm = oma_topics::TopicManager::new(
+                        config.http_client()?.clone(),
+                        &config.sysroot,
+                        arch,
+                        config.dry_run,
+                    )?;
+
+                    tm.refresh()?;
+
+                    for i in opt_in {
+                        if let Err(e) = tm.remove(&i) {
+                            warn!("Could not disable topic {i}: {e}");
+                        }
+                    }
+
+                    for i in opt_out {
+                        if let Err(e) = tm.add(&i) {
+                            warn!("Could not enable topic {i}: {e}");
+                        }
+                    }
+
+                    tm.write_enabled(false)?;
+                    tm.write_sources_list(
+                        &crate::fl!("do-not-edit-topic-sources-list"),
+                        false,
+                        |topic, mirror| {
+                            warn!(
+                                "{}",
+                                crate::fl!("topic-not-in-mirror", topic = topic, mirror = mirror)
+                            );
+                            warn!("{}", crate::fl!("skip-write-mirror"));
+                        },
+                    )?;
+                }
+
+                Ok(exit)
+            })
     }
 }
