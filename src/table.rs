@@ -1,3 +1,4 @@
+use oma_console::Stylize;
 use std::cmp::Ordering as CmpOrdering;
 use std::fmt::Display;
 use std::io::Write;

@@ -258,7 +258,7 @@ impl<'a> OmaPager<'a> {
 
         let width = text
             .iter()
-            .map(|x| console::measure_text_width(x))
+            .map(|x| crate::console::measure_text_width(x))
             .max()
             .unwrap_or(1);
 

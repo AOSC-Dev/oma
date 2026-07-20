@@ -27,7 +27,7 @@ use inquire::ui::Color;
 use inquire::ui::RenderConfig;
 use inquire::ui::StyleSheet;
 use inquire::ui::Styled;
-use oma_console::console::style;
+use oma_console::{Stylize, console::style};
 use oma_console::indicatif::HumanBytes;
 use oma_console::indicatif::ProgressBar;
 use oma_console::indicatif::ProgressStyle;

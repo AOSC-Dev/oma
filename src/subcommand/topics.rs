@@ -5,7 +5,7 @@ use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
-use oma_console::console::style;
+use oma_console::{Stylize, console::style};
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},

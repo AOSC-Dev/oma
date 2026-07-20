@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
-use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
+use oma_console::{Stylize, console::style, pager::Pager, print::Action, terminal::gen_prefix};
 use oma_pm::{
     PackageStatus,
     apt::{OmaApt, OmaAptArgs},

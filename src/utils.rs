@@ -25,6 +25,7 @@ macro_rules! msg {
 macro_rules! success {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
+        use oma_console::Stylize;
         let s = format!($($arg)+);
         spdlog::debug!("{s}");
         $crate::WRITER.writeln(&oma_console::console::style("SUCCESS").green().bold().to_string(), &s).ok();
@@ -36,6 +37,7 @@ macro_rules! success {
 macro_rules! due_to {
     ($($arg:tt)+) => {
         use oma_console::writer::Writeln as _;
+        use oma_console::Stylize;
         let s = format!($($arg)+);
         spdlog::debug!("{s}");
         $crate::WRITER.writeln(&oma_console::console::style("DUE TO").yellow().bold().to_string(), &s).ok();

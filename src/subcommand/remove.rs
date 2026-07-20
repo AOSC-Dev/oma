@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use inquire::{Confirm, Text};
-use oma_console::console::style;
+use oma_console::{Stylize, console::style};
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use spdlog::{info, warn};

@@ -1,3 +1,4 @@
+use oma_console::Stylize;
 use std::{
     borrow::Cow,
     cell::OnceCell,

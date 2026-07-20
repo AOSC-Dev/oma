@@ -3,24 +3,26 @@ use std::sync::LazyLock;
 use std::time::Duration;
 
 use chrono::{DateTime, SecondsFormat, Utc};
-use console::{Color, StyledObject, style};
 use spdlog::{Level, debug, formatter::Formatter};
 use termbg::Theme;
 
 pub use termbg;
 
+use crate::console::{Color, StyledStr, Stylize, style};
 use crate::terminal::Terminal;
 
-static PREFIX_DEBUG: LazyLock<String> = LazyLock::new(|| console::style("DEBUG").dim().to_string());
+static PREFIX_DEBUG: LazyLock<String> =
+    LazyLock::new(|| style("DEBUG").dim().to_string());
 static PREFIX_INFO: LazyLock<String> =
-    LazyLock::new(|| console::style("INFO").blue().bold().to_string());
+    LazyLock::new(|| style("INFO").blue().bold().to_string());
 static PREFIX_WARN: LazyLock<String> =
-    LazyLock::new(|| console::style("WARNING").yellow().bold().to_string());
+    LazyLock::new(|| style("WARNING").yellow().bold().to_string());
 static PREFIX_ERROR: LazyLock<String> =
-    LazyLock::new(|| console::style("ERROR").red().bold().to_string());
-static PREFIX_TRACE: LazyLock<String> = LazyLock::new(|| console::style("TRACE").dim().to_string());
+    LazyLock::new(|| style("ERROR").red().bold().to_string());
+static PREFIX_TRACE: LazyLock<String> =
+    LazyLock::new(|| style("TRACE").dim().to_string());
 static PREFIX_CRITICAL: LazyLock<String> =
-    LazyLock::new(|| console::style("CRITICAL").red().bright().bold().to_string());
+    LazyLock::new(|| style("CRITICAL").red().bold().to_string());
 
 #[derive(Clone)]
 enum StyleFollow {
@@ -101,7 +103,7 @@ impl OmaColorFormat {
             },
         }
     }
-    /// Convert input into StyledObject
+    /// Convert input into a styled string
     ///
     /// This function applies a color scheme to the given input string based on the specified action and the current terminal color schemes.
     ///
@@ -112,17 +114,17 @@ impl OmaColorFormat {
     ///
     /// # Returns
     ///
-    /// Returns a `StyledObject` that contains the styled input data.
-    pub fn color_str<D>(&self, input: D, color: Action) -> StyledObject<D> {
+    /// Returns a `StyledStr` that contains the styled input data.
+    pub fn color_str<D: std::fmt::Display>(&self, input: D, color: Action) -> StyledStr {
         match self.follow {
             StyleFollow::OmaTheme => match self.theme {
                 Some(Theme::Dark) => match color {
-                    x @ Action::PendingBg => style(input).bg(Color::Color256(x.dark())).bold(),
-                    x => style(input).color256(x.dark()),
+                    x @ Action::PendingBg => style(input).on(Color::AnsiValue(x.dark())).bold(),
+                    x => style(input).with(Color::AnsiValue(x.dark())),
                 },
                 Some(Theme::Light) => match color {
-                    x @ Action::PendingBg => style(input).bg(Color::Color256(x.light())).bold(),
-                    x => style(input).color256(x.light()),
+                    x @ Action::PendingBg => style(input).on(Color::AnsiValue(x.light())).bold(),
+                    x => style(input).with(Color::AnsiValue(x.light())),
                 },
                 None => term_color(input, color),
             },
@@ -131,7 +133,7 @@ impl OmaColorFormat {
     }
 }
 
-fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
+fn term_color<D: std::fmt::Display>(input: D, color: Action) -> StyledStr {
     match color {
         Action::Emphasis => style(input).green(),
         Action::Secondary => style(input).dim(),
@@ -141,7 +143,7 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
         Action::Note => style(input).yellow(),
         Action::Foreground => style(input).cyan().bold(),
         Action::UpgradeTips => style(input).blue().bold(),
-        Action::PendingBg => style(input).bg(Color::Blue).bold(),
+        Action::PendingBg => style(input).on(Color::Blue).bold(),
     }
 }
 
@@ -292,7 +294,7 @@ impl OmaFormatter {
                     .to_rfc3339_opts(SecondsFormat::Millis, true);
 
                 if self.with_ansi {
-                    console::style(time).dim().to_string()
+                    crate::console::style(time).dim().to_string()
                 } else {
                     time
                 }
@@ -313,7 +315,7 @@ impl OmaFormatter {
                 let loc = format!("{}: {}:", loc.module_path(), loc.file());
 
                 let loc = if self.with_ansi {
-                    console::style(loc).dim().to_string()
+                    crate::console::style(loc).dim().to_string()
                 } else {
                     loc
                 };
@@ -326,7 +328,7 @@ impl OmaFormatter {
         if self.with_ansi {
             body.write_str(record.payload())?;
         } else {
-            body.write_str(&console::strip_ansi_codes(record.payload()))?;
+            body.write_str(&crate::console::strip_ansi_codes(record.payload()))?;
         }
 
         if self.debug {

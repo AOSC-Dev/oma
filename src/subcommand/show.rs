@@ -3,8 +3,9 @@ use std::{borrow::Cow, io::stdout};
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use oma_console::{
-    console::{StyledObject, style},
+    console::{StyledStr, style},
     indicatif::HumanBytes,
+    Stylize,
 };
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
@@ -211,6 +212,6 @@ fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt)
 }
 
 #[inline]
-fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
+fn key_style(key: Cow<str>) -> StyledStr {
     style(key).bold()
 }

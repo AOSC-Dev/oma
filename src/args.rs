@@ -1,3 +1,4 @@
+use oma_console::Stylize;
 use std::{env, ffi::OsStr, fmt::Display, path::Path, sync::LazyLock};
 
 use clap::{

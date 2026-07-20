@@ -1,15 +1,17 @@
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 
-use console::Term;
+use ratatui::crossterm::cursor::Show;
+use ratatui::crossterm::execute;
 
 /// Gen oma style message prefix
 pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {
-    if console::measure_text_width(prefix) > (prefix_len - 1).into() {
+    if crate::console::measure_text_width(prefix) > (prefix_len - 1).into() {
         panic!("Line prefix \"{prefix}\" too long!");
     }
 
     // Make sure the real_prefix has desired PREFIX_LEN in console
-    let left_padding_size = (prefix_len as usize) - 1 - console::measure_text_width(prefix);
+    let left_padding_size =
+        (prefix_len as usize) - 1 - crate::console::measure_text_width(prefix);
     let mut real_prefix: String = " ".repeat(left_padding_size);
     real_prefix.push_str(prefix);
     real_prefix.push(' ');
@@ -34,7 +36,7 @@ pub fn wrap_content<'a>(
 /// Providing information about terminal
 #[derive(Clone)]
 pub struct Terminal {
-    term: Term,
+    is_stderr: bool,
     pub(crate) limit_max_len: Option<u16>,
     pub(crate) prefix_len: u16,
 }
@@ -46,7 +48,7 @@ impl Terminal {
 
     pub fn new_stdout() -> Self {
         Self {
-            term: Term::stdout(),
+            is_stderr: false,
             ..Default::default()
         }
     }
@@ -55,22 +57,26 @@ impl Terminal {
         self.limit_max_len = max_len;
     }
 
-    pub fn with_term(&mut self, term: Term) {
-        self.term = term;
-    }
-
     pub fn with_prefix_len(&mut self, prefix_len: u16) {
         self.prefix_len = prefix_len;
     }
 
+    /// Check if the terminal is a real terminal (not piped)
     pub fn is_terminal(&self) -> bool {
-        self.term.is_term()
+        if self.is_stderr {
+            std::io::stderr().is_terminal()
+        } else {
+            std::io::stdout().is_terminal()
+        }
     }
 
-    /// Show terminal cursor
+    /// Show terminal cursor using `ratatui::crossterm`
     pub fn show_cursor(&self) -> io::Result<()> {
-        self.term.show_cursor()?;
-        Ok(())
+        if self.is_stderr {
+            execute!(std::io::stderr(), Show)
+        } else {
+            execute!(std::io::stdout(), Show)
+        }
     }
 
     /// Get terminal max len to writer message to terminal
@@ -92,36 +98,68 @@ impl Terminal {
         gen_prefix(prefix, self.prefix_len)
     }
 
-    /// Get terminal height
+    /// Get terminal height (rows)
     pub fn get_height(&self) -> u16 {
-        self.term.size_checked().unwrap_or((25, 80)).0
+        ratatui::crossterm::terminal::size()
+            .map(|s| s.1)
+            .unwrap_or(25)
     }
 
-    /// Get terminal width
+    /// Get terminal width (columns)
     pub fn get_length(&self) -> u16 {
-        self.term.size_checked().unwrap_or((25, 80)).1
+        ratatui::crossterm::terminal::size()
+            .map(|s| s.0)
+            .unwrap_or(80)
     }
 
     /// Get writer to write something to terminal
     pub fn get_writer(&self) -> Box<dyn Write> {
-        Box::new(self.term.clone())
+        Box::new(TerminalWriter(self.is_stderr))
     }
 
     pub fn wrap_content<'a>(&self, prefix: &'a str, msg: &str) -> Vec<(&'a str, String)> {
         wrap_content(prefix, msg, self.get_max_len(), self.prefix_len)
     }
 
-    pub(crate) fn write_str(&self, str: &str) -> io::Result<()> {
-        self.term.write_str(str)
+    pub(crate) fn write_str(&self, s: &str) -> io::Result<()> {
+        if self.is_stderr {
+            let mut stderr = io::stderr();
+            stderr.write_all(s.as_bytes())
+        } else {
+            let mut stdout = io::stdout();
+            stdout.write_all(s.as_bytes())
+        }
     }
 }
 
 impl Default for Terminal {
     fn default() -> Self {
         Self {
-            term: Term::stderr(),
+            is_stderr: true,
             limit_max_len: Some(80),
             prefix_len: 10,
+        }
+    }
+}
+
+/// A helper that implements `Write` for the terminal, wrapping the `is_stderr` flag.
+#[derive(Clone, Copy)]
+struct TerminalWriter(bool);
+
+impl Write for TerminalWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if self.0 {
+            io::stderr().write(buf)
+        } else {
+            io::stdout().write(buf)
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        if self.0 {
+            io::stderr().flush()
+        } else {
+            io::stdout().flush()
         }
     }
 }

@@ -149,7 +149,7 @@ flume = "0.12"
 rust-netrc = "0.1"
 termbg = { version = "0.1", package = "termbg-with-async-stdin" }
 console = "0.16"
-indicatif = "0.18"
+indicatif = { version = "0.18", package = "indicatif-crossterm" }
 winnow = "1"
 flate2 = "1.0"
 lzzzz = "2.0"
@@ -179,6 +179,7 @@ logind-zbus = { version = "5.1", default-features = false, features = [
     "tokio",
 ], package = "logind-zbus-tokio" }
 nix = "0.31"
+unicode-width = "0.2"
 # i18n
 i18n-embed = { version = "0.16.0", features = [
     "fluent-system",

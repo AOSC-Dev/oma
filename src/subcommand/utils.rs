@@ -17,6 +17,7 @@ use anyhow::Context;
 use indexmap::IndexSet;
 use oma_console::console;
 use oma_console::console::style;
+use oma_console::Stylize;
 use oma_console::print::Action;
 use oma_console::writer::Writeln;
 use oma_contents::searcher::Mode;

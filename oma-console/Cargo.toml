@@ -9,7 +9,7 @@ license = "MIT"
 
 [dependencies]
 chrono = { workspace = true, optional = true }
-console = { workspace = true, optional = true }
+unicode-width = { workspace = true }
 indicatif = { workspace = true, optional = true }
 spdlog-rs = { workspace = true }
 ratatui = { workspace = true, optional = true }
@@ -21,7 +21,7 @@ textwrap = { workspace = true, optional = true }
 aho-corasick = { workspace = true, optional = true }
 
 [features]
-print = ["dep:chrono", "dep:textwrap", "dep:console", "dep:termbg"]
-pager = ["dep:ratatui", "dep:ansi-to-tui", "dep:console", "dep:aho-corasick"]
+print = ["dep:chrono", "dep:textwrap", "dep:termbg", "dep:ratatui"]
+pager = ["dep:ratatui", "dep:ansi-to-tui", "dep:aho-corasick"]
 progress_bar_style = ["dep:indicatif"]
 default = ["print", "pager", "progress_bar_style"]

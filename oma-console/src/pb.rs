@@ -3,7 +3,7 @@
 
 use std::{fmt::Write, time::Duration};
 
-use console::style;
+use crate::console::{Stylize, style};
 use indicatif::{HumanBytes, ProgressState, ProgressStyle};
 
 const SPINNER_ANIME: &[&str] = &[

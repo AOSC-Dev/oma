@@ -35,8 +35,10 @@ pub mod print;
 #[cfg(feature = "print")]
 pub use print::OmaFormatter;
 
-#[cfg(feature = "print")]
-pub use console;
+pub mod console;
+
+#[cfg(feature = "pager")]
+pub use console::Stylize;
 
 #[cfg(feature = "progress_bar_style")]
 pub use indicatif;

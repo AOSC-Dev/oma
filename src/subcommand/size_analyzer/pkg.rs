@@ -1,4 +1,4 @@
-use oma_console::console::style;
+use oma_console::{Stylize, console::style};
 use oma_pm::oma_apt::Package;
 use oma_utils::human_bytes::HumanBytes;
 use ratatui::{
