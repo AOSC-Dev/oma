@@ -9,11 +9,10 @@ pub trait Writeln {
 impl Writeln for Writer {
     fn writeln(&self, prefix: &str, msg: &str) -> io::Result<()> {
         for (prefix, body) in self.term.wrap_content(prefix, msg).into_iter() {
-            self.write_prefix(prefix)?;
-            self.term.write_str(&body)?;
+            self.term.write_buf(&self.term.gen_prefix(prefix));
+            self.term.write_buf(&body);
         }
-
-        Ok(())
+        self.term.flush()
     }
 }
 
