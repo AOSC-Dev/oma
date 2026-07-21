@@ -21,8 +21,8 @@ use ratatui::{
     style::{Color, Style},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
-        ScrollbarState,
+        Block, Borders, Clear, Gauge, List, ListItem, Padding, Paragraph, Scrollbar,
+        ScrollbarOrientation, ScrollbarState,
     },
 };
 use spdlog::debug;
@@ -31,7 +31,7 @@ use terminfo::{Database, capability::MaxColors};
 use crate::{
     WRITER, fl,
     subcommand::search::SearchResultDisplay,
-    tui::{Searcher, key_binding::Control, window::Mode},
+    tui::{Searcher, key_binding::Control, refresh::DownloadItem, window::Mode},
 };
 
 #[derive(Clone, Copy)]
@@ -56,9 +56,8 @@ pub struct Tui<'a> {
     pub(crate) apt: &'a OmaApt,
     pub(crate) searcher: Searcher,
     pub(crate) mode: Mode,
-    pub(crate) input_cursor_position: usize,
     pub(crate) display_pending_detail: bool,
-    pub(crate) input: String,
+    pub(crate) search_input: tui_input::Input,
     pub(crate) status: PackageStatus,
     pub(crate) pkg_results: Vec<SearchResult>,
     pub(crate) pkg_result_state: StatefulList<Text<'static>>,
@@ -130,8 +129,6 @@ impl PackageStatus {
 
 impl<'a> Tui<'a> {
     pub fn new(apt: &'a OmaApt, status: PackageStatus, searcher: Searcher) -> Self {
-        let pkg_results = vec![];
-        let pkg_result_state = StatefulList::with_items(vec![]);
         let true_colors = Database::from_env()
             .inspect_err(|e| debug!("Failed to get terminfo: {e}"))
             .ok()
@@ -149,13 +146,15 @@ impl<'a> Tui<'a> {
             BgRenderMode::Color(Color::Blue)
         };
 
+        let pkg_results = vec![];
+        let pkg_result_state = StatefulList::with_items(vec![]);
+
         Self {
             apt,
             searcher,
             mode: Mode::Search,
-            input_cursor_position: 0,
             display_pending_detail: false,
-            input: String::new(),
+            search_input: tui_input::Input::new(String::new()),
             status,
             pkg_result_state,
             pending_result_state: StatefulList::with_items(vec![]),
@@ -168,6 +167,19 @@ impl<'a> Tui<'a> {
             popup: None,
             bg_render_mode,
         }
+    }
+
+    /// Trigger a search with the current input value and update results.
+    pub(crate) fn trigger_search(&mut self) {
+        update_search_result(
+            &self.searcher,
+            self.search_input.value(),
+            &mut self.pkg_result_state,
+            &mut self.pkg_results,
+        );
+        self.result_scroll = self
+            .result_scroll
+            .content_length(self.pkg_result_state.items.len());
     }
 
     pub fn run<B: Backend>(
@@ -209,7 +221,6 @@ impl<'a> Tui<'a> {
     }
 
     fn ui(&mut self, f: &mut Frame) {
-        let input = self.input.clone();
         let main_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -277,22 +288,22 @@ impl<'a> Tui<'a> {
             );
         }
 
+        let input_value = self.search_input.value();
         f.render_widget(
-            Paragraph::new(input).style(Style::default()).block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(fl!("tui-search"))
-                    .style(self.mode.highlight_window(&Mode::Search)),
-            ),
+            Paragraph::new(input_value.to_string())
+                .style(Style::default())
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(fl!("tui-search"))
+                        .style(self.mode.highlight_window(&Mode::Search)),
+                ),
             main_layout[1],
         );
 
         if self.mode == Mode::Search {
             f.set_cursor_position((
-                // Draw the cursor at the current position in the input field.
-                // This position is can be controlled via the left and right arrow key
-                main_layout[1].x + self.input_cursor_position as u16 + 1,
-                // Move one line down, from the border to the input line
+                main_layout[1].x + self.search_input.visual_cursor() as u16 + 1,
                 main_layout[1].y + 1,
             ));
         }
@@ -321,7 +332,7 @@ impl<'a> Tui<'a> {
     }
 }
 
-fn render_tips(f: &mut Frame<'_>, main_layout: &Rc<[Rect]>) {
+pub(crate) fn render_tips(f: &mut Frame<'_>, main_layout: &Rc<[Rect]>) {
     match WRITER.get_length() {
         0..=62 => {}
         63..=153 => {
@@ -489,4 +500,113 @@ pub(crate) fn popup_area(area: Rect, x: u16, y: u16) -> Rect {
     let [area] = horizontal.areas(area);
 
     area
+}
+
+fn centered_rect(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
+    let width = area.width.saturating_mul(percent_x) / 100;
+    let height = area.height.saturating_mul(percent_y) / 100;
+    let x = area.x + (area.width - width) / 2;
+    let y = area.y + (area.height - height) / 2;
+    Rect::new(x, y, width, height)
+}
+
+pub(crate) fn render_refresh_ui(f: &mut Frame, items: &[DownloadItem], status: &str) {
+    let area = f.area();
+
+    // ── Background: full TUI layout ──────────────────────────────────
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // header
+            Constraint::Length(3), // search box
+            Constraint::Min(0),    // main content
+            Constraint::Length(1), // tips
+        ])
+        .split(area);
+
+    f.render_widget(
+        Block::default()
+            .title(format!(" {} v{}", fl!("oma"), env!("CARGO_PKG_VERSION")))
+            .style(Style::default().bg(Color::White).fg(Color::Black)),
+        layout[0],
+    );
+
+    f.render_widget(
+        Paragraph::new(Line::raw("")).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(fl!("tui-search")),
+        ),
+        layout[1],
+    );
+
+    f.render_widget(Block::default().borders(Borders::ALL), layout[2]);
+    render_tips(f, &layout);
+
+    let dialog_area = centered_rect(area, 60, 60);
+    f.render_widget(Clear, dialog_area);
+
+    let dialog_block = Block::default()
+        .borders(Borders::ALL)
+        .title(fl!("refreshing-repo-metadata"));
+    let inner = dialog_block.inner(dialog_area);
+    f.render_widget(dialog_block, dialog_area);
+
+    // Download progress inside dialog
+    if !items.is_empty() {
+        let gauge_w = 17u16;
+        let content_area = inner;
+
+        let rows = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![Constraint::Length(1); items.len()])
+            .split(content_area);
+
+        for (i, item) in items.iter().enumerate() {
+            if i >= rows.len() {
+                break;
+            }
+
+            let pct = if item.size > 0 {
+                (item.downloaded as f64 / item.size as f64 * 100.0).clamp(0.0, 100.0)
+            } else {
+                0.0
+            };
+
+            let cells = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Min(0), Constraint::Length(gauge_w)])
+                .split(rows[i]);
+
+            let idx = format!("({}/{})", i + 1, item.total);
+            let clean = item
+                .msg
+                .split_once(' ')
+                .map_or(item.msg.as_str(), |(head, rest)| {
+                    let prefix = head.split(':').next().unwrap_or("");
+                    if rest.contains(prefix) {
+                        head
+                    } else {
+                        item.msg.as_str()
+                    }
+                });
+            let name_w = cells[0].width.saturating_sub(idx.len() as u16 + 2) as usize;
+            let name: String = clean.chars().take(name_w).collect();
+
+            f.render_widget(
+                Paragraph::new(Line::raw(format!(" {idx} {name}"))),
+                cells[0],
+            );
+            f.render_widget(
+                Gauge::default()
+                    .ratio(pct / 100.0)
+                    .label(format!("{:3.0}%", pct))
+                    .gauge_style(Style::default().fg(Color::Green).bg(Color::DarkGray)),
+                cells[1],
+            );
+        }
+    } else {
+        // Show status text when no download items yet
+        f.render_widget(Paragraph::new(Line::raw(status)), inner);
+    }
 }
