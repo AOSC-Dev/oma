@@ -28,6 +28,8 @@ use ratatui::{
 use spdlog::debug;
 use terminfo::{Database, capability::MaxColors};
 
+use tui_input::Input;
+
 use crate::{
     WRITER, fl,
     subcommand::search::SearchResultDisplay,
@@ -56,9 +58,8 @@ pub struct Tui<'a> {
     pub(crate) apt: &'a OmaApt,
     pub(crate) searcher: Searcher,
     pub(crate) mode: Mode,
-    pub(crate) input_cursor_position: usize,
     pub(crate) display_pending_detail: bool,
-    pub(crate) input: String,
+    pub(crate) search_input: Input,
     pub(crate) status: PackageStatus,
     pub(crate) pkg_results: Vec<SearchResult>,
     pub(crate) pkg_result_state: StatefulList<Text<'static>>,
@@ -153,9 +154,8 @@ impl<'a> Tui<'a> {
             apt,
             searcher,
             mode: Mode::Search,
-            input_cursor_position: 0,
             display_pending_detail: false,
-            input: String::new(),
+            search_input: Input::new(String::new()),
             status,
             pkg_result_state,
             pending_result_state: StatefulList::with_items(vec![]),
@@ -209,7 +209,6 @@ impl<'a> Tui<'a> {
     }
 
     fn ui(&mut self, f: &mut Frame) {
-        let input = self.input.clone();
         let main_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -277,13 +276,16 @@ impl<'a> Tui<'a> {
             );
         }
 
+        let input_value = self.search_input.value();
         f.render_widget(
-            Paragraph::new(input).style(Style::default()).block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(fl!("tui-search"))
-                    .style(self.mode.highlight_window(&Mode::Search)),
-            ),
+            Paragraph::new(input_value.to_string())
+                .style(Style::default())
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(fl!("tui-search"))
+                        .style(self.mode.highlight_window(&Mode::Search)),
+                ),
             main_layout[1],
         );
 
@@ -291,7 +293,7 @@ impl<'a> Tui<'a> {
             f.set_cursor_position((
                 // Draw the cursor at the current position in the input field.
                 // This position is can be controlled via the left and right arrow key
-                main_layout[1].x + self.input_cursor_position as u16 + 1,
+                main_layout[1].x + self.search_input.visual_cursor() as u16 + 1,
                 // Move one line down, from the border to the input line
                 main_layout[1].y + 1,
             ));

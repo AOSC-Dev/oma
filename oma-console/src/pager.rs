@@ -24,6 +24,7 @@ use ratatui::{
 };
 use spdlog::debug;
 use termbg::Theme;
+use tui_input::Input;
 
 use crate::{print::OmaColorFormat, writer::Writer};
 
@@ -152,6 +153,8 @@ pub struct OmaPager<'a> {
     writer: Writer,
     /// Use y/n to replace 'q' to confirm/cancel if is question mode
     yn_mode: bool,
+    /// For search query editing.
+    search_input: Input,
 }
 
 impl Write for OmaPager<'_> {
@@ -227,6 +230,7 @@ impl<'a> OmaPager<'a> {
             ui_text,
             writer: Writer::default(),
             yn_mode,
+            search_input: Input::new(String::new()),
         }
     }
     /// Run the pager
@@ -265,8 +269,6 @@ impl<'a> OmaPager<'a> {
         self.max_width = width as u16;
         self.inner_len = text.len();
 
-        let mut query = String::new();
-
         let mut last_tick = Instant::now();
         // Start the loop, waiting for the keyboard interrupts.
         loop {
@@ -278,6 +280,59 @@ impl<'a> OmaPager<'a> {
             if crossterm::event::poll(timeout)? {
                 match event::read()? {
                     Event::Key(key) => {
+                        if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c')
+                        {
+                            return Ok(PagerExit::Sigint);
+                        }
+
+                        if self.mode == TuiMode::SearchInputText {
+                            match key.code {
+                                KeyCode::Esc => {
+                                    self.exit_search_mode();
+                                }
+                                KeyCode::Enter => {
+                                    let query = self.search_input.value().to_string();
+                                    if query.trim().is_empty() {
+                                        self.tips = self.ui_text.search_tips_with_empty();
+                                    } else {
+                                        self.perform_search(&query);
+                                    }
+                                    self.mode = TuiMode::Search;
+                                }
+                                _ => {
+                                    use tui_input::InputRequest;
+                                    match key.code {
+                                        KeyCode::Char(c) => {
+                                            self.search_input.handle(InputRequest::InsertChar(c));
+                                        }
+                                        KeyCode::Backspace => {
+                                            self.search_input.handle(InputRequest::DeletePrevChar);
+                                        }
+                                        KeyCode::Delete => {
+                                            self.search_input.handle(InputRequest::DeleteNextChar);
+                                        }
+                                        KeyCode::Left => {
+                                            self.search_input.handle(InputRequest::GoToPrevChar);
+                                        }
+                                        KeyCode::Right => {
+                                            self.search_input.handle(InputRequest::GoToNextChar);
+                                        }
+                                        KeyCode::Home => {
+                                            self.search_input.handle(InputRequest::GoToStart);
+                                        }
+                                        KeyCode::End => {
+                                            self.search_input.handle(InputRequest::GoToEnd);
+                                        }
+                                        _ => {}
+                                    }
+                                    self.tips = self
+                                        .ui_text
+                                        .searct_tips_with_query(self.search_input.value());
+                                }
+                            }
+                            continue;
+                        }
+
                         if key.modifiers == KeyModifiers::CONTROL {
                             match key.code {
                                 KeyCode::Char('c') => return Ok(PagerExit::Sigint),
@@ -285,224 +340,74 @@ impl<'a> OmaPager<'a> {
                                 KeyCode::Char('n') => self.down(),
                                 _ => {}
                             }
-                        };
+                        }
 
                         match key.code {
-                            KeyCode::Char(c) if c == 'q' || c == 'Q' => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push(c);
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
+                            KeyCode::Char('/') => {
+                                self.clear_highlight();
+                                self.mode = TuiMode::SearchInputText;
+                                self.tips = self
+                                    .ui_text
+                                    .searct_tips_with_query(self.search_input.value());
+                            }
+                            KeyCode::Esc => {
+                                if self.mode != TuiMode::Normal {
+                                    self.exit_search_mode();
                                 }
+                            }
+                            KeyCode::Enter => {
+                                self.down();
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => self.down(),
+                            KeyCode::Up | KeyCode::Char('k') => self.up(),
+                            KeyCode::Left | KeyCode::Char('h') => self.left(),
+                            KeyCode::Right | KeyCode::Char('l') => self.right(),
+                            KeyCode::PageUp
+                            | KeyCode::Char('u')
+                            | KeyCode::Char('U')
+                            | KeyCode::Char('b')
+                            | KeyCode::Char('B') => self.page_up(),
+                            KeyCode::PageDown
+                            | KeyCode::Char('d')
+                            | KeyCode::Char('D')
+                            | KeyCode::Char(' ')
+                            | KeyCode::Char('f')
+                            | KeyCode::Char('F') => self.page_down(),
+                            KeyCode::Home | KeyCode::Char('g') => self.goto_begin(),
+                            KeyCode::End | KeyCode::Char('G') => self.goto_end(),
+                            KeyCode::Char('n') => {
+                                if self.yn_mode {
+                                    return Ok(PagerExit::Sigint);
+                                }
+                                if self.mode == TuiMode::Search && !self.search_results.is_empty() {
+                                    self.current_result_index =
+                                        (self.current_result_index + 1) % self.search_results.len();
+                                    self.jump_to(self.search_results[self.current_result_index]);
+                                }
+                            }
+                            KeyCode::Char('N') => {
+                                if self.mode == TuiMode::Search && !self.search_results.is_empty() {
+                                    if self.current_result_index == 0 {
+                                        self.current_result_index = self.search_results.len() - 1;
+                                    } else {
+                                        self.current_result_index -= 1;
+                                    }
+                                    self.jump_to(self.search_results[self.current_result_index]);
+                                }
+                            }
+                            KeyCode::Char(c) if c == 'q' || c == 'Q' => {
                                 if !self.yn_mode {
                                     return Ok(PagerExit::NormalExit);
                                 } else {
                                     return Ok(PagerExit::Sigint);
                                 }
                             }
-                            KeyCode::Down => {
-                                self.down();
-                            }
-                            KeyCode::Up => {
-                                self.up();
-                            }
-                            KeyCode::Left => {
-                                self.left();
-                            }
-                            KeyCode::Right => {
-                                self.right();
-                            }
-                            KeyCode::Char('y') if !self.yn_mode => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push('y');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                self.up();
-                            }
                             KeyCode::Char('y') => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push('y');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                return Ok(PagerExit::NormalExit);
-                            }
-                            KeyCode::Char('n') if self.yn_mode => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push('n');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                return Ok(PagerExit::Sigint);
-                            }
-                            KeyCode::Char('j') => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push('j');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                self.down();
-                            }
-                            KeyCode::Char('k') => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push('k');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                self.up();
-                            }
-                            KeyCode::Char('h') => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push('h');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                self.left();
-                            }
-                            KeyCode::Char('l') => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push('l');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                self.right();
-                            }
-                            KeyCode::Char('g') => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push('g');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                self.goto_begin();
-                            }
-                            KeyCode::Char('G') => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push('G');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                self.goto_end();
-                            }
-                            KeyCode::Enter => {
-                                if self.mode != TuiMode::SearchInputText {
-                                    self.down();
-                                    continue;
-                                }
-                                if query.trim().is_empty() {
-                                    self.tips = self.ui_text.search_tips_with_empty();
+                                if self.yn_mode {
+                                    return Ok(PagerExit::NormalExit);
                                 } else {
-                                    self.search_results = self.search(&query);
-                                    if self.search_results.is_empty() {
-                                        self.tips = self.ui_text.search_tips_not_found();
-                                    } else {
-                                        self.current_result_index = 0;
-                                        self.jump_to(
-                                            self.search_results[self.current_result_index],
-                                        );
-                                        self.tips = self.ui_text.search_tips_with_result();
-                                    }
+                                    self.up();
                                 }
-                                self.mode = TuiMode::Search;
-                            }
-                            KeyCode::Esc => {
-                                if self.mode != TuiMode::Normal {
-                                    self.mode = TuiMode::Normal;
-                                }
-                                // clear highlight
-                                self.clear_highlight();
-                                // clear search tips
-                                self.tips = self.ui_text.normal_tips(self.yn_mode);
-                            }
-                            KeyCode::Backspace if self.mode == TuiMode::SearchInputText => {
-                                query.pop();
-                                // update tips with search patterns
-                                self.tips = self.ui_text.searct_tips_with_query(&query);
-                            }
-                            KeyCode::Char('/') => {
-                                if self.mode != TuiMode::SearchInputText {
-                                    self.clear_highlight();
-                                    self.mode = TuiMode::SearchInputText;
-                                    // update tips with search patterns
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                } else {
-                                    query.push('/');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                            }
-                            KeyCode::Char('n') => match self.mode {
-                                TuiMode::Search => {
-                                    if !self.search_results.is_empty() {
-                                        self.current_result_index = (self.current_result_index + 1)
-                                            % self.search_results.len();
-                                        self.jump_to(
-                                            self.search_results[self.current_result_index],
-                                        );
-                                    }
-                                }
-                                TuiMode::SearchInputText => {
-                                    query.push('n');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                TuiMode::Normal => continue,
-                            },
-                            KeyCode::Char('N') => match self.mode {
-                                TuiMode::Search => {
-                                    if !self.search_results.is_empty() {
-                                        if self.current_result_index == 0 {
-                                            self.current_result_index =
-                                                self.search_results.len() - 1;
-                                        } else {
-                                            self.current_result_index -= 1;
-                                        }
-                                        self.jump_to(
-                                            self.search_results[self.current_result_index],
-                                        );
-                                    }
-                                }
-                                TuiMode::SearchInputText => {
-                                    query.push('N');
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                TuiMode::Normal => continue,
-                            },
-                            KeyCode::Char(c) if c == 'u' || c == 'U' || c == 'b' || c == 'B' => {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push(c);
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                self.page_up();
-                            }
-                            KeyCode::Char(c)
-                                if c == 'd' || c == 'D' || c == ' ' || c == 'F' || c == 'f' =>
-                            {
-                                if self.mode == TuiMode::SearchInputText {
-                                    query.push(c);
-                                    self.tips = self.ui_text.searct_tips_with_query(&query);
-                                    continue;
-                                }
-                                self.page_down();
-                            }
-                            KeyCode::Char(input_char) if self.mode == TuiMode::SearchInputText => {
-                                query.push(input_char);
-                                // update tips with search patterns
-                                self.tips = self.ui_text.searct_tips_with_query(&query);
-                            }
-                            KeyCode::PageUp => {
-                                self.page_up();
-                            }
-                            KeyCode::PageDown => {
-                                self.page_down();
-                            }
-                            KeyCode::End => {
-                                self.goto_end();
-                            }
-                            KeyCode::Home => {
-                                self.goto_begin();
                             }
                             _ => {}
                         }
@@ -606,6 +511,23 @@ impl<'a> OmaPager<'a> {
         }
 
         result
+    }
+
+    fn exit_search_mode(&mut self) {
+        self.mode = TuiMode::Normal;
+        self.clear_highlight();
+        self.tips = self.ui_text.normal_tips(self.yn_mode);
+    }
+
+    fn perform_search(&mut self, pattern: &str) {
+        self.search_results = self.search(pattern);
+        if self.search_results.is_empty() {
+            self.tips = self.ui_text.search_tips_not_found();
+        } else {
+            self.current_result_index = 0;
+            self.jump_to(self.search_results[self.current_result_index]);
+            self.tips = self.ui_text.search_tips_with_result();
+        }
     }
 
     /// Jump to line
@@ -723,18 +645,43 @@ impl<'a> OmaPager<'a> {
             &mut self.vertical_scroll_state,
         );
 
-        let text = match self.tips.into_text() {
-            Ok(t) => t,
-            Err(e) => {
-                debug!("{e}");
-                return;
-            }
-        };
+        if self.mode == TuiMode::SearchInputText {
+            let text = match self.tips.into_text() {
+                Ok(t) => t,
+                Err(e) => {
+                    debug!("{e}");
+                    return;
+                }
+            };
 
-        f.render_widget(
-            Paragraph::new(text).block(Block::default().borders(Borders::ALL)),
-            if has_title { chunks[2] } else { chunks[1] },
-        );
+            let tips_area = if has_title { chunks[2] } else { chunks[1] };
+            f.render_widget(
+                Paragraph::new(text).block(Block::default().borders(Borders::ALL)),
+                tips_area,
+            );
+
+            // Show cursor at the correct position within the search query.
+            // We measure the width of the tips prefix up to the cursor position.
+            let query = self.search_input.value();
+            let prefix = &query[..self.search_input.visual_cursor()];
+            let cursor_x = tips_area.x
+                + 1
+                + console::measure_text_width(&self.ui_text.searct_tips_with_query(prefix)) as u16;
+            let cursor_y = tips_area.y + 1;
+            f.set_cursor_position((cursor_x, cursor_y));
+        } else {
+            let text = match self.tips.into_text() {
+                Ok(t) => t,
+                Err(e) => {
+                    debug!("{e}");
+                    return;
+                }
+            };
+            f.render_widget(
+                Paragraph::new(text).block(Block::default().borders(Borders::ALL)),
+                if has_title { chunks[2] } else { chunks[1] },
+            );
+        }
     }
 }
 
