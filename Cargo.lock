@@ -3324,6 +3324,7 @@ dependencies = [
  "spdlog-rs",
  "termbg-with-async-stdin",
  "textwrap",
+ "tui-input",
 ]
 
 [[package]]

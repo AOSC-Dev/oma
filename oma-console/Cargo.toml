@@ -19,9 +19,10 @@ termbg = { workspace = true , optional = true }
 ansi-to-tui = { workspace = true, optional = true }
 textwrap = { workspace = true, optional = true }
 aho-corasick = { workspace = true, optional = true }
+tui-input = { workspace = true, optional = true }
 
 [features]
 print = ["dep:chrono", "dep:textwrap", "dep:console", "dep:termbg"]
-pager = ["dep:ratatui", "dep:ansi-to-tui", "dep:console", "dep:aho-corasick"]
+pager = ["dep:ratatui", "dep:ansi-to-tui", "dep:console", "dep:aho-corasick", "dep:tui-input"]
 progress_bar_style = ["dep:indicatif"]
 default = ["print", "pager", "progress_bar_style"]
