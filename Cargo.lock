@@ -652,14 +652,14 @@ dependencies = [
 
 [[package]]
 name = "clap-i18n-richformatter"
-version = "0.3.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17172eb7fceca00997a790be61a59b4737ab44892757944df39edcd381722afc"
+checksum = "a562fab0e916f3a594b834a65996cbcb7c14d4d404869a64ab178717e9afefef"
 dependencies = [
  "clap",
  "clap-i18n-derive",
  "i18n-embed",
- "i18n-embed-fl",
+ "i18n-embed-fl-no-check-hashmap-on-ra",
  "rust-embed",
  "unic-langid",
 ]
@@ -2163,36 +2163,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "i18n-embed-fl"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e598ed73b67db92f61e04672e599eef2991a262a40e1666735b8a86d2e7e9f30"
-dependencies = [
- "find-crate",
- "fluent",
- "fluent-syntax",
- "i18n-config",
- "i18n-embed",
- "proc-macro-error2",
- "proc-macro2",
- "quote",
- "strsim",
- "syn 2.0.119",
- "unic-langid",
-]
-
-[[package]]
 name = "i18n-embed-fl-no-check-hashmap-on-ra"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2adf37e776aa514d3d8ba7ea755a1c3da51843ed2d84de74316617f4cda6984"
+checksum = "5d524e21177294a67b92a768e1a56a136e38d52344f09d1d22d25605320d66a7"
 dependencies = [
  "find-crate",
  "fluent",
  "fluent-syntax",
  "i18n-config",
  "i18n-embed",
- "proc-macro-error2",
+ "proc-macro-error3",
  "proc-macro2",
  "quote",
  "strsim",
@@ -3948,12 +3929,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-error-attr3"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34e4dd828515431dd6c4a030d26f7eaed7dd4778226e9d2bb968d65ca4ec3d4d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
 name = "proc-macro-error2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11ec05c52be0a07b08061f7dd003e7d7092e0472bc731b4af7bb1ef876109802"
 dependencies = [
  "proc-macro-error-attr2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "proc-macro-error3"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ee475e440453418ff1335189eddf7101ba502cd818ab7ae04209bc83aa925aa"
+dependencies = [
+ "proc-macro-error-attr3",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
