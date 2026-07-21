@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    thread,
+    time::Duration,
+};
 
 use clap::Args;
 use oma_console::pager::{exit_tui, prepare_create_tui};
@@ -6,6 +9,7 @@ use oma_pm::{
     apt::{OmaApt, OmaAptArgs, Upgrade},
     search::{IndiciumSearch, OmaSearch, SearchResult, SearchType},
 };
+use oma_refresh::db::{Event as RefreshEvent, OmaRefresh};
 use render::{Task, Tui as TuiInner};
 use spdlog::{debug, info};
 use zbus::Connection;
@@ -14,20 +18,18 @@ use crate::{
     RT,
     args::CliExecuter,
     config::OmaConfig,
-    exit_handle::ExitHandle,
-    subcommand::{search::AmoProxy, utils::create_progress_spinner},
-    tui::render::PackageStatus,
-};
-use crate::{
-    core::{commit_changes::CommitChanges, refresh::Refresh},
-    dbus::dbus_check,
     error::OutputError,
+    exit_handle::ExitHandle,
     fl,
     root::root,
-    subcommand::utils::lock_oma,
+    subcommand::{search::AmoProxy, utils::lock_oma},
+    tui::render::PackageStatus,
+    utils::get_lists_dir,
 };
+use crate::{core::commit_changes::CommitChanges, dbus::dbus_check};
 
 mod key_binding;
+mod refresh;
 mod render;
 mod state;
 mod window;
@@ -123,13 +125,93 @@ impl CliExecuter for Tui {
         let _lock_fd = lock_oma(&config.sysroot)?;
         let _fds = dbus_check(false, &config)?;
 
-        let sysroot = &config.sysroot;
+        let mut terminal = prepare_create_tui().map_err(|e| OutputError {
+            description: "BUG: Failed to create crossterm instance".to_string(),
+            source: Some(Box::new(e)),
+        })?;
+
+        let sysroot = config.sysroot.clone();
+        let arch = oma_utils::dpkg::dpkg_arch(&sysroot)?;
+        let download_dir = get_lists_dir();
+        let client = config.http_client()?.clone();
+
+        let (tx, rx) = flume::unbounded::<RefreshEvent>();
+
         if !no_refresh {
-            Refresh::builder().config(&config).build().run()?;
+            let event_tx = tx.clone();
+            thread::spawn(move || {
+                let refresh = OmaRefresh::builder()
+                    .download_dir(download_dir)
+                    .source(sysroot)
+                    .threads(config.download_threads)
+                    .arch(arch)
+                    .client(client);
+
+                #[cfg(feature = "aosc")]
+                let refresh = refresh
+                    .refresh_topics(!config.no_refresh_topics)
+                    .topic_msg(fl!("do-not-edit-topic-sources-list").into());
+
+                let refresh = refresh.build();
+                let _ = refresh.start(move |event| {
+                    let _ = event_tx.send(event);
+                });
+            });
+        } else {
+            // Signal done immediately so the loading loop exits
+            let _ = tx.send(RefreshEvent::Done);
+        }
+
+        // Loading screen state
+        let mut download_items: Vec<refresh::DownloadItem> = vec![];
+        let mut status_text = fl!("refreshing-repo-metadata");
+
+        let mut done = false;
+        while !done {
+            while let Ok(event) = rx.try_recv() {
+                match event {
+                    RefreshEvent::Done => done = true,
+                    RefreshEvent::DownloadEvent(fetch_event) => {
+                        refresh::update_download_items(&mut download_items, fetch_event);
+                    }
+                    RefreshEvent::ScanningTopic => {
+                        status_text = "Scanning topics...".to_string();
+                    }
+                    RefreshEvent::ClosingTopic(t) => {
+                        status_text = fl!("scan-topic-is-removed", name = t);
+                    }
+                    RefreshEvent::RunInvokeScript => {
+                        status_text = fl!("oma-refresh-success-invoke");
+                    }
+                    RefreshEvent::SourceListFileNotSupport { path } => {
+                        status_text = format!(
+                            "{}",
+                            fl!(
+                                "unsupported-sources-list",
+                                p = path.to_string_lossy(),
+                                list = ".list",
+                                sources = ".sources"
+                            )
+                        );
+                    }
+                    RefreshEvent::TopicNotInMirror { .. } => {}
+                }
+            }
+
+            terminal
+                .draw(|f| {
+                    render::render_refresh_ui(f, &download_items, &status_text);
+                })
+                .map_err(|e| OutputError {
+                    description: format!("TUI draw error: {e}"),
+                    source: Some(Box::new(e)),
+                })?;
+
+            thread::sleep(Duration::from_millis(50));
         }
 
         let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(sysroot.to_string_lossy().to_string())
+            .sysroot(config.sysroot.to_string_lossy().to_string())
             .another_apt_options(&config.apt_options)
             .dpkg_force_confnew(force_confnew)
             .dpkg_force_unsafe_io(force_unsafe_io)
@@ -138,29 +220,26 @@ impl CliExecuter for Tui {
 
         let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-        let pb = create_progress_spinner(config.no_progress(), fl!("reading-database"));
-
         let (upgradable, upgradable_but_held) = apt.count_pending_upgradable_pkgs();
-        let autoremove = apt.count_pending_autoremovable_pkgs();
+        let autoremove_cnt = apt.count_pending_autoremovable_pkgs();
         let installed = apt.count_installed_packages();
 
         let searcher = if config.amo && !config.no_check_dbus {
             match RT.block_on(Searcher::connect_amo()) {
-                Ok(searcher) => searcher,
-                Err(_) => local_searcher(&apt, &pb)?,
+                Ok(s) => s,
+                Err(_) => Searcher::Local(Box::new(IndiciumSearch::new(
+                    &apt.cache,
+                    SearchType::Live,
+                    |_| {},
+                )?)),
             }
         } else {
-            local_searcher(&apt, &pb)?
+            Searcher::Local(Box::new(IndiciumSearch::new(
+                &apt.cache,
+                SearchType::Live,
+                |_| {},
+            )?))
         };
-
-        if let Some(pb) = pb {
-            pb.inner.finish_and_clear();
-        }
-
-        let mut terminal = prepare_create_tui().map_err(|e| OutputError {
-            description: "BUG: Failed to create crossterm instance".to_string(),
-            source: Some(Box::new(e)),
-        })?;
 
         let tui = TuiInner::new(
             &apt,
@@ -168,7 +247,7 @@ impl CliExecuter for Tui {
                 installed,
                 upgradable,
                 upgradable_but_held,
-                autoremove,
+                autoremove: autoremove_cnt,
             },
             searcher,
         );
@@ -179,7 +258,12 @@ impl CliExecuter for Tui {
             remove,
             upgrade,
             autoremove,
-        } = tui.run(&mut terminal, Duration::from_millis(250)).unwrap();
+        } = tui
+            .run(&mut terminal, Duration::from_millis(250))
+            .map_err(|e| OutputError {
+                description: format!("TUI error: {e}"),
+                source: Some(Box::new(e)),
+            })?;
 
         exit_tui(&mut terminal).map_err(|e| OutputError {
             description: "BUG: Failed to exit tui".to_string(),
@@ -219,17 +303,4 @@ impl CliExecuter for Tui {
 
         Ok(exit)
     }
-}
-
-fn local_searcher(
-    apt: &OmaApt,
-    pb: &Option<crate::pb::OmaProgressBar>,
-) -> Result<Searcher, OutputError> {
-    let searcher = IndiciumSearch::new(&apt.cache, SearchType::Live, |n| {
-        if let Some(ref pb) = *pb {
-            pb.inner
-                .set_message(fl!("reading-database-with-count", count = n));
-        }
-    })?;
-    Ok(Searcher::Local(searcher.into()))
 }
