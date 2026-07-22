@@ -8,7 +8,8 @@ use std::{
 use super::state::StatefulList;
 use ansi_to_tui::IntoText;
 use dialoguer::console;
-use oma_pm::{apt::OmaApt, pkginfo::OmaPackage, search::SearchResult};
+use oma_apt_pkg::SearchResult;
+use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
 use ratatui::{
     crossterm::event::{self},
     style::Modifier,
@@ -470,25 +471,6 @@ pub(crate) fn update_search_result(
     let res = searcher.search(s);
 
     if let Ok(res) = res {
-        // Convert from oma_apt_pkg::SearchResult to oma_pm::SearchResult
-        let res: Vec<SearchResult> = res
-            .into_iter()
-            .map(|r| SearchResult {
-                name: r.name,
-                desc: r.desc,
-                old_version: r.old_version,
-                new_version: r.new_version,
-                full_match: r.full_match,
-                dbg_package: r.dbg_package,
-                status: match r.status {
-                    oma_apt_pkg::search::PackageStatus::Avail => oma_pm::search::PackageStatus::Avail,
-                    oma_apt_pkg::search::PackageStatus::Installed => oma_pm::search::PackageStatus::Installed,
-                    oma_apt_pkg::search::PackageStatus::Upgrade => oma_pm::search::PackageStatus::Upgrade,
-                },
-                is_base: r.is_base,
-            })
-            .collect();
-
         let res_display = res
             .iter()
             .filter_map(|x| SearchResultDisplay(x).to_string().into_text().ok())

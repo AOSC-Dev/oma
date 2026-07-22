@@ -12,7 +12,6 @@ oma-apt = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true, features = ["unstable-locales"] }
 glob-match = { workspace = true }
-indicium = { workspace = true }
 oma-utils = { workspace = true, features = [
     "dpkg",
     "url-no-escape",
@@ -31,9 +30,6 @@ zbus = { workspace = true, default-features = false, features = ["tokio"] }
 cxx = { workspace = true }
 ahash = { workspace = true }
 bon = { workspace = true }
-strsim = { workspace = true }
-indexmap = { workspace = true }
-memchr = { workspace = true }
 serde = { workspace = true }
 once_cell = { workspace = true }
 sysinfo = { workspace = true, optional = true }

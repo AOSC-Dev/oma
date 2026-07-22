@@ -2,14 +2,9 @@ use std::fmt::Display;
 
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
-use oma_apt_pkg::search::{IndiciumSearch, SearchType};
+use oma_apt_pkg::search::{IndiciumSearch, PackageStatus, SearchResult, SearchType, StrSimSearch, TextSearch};
 use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
-use oma_pm::{
-    PackageStatus,
-    apt::{OmaApt, OmaAptArgs},
-    matches::SearchEngine,
-    search::{OmaSearch, SearchResult, StrSimSearch, TextSearch},
-};
+use oma_pm::matches::SearchEngine;
 use oma_utils::zbus::proxy;
 use spdlog::debug;
 use zbus::Connection;
@@ -139,16 +134,8 @@ impl CliExecuter for Search {
 
         let no_pager = no_pager || config.search_contents_println;
 
-        let oma_apt_args = OmaAptArgs::builder()
-            .another_apt_options(&config.apt_options)
-            .sysroot(config.sysroot.to_string_lossy().to_string())
-            .build();
-
-        let apt = OmaApt::new(vec![], oma_apt_args, false)?;
-
         let pb = create_progress_spinner(config.no_progress() || json, fl!("searching"));
         let res = search(
-            &apt,
             &pattern,
             match config.search_engine {
                 ConfigSearchEngine::Indicium => SearchEngine::Indicium(Box::new(|_| {})),
@@ -200,7 +187,6 @@ impl CliExecuter for Search {
 }
 
 pub fn search(
-    apt: &OmaApt,
     keywords: &[String],
     engine: SearchEngine,
     config: &OmaConfig,
@@ -219,14 +205,56 @@ pub fn search(
             }
         }
         SearchEngine::Strsim => {
-            let searcher = StrSimSearch::new(&apt.cache);
-            Ok(searcher.search(&keywords.join(" "))?)
+            use oma_apt_pkg::search::OmaSearch as _;
+
+            let apt_cache = config.sysroot.join("var/cache/apt/oma-aptdb.bincode");
+            let lists_dir = config.sysroot.join("var/lib/apt/lists");
+            let apt_db =
+                oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| {
+                    OutputError {
+                        description: e,
+                        source: None,
+                    }
+                })?;
+            let dpkg =
+                oma_apt_pkg::DpkgState::from_file(config.sysroot.join("var/lib/dpkg/status"))
+                    .map_err(|e| OutputError {
+                        description: e,
+                        source: None,
+                    })?;
+            let searcher = StrSimSearch::new(&apt_db, &dpkg);
+            Ok(searcher
+                .search(&keywords.join(" "))
+                .map_err(|e| OutputError {
+                    description: e.to_string(),
+                    source: None,
+                })?)
         }
         SearchEngine::Text => {
-            let searcher = TextSearch::new(&apt.cache);
+            use oma_apt_pkg::search::OmaSearch as _;
+
+            let apt_cache = config.sysroot.join("var/cache/apt/oma-aptdb.bincode");
+            let lists_dir = config.sysroot.join("var/lib/apt/lists");
+            let apt_db =
+                oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| {
+                    OutputError {
+                        description: e,
+                        source: None,
+                    }
+                })?;
+            let dpkg =
+                oma_apt_pkg::DpkgState::from_file(config.sysroot.join("var/lib/dpkg/status"))
+                    .map_err(|e| OutputError {
+                        description: e,
+                        source: None,
+                    })?;
+            let searcher = TextSearch::new(&apt_db, &dpkg);
             let mut result = vec![];
             for keyword in keywords {
-                let res = searcher.search(keyword)?;
+                let res = searcher.search(keyword).map_err(|e| OutputError {
+                    description: e.to_string(),
+                    source: None,
+                })?;
                 result.extend(res);
             }
 
@@ -245,9 +273,8 @@ fn local_indicium_search(
     query: String,
     sysroot: &std::path::Path,
 ) -> Result<Vec<SearchResult>, OutputError> {
-    use oma_apt_pkg::search::{OmaSearch as _, SearchResult as AptSearchResult};
+    use oma_apt_pkg::search::OmaSearch as _;
 
-    let sysroot = sysroot;
     let searcher = IndiciumSearch::from_paths(
         sysroot.join("var/lib/apt/lists"),
         sysroot.join("var/lib/dpkg/status"),
@@ -256,34 +283,15 @@ fn local_indicium_search(
         SearchType::Live,
         f,
     )
-        .map_err(|e| OutputError {
-            description: e,
-            source: None,
-        })?;
-
-    let results: Vec<AptSearchResult> = searcher.search(&query).map_err(|e| OutputError {
-        description: e.to_string(),
+    .map_err(|e| OutputError {
+        description: e,
         source: None,
     })?;
 
-    // Convert to the local SearchResult type used by the rest of the module
-    Ok(results
-        .into_iter()
-        .map(|r| SearchResult {
-            name: r.name,
-            desc: r.desc,
-            old_version: r.old_version,
-            new_version: r.new_version,
-            full_match: r.full_match,
-            dbg_package: r.dbg_package,
-            status: match r.status {
-                oma_apt_pkg::search::PackageStatus::Avail => PackageStatus::Avail,
-                oma_apt_pkg::search::PackageStatus::Installed => PackageStatus::Installed,
-                oma_apt_pkg::search::PackageStatus::Upgrade => PackageStatus::Upgrade,
-            },
-            is_base: r.is_base,
-        })
-        .collect())
+    Ok(searcher.search(&query).map_err(|e| OutputError {
+        description: e.to_string(),
+        source: None,
+    })?)
 }
 
 async fn amo_search(query: &str) -> anyhow::Result<Vec<SearchResult>> {

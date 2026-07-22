@@ -7,8 +7,10 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use ahash::RandomState;
+use glob_match::glob_match;
 pub use indicium::simple::SearchType;
 use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
+use memchr::memmem;
 use serde::{Deserialize, Serialize};
 use spdlog::debug;
 
@@ -485,6 +487,203 @@ fn is_upgradable(candidate_version: Option<&String>, installed_version: Option<&
         }
         (Some(_), None) => false, // not installed
         (None, _) => false,       // no candidate available
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy search backends — rewritten to use AptDb + DpkgState
+// ---------------------------------------------------------------------------
+
+/// String-similarity search, results sorted by `strsim::jaro_winkler` score.
+pub struct StrSimSearch<'a> {
+    apt_db: &'a AptDb,
+    dpkg: &'a DpkgState,
+}
+
+impl OmaSearch for StrSimSearch<'_> {
+    fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
+        let mut scored: Vec<(String, u16, bool, bool)> = Vec::new(); // (name, score, installed, upgradable)
+        let query_lower = query.to_lowercase();
+
+        for entry in &self.apt_db.entries {
+            let name = &entry.package;
+            if name.ends_with("-dbg") {
+                continue;
+            }
+
+            let name_match = memmem::find(name.as_bytes(), query.as_bytes()).is_some();
+            let desc_match = entry
+                .description
+                .as_deref()
+                .is_some_and(|d| memmem::find(d.as_bytes(), query.as_bytes()).is_some());
+
+            if !name_match && !desc_match {
+                continue;
+            }
+
+            if scored.iter().any(|(n, _, _, _)| n == name) {
+                continue;
+            }
+
+            let installed = self.dpkg.is_installed(name);
+            let upgradable = installed
+                && is_upgradable(entry.version.as_ref(), self.dpkg.installed_versions.get(name.as_str()));
+            let score = (strsim::jaro_winkler(name, query_lower.as_str()) * 1000.0) as u16;
+
+            scored.push((name.clone(), score, installed, upgradable));
+        }
+
+        scored.sort_unstable_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+        let mut results: Vec<SearchResult> = scored
+            .into_iter()
+            .map(|(name, _, installed, upgradable)| {
+                let entry = self.apt_db.get(&name);
+                let (old_version, new_version) = if let Some(e) = entry {
+                    extract_versions(
+                        if upgradable {
+                            PackageStatus::Upgrade
+                        } else if installed {
+                            PackageStatus::Installed
+                        } else {
+                            PackageStatus::Avail
+                        },
+                        &self.dpkg.installed_versions,
+                        &name,
+                        &e.version,
+                    )
+                } else {
+                    (None, "Unknown".to_string())
+                };
+
+                let desc = entry
+                    .and_then(|e| {
+                        e.description
+                            .as_deref()
+                            .map(|d| d.lines().next().unwrap_or(d).to_string())
+                    })
+                    .unwrap_or_else(|| "No description".to_string());
+
+                let has_dbg = entry
+                    .is_some_and(|_| self.apt_db.has_package(&format!("{name}-dbg")));
+
+                SearchResult {
+                    name: name.clone(),
+                    desc,
+                    old_version,
+                    new_version,
+                    full_match: query == name,
+                    dbg_package: has_dbg,
+                    status: if upgradable {
+                        PackageStatus::Upgrade
+                    } else if installed {
+                        PackageStatus::Installed
+                    } else {
+                        PackageStatus::Avail
+                    },
+                    is_base: name.ends_with("-base"),
+                }
+            })
+            .collect();
+
+        results.sort_by_key(|b| std::cmp::Reverse(b.status));
+        for i in 0..results.len() {
+            if results[i].full_match {
+                let r = results.remove(i);
+                results.insert(0, r);
+            }
+        }
+
+        Ok(results)
+    }
+}
+
+impl<'a> StrSimSearch<'a> {
+    pub fn new(apt_db: &'a AptDb, dpkg: &'a DpkgState) -> Self {
+        Self { apt_db, dpkg }
+    }
+}
+
+/// Text / glob match search based on `memmem`.
+pub struct TextSearch<'a> {
+    apt_db: &'a AptDb,
+    dpkg: &'a DpkgState,
+}
+
+impl<'a> TextSearch<'a> {
+    pub fn new(apt_db: &'a AptDb, dpkg: &'a DpkgState) -> Self {
+        Self { apt_db, dpkg }
+    }
+}
+
+impl OmaSearch for TextSearch<'_> {
+    fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
+        let mut results = vec![];
+
+        for entry in &self.apt_db.entries {
+            let name = &entry.package;
+            if name.ends_with("-dbg") {
+                continue;
+            }
+
+            if !memmem::find(name.as_bytes(), query.as_bytes()).is_some()
+                && !glob_match(query, name)
+            {
+                continue;
+            }
+
+            let installed = self.dpkg.is_installed(name);
+            let upgradable = installed
+                && is_upgradable(entry.version.as_ref(), self.dpkg.installed_versions.get(name.as_str()));
+
+            let (old_version, new_version) = extract_versions(
+                if upgradable {
+                    PackageStatus::Upgrade
+                } else if installed {
+                    PackageStatus::Installed
+                } else {
+                    PackageStatus::Avail
+                },
+                &self.dpkg.installed_versions,
+                name,
+                &entry.version,
+            );
+
+            let desc = entry
+                .description
+                .as_deref()
+                .map(|d| d.lines().next().unwrap_or(d).to_string())
+                .unwrap_or_else(|| "No description".to_string());
+
+            let has_dbg = self.apt_db.has_package(&format!("{name}-dbg"));
+
+            results.push(SearchResult {
+                name: name.clone(),
+                desc,
+                old_version,
+                new_version,
+                full_match: query == name,
+                dbg_package: has_dbg,
+                status: if upgradable {
+                    PackageStatus::Upgrade
+                } else if installed {
+                    PackageStatus::Installed
+                } else {
+                    PackageStatus::Avail
+                },
+                is_base: name.ends_with("-base"),
+            });
+        }
+
+        results.sort_by_key(|b| std::cmp::Reverse(b.status));
+        for i in 0..results.len() {
+            if results[i].full_match {
+                let r = results.remove(i);
+                results.insert(0, r);
+            }
+        }
+
+        Ok(results)
     }
 }
 

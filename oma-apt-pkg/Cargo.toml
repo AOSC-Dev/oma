@@ -17,3 +17,6 @@ indicium = { workspace = true }
 debversion = { workspace = true }
 bincode = { version = "2", features = ["serde"] }
 spdlog-rs = { workspace = true }
+glob-match = { workspace = true }
+memchr = { workspace = true }
+strsim = { workspace = true }
