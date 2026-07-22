@@ -3308,6 +3308,7 @@ dependencies = [
  "ahash",
  "deb822-fast",
  "deb822-lossless",
+ "debversion",
  "indexmap",
  "indicium",
  "serde",

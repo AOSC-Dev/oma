@@ -14,3 +14,4 @@ thiserror = { workspace = true }
 ahash = { workspace = true }
 indexmap = { workspace = true }
 indicium = { workspace = true }
+debversion = { workspace = true }

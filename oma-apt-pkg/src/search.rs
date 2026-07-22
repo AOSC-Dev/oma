@@ -4,6 +4,7 @@
 //! without depending on the C++ `oma-apt` binding.
 
 use std::collections::{HashMap, HashSet};
+use std::str::FromStr;
 
 use ahash::RandomState;
 pub use indicium::simple::SearchType;
@@ -225,8 +226,23 @@ impl IndiciumSearch {
                 continue;
             }
 
-            // Skip duplicates (keep first occurrence)
-            if pkg_map.contains_key(name) {
+            // Duplicates across different repos/components: keep the one with
+            // the highest version (handles `~`, epochs, etc.).
+            let should_replace = pkg_map.get(name).is_some_and(|existing: &SearchEntry| {
+                match (&entry.version, Some(&existing.new_version)) {
+                    (Some(new_ver), Some(old_ver)) => {
+                        let nv = debversion::Version::from_str(new_ver);
+                        let ov = debversion::Version::from_str(old_ver);
+                        match (nv, ov) {
+                            (Ok(n), Ok(o)) => n > o,
+                            _ => new_ver != old_ver,
+                        }
+                    }
+                    _ => false,
+                }
+            });
+
+            if pkg_map.contains_key(name) && !should_replace {
                 continue;
             }
 
@@ -305,17 +321,18 @@ impl IndiciumSearch {
     ) {
         for entry in self.pkg_map.values_mut() {
             let (status, old_ver, new_ver) = if installed.contains(entry.name.as_str()) {
+                let inst_ver = installed_versions.get(&entry.name).cloned();
                 if is_upgradable(
                     Some(&entry.new_version),
                     installed_versions.get(&entry.name),
                 ) {
+                    (PackageStatus::Upgrade, inst_ver, entry.new_version.clone())
+                } else {
                     (
-                        PackageStatus::Upgrade,
-                        installed_versions.get(&entry.name).cloned(),
+                        PackageStatus::Installed,
+                        inst_ver,
                         entry.new_version.clone(),
                     )
-                } else {
-                    (PackageStatus::Installed, None, entry.new_version.clone())
                 }
             } else {
                 (PackageStatus::Avail, None, entry.new_version.clone())
@@ -330,9 +347,18 @@ impl IndiciumSearch {
 
 /// Determine if a package is upgradable: a newer version is available in the
 /// repo than what is currently installed.
+/// Uses proper Debian version comparison (handles `~`, epochs, etc.).
 fn is_upgradable(candidate_version: Option<&String>, installed_version: Option<&String>) -> bool {
     match (candidate_version, installed_version) {
-        (Some(cand), Some(inst)) => cand != inst,
+        (Some(cand), Some(inst)) => {
+            let cand_ver = debversion::Version::from_str(cand);
+            let inst_ver = debversion::Version::from_str(inst);
+            match (cand_ver, inst_ver) {
+                (Ok(cv), Ok(iv)) => cv > iv,
+                // Fall back to string comparison if parsing fails
+                _ => cand != inst,
+            }
+        }
         (Some(_), None) => false, // not installed
         (None, _) => false,       // no candidate available
     }
@@ -348,7 +374,8 @@ fn extract_versions(
         .clone()
         .unwrap_or_else(|| "Unknown".to_string());
 
-    let old = if status == PackageStatus::Upgrade {
+    // Keep the installed version for all installed packages, not just upgrades.
+    let old = if status == PackageStatus::Installed || status == PackageStatus::Upgrade {
         installed_versions.get(name).cloned()
     } else {
         None
