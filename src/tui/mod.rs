@@ -104,11 +104,10 @@ impl Searcher {
     /// Refresh status metadata from fresh dpkg status data.
     pub(crate) fn refresh(
         &mut self,
-        installed: &std::collections::HashSet<String>,
-        installed_versions: &std::collections::HashMap<String, String>,
+        dpkg: &oma_apt_pkg::DpkgState,
     ) {
         if let Searcher::Local(indicium_search) = self {
-            indicium_search.refresh_status(installed, installed_versions);
+            indicium_search.refresh_status(dpkg);
         }
     }
 }

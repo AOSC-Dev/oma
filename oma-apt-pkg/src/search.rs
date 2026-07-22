@@ -12,6 +12,7 @@ use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::apt_lists::PackageEntry;
+use crate::{AptDb, DpkgState};
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
 type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
@@ -195,30 +196,22 @@ fn parse_provides(value: &str) -> Vec<String> {
         .collect()
 }
 
-/// Build a set of all available package names from the entries list.
-fn build_available_names(entries: &[PackageEntry]) -> HashSet<String> {
-    entries.iter().map(|e| e.package.clone()).collect()
-}
-
 impl IndiciumSearch {
-    /// Build a new search index from parsed APT list entries and dpkg status.
+    /// Build a new search index from an `AptDb` (package entries) and `DpkgState`.
     ///
-    /// * `entries` — All package entries from all `*_Packages` files.
-    /// * `installed` — Set of currently installed package names (from dpkg status).
-    /// * `installed_versions` — Map from installed package name to its version.
+    /// * `apt_db` — Parsed and cached apt package data.
+    /// * `dpkg` — Fresh dpkg status.
     /// * `search_type` — The indicium search type to use.
     /// * `progress` — A callback invoked with the current index position during building.
     pub fn new(
-        entries: &[PackageEntry],
-        installed: &HashSet<String>,
-        installed_versions: &HashMap<String, String>,
+        apt_db: &AptDb,
+        dpkg: &DpkgState,
         search_type: SearchType,
         progress: impl Fn(usize),
     ) -> Self {
-        let available_names = build_available_names(entries);
         let mut pkg_map: IndexMap<String, SearchEntry> = IndexMap::with_hasher(RandomState::new());
 
-        for (i, entry) in entries.iter().enumerate() {
+        for (i, entry) in apt_db.entries.iter().enumerate() {
             progress(i);
             let name = &entry.package;
 
@@ -246,12 +239,9 @@ impl IndiciumSearch {
                 continue;
             }
 
-            let status = if installed.contains(name.as_str()) {
-                // Check if a newer version is available in the repo
-                if is_upgradable(
-                    entry.version.as_ref(),
-                    installed_versions.get(name.as_str()),
-                ) {
+            let status = if dpkg.is_installed(name) {
+                if is_upgradable(entry.version.as_ref(), dpkg.installed_versions.get(name.as_str()))
+                {
                     PackageStatus::Upgrade
                 } else {
                     PackageStatus::Installed
@@ -261,7 +251,7 @@ impl IndiciumSearch {
             };
 
             let (old_version, new_version) =
-                extract_versions(status, installed_versions, name, &entry.version);
+                extract_versions(status, &dpkg.installed_versions, name, &entry.version);
 
             let description = entry
                 .description
@@ -275,7 +265,7 @@ impl IndiciumSearch {
                 .map(parse_provides)
                 .unwrap_or_default();
 
-            let has_dbg = available_names.contains(&format!("{name}-dbg"));
+            let has_dbg = apt_db.has_package(&format!("{name}-dbg"));
 
             let section_is_base = entry.section.as_deref().is_some_and(|s| s == "Bases");
 
@@ -308,35 +298,28 @@ impl IndiciumSearch {
         }
     }
 
-    /// Refresh the status and version information of all entries from fresh dpkg
-    /// status data, without rebuilding the full-text search index.
-    /// This is much cheaper than creating a new `IndiciumSearch` from scratch.
-    ///
-    /// * `installed` — Re-parsed set of installed package names.
-    /// * `installed_versions` — Re-parsed map from installed package name to its version.
-    pub fn refresh_status(
-        &mut self,
-        installed: &HashSet<String>,
-        installed_versions: &HashMap<String, String>,
-    ) {
+    /// Refresh the status and version information of all entries from fresh
+    /// dpkg status data, without rebuilding the full-text search index.
+    pub fn refresh_status(&mut self, dpkg: &DpkgState) {
         for entry in self.pkg_map.values_mut() {
-            let (status, old_ver, new_ver) = if installed.contains(entry.name.as_str()) {
-                let inst_ver = installed_versions.get(&entry.name).cloned();
-                if is_upgradable(
-                    Some(&entry.new_version),
-                    installed_versions.get(&entry.name),
-                ) {
-                    (PackageStatus::Upgrade, inst_ver, entry.new_version.clone())
+            let (status, old_ver, new_ver) =
+                if dpkg.installed.contains(entry.name.as_str()) {
+                    let inst_ver = dpkg.installed_versions.get(&entry.name).cloned();
+                    if is_upgradable(
+                        Some(&entry.new_version),
+                        dpkg.installed_versions.get(&entry.name),
+                    ) {
+                        (PackageStatus::Upgrade, inst_ver, entry.new_version.clone())
+                    } else {
+                        (
+                            PackageStatus::Installed,
+                            inst_ver,
+                            entry.new_version.clone(),
+                        )
+                    }
                 } else {
-                    (
-                        PackageStatus::Installed,
-                        inst_ver,
-                        entry.new_version.clone(),
-                    )
-                }
-            } else {
-                (PackageStatus::Avail, None, entry.new_version.clone())
-            };
+                    (PackageStatus::Avail, None, entry.new_version.clone())
+                };
 
             entry.status = status;
             entry.old_version = old_ver;
@@ -346,165 +329,27 @@ impl IndiciumSearch {
 }
 
 // ---------------------------------------------------------------------------
-// Binary cache for faster startup
+// High-level constructor — combines AptDb and DpkgState
 // ---------------------------------------------------------------------------
 
 impl IndiciumSearch {
-    /// Try to load a previously saved search index from a binary cache file.
-    /// Returns `None` if the cache is missing or corrupt.
-    pub fn load_cache(path: impl AsRef<std::path::Path>, search_type: SearchType) -> Option<Self> {
-        use std::fs;
-        use std::io::Read;
-
-        let mut file = fs::File::open(path.as_ref()).ok()?;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).ok()?;
-
-        let pkg_map: IndexMap<String, SearchEntry> = bincode::serde::decode_from_slice(&buf, bincode::config::standard())
-            .ok()?
-            .0;
-
-        // Rebuild the search index from the cached package map
-        let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
-            .search_type(search_type)
-            .exclude_keywords(None)
-            .build();
-        pkg_map.iter().for_each(|(key, value)| {
-            search_index.insert(key, value);
-        });
-
-        Some(Self {
-            pkg_map,
-            index: search_index,
-        })
-    }
-
-    /// Save the search index (package map) to a binary cache file.
-    /// Does NOT cache the SearchIndex itself (it's rebuilt on load, which is fast).
-    pub fn save_cache(&self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
-        use std::fs;
-        use std::io::Write;
-
-        if let Some(parent) = path.as_ref().parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        let encoded = bincode::serde::encode_to_vec(&self.pkg_map, bincode::config::standard())
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-
-        let mut file = fs::File::create(path.as_ref())?;
-        file.write_all(&encoded)?;
-        Ok(())
-    }
-
-    /// Check whether the binary cache at `cache_path` is still valid compared to
-    /// the `*_Packages` files under `lists_dir`.  Returns `true` if the cache
-    /// exists and every source file is older than (or as old as) the cache file.
-    pub fn cache_valid(cache_path: impl AsRef<std::path::Path>, lists_dir: impl AsRef<std::path::Path>) -> bool {
-        use std::fs;
-
-        let cache_mtime = match fs::metadata(&cache_path).and_then(|m| m.modified()) {
-            Ok(t) => t,
-            Err(_) => return false,
-        };
-
-        let dir = match fs::read_dir(lists_dir.as_ref()) {
-            Ok(d) => d,
-            Err(_) => return false,
-        };
-
-        for entry in dir {
-            let entry = match entry {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            if !name.ends_with("_Packages") {
-                continue;
-            }
-            let src_mtime = match entry.metadata().and_then(|m| m.modified()) {
-                Ok(t) => t,
-                Err(_) => continue,
-            };
-            if src_mtime > cache_mtime {
-                return false;
-            }
-        }
-
-        true
-    }
-
-    /// High-level constructor: parse dpkg status, try the binary cache, fall
-    /// back to full parsing, and return a ready-to-use search index.
+    /// Build a search index from a sysroot, handling cache automatically.
     ///
-    /// * `sysroot` – Root path (e.g. `/`).  Paths like
-    ///   `var/lib/apt/lists`, `var/lib/dpkg/status` and
-    ///   `var/cache/apt/oma-pkgcache.bin` are derived from it.
+    /// This is a convenience wrapper around `AptDb::load_or_build` +
+    /// `DpkgState::from_sysroot` + `IndiciumSearch::new` + `refresh_status`.
     pub fn from_sysroot(
         sysroot: impl AsRef<std::path::Path>,
         search_type: SearchType,
         progress: impl Fn(usize),
     ) -> Result<Self, String> {
-        use std::collections::{HashMap, HashSet};
+        let cache_path = sysroot.as_ref().join("var/cache/apt/oma-pkgcache.bin");
+        let lists_dir = sysroot.as_ref().join("var/lib/apt/lists");
 
-        let sysroot = sysroot.as_ref();
-        let cache_path = sysroot.join("var/cache/apt/oma-pkgcache.bin");
-        let lists_dir = sysroot.join("var/lib/apt/lists");
+        let apt_db = AptDb::load_or_build(&cache_path, &lists_dir)?;
+        let dpkg = DpkgState::from_sysroot(sysroot)?;
 
-        // Parse dpkg status (always needed, fast – one file)
-        let dpkg_packages = crate::parse_dpkg_status(sysroot.join("var/lib/dpkg/status"))
-            .map_err(|e| format!("Failed to parse dpkg status: {e}"))?;
-
-        let installed: HashSet<String> = dpkg_packages
-            .iter()
-            .filter(|p| p.selection_state().is_installed())
-            .map(|p| p.name.clone())
-            .collect();
-
-        let installed_versions: HashMap<String, String> = dpkg_packages
-            .iter()
-            .filter_map(|p| {
-                p.selection_state()
-                    .is_installed()
-                    .then(|| (p.name.clone(), p.version.clone().unwrap_or_default()))
-            })
-            .collect();
-
-        // Load or build
-        let mut searcher = if Self::cache_valid(&cache_path, &lists_dir) {
-            match Self::load_cache(&cache_path, search_type.clone()) {
-                Some(s) => s,
-                None => Self::build_fresh(&lists_dir, &installed, &installed_versions, search_type, &progress, &cache_path)?,
-            }
-        } else {
-            Self::build_fresh(&lists_dir, &installed, &installed_versions, search_type, &progress, &cache_path)?
-        };
-
-        // Apply current dpkg state to cached entries
-        searcher.refresh_status(&installed, &installed_versions);
-
-        Ok(searcher)
-    }
-
-    fn build_fresh(
-        lists_dir: &std::path::Path,
-        installed: &std::collections::HashSet<String>,
-        installed_versions: &std::collections::HashMap<String, String>,
-        search_type: SearchType,
-        progress: impl Fn(usize),
-        cache_path: &std::path::Path,
-    ) -> Result<Self, String> {
-        let entries = crate::parse_apt_lists_dir(lists_dir)
-            .map_err(|e| format!("Failed to parse apt lists: {e}"))?;
-
-        let searcher = Self::new(&entries, installed, installed_versions, search_type, progress);
-
-        if let Err(e) = searcher.save_cache(cache_path) {
-            // Non-fatal: cache write failure shouldn't block the user
-            let _ = e;
-        }
-
+        let mut searcher = Self::new(&apt_db, &dpkg, search_type, progress);
+        searcher.refresh_status(&dpkg);
         Ok(searcher)
     }
 }
@@ -665,9 +510,9 @@ mod tests {
                 sha256: None,
             },
         ];
-        let names = build_available_names(&entries);
-        assert!(names.contains("foo"));
-        assert!(names.contains("foo-dbg"));
+        let db = AptDb::from_entries(entries);
+        assert!(db.has_package("foo"));
+        assert!(db.has_package("foo-dbg"));
     }
 }
 
