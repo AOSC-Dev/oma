@@ -1,13 +1,8 @@
 //! Package search API.
 //!
-//! Re-exports the indicium-based search types from `oma-apt-pkg`,
-//! and provides legacy search backends (`StrSimSearch`, `TextSearch`)
-//! that still depend on the C++ `oma-apt` binding.
-
-pub use oma_apt_pkg::search::{
-    IndiciumSearch, OmaSearch, OmaSearchError, OmaSearchResult, PackageStatus, SearchEntry,
-    SearchResult, SearchType,
-};
+//! Provides legacy search backends (`StrSimSearch`, `TextSearch`)
+//! that build on the C++ `oma_apt::Cache`, and defines common search
+//! types used throughout the codebase.
 
 use ahash::AHashMap;
 use glob_match::glob_match;
@@ -17,11 +12,90 @@ use oma_apt::{
     cache::{Cache, PackageSort},
     raw::IntoRawIter,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     matches::has_dbg,
     pkginfo::OmaPackage,
 };
+
+// ---------------------------------------------------------------------------
+// Shared search types
+// ---------------------------------------------------------------------------
+
+/// Status of the package.
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum PackageStatus {
+    Avail,
+    Installed,
+    Upgrade,
+}
+
+impl PartialOrd for PackageStatus {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PackageStatus {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self {
+            PackageStatus::Avail => match other {
+                PackageStatus::Avail => std::cmp::Ordering::Equal,
+                PackageStatus::Installed => std::cmp::Ordering::Greater,
+                PackageStatus::Upgrade => std::cmp::Ordering::Less,
+            },
+            PackageStatus::Installed => match other {
+                PackageStatus::Avail => std::cmp::Ordering::Less,
+                PackageStatus::Installed => std::cmp::Ordering::Equal,
+                PackageStatus::Upgrade => std::cmp::Ordering::Less,
+            },
+            PackageStatus::Upgrade => match other {
+                PackageStatus::Avail => std::cmp::Ordering::Greater,
+                PackageStatus::Installed => std::cmp::Ordering::Greater,
+                PackageStatus::Upgrade => std::cmp::Ordering::Equal,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Result of a search process.
+pub struct SearchResult {
+    /// String contains the name of a package to search for.
+    pub name: String,
+    /// String contains the description of a package.
+    pub desc: String,
+    /// Optional string contains the old_version(s) of a package
+    pub old_version: Option<String>,
+    /// String contains the new_version(s) of a package
+    pub new_version: String,
+    /// Boolean indicating whether this result is a full match or not.
+    pub full_match: bool,
+    /// Boolean indicating whether this result has a matching package for debug symbols.
+    pub dbg_package: bool,
+    /// `PackageStatus` instance which reports the status of the package.
+    pub status: PackageStatus,
+    /// Boolean indicating whether the package is an AOSC OS metapackage (-base package).
+    pub is_base: bool,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum OmaSearchError {
+    #[error("No result found: {0}")]
+    NoResult(String),
+    #[error("Failed to get candidate version: {0}")]
+    FailedGetCandidate(String),
+    #[error("Null pointer in apt cache")]
+    PtrIsNone,
+}
+
+pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
+
+/// Common trait for all search backends.
+pub trait OmaSearch {
+    fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>>;
+}
 
 // ---------------------------------------------------------------------------
 // Legacy backends — kept here because they rely on `oma_apt::Cache`.

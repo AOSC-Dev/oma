@@ -1,10 +1,10 @@
 use std::time::Duration;
 
 use clap::Args;
+use oma_apt_pkg::search::{IndiciumSearch, OmaSearch, SearchResult, SearchType};
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs, Upgrade},
-    search::{IndiciumSearch, OmaSearch, SearchResult, SearchType},
 };
 use render::{Task, Tui as TuiInner};
 use spdlog::{debug, info};
@@ -147,10 +147,10 @@ impl CliExecuter for Tui {
         let searcher = if config.amo && !config.no_check_dbus {
             match RT.block_on(Searcher::connect_amo()) {
                 Ok(searcher) => searcher,
-                Err(_) => local_searcher(&apt, &pb)?,
+                Err(_) => local_searcher(sysroot, &pb)?,
             }
         } else {
-            local_searcher(&apt, &pb)?
+            local_searcher(sysroot, &pb)?
         };
 
         if let Some(pb) = pb {
@@ -222,14 +222,51 @@ impl CliExecuter for Tui {
 }
 
 fn local_searcher(
-    apt: &OmaApt,
+    sysroot: &std::path::Path,
     pb: &Option<crate::pb::OmaProgressBar>,
 ) -> Result<Searcher, OutputError> {
-    let searcher = IndiciumSearch::new(&apt.cache, SearchType::Live, |n| {
-        if let Some(ref pb) = *pb {
-            pb.inner
-                .set_message(fl!("reading-database-with-count", count = n));
-        }
+    use std::collections::{HashMap, HashSet};
+    use oma_apt_pkg::{parse_apt_lists_dir, parse_dpkg_status};
+
+    let dpkg_path = sysroot.join("var/lib/dpkg/status");
+    let lists_dir = sysroot.join("var/lib/apt/lists");
+
+    let entries = parse_apt_lists_dir(&lists_dir).map_err(|e| OutputError {
+        description: format!("Failed to parse apt lists: {e}"),
+        source: None,
     })?;
-    Ok(Searcher::Local(searcher.into()))
+
+    let dpkg_packages = parse_dpkg_status(&dpkg_path).map_err(|e| OutputError {
+        description: format!("Failed to parse dpkg status: {e}"),
+        source: None,
+    })?;
+
+    let installed: HashSet<String> = dpkg_packages
+        .iter()
+        .filter(|p| p.selection_state.is_installed())
+        .map(|p| p.name.clone())
+        .collect();
+
+    let installed_versions: HashMap<String, String> = dpkg_packages
+        .iter()
+        .filter_map(|p| {
+            p.selection_state
+                .is_installed()
+                .then(|| (p.name.clone(), p.version.clone().unwrap_or_default()))
+        })
+        .collect();
+
+    let searcher = IndiciumSearch::new(
+        &entries,
+        &installed,
+        &installed_versions,
+        SearchType::Live,
+        |n| {
+            if let Some(ref pb) = *pb {
+                pb.inner
+                    .set_message(fl!("reading-database-with-count", count = n));
+            }
+        },
+    );
+    Ok(Searcher::Local(Box::new(searcher)))
 }

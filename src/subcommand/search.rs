@@ -2,12 +2,13 @@ use std::fmt::Display;
 
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
+use oma_apt_pkg::search::{IndiciumSearch, SearchType};
 use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
 use oma_pm::{
     PackageStatus,
     apt::{OmaApt, OmaAptArgs},
     matches::SearchEngine,
-    search::{IndiciumSearch, OmaSearch, SearchResult, SearchType, StrSimSearch, TextSearch},
+    search::{OmaSearch, SearchResult, StrSimSearch, TextSearch},
 };
 use oma_utils::zbus::proxy;
 use spdlog::debug;
@@ -211,10 +212,10 @@ pub fn search(
             if config.amo && !config.no_check_dbus {
                 match RT.block_on(amo_search(&query)) {
                     Ok(r) => Ok(r),
-                    Err(_) => local_indicium_search(apt, f, query, &config.sysroot),
+                    Err(_) => local_indicium_search(f, query, &config.sysroot),
                 }
             } else {
-                local_indicium_search(apt, f, query, &config.sysroot)
+                local_indicium_search(f, query, &config.sysroot)
             }
         }
         SearchEngine::Strsim => {
@@ -240,13 +241,15 @@ pub fn search(
 }
 
 fn local_indicium_search(
-    _apt: &OmaApt,
     f: Box<dyn Fn(usize) + 'static>,
     query: String,
     sysroot: &std::path::Path,
 ) -> Result<Vec<SearchResult>, OutputError> {
     use std::collections::{HashMap, HashSet};
-    use oma_apt_pkg::{parse_apt_lists_dir, parse_dpkg_status};
+    use oma_apt_pkg::{
+        parse_apt_lists_dir, parse_dpkg_status,
+        search::{OmaSearch as _, SearchResult as AptSearchResult},
+    };
 
     let entries = parse_apt_lists_dir(&sysroot.join("var/lib/apt/lists")).map_err(|e| {
         OutputError { description: e.to_string(), source: None }
@@ -278,7 +281,29 @@ fn local_indicium_search(
         SearchType::Live,
         f,
     );
-    Ok(searcher.search(&query)?)
+    let results: Vec<AptSearchResult> = searcher.search(&query).map_err(|e| OutputError {
+        description: e.to_string(),
+        source: None,
+    })?;
+
+    // Convert to the local SearchResult type used by the rest of the module
+    Ok(results
+        .into_iter()
+        .map(|r| SearchResult {
+            name: r.name,
+            desc: r.desc,
+            old_version: r.old_version,
+            new_version: r.new_version,
+            full_match: r.full_match,
+            dbg_package: r.dbg_package,
+            status: match r.status {
+                oma_apt_pkg::search::PackageStatus::Avail => PackageStatus::Avail,
+                oma_apt_pkg::search::PackageStatus::Installed => PackageStatus::Installed,
+                oma_apt_pkg::search::PackageStatus::Upgrade => PackageStatus::Upgrade,
+            },
+            is_base: r.is_base,
+        })
+        .collect())
 }
 
 async fn amo_search(query: &str) -> anyhow::Result<Vec<SearchResult>> {

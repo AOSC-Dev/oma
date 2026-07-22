@@ -3443,7 +3443,6 @@ dependencies = [
  "indicium",
  "memchr",
  "oma-apt",
- "oma-apt-pkg",
  "oma-fetch",
  "oma-pm-operation-type",
  "oma-utils",
