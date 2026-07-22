@@ -14,14 +14,14 @@ use crate::apt_lists::{PackageEntry, parse_apt_lists_dir};
 /// persisted to / loaded from a binary cache file for fast startup.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AptDb {
-    pub entries: Vec<PackageEntry>,
+    pub(crate) entries: Vec<PackageEntry>,
     #[serde(skip)]
     available_names: HashSet<String>,
 }
 
 impl AptDb {
     /// Build from a vector of entries (from parsing).
-    pub fn from_entries(entries: Vec<PackageEntry>) -> Self {
+    pub(crate) fn from_entries(entries: Vec<PackageEntry>) -> Self {
         let available_names = entries.iter().map(|e| e.package.clone()).collect();
         Self {
             entries,
@@ -57,7 +57,7 @@ impl AptDb {
     }
 
     /// Try to load from a previously saved cache file.
-    pub fn load_cache(path: impl AsRef<Path>) -> Option<Self> {
+    pub(crate) fn load_cache(path: impl AsRef<Path>) -> Option<Self> {
         use std::fs;
         use std::io::Read;
 
@@ -76,7 +76,7 @@ impl AptDb {
     }
 
     /// Save to a binary cache file.
-    pub fn save_cache(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
+    pub(crate) fn save_cache(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
         use std::fs;
         use std::io::Write;
 
@@ -94,7 +94,7 @@ impl AptDb {
     }
 
     /// Check whether the cache is still valid by comparing mtimes with source files.
-    pub fn cache_valid(
+    pub(crate) fn cache_valid(
         cache_path: impl AsRef<Path>,
         lists_dir: impl AsRef<Path>,
     ) -> bool {

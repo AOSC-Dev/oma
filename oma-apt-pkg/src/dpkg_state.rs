@@ -12,9 +12,9 @@ use crate::dpkg::parse_dpkg_status;
 #[derive(Debug, Clone)]
 pub struct DpkgState {
     /// Set of installed package names.
-    pub installed: HashSet<String>,
+    pub(crate) installed: HashSet<String>,
     /// Map from installed package name to its version string.
-    pub installed_versions: HashMap<String, String>,
+    pub(crate) installed_versions: HashMap<String, String>,
 }
 
 impl DpkgState {
