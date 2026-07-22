@@ -21,8 +21,7 @@ impl DpkgState {
     /// Parse dpkg status from the given status file path.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, String> {
         let dpkg_packages =
-            parse_dpkg_status(path)
-                .map_err(|e| format!("Failed to parse dpkg status: {e}"))?;
+            parse_dpkg_status(path).map_err(|e| format!("Failed to parse dpkg status: {e}"))?;
 
         let installed: HashSet<String> = dpkg_packages
             .iter()
@@ -32,11 +31,8 @@ impl DpkgState {
 
         let installed_versions: HashMap<String, String> = dpkg_packages
             .iter()
-            .filter_map(|p| {
-                p.selection_state()
-                    .is_installed()
-                    .then(|| (p.name.clone(), p.version.clone().unwrap_or_default()))
-            })
+            .filter(|p| p.selection_state().is_installed())
+            .map(|p| (p.name.clone(), p.version.clone().unwrap_or_default()))
             .collect();
 
         Ok(Self {

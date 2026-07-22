@@ -232,10 +232,22 @@ fn local_searcher(
     _sysroot: &std::path::Path,
     pb: &Option<crate::pb::OmaProgressBar>,
 ) -> Result<Searcher, OutputError> {
-    let lists_dir = apt_config::find_dir("Dir::State::lists".to_string(), "var/lib/apt/lists".to_string());
-    let dpkg_path = apt_config::find_file("Dir::State::status".to_string(), "var/lib/dpkg/status".to_string());
-    let apt_cache = apt_config::find_file("Dir::Cache::oma-aptdb".to_string(), "var/cache/apt/oma-aptdb.bincode".to_string());
-    let search_cache = apt_config::find_file("Dir::Cache::oma-search".to_string(), "var/cache/apt/oma-search.bincode".to_string());
+    let lists_dir = apt_config::find_dir(
+        "Dir::State::lists".to_string(),
+        "var/lib/apt/lists".to_string(),
+    );
+    let dpkg_path = apt_config::find_file(
+        "Dir::State::status".to_string(),
+        "var/lib/dpkg/status".to_string(),
+    );
+    let apt_cache = apt_config::find_file(
+        "Dir::Cache::oma-aptdb".to_string(),
+        "var/cache/apt/oma-aptdb.bincode".to_string(),
+    );
+    let search_cache = apt_config::find_file(
+        "Dir::Cache::oma-search".to_string(),
+        "var/cache/apt/oma-search.bincode".to_string(),
+    );
     let searcher = IndiciumSearch::from_paths(
         &lists_dir,
         &dpkg_path,

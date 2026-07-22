@@ -35,18 +35,15 @@ impl AptDb {
         cache_path: impl AsRef<Path>,
         lists_dir: impl AsRef<Path>,
     ) -> Result<Self, String> {
-        if Self::cache_valid(&cache_path, &lists_dir) {
-            if let Some(db) = Self::load_cache(&cache_path) {
-                debug!("AptDb cache hit: {}", cache_path.as_ref().display());
-                return Ok(db);
-            }
+        if Self::cache_valid(&cache_path, &lists_dir)
+            && let Some(db) = Self::load_cache(&cache_path)
+        {
+            debug!("AptDb cache hit: {}", cache_path.as_ref().display());
+            return Ok(db);
         }
-        debug!(
-            "AptDb cache miss: {}",
-            cache_path.as_ref().display()
-        );
-        let entries =
-            parse_apt_lists_dir(lists_dir).map_err(|e| format!("Failed to parse apt lists: {e}"))?;
+        debug!("AptDb cache miss: {}", cache_path.as_ref().display());
+        let entries = parse_apt_lists_dir(lists_dir)
+            .map_err(|e| format!("Failed to parse apt lists: {e}"))?;
         let db = Self::from_entries(entries);
         if let Err(e) = db.save_cache(&cache_path) {
             debug!("Failed to save AptDb cache: {e}");
@@ -65,10 +62,9 @@ impl AptDb {
         let mut buf = Vec::new();
         file.read_to_end(&mut buf).ok()?;
 
-        let mut db: Self =
-            bincode::serde::decode_from_slice(&buf, bincode::config::standard())
-                .ok()?
-                .0;
+        let mut db: Self = bincode::serde::decode_from_slice(&buf, bincode::config::standard())
+            .ok()?
+            .0;
 
         // Rebuild the transient field
         db.available_names = db.entries.iter().map(|e| e.package.clone()).collect();
@@ -84,9 +80,8 @@ impl AptDb {
             fs::create_dir_all(parent)?;
         }
 
-        let encoded =
-            bincode::serde::encode_to_vec(self, bincode::config::standard())
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let encoded = bincode::serde::encode_to_vec(self, bincode::config::standard())
+            .map_err(std::io::Error::other)?;
 
         let mut file = fs::File::create(path.as_ref())?;
         file.write_all(&encoded)?;
@@ -94,10 +89,7 @@ impl AptDb {
     }
 
     /// Check whether the cache is still valid by comparing mtimes with source files.
-    pub(crate) fn cache_valid(
-        cache_path: impl AsRef<Path>,
-        lists_dir: impl AsRef<Path>,
-    ) -> bool {
+    pub(crate) fn cache_valid(cache_path: impl AsRef<Path>, lists_dir: impl AsRef<Path>) -> bool {
         use std::fs;
 
         let cache_mtime = match fs::metadata(&cache_path).and_then(|m| m.modified()) {

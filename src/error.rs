@@ -14,8 +14,8 @@ use oma_history::HistoryError;
 #[cfg(feature = "aosc")]
 use oma_mirror::MirrorError;
 
-use oma_pm::oma_apt::error::AptErrors;
 use oma_apt_pkg::search::OmaSearchError;
+use oma_pm::oma_apt::error::AptErrors;
 use oma_pm::{apt::OmaAptError, matches::MatcherError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseError;

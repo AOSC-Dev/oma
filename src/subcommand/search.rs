@@ -3,11 +3,12 @@ use std::fmt::Display;
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
 use oma_apt_pkg::search::{
-    IndiciumSearch, OmaSearch as _, PackageStatus, SearchResult, SearchType, StrSimSearch, TextSearch,
+    IndiciumSearch, OmaSearch as _, PackageStatus, SearchResult, SearchType, StrSimSearch,
+    TextSearch,
 };
-use oma_pm::oma_apt::raw::config as apt_config;
 use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
 use oma_pm::matches::SearchEngine;
+use oma_pm::oma_apt::raw::config as apt_config;
 use oma_utils::zbus::proxy;
 use spdlog::debug;
 use zbus::Connection;
@@ -240,12 +241,23 @@ fn to_output_err(e: impl std::fmt::Display) -> OutputError {
     }
 }
 
-fn load_apt_db_and_dpkg(
-) -> Result<(oma_apt_pkg::AptDb, oma_apt_pkg::DpkgState), OutputError> {
-    let lists_dir = apt_config::find_dir("Dir::State::lists".to_string(), "var/lib/apt/lists".to_string());
-    let dpkg_path = apt_config::find_file("Dir::State::status".to_string(), "var/lib/dpkg/status".to_string());
-    let apt_cache = apt_config::find_file("Dir::Cache::oma-aptdb".to_string(), "var/cache/apt/oma-aptdb.bincode".to_string());
-    let _search_cache = apt_config::find_file("Dir::Cache::oma-search".to_string(), "var/cache/apt/oma-search.bincode".to_string());
+fn load_apt_db_and_dpkg() -> Result<(oma_apt_pkg::AptDb, oma_apt_pkg::DpkgState), OutputError> {
+    let lists_dir = apt_config::find_dir(
+        "Dir::State::lists".to_string(),
+        "var/lib/apt/lists".to_string(),
+    );
+    let dpkg_path = apt_config::find_file(
+        "Dir::State::status".to_string(),
+        "var/lib/dpkg/status".to_string(),
+    );
+    let apt_cache = apt_config::find_file(
+        "Dir::Cache::oma-aptdb".to_string(),
+        "var/cache/apt/oma-aptdb.bincode".to_string(),
+    );
+    let _search_cache = apt_config::find_file(
+        "Dir::Cache::oma-search".to_string(),
+        "var/cache/apt/oma-search.bincode".to_string(),
+    );
 
     let apt_db =
         oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| OutputError {
@@ -263,10 +275,22 @@ fn local_indicium_search(
     f: Box<dyn Fn(usize) + 'static>,
     query: String,
 ) -> Result<Vec<SearchResult>, OutputError> {
-    let lists_dir = apt_config::find_dir("Dir::State::lists".to_string(), "var/lib/apt/lists".to_string());
-    let dpkg_path = apt_config::find_file("Dir::State::status".to_string(), "var/lib/dpkg/status".to_string());
-    let apt_cache = apt_config::find_file("Dir::Cache::oma-aptdb".to_string(), "var/cache/apt/oma-aptdb.bincode".to_string());
-    let search_cache = apt_config::find_file("Dir::Cache::oma-search".to_string(), "var/cache/apt/oma-search.bincode".to_string());
+    let lists_dir = apt_config::find_dir(
+        "Dir::State::lists".to_string(),
+        "var/lib/apt/lists".to_string(),
+    );
+    let dpkg_path = apt_config::find_file(
+        "Dir::State::status".to_string(),
+        "var/lib/dpkg/status".to_string(),
+    );
+    let apt_cache = apt_config::find_file(
+        "Dir::Cache::oma-aptdb".to_string(),
+        "var/cache/apt/oma-aptdb.bincode".to_string(),
+    );
+    let search_cache = apt_config::find_file(
+        "Dir::Cache::oma-search".to_string(),
+        "var/cache/apt/oma-search.bincode".to_string(),
+    );
 
     let searcher = IndiciumSearch::from_paths(
         &lists_dir,
@@ -281,7 +305,7 @@ fn local_indicium_search(
         source: None,
     })?;
 
-    Ok(searcher.search(&query).map_err(to_output_err)?)
+    searcher.search(&query).map_err(to_output_err)
 }
 
 async fn amo_search(query: &str) -> anyhow::Result<Vec<SearchResult>> {

@@ -463,7 +463,7 @@ impl IndiciumSearch {
         }
 
         let encoded = bincode::serde::encode_to_vec(&self.pkg_map, bincode::config::standard())
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
 
         let mut file = fs::File::create(path.as_ref())?;
         file.write_all(&encoded)?;
@@ -527,7 +527,10 @@ impl OmaSearch for StrSimSearch<'_> {
 
             let installed = self.dpkg.is_installed(name);
             let upgradable = installed
-                && is_upgradable(entry.version.as_ref(), self.dpkg.installed_versions.get(name.as_str()));
+                && is_upgradable(
+                    entry.version.as_ref(),
+                    self.dpkg.installed_versions.get(name.as_str()),
+                );
             let score = (strsim::jaro_winkler(name, query_lower.as_str()) * 1000.0) as u16;
 
             scored.push((name.clone(), score, installed, upgradable));
@@ -564,8 +567,8 @@ impl OmaSearch for StrSimSearch<'_> {
                     })
                     .unwrap_or_else(|| "No description".to_string());
 
-                let has_dbg = entry
-                    .is_some_and(|_| self.apt_db.has_package(&format!("{name}-dbg")));
+                let has_dbg =
+                    entry.is_some_and(|_| self.apt_db.has_package(&format!("{name}-dbg")));
 
                 SearchResult {
                     name: name.clone(),
@@ -634,7 +637,10 @@ impl OmaSearch for TextSearch<'_> {
 
             let installed = self.dpkg.is_installed(name);
             let upgradable = installed
-                && is_upgradable(entry.version.as_ref(), self.dpkg.installed_versions.get(name.as_str()));
+                && is_upgradable(
+                    entry.version.as_ref(),
+                    self.dpkg.installed_versions.get(name.as_str()),
+                );
 
             let (old_version, new_version) = extract_versions(
                 if upgradable {

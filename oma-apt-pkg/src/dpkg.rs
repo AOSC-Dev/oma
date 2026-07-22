@@ -91,10 +91,10 @@ pub fn parse_installed(path: impl AsRef<Path>) -> Result<HashSet<String>, DpkgEr
         let Some(status) = para.get("Status") else {
             continue;
         };
-        if SelectionState::from_status(&status).is_installed() {
-            if let Some(pkg) = para.get("Package") {
-                installed.insert(pkg.to_string());
-            }
+        if SelectionState::from_status(&status).is_installed()
+            && let Some(pkg) = para.get("Package")
+        {
+            installed.insert(pkg.to_string());
         }
     }
 

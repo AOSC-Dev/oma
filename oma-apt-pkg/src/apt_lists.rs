@@ -270,9 +270,15 @@ SHA256: deadbeef1234567890abcdef01234567890abcdef01234567890abcdef012345678
         assert_eq!(entry.architecture.as_deref(), Some("amd64"));
         assert_eq!(entry.section.as_deref(), Some("shells"));
         assert_eq!(entry.priority.as_deref(), Some("optional"));
-        assert_eq!(entry.maintainer.as_deref(), Some("AOSC Maintainers <maintainers@aosc.io>"));
+        assert_eq!(
+            entry.maintainer.as_deref(),
+            Some("AOSC Maintainers <maintainers@aosc.io>")
+        );
         assert_eq!(entry.installed_size, Some(2048));
-        assert_eq!(entry.depends.as_deref(), Some("libc6 (>= 2.38), ncurses (>= 6.5)"));
+        assert_eq!(
+            entry.depends.as_deref(),
+            Some("libc6 (>= 2.38), ncurses (>= 6.5)")
+        );
         assert_eq!(entry.pre_depends.as_deref(), Some("libc6"));
         assert_eq!(entry.recommends.as_deref(), Some("bash-completion"));
         assert_eq!(entry.suggests.as_deref(), Some("bash-doc"));
@@ -280,12 +286,24 @@ SHA256: deadbeef1234567890abcdef01234567890abcdef01234567890abcdef012345678
         assert_eq!(entry.conflicts.as_deref(), Some("bash-pre-v2"));
         assert_eq!(entry.replaces.as_deref(), Some("bash-compat"));
         assert_eq!(entry.provides.as_deref(), Some("sh"));
-        assert_eq!(entry.homepage.as_deref(), Some("https://www.gnu.org/software/bash/"));
+        assert_eq!(
+            entry.homepage.as_deref(),
+            Some("https://www.gnu.org/software/bash/")
+        );
         assert_eq!(entry.multi_arch.as_deref(), Some("foreign"));
-        assert_eq!(entry.description.as_deref(), Some("GNU Bourne Again SHell\nThe standard shell for GNU/Linux systems."));
-        assert_eq!(entry.filename.as_deref(), Some("pool/main/b/bash/bash_5.2.37-1_amd64.deb"));
+        assert_eq!(
+            entry.description.as_deref(),
+            Some("GNU Bourne Again SHell\nThe standard shell for GNU/Linux systems.")
+        );
+        assert_eq!(
+            entry.filename.as_deref(),
+            Some("pool/main/b/bash/bash_5.2.37-1_amd64.deb")
+        );
         assert_eq!(entry.size, Some(1234567));
-        assert_eq!(entry.sha256.as_deref(), Some("deadbeef1234567890abcdef01234567890abcdef01234567890abcdef012345678"));
+        assert_eq!(
+            entry.sha256.as_deref(),
+            Some("deadbeef1234567890abcdef01234567890abcdef01234567890abcdef012345678")
+        );
     }
 
     #[test]
