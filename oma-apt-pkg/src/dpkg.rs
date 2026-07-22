@@ -53,6 +53,7 @@ pub struct DpkgPackage {
     pub architecture: Option<String>,
     pub status: Option<String>,
     pub selection_state: SelectionState,
+    pub auto_installed: Option<bool>,
 }
 
 /// Parse `/var/lib/dpkg/status` and return the set of installed package names.
@@ -100,6 +101,9 @@ pub fn parse_dpkg_status(path: impl AsRef<Path>) -> Result<Vec<DpkgPackage>, Dpk
             architecture: para.get("Architecture"),
             status: status_raw,
             selection_state,
+            auto_installed: para
+                .get("Auto-Installed")
+                .map(|s| s == "yes" || s == "1"),
         });
     }
 
@@ -116,5 +120,79 @@ mod tests {
         assert!(SelectionState::from_status("hold ok installed").is_installed());
         assert!(!SelectionState::from_status("deinstall ok config-files").is_installed());
         assert!(!SelectionState::from_status("purge ok not-installed").is_installed());
+    }
+
+    #[test]
+    fn test_parse_dpkg_status_with_all_fields() {
+        let input = "\
+Package: zoxide
+Version: 0.9.6-1
+Architecture: amd64
+Status: install ok installed
+Auto-Installed: yes
+
+Package: vim
+Version: 9.1.0
+Architecture: amd64
+Status: hold ok installed
+
+Package: old-kernel
+Version: 6.0.0
+Status: deinstall ok config-files
+Auto-Installed: yes
+
+";
+        let dir = std::env::temp_dir().join("test_dpkg_status");
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("status");
+        std::fs::write(&path, input).unwrap();
+
+        let packages = parse_dpkg_status(&path).unwrap();
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(packages.len(), 3);
+
+        // zoxide: installed, auto
+        assert_eq!(packages[0].name, "zoxide");
+        assert_eq!(packages[0].version.as_deref(), Some("0.9.6-1"));
+        assert_eq!(packages[0].architecture.as_deref(), Some("amd64"));
+        assert!(packages[0].selection_state.is_installed());
+        assert_eq!(packages[0].auto_installed, Some(true));
+
+        // vim: hold, no auto_installed field
+        assert_eq!(packages[1].name, "vim");
+        assert!(packages[1].selection_state.is_installed());
+        assert_eq!(packages[1].auto_installed, None);
+
+        // old-kernel: deinstalled, auto flag preserved
+        assert_eq!(packages[2].name, "old-kernel");
+        assert!(!packages[2].selection_state.is_installed());
+        assert_eq!(packages[2].auto_installed, Some(true));
+    }
+
+    #[test]
+    fn test_parse_installed_only_installed() {
+        let input = "\
+Package: foo
+Status: install ok installed
+
+Package: bar
+Status: deinstall ok config-files
+
+Package: baz
+Status: purge ok not-installed
+
+";
+        let dir = std::env::temp_dir().join("test_installed_set");
+        std::fs::create_dir_all(&dir).ok();
+        let path = dir.join("status");
+        std::fs::write(&path, input).unwrap();
+
+        let installed = parse_installed(&path).unwrap();
+        std::fs::remove_file(&path).ok();
+
+        assert!(installed.contains("foo"));
+        assert!(!installed.contains("bar"));
+        assert!(!installed.contains("baz"));
     }
 }

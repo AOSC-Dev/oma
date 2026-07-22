@@ -24,9 +24,19 @@ pub struct PackageEntry {
     pub description: Option<String>,
     pub description_md5: Option<String>,
     pub maintainer: Option<String>,
+    pub installed_size: Option<u64>,
     pub depends: Option<String>,
+    pub pre_depends: Option<String>,
+    pub recommends: Option<String>,
+    pub suggests: Option<String>,
+    pub breaks: Option<String>,
+    pub conflicts: Option<String>,
+    pub replaces: Option<String>,
     pub provides: Option<String>,
     pub section: Option<String>,
+    pub priority: Option<String>,
+    pub homepage: Option<String>,
+    pub multi_arch: Option<String>,
     pub filename: Option<String>,
     pub size: Option<u64>,
     pub sha256: Option<String>,
@@ -37,6 +47,9 @@ impl PackageEntry {
         let package = para.get("Package")?.to_string();
 
         let size = para.get("Size").and_then(|s| s.parse::<u64>().ok());
+        let installed_size = para
+            .get("Installed-Size")
+            .and_then(|s| s.parse::<u64>().ok());
 
         Some(Self {
             package,
@@ -45,9 +58,19 @@ impl PackageEntry {
             description: para.get("Description").map(String::from),
             description_md5: para.get("Description-md5").map(String::from),
             maintainer: para.get("Maintainer").map(String::from),
+            installed_size,
             depends: para.get("Depends").map(String::from),
+            pre_depends: para.get("Pre-Depends").map(String::from),
+            recommends: para.get("Recommends").map(String::from),
+            suggests: para.get("Suggests").map(String::from),
+            breaks: para.get("Breaks").map(String::from),
+            conflicts: para.get("Conflicts").map(String::from),
+            replaces: para.get("Replaces").map(String::from),
             provides: para.get("Provides").map(String::from),
             section: para.get("Section").map(String::from),
+            priority: para.get("Priority").map(String::from),
+            homepage: para.get("Homepage").map(String::from),
+            multi_arch: para.get("Multi-Arch").map(String::from),
             filename: para.get("Filename").map(String::from),
             size,
             sha256: para.get("SHA256").map(String::from),
@@ -194,9 +217,19 @@ Status: deinstall ok config-files
                 description: Some("First line\nSecond line".into()),
                 description_md5: None,
                 maintainer: None,
+                installed_size: None,
                 depends: None,
+                pre_depends: None,
+                recommends: None,
+                suggests: None,
+                breaks: None,
+                conflicts: None,
+                replaces: None,
                 provides: None,
                 section: None,
+                priority: None,
+                homepage: None,
+                multi_arch: None,
                 filename: None,
                 size: None,
                 sha256: None,
@@ -208,9 +241,19 @@ Status: deinstall ok config-files
                 description: Some("Bar description".into()),
                 description_md5: None,
                 maintainer: None,
+                installed_size: None,
                 depends: None,
+                pre_depends: None,
+                recommends: None,
+                suggests: None,
+                breaks: None,
+                conflicts: None,
+                replaces: None,
                 provides: None,
                 section: None,
+                priority: None,
+                homepage: None,
+                multi_arch: None,
                 filename: None,
                 size: None,
                 sha256: None,
@@ -220,5 +263,89 @@ Status: deinstall ok config-files
         let map = build_description_map(&entries);
         assert_eq!(map.get("foo").map(|s| s.as_str()), Some("First line"));
         assert_eq!(map.get("bar").map(|s| s.as_str()), Some("Bar description"));
+    }
+
+    #[test]
+    fn test_parse_all_fields() {
+        let input = "\
+Package: bash
+Version: 5.2.37-1
+Architecture: amd64
+Section: shells
+Priority: optional
+Maintainer: AOSC Maintainers <maintainers@aosc.io>
+Installed-Size: 2048
+Depends: libc6 (>= 2.38), ncurses (>= 6.5)
+Pre-Depends: libc6
+Recommends: bash-completion
+Suggests: bash-doc
+Breaks: old-bash (<< 5.0)
+Conflicts: bash-pre-v2
+Replaces: bash-compat
+Provides: sh
+Homepage: https://www.gnu.org/software/bash/
+Multi-Arch: foreign
+Description: GNU Bourne Again SHell
+ The standard shell for GNU/Linux systems.
+Description-md5: abc123
+Filename: pool/main/b/bash/bash_5.2.37-1_amd64.deb
+Size: 1234567
+SHA256: deadbeef1234567890abcdef01234567890abcdef01234567890abcdef012345678
+
+";
+        let deb822: Deb822 = input.parse().unwrap();
+        let entry = PackageEntry::from_paragraph(deb822.iter().next().unwrap()).unwrap();
+
+        assert_eq!(entry.package, "bash");
+        assert_eq!(entry.version.as_deref(), Some("5.2.37-1"));
+        assert_eq!(entry.architecture.as_deref(), Some("amd64"));
+        assert_eq!(entry.section.as_deref(), Some("shells"));
+        assert_eq!(entry.priority.as_deref(), Some("optional"));
+        assert_eq!(entry.maintainer.as_deref(), Some("AOSC Maintainers <maintainers@aosc.io>"));
+        assert_eq!(entry.installed_size, Some(2048));
+        assert_eq!(entry.depends.as_deref(), Some("libc6 (>= 2.38), ncurses (>= 6.5)"));
+        assert_eq!(entry.pre_depends.as_deref(), Some("libc6"));
+        assert_eq!(entry.recommends.as_deref(), Some("bash-completion"));
+        assert_eq!(entry.suggests.as_deref(), Some("bash-doc"));
+        assert_eq!(entry.breaks.as_deref(), Some("old-bash (<< 5.0)"));
+        assert_eq!(entry.conflicts.as_deref(), Some("bash-pre-v2"));
+        assert_eq!(entry.replaces.as_deref(), Some("bash-compat"));
+        assert_eq!(entry.provides.as_deref(), Some("sh"));
+        assert_eq!(entry.homepage.as_deref(), Some("https://www.gnu.org/software/bash/"));
+        assert_eq!(entry.multi_arch.as_deref(), Some("foreign"));
+        assert_eq!(entry.description.as_deref(), Some("GNU Bourne Again SHell\nThe standard shell for GNU/Linux systems."));
+        assert_eq!(entry.filename.as_deref(), Some("pool/main/b/bash/bash_5.2.37-1_amd64.deb"));
+        assert_eq!(entry.size, Some(1234567));
+        assert_eq!(entry.sha256.as_deref(), Some("deadbeef1234567890abcdef01234567890abcdef01234567890abcdef012345678"));
+    }
+
+    #[test]
+    fn test_parse_optional_fields_absent() {
+        // Minimal paragraph — only required field
+        let input = "Package: minimal\n\n";
+        let deb822: Deb822 = input.parse().unwrap();
+        let entry = PackageEntry::from_paragraph(deb822.iter().next().unwrap()).unwrap();
+
+        assert_eq!(entry.package, "minimal");
+        assert!(entry.version.is_none());
+        assert!(entry.architecture.is_none());
+        assert!(entry.description.is_none());
+        assert!(entry.maintainer.is_none());
+        assert!(entry.installed_size.is_none());
+        assert!(entry.depends.is_none());
+        assert!(entry.pre_depends.is_none());
+        assert!(entry.recommends.is_none());
+        assert!(entry.suggests.is_none());
+        assert!(entry.breaks.is_none());
+        assert!(entry.conflicts.is_none());
+        assert!(entry.replaces.is_none());
+        assert!(entry.provides.is_none());
+        assert!(entry.section.is_none());
+        assert!(entry.priority.is_none());
+        assert!(entry.homepage.is_none());
+        assert!(entry.multi_arch.is_none());
+        assert!(entry.filename.is_none());
+        assert!(entry.size.is_none());
+        assert!(entry.sha256.is_none());
     }
 }

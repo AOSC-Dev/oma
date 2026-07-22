@@ -364,6 +364,149 @@ fn is_upgradable(candidate_version: Option<&String>, installed_version: Option<&
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_provides_simple() {
+        assert_eq!(parse_provides("fish, fisher, fisherman"), vec!["fish", "fisher", "fisherman"]);
+    }
+
+    #[test]
+    fn test_parse_provides_with_version_constraint() {
+        let result = parse_provides("foo (= 1.0), bar (>= 2.0), baz");
+        assert_eq!(result, vec!["foo", "bar", "baz"]);
+    }
+
+    #[test]
+    fn test_parse_provides_empty() {
+        let result: Vec<String> = parse_provides("");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_provides_single() {
+        assert_eq!(parse_provides("sh"), vec!["sh"]);
+    }
+
+    #[test]
+    fn test_is_upgradable_newer_candidate() {
+        // 4.8.1 > 4.7.1 → upgradable
+        assert!(is_upgradable(
+            Some(&"4.8.1".to_string()),
+            Some(&"4.7.1".to_string()),
+        ));
+    }
+
+    #[test]
+    fn test_is_upgradable_same_version() {
+        assert!(!is_upgradable(
+            Some(&"4.8.1".to_string()),
+            Some(&"4.8.1".to_string()),
+        ));
+    }
+
+    #[test]
+    fn test_is_upgradable_installed_newer() {
+        // installed 1:3.3-1~pre > candidate 1:3.3 → not upgradable
+        assert!(!is_upgradable(
+            Some(&"1:3.3".to_string()),
+            Some(&"1:3.3-1~pre20250407T092541Z".to_string()),
+        ));
+    }
+
+    #[test]
+    fn test_is_upgradable_tilde_handling() {
+        // 2.0~rc1 < 2.0 → not upgradable
+        assert!(!is_upgradable(
+            Some(&"2.0~rc1".to_string()),
+            Some(&"2.0".to_string()),
+        ));
+        // 2.0 > 2.0~rc1 → upgradable
+        assert!(is_upgradable(
+            Some(&"2.0".to_string()),
+            Some(&"2.0~rc1".to_string()),
+        ));
+    }
+
+    #[test]
+    fn test_is_upgradable_epoch() {
+        // 2:1.0 > 1:2.0 (epoch takes precedence)
+        assert!(is_upgradable(
+            Some(&"2:1.0".to_string()),
+            Some(&"1:2.0".to_string()),
+        ));
+    }
+
+    #[test]
+    fn test_is_upgradable_not_installed() {
+        assert!(!is_upgradable(Some(&"1.0".to_string()), None));
+    }
+
+    #[test]
+    fn test_is_upgradable_no_candidate() {
+        assert!(!is_upgradable(None, Some(&"1.0".to_string())));
+    }
+
+    #[test]
+    fn test_build_available_names() {
+        let entries = vec![
+            PackageEntry {
+                package: "foo".into(),
+                version: None,
+                architecture: None,
+                description: None,
+                description_md5: None,
+                maintainer: None,
+                installed_size: None,
+                depends: None,
+                pre_depends: None,
+                recommends: None,
+                suggests: None,
+                breaks: None,
+                conflicts: None,
+                replaces: None,
+                provides: None,
+                section: None,
+                priority: None,
+                homepage: None,
+                multi_arch: None,
+                filename: None,
+                size: None,
+                sha256: None,
+            },
+            PackageEntry {
+                package: "foo-dbg".into(),
+                version: None,
+                architecture: None,
+                description: None,
+                description_md5: None,
+                maintainer: None,
+                installed_size: None,
+                depends: None,
+                pre_depends: None,
+                recommends: None,
+                suggests: None,
+                breaks: None,
+                conflicts: None,
+                replaces: None,
+                provides: None,
+                section: None,
+                priority: None,
+                homepage: None,
+                multi_arch: None,
+                filename: None,
+                size: None,
+                sha256: None,
+            },
+        ];
+        let names = build_available_names(&entries);
+        assert!(names.contains("foo"));
+        assert!(names.contains("foo-dbg"));
+    }
+}
+
 fn extract_versions(
     status: PackageStatus,
     installed_versions: &HashMap<String, String>,
