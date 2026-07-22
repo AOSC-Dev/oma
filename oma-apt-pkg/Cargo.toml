@@ -16,3 +16,4 @@ indexmap = { workspace = true, features = ["serde"] }
 indicium = { workspace = true }
 debversion = { workspace = true }
 bincode = { version = "2", features = ["serde"] }
+spdlog-rs = { workspace = true }

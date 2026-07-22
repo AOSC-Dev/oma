@@ -3334,6 +3334,7 @@ dependencies = [
  "indexmap",
  "indicium",
  "serde",
+ "spdlog-rs",
  "thiserror 2.0.19",
 ]
 

@@ -10,6 +10,7 @@ use ahash::RandomState;
 pub use indicium::simple::SearchType;
 use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
 use serde::{Deserialize, Serialize};
+use spdlog::debug;
 
 use crate::{AptDb, DpkgState};
 
@@ -356,11 +357,13 @@ impl IndiciumSearch {
             if let Some(mut searcher) =
                 Self::load_search_cache(&search_cache_path, search_type.clone())
             {
+                debug!("Search cache hit");
                 searcher.refresh_status(&dpkg);
                 return Ok(searcher);
             }
         }
 
+        debug!("Search cache miss, trying AptDb cache");
         // Tier 2: try apt DB cache
         let dpkg = DpkgState::from_file(&dpkg_status_path)?;
         let apt_db = AptDb::load_or_build(&apt_cache_path, &lists_dir)?;
@@ -370,7 +373,9 @@ impl IndiciumSearch {
 
         // Persist search cache for next time
         if let Err(e) = searcher.save_search_cache(&search_cache_path) {
-            let _ = e;
+            debug!("Failed to save search cache: {e}");
+        } else {
+            debug!("Search cache saved");
         }
 
         Ok(searcher)

@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use spdlog::debug;
 
 use crate::apt_lists::{PackageEntry, parse_apt_lists_dir};
 
@@ -36,15 +37,21 @@ impl AptDb {
     ) -> Result<Self, String> {
         if Self::cache_valid(&cache_path, &lists_dir) {
             if let Some(db) = Self::load_cache(&cache_path) {
+                debug!("AptDb cache hit: {}", cache_path.as_ref().display());
                 return Ok(db);
             }
         }
+        debug!(
+            "AptDb cache miss: {}",
+            cache_path.as_ref().display()
+        );
         let entries =
             parse_apt_lists_dir(lists_dir).map_err(|e| format!("Failed to parse apt lists: {e}"))?;
         let db = Self::from_entries(entries);
         if let Err(e) = db.save_cache(&cache_path) {
-            // Non-fatal
-            let _ = e;
+            debug!("Failed to save AptDb cache: {e}");
+        } else {
+            debug!("AptDb cache saved: {}", cache_path.as_ref().display());
         }
         Ok(db)
     }
