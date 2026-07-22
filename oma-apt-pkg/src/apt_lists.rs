@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use deb822_fast::{Deb822, Paragraph};
+use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
 use serde::Serialize;
 
 /// Errors that can occur when parsing APT list files.
@@ -16,16 +16,19 @@ pub enum AptListsError {
 }
 
 /// A single package entry from a Packages file (one paragraph).
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, FromDeb822)]
 pub struct PackageEntry {
     pub package: String,
     pub version: Option<String>,
     pub architecture: Option<String>,
     pub description: Option<String>,
+    #[deb822(field = "Description-md5")]
     pub description_md5: Option<String>,
     pub maintainer: Option<String>,
+    #[deb822(field = "Installed-Size")]
     pub installed_size: Option<u64>,
     pub depends: Option<String>,
+    #[deb822(field = "Pre-Depends")]
     pub pre_depends: Option<String>,
     pub recommends: Option<String>,
     pub suggests: Option<String>,
@@ -36,46 +39,12 @@ pub struct PackageEntry {
     pub section: Option<String>,
     pub priority: Option<String>,
     pub homepage: Option<String>,
+    #[deb822(field = "Multi-Arch")]
     pub multi_arch: Option<String>,
     pub filename: Option<String>,
     pub size: Option<u64>,
+    #[deb822(field = "SHA256")]
     pub sha256: Option<String>,
-}
-
-impl PackageEntry {
-    fn from_paragraph(para: &Paragraph) -> Option<Self> {
-        let package = para.get("Package")?.to_string();
-
-        let size = para.get("Size").and_then(|s| s.parse::<u64>().ok());
-        let installed_size = para
-            .get("Installed-Size")
-            .and_then(|s| s.parse::<u64>().ok());
-
-        Some(Self {
-            package,
-            version: para.get("Version").map(String::from),
-            architecture: para.get("Architecture").map(String::from),
-            description: para.get("Description").map(String::from),
-            description_md5: para.get("Description-md5").map(String::from),
-            maintainer: para.get("Maintainer").map(String::from),
-            installed_size,
-            depends: para.get("Depends").map(String::from),
-            pre_depends: para.get("Pre-Depends").map(String::from),
-            recommends: para.get("Recommends").map(String::from),
-            suggests: para.get("Suggests").map(String::from),
-            breaks: para.get("Breaks").map(String::from),
-            conflicts: para.get("Conflicts").map(String::from),
-            replaces: para.get("Replaces").map(String::from),
-            provides: para.get("Provides").map(String::from),
-            section: para.get("Section").map(String::from),
-            priority: para.get("Priority").map(String::from),
-            homepage: para.get("Homepage").map(String::from),
-            multi_arch: para.get("Multi-Arch").map(String::from),
-            filename: para.get("Filename").map(String::from),
-            size,
-            sha256: para.get("SHA256").map(String::from),
-        })
-    }
 }
 
 /// Parsed contents of a single Packages file.
@@ -134,7 +103,7 @@ pub fn parse_single_packages_file(
 
     let entries: Vec<PackageEntry> = deb822
         .iter()
-        .filter_map(PackageEntry::from_paragraph)
+        .filter_map(|p| PackageEntry::from_paragraph(p).ok())
         .collect();
 
     Ok(entries)
@@ -199,7 +168,7 @@ Status: deinstall ok config-files
         let deb822: Deb822 = input.parse().unwrap();
         let entries: Vec<PackageEntry> = deb822
             .iter()
-            .filter_map(PackageEntry::from_paragraph)
+            .filter_map(|p| PackageEntry::from_paragraph(p).ok())
             .collect();
 
         assert_eq!(entries.len(), 2);

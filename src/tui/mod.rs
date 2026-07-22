@@ -243,14 +243,14 @@ fn local_searcher(
 
     let installed: HashSet<String> = dpkg_packages
         .iter()
-        .filter(|p| p.selection_state.is_installed())
+        .filter(|p| p.selection_state().is_installed())
         .map(|p| p.name.clone())
         .collect();
 
     let installed_versions: HashMap<String, String> = dpkg_packages
         .iter()
         .filter_map(|p| {
-            p.selection_state
+            p.selection_state()
                 .is_installed()
                 .then(|| (p.name.clone(), p.version.clone().unwrap_or_default()))
         })

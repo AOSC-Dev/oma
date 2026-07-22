@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::path::Path;
 
+use deb822_fast::{FromDeb822, FromDeb822Paragraph};
 use deb822_lossless::Deb822;
 
 /// Errors that can occur when parsing dpkg status files.
@@ -46,14 +47,36 @@ impl SelectionState {
 }
 
 /// Information about a single package from dpkg status.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, FromDeb822)]
 pub struct DpkgPackage {
+    #[deb822(field = "Package")]
     pub name: String,
+    #[deb822(field = "Version")]
     pub version: Option<String>,
+    #[deb822(field = "Architecture")]
     pub architecture: Option<String>,
+    #[deb822(field = "Status")]
     pub status: Option<String>,
-    pub selection_state: SelectionState,
+    #[deb822(field = "Auto-Installed", deserialize_with = parse_auto_installed)]
     pub auto_installed: Option<bool>,
+}
+
+fn parse_auto_installed(s: &str) -> Result<bool, String> {
+    match s {
+        "yes" | "1" | "true" => Ok(true),
+        "no" | "0" | "false" => Ok(false),
+        _ => Err(format!("invalid Auto-Installed value: {s}")),
+    }
+}
+
+impl DpkgPackage {
+    /// Derive selection state from the `Status` field.
+    pub fn selection_state(&self) -> SelectionState {
+        self.status
+            .as_deref()
+            .map(SelectionState::from_status)
+            .unwrap_or(SelectionState::Unknown)
+    }
 }
 
 /// Parse `/var/lib/dpkg/status` and return the set of installed package names.
@@ -84,27 +107,9 @@ pub fn parse_dpkg_status(path: impl AsRef<Path>) -> Result<Vec<DpkgPackage>, Dpk
     let mut packages = Vec::new();
 
     for para in deb822.paragraphs() {
-        let name = match para.get("Package") {
-            Some(n) => n.to_string(),
-            None => continue,
-        };
-
-        let status_raw = para.get("Status");
-        let selection_state = status_raw
-            .as_deref()
-            .map(SelectionState::from_status)
-            .unwrap_or(SelectionState::Unknown);
-
-        packages.push(DpkgPackage {
-            name,
-            version: para.get("Version"),
-            architecture: para.get("Architecture"),
-            status: status_raw,
-            selection_state,
-            auto_installed: para
-                .get("Auto-Installed")
-                .map(|s| s == "yes" || s == "1"),
-        });
+        if let Ok(pkg) = DpkgPackage::from_paragraph(&para) {
+            packages.push(pkg);
+        }
     }
 
     Ok(packages)
@@ -156,17 +161,17 @@ Auto-Installed: yes
         assert_eq!(packages[0].name, "zoxide");
         assert_eq!(packages[0].version.as_deref(), Some("0.9.6-1"));
         assert_eq!(packages[0].architecture.as_deref(), Some("amd64"));
-        assert!(packages[0].selection_state.is_installed());
+        assert!(packages[0].selection_state().is_installed());
         assert_eq!(packages[0].auto_installed, Some(true));
 
         // vim: hold, no auto_installed field
         assert_eq!(packages[1].name, "vim");
-        assert!(packages[1].selection_state.is_installed());
+        assert!(packages[1].selection_state().is_installed());
         assert_eq!(packages[1].auto_installed, None);
 
         // old-kernel: deinstalled, auto flag preserved
         assert_eq!(packages[2].name, "old-kernel");
-        assert!(!packages[2].selection_state.is_installed());
+        assert!(!packages[2].selection_state().is_installed());
         assert_eq!(packages[2].auto_installed, Some(true));
     }
 
