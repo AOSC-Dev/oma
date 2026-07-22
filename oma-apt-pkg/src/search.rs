@@ -396,6 +396,44 @@ impl IndiciumSearch {
         file.write_all(&encoded)?;
         Ok(())
     }
+
+    /// Check whether the binary cache at `cache_path` is still valid compared to
+    /// the `*_Packages` files under `lists_dir`.  Returns `true` if the cache
+    /// exists and every source file is older than (or as old as) the cache file.
+    pub fn cache_valid(cache_path: impl AsRef<std::path::Path>, lists_dir: impl AsRef<std::path::Path>) -> bool {
+        use std::fs;
+
+        let cache_mtime = match fs::metadata(&cache_path).and_then(|m| m.modified()) {
+            Ok(t) => t,
+            Err(_) => return false,
+        };
+
+        let dir = match fs::read_dir(lists_dir.as_ref()) {
+            Ok(d) => d,
+            Err(_) => return false,
+        };
+
+        for entry in dir {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if !name.ends_with("_Packages") {
+                continue;
+            }
+            let src_mtime = match entry.metadata().and_then(|m| m.modified()) {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            if src_mtime > cache_mtime {
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 /// Determine if a package is upgradable: a newer version is available in the
