@@ -12,6 +12,7 @@ deb822-fast = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 ahash = { workspace = true }
-indexmap = { workspace = true }
+indexmap = { workspace = true, features = ["serde"] }
 indicium = { workspace = true }
 debversion = { workspace = true }
+bincode = { version = "2", features = ["serde"] }

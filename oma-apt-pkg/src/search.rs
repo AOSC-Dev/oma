@@ -53,7 +53,7 @@ impl Ord for PackageStatus {
 }
 
 /// A single entry in the search index.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SearchEntry {
     /// The name of the package
     pub name: String,
@@ -342,6 +342,59 @@ impl IndiciumSearch {
             entry.old_version = old_ver;
             entry.new_version = new_ver;
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Binary cache for faster startup
+// ---------------------------------------------------------------------------
+
+impl IndiciumSearch {
+    /// Try to load a previously saved search index from a binary cache file.
+    /// Returns `None` if the cache is missing or corrupt.
+    pub fn load_cache(path: impl AsRef<std::path::Path>, search_type: SearchType) -> Option<Self> {
+        use std::fs;
+        use std::io::Read;
+
+        let mut file = fs::File::open(path.as_ref()).ok()?;
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf).ok()?;
+
+        let pkg_map: IndexMap<String, SearchEntry> = bincode::serde::decode_from_slice(&buf, bincode::config::standard())
+            .ok()?
+            .0;
+
+        // Rebuild the search index from the cached package map
+        let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
+            .search_type(search_type)
+            .exclude_keywords(None)
+            .build();
+        pkg_map.iter().for_each(|(key, value)| {
+            search_index.insert(key, value);
+        });
+
+        Some(Self {
+            pkg_map,
+            index: search_index,
+        })
+    }
+
+    /// Save the search index (package map) to a binary cache file.
+    /// Does NOT cache the SearchIndex itself (it's rebuilt on load, which is fast).
+    pub fn save_cache(&self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
+        use std::fs;
+        use std::io::Write;
+
+        if let Some(parent) = path.as_ref().parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let encoded = bincode::serde::encode_to_vec(&self.pkg_map, bincode::config::standard())
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+        let mut file = fs::File::create(path.as_ref())?;
+        file.write_all(&encoded)?;
+        Ok(())
     }
 }
 
