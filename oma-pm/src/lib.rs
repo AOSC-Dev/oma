@@ -34,7 +34,7 @@ pub mod matches;
 pub mod pkginfo;
 pub mod progress;
 pub mod search;
-pub use search::PackageStatus;
+pub use oma_apt_pkg::search::PackageStatus;
 mod commit;
 mod dbus;
 mod download;

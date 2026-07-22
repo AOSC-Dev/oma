@@ -41,6 +41,7 @@ deb822-lossless = { workspace = true }
 reqwest-middleware = { workspace = true }
 flume = { workspace = true }
 anyhow = { workspace = true }
+oma-apt-pkg = { path = "../oma-apt-pkg" }
 
 [dev-dependencies]
 flume = { workspace = true }

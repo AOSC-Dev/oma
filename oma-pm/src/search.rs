@@ -1,356 +1,40 @@
-//! oma provides these searching methods:
-//! - IndiciumSearch: Index search based on `indicium`.
-//! - StrSimSearch: Search method based on similarly score, using `strsim`.
-//! - TextSearch: Text match search based on `memmem`
-use ahash::{AHashMap, RandomState};
+//! Package search API.
+//!
+//! Re-exports the indicium-based search types from `oma-apt-pkg`,
+//! and provides legacy search backends (`StrSimSearch`, `TextSearch`)
+//! that still depend on the C++ `oma-apt` binding.
+
+pub use oma_apt_pkg::search::{
+    IndiciumSearch, OmaSearch, OmaSearchError, OmaSearchResult, PackageStatus, SearchEntry,
+    SearchResult, SearchType,
+};
+
+use ahash::AHashMap;
 use glob_match::glob_match;
-pub use indicium::simple::SearchType;
-use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
 use memchr::memmem;
 use oma_apt::{
     Package,
     cache::{Cache, PackageSort},
     raw::IntoRawIter,
 };
-use serde::{Deserialize, Serialize};
-use spdlog::error;
-use std::fmt::Debug;
-
-type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
-type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
 
 use crate::{
     matches::has_dbg,
-    pkginfo::{OmaPackage, PtrIsNone},
+    pkginfo::OmaPackage,
 };
 
-/// Status of the package.
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum PackageStatus {
-    Avail,
-    Installed,
-    Upgrade,
-}
+// ---------------------------------------------------------------------------
+// Legacy backends — kept here because they rely on `oma_apt::Cache`.
+// ---------------------------------------------------------------------------
 
-impl PartialOrd for PackageStatus {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for PackageStatus {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self {
-            PackageStatus::Avail => match other {
-                PackageStatus::Avail => std::cmp::Ordering::Equal,
-                PackageStatus::Installed => std::cmp::Ordering::Greater,
-                PackageStatus::Upgrade => std::cmp::Ordering::Less,
-            },
-            PackageStatus::Installed => match other {
-                PackageStatus::Avail => std::cmp::Ordering::Less,
-                PackageStatus::Installed => std::cmp::Ordering::Equal,
-                PackageStatus::Upgrade => std::cmp::Ordering::Less,
-            },
-            PackageStatus::Upgrade => match other {
-                PackageStatus::Avail => std::cmp::Ordering::Greater,
-                PackageStatus::Installed => std::cmp::Ordering::Greater,
-                PackageStatus::Upgrade => std::cmp::Ordering::Equal,
-            },
-        }
-    }
-}
-#[derive(Clone)]
-pub struct SearchEntry {
-    /// The name of the package
-    pub name: String,
-    /// The description of the package
-    pub description: String,
-    /// The status of the package. See [`PackageStatus`]
-    pub status: PackageStatus,
-    /// Alias of the package. eg: `telegram-desktop` provides `telegram`.
-    pub provides: IndexSet<String>,
-    /// Whether the package provides a matching package for debug symbols.
-    pub has_dbg: bool,
-    /// Whether the package is an AOSC OS metapackage (-base package).
-    pub section_is_base: bool,
-    /// Old version
-    pub old_version: Option<String>,
-    /// New version
-    pub new_version: String,
-}
-
-impl Debug for SearchEntry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SearchEntry")
-            .field("pkgname", &self.name)
-            .field("description", &self.description)
-            .field("status", &self.status)
-            .field("provides", &self.provides)
-            .field("has_dbg", &self.has_dbg)
-            .field("old_version", &self.old_version)
-            .field("new_version", &self.new_version)
-            .field("section_is_base", &self.section_is_base)
-            .finish()
-    }
-}
-
-impl Indexable for SearchEntry {
-    fn strings(&self) -> Vec<String> {
-        let mut v = vec![self.name.clone(), self.description.clone()];
-        v.extend(self.provides.clone());
-        v
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum OmaSearchError {
-    #[error("No result found: {0}")]
-    NoResult(String),
-    #[error("Failed to get candidate version: {0}")]
-    FailedGetCandidate(String),
-    #[error(transparent)]
-    PtrIsNone(#[from] PtrIsNone),
-}
-
-pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-/// Result of a search process.
-pub struct SearchResult {
-    /// String contains the name of a package to search for.
-    pub name: String,
-    /// String contains the description of a package.
-    pub desc: String,
-    /// Optional string contains the old_version(s) of a package
-    pub old_version: Option<String>,
-    /// String contains the new_version(s) of a package
-    pub new_version: String,
-    /// Boolean indicating whether this result is a full match or not.
-    pub full_match: bool,
-    /// Boolean indicating whether this result has a matching package for debug symbols.
-    pub dbg_package: bool,
-    /// `PackageStatus` instance which reports the status of the package.
-    pub status: PackageStatus,
-    /// Boolean indicating whether the package is an AOSC OS metapackage (-base package).
-    pub is_base: bool,
-}
-
-/// Index search based on `indicium`.
-pub struct IndiciumSearch {
-    /// Map contains package names and their corresponding search entries.
-    pub pkg_map: IndexMap<String, SearchEntry>,
-    /// Index used to perform search operations.
-    pub index: SearchIndex<String>,
-}
-
-pub trait OmaSearch {
-    fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>>;
-}
-
-impl OmaSearch for IndiciumSearch {
-    fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
-        let mut search_res = vec![];
-        let query = query.to_lowercase();
-        let res = self.index.search(&query);
-
-        if res.is_empty() {
-            return Err(OmaSearchError::NoResult(query));
-        }
-
-        for i in res {
-            let entry = self.search_result(i, &query)?;
-            search_res.push(entry);
-        }
-
-        search_res.sort_by_key(|b| std::cmp::Reverse(b.status));
-
-        for i in 0..search_res.len() {
-            if search_res[i].full_match {
-                let i = search_res.remove(i);
-                search_res.insert(0, i);
-            }
-        }
-
-        Ok(search_res)
-    }
-}
-
-impl IndiciumSearch {
-    pub fn new(
-        cache: &Cache,
-        search_type: SearchType,
-        progress: impl Fn(usize),
-    ) -> OmaSearchResult<Self> {
-        let sort = PackageSort::default().include_virtual();
-        let packages = cache.packages(&sort);
-
-        let mut pkg_map = IndexMap::with_hasher(RandomState::new());
-
-        for (i, pkg) in packages.enumerate() {
-            let name = pkg.fullname(true);
-            progress(i);
-
-            if name.contains("-dbg") {
-                continue;
-            }
-
-            let status = if pkg.is_upgradable() {
-                PackageStatus::Upgrade
-            } else if pkg.is_installed() {
-                PackageStatus::Installed
-            } else {
-                PackageStatus::Avail
-            };
-
-            if let Some(cand) = pkg.candidate() {
-                if let indexmap::map::Entry::Vacant(e) = pkg_map.entry(name.clone()) {
-                    let (old_version, new_version) = extract_versions(status, &pkg);
-
-                    e.insert(SearchEntry {
-                        name,
-                        description: cand
-                            .summary()
-                            .unwrap_or_else(|| "No description".to_string()),
-                        status,
-                        provides: pkg.provides().map(|x| x.to_string()).collect(),
-                        has_dbg: has_dbg(cache, &pkg, &cand),
-                        section_is_base: cand.section().map(|x| x == "Bases").unwrap_or(false),
-                        old_version,
-                        new_version,
-                    });
-                }
-            } else {
-                let mut real_pkgs = vec![];
-                for i in pkg.provides() {
-                    if let Some(safe_pkg) = unsafe { i.target_pkg() }.make_safe() {
-                        real_pkgs.push((i.name().to_string(), safe_pkg));
-                    }
-                }
-
-                for (provide, i) in real_pkgs {
-                    let pkg = Package::new(cache, i);
-                    let name = pkg.fullname(true);
-
-                    let status = if pkg.is_upgradable() {
-                        PackageStatus::Upgrade
-                    } else if pkg.is_installed() {
-                        PackageStatus::Installed
-                    } else {
-                        PackageStatus::Avail
-                    };
-
-                    if let Some(cand) = pkg.candidate() {
-                        let (old_version, new_version) = extract_versions(status, &pkg);
-
-                        pkg_map
-                            .entry(name.clone())
-                            .and_modify(|x| {
-                                if !x.provides.contains(&provide) {
-                                    x.provides.insert(provide.clone());
-                                }
-                            })
-                            .or_insert(SearchEntry {
-                                name,
-                                description: cand
-                                    .summary()
-                                    .unwrap_or_else(|| "No description".to_string()),
-                                status,
-                                provides: {
-                                    let mut set = IndexSet::with_hasher(RandomState::new());
-                                    set.insert(provide.clone());
-                                    set
-                                },
-                                has_dbg: has_dbg(cache, &pkg, &cand),
-                                section_is_base: cand
-                                    .section()
-                                    .map(|x| x == "Bases")
-                                    .unwrap_or(false),
-                                old_version,
-                                new_version,
-                            });
-                    }
-                }
-            }
-        }
-
-        let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
-            .search_type(search_type)
-            .exclude_keywords(None)
-            .build();
-        pkg_map.iter().for_each(|(key, value)| {
-            search_index.insert(key, value);
-        });
-
-        Ok(Self {
-            pkg_map,
-            index: search_index,
-        })
-    }
-
-    /// Search for a package in the cache and returns the search result.
-    ///
-    /// # Arguments
-    ///
-    /// * `i` - A string holds the name of the package to search.
-    /// * `query` - An optional string that holds the search query (or pattern).
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(SearchResult)` - If a match is found, returns `SearchResult` containing the package details.
-    /// * `Err(OmaSearchError)` - If an error occurs during the search, returns an `OmaSearchError`.
-    fn search_result(&self, i: &str, query: &str) -> Result<SearchResult, OmaSearchError> {
-        let entry = self
-            .pkg_map
-            .get(i)
-            .ok_or_else(|| OmaSearchError::NoResult(i.to_string()))?;
-
-        let full_match = query == entry.name || entry.provides.iter().any(|x| x == query);
-
-        Ok(SearchResult {
-            name: entry.name.clone(),
-            desc: entry.description.clone(),
-            old_version: entry.old_version.clone(),
-            new_version: entry.new_version.clone(),
-            full_match,
-            dbg_package: entry.has_dbg,
-            status: entry.status,
-            is_base: entry.section_is_base,
-        })
-    }
-}
-
-fn extract_versions(status: PackageStatus, p: &Package<'_>) -> (Option<String>, String) {
-    let old = if status == PackageStatus::Upgrade {
-        let result = p.installed().map(|x| x.version().to_string());
-
-        if result.is_none() {
-            error!(
-                "exception: package {} status is upgrade but old version is none",
-                p.fullname(true)
-            );
-        }
-
-        result
-    } else {
-        None
-    };
-
-    let new = p
-        .candidate()
-        .map(|x| x.version().to_string())
-        .unwrap_or_else(|| "Unknown".to_string());
-
-    (old, new)
-}
-
-/// strsim: Sort search results based on based on string matching similarity (score).
+/// strsim: Sort search results based on string matching similarity (score).
 pub struct StrSimSearch<'a> {
     /// Locally cached index.
     cache: &'a Cache,
 }
 
 impl OmaSearch for StrSimSearch<'_> {
-    fn search(&self, query: &str) -> Result<Vec<SearchResult>, OmaSearchError> {
+    fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let sort = PackageSort::default().include_virtual();
         let pkgs = self.cache.packages(&sort);
 
@@ -363,7 +47,8 @@ impl OmaSearch for StrSimSearch<'_> {
                     && !name.ends_with("-dbg")
                     && !res.contains_key(&name)
                 {
-                    let oma_pkg = OmaPackage::new(&cand, &pkg)?;
+                    let oma_pkg = OmaPackage::new(&cand, &pkg)
+                        .map_err(|_| OmaSearchError::PtrIsNone)?;
                     res.insert(
                         name.clone(),
                         (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
@@ -376,7 +61,8 @@ impl OmaSearch for StrSimSearch<'_> {
                     && !res.contains_key(&name)
                     && !name.ends_with("-dbg")
                 {
-                    let oma_pkg = OmaPackage::new(&cand, &pkg)?;
+                    let oma_pkg = OmaPackage::new(&cand, &pkg)
+                        .map_err(|_| OmaSearchError::PtrIsNone)?;
                     res.insert(
                         name.clone(),
                         (oma_pkg, cand.is_installed(), pkg.is_upgradable(), false),
@@ -386,12 +72,13 @@ impl OmaSearch for StrSimSearch<'_> {
                 let real_pkgs = pkg.provides().flat_map(|x| {
                     unsafe { x.target_pkg() }
                         .make_safe()
-                        .ok_or(OmaSearchError::PtrIsNone(PtrIsNone))
+                        .ok_or(OmaSearchError::PtrIsNone)
                 });
                 for pkg in real_pkgs {
                     let pkg = Package::new(self.cache, pkg);
                     if let Some(cand) = pkg.candidate() {
-                        let oma_pkg = OmaPackage::new(&cand, &pkg)?;
+                        let oma_pkg = OmaPackage::new(&cand, &pkg)
+                            .map_err(|_| OmaSearchError::PtrIsNone)?;
 
                         res.insert(
                             name.clone(),
@@ -552,44 +239,4 @@ impl OmaSearch for TextSearch<'_> {
 
         Ok(res)
     }
-}
-
-#[test]
-fn test() {
-    use crate::test::TEST_LOCK;
-    use oma_apt::new_cache;
-    let _lock = TEST_LOCK.lock().unwrap();
-
-    let packages = std::path::Path::new(&std::env::var_os("CARGO_MANIFEST_DIR").unwrap())
-        .join("test_file")
-        .join("Packages");
-    let cache = new_cache!(&[packages.to_string_lossy().to_string()]).unwrap();
-
-    let searcher = IndiciumSearch::new(&cache, SearchType::Live, |_| {}).unwrap();
-    let res = searcher.search("windows-nt-kernel").unwrap();
-    let res2 = searcher.search("pwp").unwrap();
-
-    for i in [res, res2] {
-        assert!(i.iter().any(|x| x.name == "qaq"));
-        assert!(i.iter().any(|x| x.new_version == "9999:1"));
-        assert!(i.iter().any(|x| x.full_match));
-        assert!(i.iter().filter(|x| x.name == "qaq").count() == 1)
-    }
-
-    let res = searcher.search("qwq").unwrap();
-    let res2 = searcher.search("qwqdesktop").unwrap();
-
-    for i in [res, res2] {
-        assert!(i.iter().any(|x| x.name == "qwq-desktop"));
-        assert!(i.iter().any(|x| x.new_version == "9999:114514"));
-        assert!(i.iter().any(|x| x.full_match));
-        assert!(i.iter().filter(|x| x.name == "qwq-desktop").count() == 1)
-    }
-
-    let res = searcher.search("owo").unwrap();
-    let res = res.first().unwrap();
-
-    assert_eq!(res.name, "owo".to_string());
-    assert_eq!(res.new_version, "9999:2.6.1-2");
-    assert!(res.full_match);
 }
