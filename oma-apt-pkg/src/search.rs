@@ -3,7 +3,7 @@
 //! Builds a search index from parsed APT list entries and dpkg status,
 //! without depending on the C++ `oma-apt` binding.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use ahash::RandomState;
@@ -11,7 +11,6 @@ pub use indicium::simple::SearchType;
 use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
 use serde::{Deserialize, Serialize};
 
-use crate::apt_lists::PackageEntry;
 use crate::{AptDb, DpkgState};
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
@@ -240,8 +239,10 @@ impl IndiciumSearch {
             }
 
             let status = if dpkg.is_installed(name) {
-                if is_upgradable(entry.version.as_ref(), dpkg.installed_versions.get(name.as_str()))
-                {
+                if is_upgradable(
+                    entry.version.as_ref(),
+                    dpkg.installed_versions.get(name.as_str()),
+                ) {
                     PackageStatus::Upgrade
                 } else {
                     PackageStatus::Installed
@@ -302,24 +303,23 @@ impl IndiciumSearch {
     /// dpkg status data, without rebuilding the full-text search index.
     pub fn refresh_status(&mut self, dpkg: &DpkgState) {
         for entry in self.pkg_map.values_mut() {
-            let (status, old_ver, new_ver) =
-                if dpkg.installed.contains(entry.name.as_str()) {
-                    let inst_ver = dpkg.installed_versions.get(&entry.name).cloned();
-                    if is_upgradable(
-                        Some(&entry.new_version),
-                        dpkg.installed_versions.get(&entry.name),
-                    ) {
-                        (PackageStatus::Upgrade, inst_ver, entry.new_version.clone())
-                    } else {
-                        (
-                            PackageStatus::Installed,
-                            inst_ver,
-                            entry.new_version.clone(),
-                        )
-                    }
+            let (status, old_ver, new_ver) = if dpkg.installed.contains(entry.name.as_str()) {
+                let inst_ver = dpkg.installed_versions.get(&entry.name).cloned();
+                if is_upgradable(
+                    Some(&entry.new_version),
+                    dpkg.installed_versions.get(&entry.name),
+                ) {
+                    (PackageStatus::Upgrade, inst_ver, entry.new_version.clone())
                 } else {
-                    (PackageStatus::Avail, None, entry.new_version.clone())
-                };
+                    (
+                        PackageStatus::Installed,
+                        inst_ver,
+                        entry.new_version.clone(),
+                    )
+                }
+            } else {
+                (PackageStatus::Avail, None, entry.new_version.clone())
+            };
 
             entry.status = status;
             entry.old_version = old_ver;
@@ -333,24 +333,134 @@ impl IndiciumSearch {
 // ---------------------------------------------------------------------------
 
 impl IndiciumSearch {
-    /// Build a search index from a sysroot, handling cache automatically.
+    /// Build a search index from explicit paths, handling cache automatically.
     ///
-    /// This is a convenience wrapper around `AptDb::load_or_build` +
-    /// `DpkgState::from_sysroot` + `IndiciumSearch::new` + `refresh_status`.
-    pub fn from_sysroot(
-        sysroot: impl AsRef<std::path::Path>,
+    /// Cache hierarchy (fastest first):
+    /// 1. `search_cache_path` — serialized `pkg_map`; avoids rebuilding `SearchIndex`.
+    /// 2. `apt_cache_path` — serialized `Vec<PackageEntry>`; avoids re-parsing deb822.
+    /// 3. Cold path — parse from scratch.
+    ///
+    /// After loading (any tier) the search index is refreshed with current dpkg
+    /// status via `refresh_status`.
+    pub fn from_paths(
+        lists_dir: impl AsRef<std::path::Path>,
+        dpkg_status_path: impl AsRef<std::path::Path>,
+        apt_cache_path: impl AsRef<std::path::Path>,
+        search_cache_path: impl AsRef<std::path::Path>,
         search_type: SearchType,
         progress: impl Fn(usize),
     ) -> Result<Self, String> {
-        let cache_path = sysroot.as_ref().join("var/cache/apt/oma-pkgcache.bin");
-        let lists_dir = sysroot.as_ref().join("var/lib/apt/lists");
+        // Tier 1: try search cache (fastest)
+        if Self::search_cache_valid(&search_cache_path, &lists_dir) {
+            let dpkg = DpkgState::from_file(&dpkg_status_path)?;
+            if let Some(mut searcher) =
+                Self::load_search_cache(&search_cache_path, search_type.clone())
+            {
+                searcher.refresh_status(&dpkg);
+                return Ok(searcher);
+            }
+        }
 
-        let apt_db = AptDb::load_or_build(&cache_path, &lists_dir)?;
-        let dpkg = DpkgState::from_sysroot(sysroot)?;
+        // Tier 2: try apt DB cache
+        let dpkg = DpkgState::from_file(&dpkg_status_path)?;
+        let apt_db = AptDb::load_or_build(&apt_cache_path, &lists_dir)?;
 
         let mut searcher = Self::new(&apt_db, &dpkg, search_type, progress);
         searcher.refresh_status(&dpkg);
+
+        // Persist search cache for next time
+        if let Err(e) = searcher.save_search_cache(&search_cache_path) {
+            let _ = e;
+        }
+
         Ok(searcher)
+    }
+
+    /// Check whether the search cache is still valid by comparing mtimes with
+    /// the `*_Packages` source files.
+    fn search_cache_valid(
+        cache_path: impl AsRef<std::path::Path>,
+        lists_dir: impl AsRef<std::path::Path>,
+    ) -> bool {
+        use std::fs;
+
+        let cache_mtime = match fs::metadata(&cache_path).and_then(|m| m.modified()) {
+            Ok(t) => t,
+            Err(_) => return false,
+        };
+
+        let dir = match fs::read_dir(lists_dir.as_ref()) {
+            Ok(d) => d,
+            Err(_) => return false,
+        };
+
+        for entry in dir {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if !name.ends_with("_Packages") {
+                continue;
+            }
+            let src_mtime = match entry.metadata().and_then(|m| m.modified()) {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            if src_mtime > cache_mtime {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Try to load a previously saved search index from its binary cache.
+    fn load_search_cache(
+        path: impl AsRef<std::path::Path>,
+        search_type: SearchType,
+    ) -> Option<Self> {
+        use std::fs;
+        use std::io::Read;
+
+        let mut file = fs::File::open(path.as_ref()).ok()?;
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf).ok()?;
+
+        let pkg_map: IndexMap<String, SearchEntry> =
+            bincode::serde::decode_from_slice(&buf, bincode::config::standard())
+                .ok()?
+                .0;
+
+        let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
+            .search_type(search_type)
+            .exclude_keywords(None)
+            .build();
+        pkg_map.iter().for_each(|(key, value)| {
+            search_index.insert(key, value);
+        });
+
+        Some(Self {
+            pkg_map,
+            index: search_index,
+        })
+    }
+
+    /// Save the search index (pkg_map) to a binary cache file.
+    fn save_search_cache(&self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
+        use std::fs;
+        use std::io::Write;
+
+        if let Some(parent) = path.as_ref().parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let encoded = bincode::serde::encode_to_vec(&self.pkg_map, bincode::config::standard())
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+
+        let mut file = fs::File::create(path.as_ref())?;
+        file.write_all(&encoded)?;
+        Ok(())
     }
 }
 
@@ -379,7 +489,10 @@ mod tests {
 
     #[test]
     fn test_parse_provides_simple() {
-        assert_eq!(parse_provides("fish, fisher, fisherman"), vec!["fish", "fisher", "fisherman"]);
+        assert_eq!(
+            parse_provides("fish, fisher, fisherman"),
+            vec!["fish", "fisher", "fisherman"]
+        );
     }
 
     #[test]
@@ -460,6 +573,8 @@ mod tests {
 
     #[test]
     fn test_build_available_names() {
+        use crate::apt_lists::PackageEntry;
+
         let entries = vec![
             PackageEntry {
                 package: "foo".into(),

@@ -247,7 +247,15 @@ fn local_indicium_search(
 ) -> Result<Vec<SearchResult>, OutputError> {
     use oma_apt_pkg::search::{OmaSearch as _, SearchResult as AptSearchResult};
 
-    let searcher = IndiciumSearch::from_sysroot(sysroot, SearchType::Live, f)
+    let sysroot = sysroot;
+    let searcher = IndiciumSearch::from_paths(
+        sysroot.join("var/lib/apt/lists"),
+        sysroot.join("var/lib/dpkg/status"),
+        sysroot.join("var/cache/apt/oma-aptdb.bincode"),
+        sysroot.join("var/cache/apt/oma-search.bincode"),
+        SearchType::Live,
+        f,
+    )
         .map_err(|e| OutputError {
             description: e,
             source: None,

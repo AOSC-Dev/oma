@@ -236,7 +236,13 @@ fn local_searcher(
     sysroot: &std::path::Path,
     pb: &Option<crate::pb::OmaProgressBar>,
 ) -> Result<Searcher, OutputError> {
-    let searcher = IndiciumSearch::from_sysroot(sysroot, SearchType::Live, |n| {
+    let searcher = IndiciumSearch::from_paths(
+        sysroot.join("var/lib/apt/lists"),
+        sysroot.join("var/lib/dpkg/status"),
+        sysroot.join("var/cache/apt/oma-aptdb.bincode"),
+        sysroot.join("var/cache/apt/oma-search.bincode"),
+        SearchType::Live,
+        |n| {
         if let Some(ref pb) = *pb {
             pb.inner
                 .set_message(fl!("reading-database-with-count", count = n));

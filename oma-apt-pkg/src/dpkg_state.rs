@@ -18,10 +18,10 @@ pub struct DpkgState {
 }
 
 impl DpkgState {
-    /// Parse dpkg status under the given sysroot.
-    pub fn from_sysroot(sysroot: impl AsRef<Path>) -> Result<Self, String> {
+    /// Parse dpkg status from the given status file path.
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, String> {
         let dpkg_packages =
-            parse_dpkg_status(sysroot.as_ref().join("var/lib/dpkg/status"))
+            parse_dpkg_status(path)
                 .map_err(|e| format!("Failed to parse dpkg status: {e}"))?;
 
         let installed: HashSet<String> = dpkg_packages
