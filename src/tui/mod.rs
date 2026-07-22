@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use clap::Args;
@@ -238,81 +237,15 @@ fn local_searcher(
     sysroot: &std::path::Path,
     pb: &Option<crate::pb::OmaProgressBar>,
 ) -> Result<Searcher, OutputError> {
-    use oma_apt_pkg::{parse_dpkg_status, IndiciumSearch};
-
-    let cache_path = sysroot.join("var/cache/oma/pkgcache.bin");
-    let lists_dir = sysroot.join("var/lib/apt/lists");
-    let dpkg_path = sysroot.join("var/lib/dpkg/status");
-
-    // Parse dpkg status (always needed, fast)
-    let dpkg_packages = parse_dpkg_status(&dpkg_path).map_err(|e| OutputError {
-        description: format!("Failed to parse dpkg status: {e}"),
-        source: None,
-    })?;
-
-    let installed: HashSet<String> = dpkg_packages
-        .iter()
-        .filter(|p| p.selection_state().is_installed())
-        .map(|p| p.name.clone())
-        .collect();
-
-    let installed_versions: HashMap<String, String> = dpkg_packages
-        .iter()
-        .filter_map(|p| {
-            p.selection_state()
-                .is_installed()
-                .then(|| (p.name.clone(), p.version.clone().unwrap_or_default()))
-        })
-        .collect();
-
-    // Try loading from binary cache
-    let mut searcher = if IndiciumSearch::cache_valid(&cache_path, &lists_dir) {
-        match IndiciumSearch::load_cache(&cache_path, SearchType::Live) {
-            Some(s) => s,
-            None => build_searcher(sysroot, &installed, &installed_versions, pb)?,
+    let searcher = IndiciumSearch::from_sysroot(sysroot, SearchType::Live, |n| {
+        if let Some(ref pb) = *pb {
+            pb.inner
+                .set_message(fl!("reading-database-with-count", count = n));
         }
-    } else {
-        build_searcher(sysroot, &installed, &installed_versions, pb)?
-    };
-
-    // Apply current dpkg state
-    searcher.refresh_status(&installed, &installed_versions);
-
-    Ok(Searcher::Local(Box::new(searcher)))
-}
-
-fn build_searcher(
-    sysroot: &std::path::Path,
-    installed: &std::collections::HashSet<String>,
-    installed_versions: &std::collections::HashMap<String, String>,
-    pb: &Option<crate::pb::OmaProgressBar>,
-) -> Result<IndiciumSearch, OutputError> {
-    use oma_apt_pkg::parse_apt_lists_dir;
-
-    let lists_dir = sysroot.join("var/lib/apt/lists");
-    let cache_path = sysroot.join("var/cache/oma/pkgcache.bin");
-
-    let entries = parse_apt_lists_dir(&lists_dir).map_err(|e| OutputError {
-        description: format!("Failed to parse apt lists: {e}"),
+    })
+    .map_err(|e| OutputError {
+        description: e,
         source: None,
     })?;
-
-    let searcher = IndiciumSearch::new(
-        &entries,
-        installed,
-        installed_versions,
-        SearchType::Live,
-        |n| {
-            if let Some(ref pb) = *pb {
-                pb.inner
-                    .set_message(fl!("reading-database-with-count", count = n));
-            }
-        },
-    );
-
-    if let Err(e) = searcher.save_cache(&cache_path) {
-        debug!("Failed to save search cache: {e}");
-    }
-
-    Ok(searcher)
+    Ok(Searcher::Local(Box::new(searcher)))
 }

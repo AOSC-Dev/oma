@@ -245,46 +245,13 @@ fn local_indicium_search(
     query: String,
     sysroot: &std::path::Path,
 ) -> Result<Vec<SearchResult>, OutputError> {
-    use std::collections::{HashMap, HashSet};
-    use oma_apt_pkg::{
-        parse_dpkg_status,
-        search::{OmaSearch as _, SearchResult as AptSearchResult},
-    };
+    use oma_apt_pkg::search::{OmaSearch as _, SearchResult as AptSearchResult};
 
-    let cache_path = sysroot.join("var/cache/oma/pkgcache.bin");
-    let lists_dir = sysroot.join("var/lib/apt/lists");
-
-    let dpkg_packages = parse_dpkg_status(&sysroot.join("var/lib/dpkg/status")).map_err(|e| {
-        OutputError { description: e.to_string(), source: None }
-    })?;
-
-    let installed: HashSet<String> = dpkg_packages
-        .iter()
-        .filter(|p| p.selection_state().is_installed())
-        .map(|p| p.name.clone())
-        .collect();
-
-    let installed_versions: HashMap<String, String> = dpkg_packages
-        .iter()
-        .filter_map(|p| {
-            p.selection_state()
-                .is_installed()
-                .then(|| (p.name.clone(), p.version.clone().unwrap_or_default()))
-        })
-        .collect();
-
-    // Try loading from binary cache
-    let mut searcher = if IndiciumSearch::cache_valid(&cache_path, &lists_dir) {
-        match IndiciumSearch::load_cache(&cache_path, SearchType::Live) {
-            Some(s) => s,
-            None => build_indicium_search(sysroot, &installed, &installed_versions, f)?,
-        }
-    } else {
-        build_indicium_search(sysroot, &installed, &installed_versions, f)?
-    };
-
-    // Apply current dpkg state
-    searcher.refresh_status(&installed, &installed_versions);
+    let searcher = IndiciumSearch::from_sysroot(sysroot, SearchType::Live, f)
+        .map_err(|e| OutputError {
+            description: e,
+            source: None,
+        })?;
 
     let results: Vec<AptSearchResult> = searcher.search(&query).map_err(|e| OutputError {
         description: e.to_string(),
@@ -309,31 +276,6 @@ fn local_indicium_search(
             is_base: r.is_base,
         })
         .collect())
-}
-
-fn build_indicium_search(
-    sysroot: &std::path::Path,
-    installed: &std::collections::HashSet<String>,
-    installed_versions: &std::collections::HashMap<String, String>,
-    f: Box<dyn Fn(usize) + 'static>,
-) -> Result<IndiciumSearch, OutputError> {
-    use oma_apt_pkg::parse_apt_lists_dir;
-
-    let lists_dir = sysroot.join("var/lib/apt/lists");
-    let cache_path = sysroot.join("var/cache/oma/pkgcache.bin");
-
-    let entries = parse_apt_lists_dir(&lists_dir).map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?;
-
-    let searcher = IndiciumSearch::new(&entries, installed, installed_versions, SearchType::Live, f);
-
-    if let Err(e) = searcher.save_cache(&cache_path) {
-        spdlog::debug!("Failed to save search cache: {e}");
-    }
-
-    Ok(searcher)
 }
 
 async fn amo_search(query: &str) -> anyhow::Result<Vec<SearchResult>> {

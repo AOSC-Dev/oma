@@ -434,6 +434,79 @@ impl IndiciumSearch {
 
         true
     }
+
+    /// High-level constructor: parse dpkg status, try the binary cache, fall
+    /// back to full parsing, and return a ready-to-use search index.
+    ///
+    /// * `sysroot` – Root path (e.g. `/`).  Paths like
+    ///   `var/lib/apt/lists`, `var/lib/dpkg/status` and
+    ///   `var/cache/apt/oma-pkgcache.bin` are derived from it.
+    pub fn from_sysroot(
+        sysroot: impl AsRef<std::path::Path>,
+        search_type: SearchType,
+        progress: impl Fn(usize),
+    ) -> Result<Self, String> {
+        use std::collections::{HashMap, HashSet};
+
+        let sysroot = sysroot.as_ref();
+        let cache_path = sysroot.join("var/cache/apt/oma-pkgcache.bin");
+        let lists_dir = sysroot.join("var/lib/apt/lists");
+
+        // Parse dpkg status (always needed, fast – one file)
+        let dpkg_packages = crate::parse_dpkg_status(sysroot.join("var/lib/dpkg/status"))
+            .map_err(|e| format!("Failed to parse dpkg status: {e}"))?;
+
+        let installed: HashSet<String> = dpkg_packages
+            .iter()
+            .filter(|p| p.selection_state().is_installed())
+            .map(|p| p.name.clone())
+            .collect();
+
+        let installed_versions: HashMap<String, String> = dpkg_packages
+            .iter()
+            .filter_map(|p| {
+                p.selection_state()
+                    .is_installed()
+                    .then(|| (p.name.clone(), p.version.clone().unwrap_or_default()))
+            })
+            .collect();
+
+        // Load or build
+        let mut searcher = if Self::cache_valid(&cache_path, &lists_dir) {
+            match Self::load_cache(&cache_path, search_type.clone()) {
+                Some(s) => s,
+                None => Self::build_fresh(&lists_dir, &installed, &installed_versions, search_type, &progress, &cache_path)?,
+            }
+        } else {
+            Self::build_fresh(&lists_dir, &installed, &installed_versions, search_type, &progress, &cache_path)?
+        };
+
+        // Apply current dpkg state to cached entries
+        searcher.refresh_status(&installed, &installed_versions);
+
+        Ok(searcher)
+    }
+
+    fn build_fresh(
+        lists_dir: &std::path::Path,
+        installed: &std::collections::HashSet<String>,
+        installed_versions: &std::collections::HashMap<String, String>,
+        search_type: SearchType,
+        progress: impl Fn(usize),
+        cache_path: &std::path::Path,
+    ) -> Result<Self, String> {
+        let entries = crate::parse_apt_lists_dir(lists_dir)
+            .map_err(|e| format!("Failed to parse apt lists: {e}"))?;
+
+        let searcher = Self::new(&entries, installed, installed_versions, search_type, progress);
+
+        if let Err(e) = searcher.save_cache(cache_path) {
+            // Non-fatal: cache write failure shouldn't block the user
+            let _ = e;
+        }
+
+        Ok(searcher)
+    }
 }
 
 /// Determine if a package is upgradable: a newer version is available in the
