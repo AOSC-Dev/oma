@@ -3250,6 +3250,7 @@ dependencies = [
  "indexmap",
  "itertools 0.15.0",
  "libc",
+ "oma-apt-pkg",
  "oma-console",
  "oma-contents",
  "oma-fetch",
@@ -3298,6 +3299,19 @@ dependencies = [
  "debversion",
  "paste",
  "terminal_size",
+]
+
+[[package]]
+name = "oma-apt-pkg"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "deb822-fast",
+ "deb822-lossless",
+ "indexmap",
+ "indicium",
+ "serde",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -3429,6 +3443,7 @@ dependencies = [
  "indicium",
  "memchr",
  "oma-apt",
+ "oma-apt-pkg",
  "oma-fetch",
  "oma-pm-operation-type",
  "oma-utils",

@@ -288,7 +288,7 @@ impl From<OmaSearchError> for OutputError {
                 description: fl!("no-candidate-ver", pkg = s),
                 source: None,
             },
-            OmaSearchError::PtrIsNone(_) => OutputError {
+            OmaSearchError::PtrIsNone => OutputError {
                 description: value.to_string(),
                 source: None,
             },

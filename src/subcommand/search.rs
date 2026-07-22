@@ -211,10 +211,10 @@ pub fn search(
             if config.amo && !config.no_check_dbus {
                 match RT.block_on(amo_search(&query)) {
                     Ok(r) => Ok(r),
-                    Err(_) => local_indicium_search(apt, f, query),
+                    Err(_) => local_indicium_search(apt, f, query, &config.sysroot),
                 }
             } else {
-                local_indicium_search(apt, f, query)
+                local_indicium_search(apt, f, query, &config.sysroot)
             }
         }
         SearchEngine::Strsim => {
@@ -240,11 +240,44 @@ pub fn search(
 }
 
 fn local_indicium_search(
-    apt: &OmaApt,
+    _apt: &OmaApt,
     f: Box<dyn Fn(usize) + 'static>,
     query: String,
+    sysroot: &std::path::Path,
 ) -> Result<Vec<SearchResult>, OutputError> {
-    let searcher = IndiciumSearch::new(&apt.cache, SearchType::Live, f)?;
+    use std::collections::{HashMap, HashSet};
+    use oma_apt_pkg::{parse_apt_lists_dir, parse_dpkg_status};
+
+    let entries = parse_apt_lists_dir(&sysroot.join("var/lib/apt/lists")).map_err(|e| {
+        OutputError { description: e.to_string(), source: None }
+    })?;
+
+    let dpkg_packages = parse_dpkg_status(&sysroot.join("var/lib/dpkg/status")).map_err(|e| {
+        OutputError { description: e.to_string(), source: None }
+    })?;
+
+    let installed: HashSet<String> = dpkg_packages
+        .iter()
+        .filter(|p| p.selection_state.is_installed())
+        .map(|p| p.name.clone())
+        .collect();
+
+    let installed_versions: HashMap<String, String> = dpkg_packages
+        .iter()
+        .filter_map(|p| {
+            p.selection_state
+                .is_installed()
+                .then(|| (p.name.clone(), p.version.clone().unwrap_or_default()))
+        })
+        .collect();
+
+    let searcher = IndiciumSearch::new(
+        &entries,
+        &installed,
+        &installed_versions,
+        SearchType::Live,
+        f,
+    );
     Ok(searcher.search(&query)?)
 }
 

@@ -81,6 +81,7 @@ oma-repo-verify = { workspace = true, default-features = false }
 oma-mirror = { workspace = true, optional = true }
 apt-auth-config = { workspace = true }
 oma-tum = { workspace = true, optional = true }
+oma-apt-pkg = { workspace = true }
 
 # i18n
 i18n-embed = { workspace = true}
@@ -209,6 +210,7 @@ apt-auth-config = { version = "0.6.0", path = "./apt-auth-config" }
 oma-tum = { version = "0.6.1", path = "./oma-tum" }
 oma-pm-operation-type = { version = "0.10.1", path = "./oma-pm-operation-type" }
 oma-apt = "0.13"
+oma-apt-pkg = { path = "./oma-apt-pkg" }
 oma-apt-sources-lists = "0.9"
 oma-inquire = "0.3"
 
@@ -246,6 +248,7 @@ default = ["aosc", "nice-setup"]
 
 [workspace]
 members = [
+    "oma-apt-pkg",
     "oma-contents",
     "oma-console",
     "oma-topics",
