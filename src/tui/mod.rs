@@ -3,9 +3,8 @@ use std::time::Duration;
 use clap::Args;
 use oma_apt_pkg::search::{IndiciumSearch, OmaSearch, SearchResult, SearchType};
 use oma_console::pager::{exit_tui, prepare_create_tui};
-use oma_pm::{
-    apt::{OmaApt, OmaAptArgs, Upgrade},
-};
+use oma_pm::apt::{OmaApt, OmaAptArgs, Upgrade};
+use oma_pm::oma_apt::raw::config as apt_config;
 use render::{Task, Tui as TuiInner};
 use spdlog::{debug, info};
 use zbus::Connection;
@@ -102,10 +101,7 @@ impl Searcher {
 
     #[allow(dead_code)]
     /// Refresh status metadata from fresh dpkg status data.
-    pub(crate) fn refresh(
-        &mut self,
-        dpkg: &oma_apt_pkg::DpkgState,
-    ) {
+    pub(crate) fn refresh(&mut self, dpkg: &oma_apt_pkg::DpkgState) {
         if let Searcher::Local(indicium_search) = self {
             indicium_search.refresh_status(dpkg);
         }
@@ -233,21 +229,26 @@ impl CliExecuter for Tui {
 }
 
 fn local_searcher(
-    sysroot: &std::path::Path,
+    _sysroot: &std::path::Path,
     pb: &Option<crate::pb::OmaProgressBar>,
 ) -> Result<Searcher, OutputError> {
+    let lists_dir = apt_config::find_dir("Dir::State::lists".to_string(), "var/lib/apt/lists".to_string());
+    let dpkg_path = apt_config::find_file("Dir::State::status".to_string(), "var/lib/dpkg/status".to_string());
+    let apt_cache = apt_config::find_file("Dir::Cache::oma-aptdb".to_string(), "var/cache/apt/oma-aptdb.bincode".to_string());
+    let search_cache = apt_config::find_file("Dir::Cache::oma-search".to_string(), "var/cache/apt/oma-search.bincode".to_string());
     let searcher = IndiciumSearch::from_paths(
-        sysroot.join("var/lib/apt/lists"),
-        sysroot.join("var/lib/dpkg/status"),
-        sysroot.join("var/cache/apt/oma-aptdb.bincode"),
-        sysroot.join("var/cache/apt/oma-search.bincode"),
+        &lists_dir,
+        &dpkg_path,
+        &apt_cache,
+        &search_cache,
         SearchType::Live,
         |n| {
-        if let Some(ref pb) = *pb {
-            pb.inner
-                .set_message(fl!("reading-database-with-count", count = n));
-        }
-    })
+            if let Some(ref pb) = *pb {
+                pb.inner
+                    .set_message(fl!("reading-database-with-count", count = n));
+            }
+        },
+    )
     .map_err(|e| OutputError {
         description: e,
         source: None,
