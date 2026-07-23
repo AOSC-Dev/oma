@@ -11,15 +11,15 @@ use winnow::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Relation {
     /// << (strictly less than)
-    StrictLt,
-    /// <= (less than or equal)
     Lt,
+    /// <= (less than or equal)
+    Le,
     /// = (exactly equal)
     Eq,
     /// >= (greater than or equal)
     Ge,
     /// >> (strictly greater than)
-    StrictGt,
+    Gt,
 }
 
 /// A single parsed dependency entry from a deb822 dependency list.
@@ -62,9 +62,9 @@ fn arch_qualifier<'a>(input: &mut &'a str) -> ModalResult<&'a str> {
 /// Relation operator.
 fn relation_op(input: &mut &str) -> ModalResult<Relation> {
     alt((
-        literal("<<").value(Relation::StrictLt),
-        literal("<=").value(Relation::Lt),
-        literal(">>").value(Relation::StrictGt),
+        literal("<<").value(Relation::Lt),
+        literal("<=").value(Relation::Le),
+        literal(">>").value(Relation::Gt),
         literal(">=").value(Relation::Ge),
         literal("=").value(Relation::Eq),
     ))
@@ -180,10 +180,10 @@ mod tests {
     fn test_parse_dep_all_relations() {
         let result = parse_dep_list("a (<< 1), b (<= 2), c (= 3), d (>= 4), e (>> 5)");
         assert_eq!(result.len(), 5);
-        assert_eq!(result[0].relation, Some(Relation::StrictLt));
-        assert_eq!(result[1].relation, Some(Relation::Lt));
+        assert_eq!(result[0].relation, Some(Relation::Lt));
+        assert_eq!(result[1].relation, Some(Relation::Le));
         assert_eq!(result[2].relation, Some(Relation::Eq));
         assert_eq!(result[3].relation, Some(Relation::Ge));
-        assert_eq!(result[4].relation, Some(Relation::StrictGt));
+        assert_eq!(result[4].relation, Some(Relation::Gt));
     }
 }
