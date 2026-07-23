@@ -103,8 +103,11 @@ pub fn parse_single_packages_file(
 
     let entries: Vec<PackageEntry> = deb822
         .iter()
-        .filter_map(|p| PackageEntry::from_paragraph(p).ok())
-        .collect();
+        .map(|p| PackageEntry::from_paragraph(p).map_err(|e| AptListsError::Parse {
+            path: path.to_string_lossy().to_string(),
+            detail: e,
+        }))
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(entries)
 }
