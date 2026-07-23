@@ -174,14 +174,7 @@ impl OmaSearch for IndiciumSearch {
             });
         }
 
-        search_res.sort_by_key(|b| std::cmp::Reverse(b.status));
-
-        for i in 0..search_res.len() {
-            if search_res[i].full_match {
-                let i = search_res.remove(i);
-                search_res.insert(0, i);
-            }
-        }
+        sort_and_promote(&mut search_res);
 
         Ok(search_res)
     }
@@ -581,13 +574,7 @@ impl OmaSearch for StrSimSearch<'_> {
             })
             .collect();
 
-        results.sort_by_key(|b| std::cmp::Reverse(b.status));
-        for i in 0..results.len() {
-            if results[i].full_match {
-                let r = results.remove(i);
-                results.insert(0, r);
-            }
-        }
+        sort_and_promote(&mut results);
 
         Ok(results)
     }
@@ -673,16 +660,22 @@ impl OmaSearch for TextSearch<'_> {
             });
         }
 
-        results.sort_by_key(|b| std::cmp::Reverse(b.status));
-        for i in 0..results.len() {
-            if results[i].full_match {
-                let r = results.remove(i);
-                results.insert(0, r);
-            }
-        }
+        sort_and_promote(&mut results);
 
         Ok(results)
     }
+}
+
+/// Sort results by status (Upgrade > Installed > Avail)
+/// and promote full-match entries to the front.
+fn sort_and_promote(results: &mut [SearchResult]) {
+    results.sort_by(|a, b| {
+        let cmp = b.status.cmp(&a.status);
+        if cmp != std::cmp::Ordering::Equal {
+            return cmp;
+        }
+        a.full_match.cmp(&b.full_match).reverse()
+    });
 }
 
 fn extract_versions(
