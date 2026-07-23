@@ -246,7 +246,8 @@ fn load_apt_db_and_dpkg() -> Result<(oma_apt_pkg::AptDb, oma_apt_pkg::DpkgState)
         "var/lib/dpkg/status".to_string(),
     );
     let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
-    let _search_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
+    let _search_cache =
+        crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
     let apt_db =
         oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| OutputError {
@@ -273,7 +274,8 @@ fn local_indicium_search(
         "var/lib/dpkg/status".to_string(),
     );
     let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
-    let search_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
+    let search_cache =
+        crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
     let searcher = IndiciumSearch::from_paths(
         &lists_dir,
