@@ -154,10 +154,10 @@ impl CliExecuter for Tui {
         let searcher = if config.amo && !config.no_check_dbus {
             match RT.block_on(Searcher::connect_amo()) {
                 Ok(searcher) => searcher,
-                Err(_) => local_searcher(sysroot, &pb)?,
+                Err(_) => local_searcher(&pb)?,
             }
         } else {
-            local_searcher(sysroot, &pb)?
+            local_searcher(&pb)?
         };
 
         if let Some(pb) = pb {
@@ -228,10 +228,7 @@ impl CliExecuter for Tui {
     }
 }
 
-fn local_searcher(
-    _sysroot: &std::path::Path,
-    pb: &Option<crate::pb::OmaProgressBar>,
-) -> Result<Searcher, OutputError> {
+fn local_searcher(pb: &Option<crate::pb::OmaProgressBar>) -> Result<Searcher, OutputError> {
     let lists_dir = apt_config::find_dir(
         "Dir::State::lists".to_string(),
         "var/lib/apt/lists".to_string(),
