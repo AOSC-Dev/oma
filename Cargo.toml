@@ -177,6 +177,7 @@ fancy-regex = "0.18"
 sequoia-openpgp = { version = "2", default-features = false }
 sequoia-policy-config = "0.8"
 logos = "0.16"
+postcard = { version = "1", features = ["alloc"] }
 number_prefix = "0.4"
 os-release = "0.1"
 url-escape = "0.1"

@@ -14,7 +14,7 @@ ahash = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 indicium = { workspace = true }
 debversion = { workspace = true }
-bincode = { version = "2", features = ["serde"] }
+postcard = { workspace = true }
 spdlog-rs = { workspace = true }
 glob-match = { workspace = true }
 memchr = { workspace = true }

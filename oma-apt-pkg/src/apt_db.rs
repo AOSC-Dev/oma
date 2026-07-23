@@ -64,9 +64,7 @@ impl AptDb {
         let mut buf = Vec::new();
         file.read_to_end(&mut buf).ok()?;
 
-        let mut db: Self = bincode::serde::decode_from_slice(&buf, bincode::config::standard())
-            .ok()?
-            .0;
+        let mut db: Self = postcard::from_bytes(&buf).ok()?;
 
         // Rebuild the transient field
         db.available_names = db.entries.iter().map(|e| e.package.clone()).collect();
@@ -79,7 +77,7 @@ impl AptDb {
             fs::create_dir_all(parent)?;
         }
 
-        let encoded = bincode::serde::encode_to_vec(self, bincode::config::standard())
+        let encoded = postcard::to_allocvec(&self)
             .map_err(std::io::Error::other)?;
 
         let mut file = fs::File::create(path.as_ref())?;

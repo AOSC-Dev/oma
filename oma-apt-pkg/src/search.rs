@@ -418,9 +418,7 @@ impl IndiciumSearch {
         file.read_to_end(&mut buf).ok()?;
 
         let pkg_map: IndexMap<String, SearchEntry> =
-            bincode::serde::decode_from_slice(&buf, bincode::config::standard())
-                .ok()?
-                .0;
+            postcard::from_bytes(&buf).ok()?;
 
         let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
             .search_type(search_type)
@@ -445,7 +443,7 @@ impl IndiciumSearch {
             fs::create_dir_all(parent)?;
         }
 
-        let encoded = bincode::serde::encode_to_vec(&self.pkg_map, bincode::config::standard())
+        let encoded = postcard::to_allocvec(&self.pkg_map)
             .map_err(std::io::Error::other)?;
 
         let mut file = fs::File::create(path.as_ref())?;
