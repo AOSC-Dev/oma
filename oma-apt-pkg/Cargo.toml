@@ -19,3 +19,4 @@ spdlog-rs = { workspace = true }
 glob-match = { workspace = true }
 memchr = { workspace = true }
 strsim = { workspace = true }
+winnow = { workspace = true }

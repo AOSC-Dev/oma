@@ -1,6 +1,11 @@
 //! Parsing of deb822 dependency list fields (Depends, Recommends, Provides, etc.).
 
-use std::str::FromStr;
+use winnow::{
+    ModalResult, Parser,
+    ascii::{multispace0, space0, space1},
+    combinator::{alt, delimited, opt, preceded, separated},
+    token::{literal, take_till},
+};
 
 /// The version constraint operator in a dependency.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,21 +20,6 @@ pub enum Relation {
     Ge,
     /// >> (strictly greater than)
     StrictGt,
-}
-
-impl FromStr for Relation {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "<<" => Ok(Self::StrictLt),
-            "<=" => Ok(Self::Lt),
-            "=" => Ok(Self::Eq),
-            ">=" => Ok(Self::Ge),
-            ">>" => Ok(Self::StrictGt),
-            _ => Err(()),
-        }
-    }
 }
 
 /// A single parsed dependency entry from a deb822 dependency list.
@@ -47,6 +37,69 @@ pub struct DepEntry {
     pub version: Option<String>,
 }
 
+// ---------------------------------------------------------------------------
+// Winnow parsers
+// ---------------------------------------------------------------------------
+
+/// Package name: non-whitespace chars that aren't `:`, `(`, `,`.
+fn package_name<'a>(input: &mut &'a str) -> ModalResult<&'a str> {
+    take_till(1.., |c: char| {
+        c == ':' || c == '(' || c == ',' || c.is_whitespace()
+    })
+    .map(|s: &str| s.trim())
+    .parse_next(input)
+}
+
+/// Architecture qualifier: `:arch`
+fn arch_qualifier<'a>(input: &mut &'a str) -> ModalResult<&'a str> {
+    preceded(
+        ':',
+        take_till(1.., |c: char| c == '(' || c == ',' || c.is_whitespace()),
+    )
+    .parse_next(input)
+}
+
+/// Relation operator.
+fn relation_op(input: &mut &str) -> ModalResult<Relation> {
+    alt((
+        literal("<<").value(Relation::StrictLt),
+        literal("<=").value(Relation::Lt),
+        literal(">>").value(Relation::StrictGt),
+        literal(">=").value(Relation::Ge),
+        literal("=").value(Relation::Eq),
+    ))
+    .parse_next(input)
+}
+
+/// Version string: any chars except whitespace and `)`.
+fn version_string<'a>(input: &mut &'a str) -> ModalResult<&'a str> {
+    take_till(1.., |c: char| c.is_whitespace() || c == ')').parse_next(input)
+}
+
+/// Version constraint: `(REL version)`
+fn version_constraint<'a>(input: &mut &'a str) -> ModalResult<(Relation, &'a str)> {
+    delimited(
+        preceded(space0, literal("(")),
+        preceded(space0, (relation_op, preceded(space1, version_string))),
+        preceded(space0, literal(")")),
+    )
+    .parse_next(input)
+}
+
+/// A single dependency entry.
+fn dep_entry(input: &mut &str) -> ModalResult<DepEntry> {
+    let name = package_name.parse_next(input)?;
+    let arch = opt(arch_qualifier).parse_next(input)?;
+    let version = opt(version_constraint).parse_next(input)?;
+
+    Ok(DepEntry {
+        name: name.to_string(),
+        arch: arch.map(|s| s.to_string()),
+        relation: version.as_ref().map(|(r, _)| *r),
+        version: version.map(|(_, v)| v.to_string()),
+    })
+}
+
 /// Parse a deb822 dependency list into structured [`DepEntry`] items.
 ///
 /// Many deb822 fields (Depends, Pre-Depends, Recommends, Suggests, Provides,
@@ -58,55 +111,15 @@ pub struct DepEntry {
 /// Depends: libc6 (>= 2.38), ncurses (>= 6.5), zlib1g:amd64
 /// ```
 pub fn parse_dep_list(value: &str) -> Vec<DepEntry> {
-    value
-        .split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(parse_dep_entry)
-        .collect()
-}
-
-fn parse_dep_entry(s: &str) -> DepEntry {
-    // Split off the version constraint in parentheses
-    let (rest, version_part) = if let Some(idx) = s.find('(') {
-        let rest = s[..idx].trim();
-        let version_part = s[idx + 1..].trim_end();
-        let version_part = version_part.strip_suffix(')').unwrap_or(version_part).trim();
-        (rest, Some(version_part))
-    } else {
-        (s.trim(), None)
-    };
-
-    // Split off the architecture qualifier
-    let (name, arch) = if let Some(idx) = rest.find(':') {
-        let name = rest[..idx].trim().to_string();
-        let arch = rest[idx + 1..].trim().to_string();
-        (name, Some(arch))
-    } else {
-        (rest.trim().to_string(), None)
-    };
-
-    // Parse the version constraint
-    let (relation, version) = match version_part {
-        Some(vp) => {
-            let parts: Vec<&str> = vp.splitn(2, |c: char| c.is_whitespace()).collect();
-            if parts.len() == 2 {
-                let rel = Relation::from_str(parts[0].trim()).ok();
-                let ver = parts[1].trim().to_string();
-                (rel, Some(ver))
-            } else {
-                (None, Some(vp.to_string()))
-            }
-        }
-        None => (None, None),
-    };
-
-    DepEntry {
-        name,
-        arch,
-        relation,
-        version,
-    }
+    let mut input = value;
+    let entries: Vec<DepEntry> = separated(
+        0..,
+        preceded(multispace0, dep_entry),
+        preceded(multispace0, ','),
+    )
+    .parse_next(&mut input)
+    .unwrap_or_default();
+    entries
 }
 
 #[cfg(test)]

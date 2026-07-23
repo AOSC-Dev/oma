@@ -3337,6 +3337,7 @@ dependencies = [
  "spdlog-rs",
  "strsim",
  "thiserror 2.0.19",
+ "winnow",
 ]
 
 [[package]]
