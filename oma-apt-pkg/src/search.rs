@@ -4,8 +4,8 @@
 //! without depending on the C++ `oma-apt` binding.
 
 use std::io::Write;
-use std::{collections::HashMap, fs};
 use std::str::FromStr;
+use std::{collections::HashMap, fs};
 
 use ahash::RandomState;
 use glob_match::glob_match;

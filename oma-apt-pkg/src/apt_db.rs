@@ -49,7 +49,10 @@ impl AptDb {
             }
         }
 
-        debug!("oma packages database cache miss: {}", cache_path.as_ref().display());
+        debug!(
+            "oma packages database cache miss: {}",
+            cache_path.as_ref().display()
+        );
         let entries = parse_apt_lists_dir(lists_dir)?;
         let db = Self::from_entries(entries);
 

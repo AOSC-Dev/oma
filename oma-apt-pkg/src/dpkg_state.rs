@@ -28,8 +28,7 @@ impl DpkgState {
         for p in &dpkg_packages {
             if p.selection_state().is_installed() {
                 installed.insert(p.name.clone());
-                installed_versions
-                    .insert(p.name.clone(), p.version.clone().unwrap_or_default());
+                installed_versions.insert(p.name.clone(), p.version.clone().unwrap_or_default());
             }
         }
 
