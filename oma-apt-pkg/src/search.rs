@@ -13,6 +13,7 @@ use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
 use memchr::memmem;
 use serde::{Deserialize, Serialize};
 use spdlog::debug;
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{AptDb, DpkgState, parse_dep_list};
 
@@ -20,7 +21,7 @@ type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
 type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
 
 /// Status of the package.
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy, SchemaWrite, SchemaRead, Serialize, Deserialize)]
 pub enum PackageStatus {
     Avail,
     Installed,
@@ -56,7 +57,7 @@ impl Ord for PackageStatus {
 }
 
 /// A single entry in the search index.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, wincode::SchemaWrite, wincode::SchemaRead)]
 pub struct SearchEntry {
     /// The name of the package
     pub name: String,
@@ -111,7 +112,7 @@ pub enum OmaSearchError {
 
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, SchemaWrite, SchemaRead, Serialize, Deserialize)]
 /// Result of a search process.
 pub struct SearchResult {
     /// String contains the name of a package to search for.
@@ -248,12 +249,7 @@ impl IndiciumSearch {
             let provides: IndexSet<String> = entry
                 .provides
                 .as_deref()
-                .map(|v| {
-                    parse_dep_list(v)
-                        .into_iter()
-                        .map(|d| d.name)
-                        .collect()
-                })
+                .map(|v| parse_dep_list(v).into_iter().map(|d| d.name).collect())
                 .unwrap_or_default();
 
             let has_dbg = apt_db.has_package(&format!("{name}-dbg"));
@@ -417,8 +413,7 @@ impl IndiciumSearch {
         let mut buf = Vec::new();
         file.read_to_end(&mut buf).ok()?;
 
-        let pkg_map: IndexMap<String, SearchEntry> =
-            postcard::from_bytes(&buf).ok()?;
+        let pkg_map: IndexMap<String, SearchEntry> = wincode::deserialize(&buf).ok()?;
 
         let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
             .search_type(search_type)
@@ -443,8 +438,7 @@ impl IndiciumSearch {
             fs::create_dir_all(parent)?;
         }
 
-        let encoded = postcard::to_allocvec(&self.pkg_map)
-            .map_err(std::io::Error::other)?;
+        let encoded = wincode::serialize(&self.pkg_map).map_err(std::io::Error::other)?;
 
         let mut file = fs::File::create(path.as_ref())?;
         file.write_all(&encoded)?;

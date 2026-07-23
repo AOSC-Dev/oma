@@ -5,8 +5,8 @@ use std::path::Path;
 use std::{collections::HashSet, io::Write};
 use std::{fs, io};
 
-use serde::{Deserialize, Serialize};
 use spdlog::debug;
+use wincode::{SchemaRead, SchemaWrite};
 
 use crate::apt_lists::{PackageEntry, parse_apt_lists_dir};
 
@@ -14,18 +14,16 @@ use crate::apt_lists::{PackageEntry, parse_apt_lists_dir};
 ///
 /// Wraps all `PackageEntry` items from `*_Packages` files and can be
 /// pased to / loaded from a binary cache file
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, SchemaWrite, SchemaRead)]
 pub struct AptDb {
     pub(crate) entries: Vec<PackageEntry>,
-    #[serde(skip)]
-    available_names: HashSet<String>,
+    pub(crate) available_names: HashSet<String>,
 }
 
 impl AptDb {
     /// Build from a vector of entries (from parsing).
     pub(crate) fn from_entries(entries: Vec<PackageEntry>) -> Self {
-        let available_names = entries.clone().into_iter().map(|e| e.package).collect();
-
+        let available_names = entries.iter().map(|e| e.package.clone()).collect();
         Self {
             entries,
             available_names,
@@ -66,7 +64,7 @@ impl AptDb {
         let mut buf = Vec::new();
         fs::File::open(path.as_ref()).and_then(|mut f| f.read_to_end(&mut buf))?;
 
-        let mut db: Self = postcard::from_bytes(&buf)
+        let mut db: Self = wincode::deserialize(&buf)
             .map_err(|e| std::io::Error::other(format!("Failed to decode cache: {e}")))?;
 
         // Rebuild the transient field
@@ -80,7 +78,7 @@ impl AptDb {
             fs::create_dir_all(parent)?;
         }
 
-        let encoded = postcard::to_allocvec(&self).map_err(std::io::Error::other)?;
+        let encoded = wincode::serialize(&self).map_err(std::io::Error::other)?;
 
         let mut file = fs::File::create(path.as_ref())?;
         file.write_all(&encoded)?;

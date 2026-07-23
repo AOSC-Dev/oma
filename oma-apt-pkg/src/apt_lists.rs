@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
-use serde::{Deserialize, Serialize};
+use wincode::{SchemaRead, SchemaWrite};
 
 /// Errors that can occur when parsing APT list files.
 #[derive(Debug, thiserror::Error)]
@@ -14,7 +14,7 @@ pub enum AptListsError {
 }
 
 /// A single package entry from a Packages file
-#[derive(Debug, Clone, Serialize, Deserialize, FromDeb822)]
+#[derive(Debug, Clone, SchemaWrite, SchemaRead, FromDeb822)]
 pub struct PackageEntry {
     pub package: String,
     pub version: Option<String>,
