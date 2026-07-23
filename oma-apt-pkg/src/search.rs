@@ -331,10 +331,6 @@ impl IndiciumSearch {
     }
 }
 
-// ---------------------------------------------------------------------------
-// High-level constructor — combines AptDb and DpkgState
-// ---------------------------------------------------------------------------
-
 impl IndiciumSearch {
     /// Build a search index from explicit paths, handling cache automatically.
     ///
@@ -490,10 +486,6 @@ fn is_upgradable(candidate_version: Option<&String>, installed_version: Option<&
     }
 }
 
-// ---------------------------------------------------------------------------
-// Legacy search backends — rewritten to use AptDb + DpkgState
-// ---------------------------------------------------------------------------
-
 /// String-similarity search, results sorted by `strsim::jaro_winkler` score.
 pub struct StrSimSearch<'a> {
     apt_db: &'a AptDb,
@@ -527,10 +519,7 @@ impl OmaSearch for StrSimSearch<'_> {
 
             let installed = self.dpkg.is_installed(name);
             let upgradable = installed
-                && is_upgradable(
-                    entry.version.as_ref(),
-                    self.dpkg.installed_versions.get(name.as_str()),
-                );
+                && is_upgradable(entry.version.as_ref(), self.dpkg.installed_versions.get(name.as_str()));
             let score = (strsim::jaro_winkler(name, query_lower.as_str()) * 1000.0) as u16;
 
             scored.push((name.clone(), score, installed, upgradable));
@@ -567,8 +556,8 @@ impl OmaSearch for StrSimSearch<'_> {
                     })
                     .unwrap_or_else(|| "No description".to_string());
 
-                let has_dbg =
-                    entry.is_some_and(|_| self.apt_db.has_package(&format!("{name}-dbg")));
+                let has_dbg = entry
+                    .is_some_and(|_| self.apt_db.has_package(&format!("{name}-dbg")));
 
                 SearchResult {
                     name: name.clone(),
@@ -637,10 +626,7 @@ impl OmaSearch for TextSearch<'_> {
 
             let installed = self.dpkg.is_installed(name);
             let upgradable = installed
-                && is_upgradable(
-                    entry.version.as_ref(),
-                    self.dpkg.installed_versions.get(name.as_str()),
-                );
+                && is_upgradable(entry.version.as_ref(), self.dpkg.installed_versions.get(name.as_str()));
 
             let (old_version, new_version) = extract_versions(
                 if upgradable {

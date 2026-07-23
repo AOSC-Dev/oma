@@ -1,7 +1,9 @@
 //! Cached APT package database — parsed `Packages` files with binary cache support.
 
-use std::collections::HashSet;
+use std::fs;
+use std::io::Read;
 use std::path::Path;
+use std::{collections::HashSet, io::Write};
 
 use serde::{Deserialize, Serialize};
 use spdlog::debug;
@@ -22,7 +24,8 @@ pub struct AptDb {
 impl AptDb {
     /// Build from a vector of entries (from parsing).
     pub(crate) fn from_entries(entries: Vec<PackageEntry>) -> Self {
-        let available_names = entries.iter().map(|e| e.package.clone()).collect();
+        let available_names = entries.clone().into_iter().map(|e| e.package).collect();
+
         Self {
             entries,
             available_names,
@@ -41,23 +44,23 @@ impl AptDb {
             debug!("AptDb cache hit: {}", cache_path.as_ref().display());
             return Ok(db);
         }
+
         debug!("AptDb cache miss: {}", cache_path.as_ref().display());
         let entries = parse_apt_lists_dir(lists_dir)
             .map_err(|e| format!("Failed to parse apt lists: {e}"))?;
         let db = Self::from_entries(entries);
+
         if let Err(e) = db.save_cache(&cache_path) {
             debug!("Failed to save AptDb cache: {e}");
         } else {
             debug!("AptDb cache saved: {}", cache_path.as_ref().display());
         }
+
         Ok(db)
     }
 
     /// Try to load from a previously saved cache file.
     pub(crate) fn load_cache(path: impl AsRef<Path>) -> Option<Self> {
-        use std::fs;
-        use std::io::Read;
-
         let mut file = fs::File::open(path.as_ref()).ok()?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf).ok()?;
@@ -73,9 +76,6 @@ impl AptDb {
 
     /// Save to a binary cache file.
     pub(crate) fn save_cache(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
-        use std::fs;
-        use std::io::Write;
-
         if let Some(parent) = path.as_ref().parent() {
             fs::create_dir_all(parent)?;
         }
@@ -85,13 +85,12 @@ impl AptDb {
 
         let mut file = fs::File::create(path.as_ref())?;
         file.write_all(&encoded)?;
+
         Ok(())
     }
 
     /// Check whether the cache is still valid by comparing mtimes with source files.
     pub(crate) fn cache_valid(cache_path: impl AsRef<Path>, lists_dir: impl AsRef<Path>) -> bool {
-        use std::fs;
-
         let cache_mtime = match fs::metadata(&cache_path).and_then(|m| m.modified()) {
             Ok(t) => t,
             Err(_) => return false,
@@ -107,15 +106,19 @@ impl AptDb {
                 Ok(e) => e,
                 Err(_) => continue,
             };
+
             let name = entry.file_name();
             let name = name.to_string_lossy();
+
             if !name.ends_with("_Packages") {
                 continue;
             }
+
             let src_mtime = match entry.metadata().and_then(|m| m.modified()) {
                 Ok(t) => t,
                 Err(_) => continue,
             };
+
             if src_mtime > cache_mtime {
                 return false;
             }

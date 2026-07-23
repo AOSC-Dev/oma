@@ -9,11 +9,6 @@ pub fn get_lists_dir() -> PathBuf {
     ))
 }
 
-/// Read apt-configured paths for the given sysroot.
-///
-/// Returns `(lists_dir, dpkg_status_path, apt_cache_path, search_cache_path)`.
-/// Requires apt config to already be initialized (done at startup in `main.rs`).
-///
 /// oma display normal message
 #[macro_export]
 macro_rules! msg {

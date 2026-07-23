@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::dpkg::parse_dpkg_status;
 
-/// Freshly-parsed dpkg status information.
+/// Parsed dpkg status information.
 ///
 /// Always parsed from `/var/lib/dpkg/status` — no caching since it's a single
 /// small file and changes frequently (after every package operation).
@@ -21,7 +21,8 @@ impl DpkgState {
     /// Parse dpkg status from the given status file path.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, String> {
         let dpkg_packages =
-            parse_dpkg_status(path).map_err(|e| format!("Failed to parse dpkg status: {e}"))?;
+            parse_dpkg_status(path)
+                .map_err(|e| format!("Failed to parse dpkg status: {e}"))?;
 
         let installed: HashSet<String> = dpkg_packages
             .iter()
@@ -31,7 +32,7 @@ impl DpkgState {
 
         let installed_versions: HashMap<String, String> = dpkg_packages
             .iter()
-            .filter(|p| p.selection_state().is_installed())
+            .filter(|&p| p.selection_state().is_installed())
             .map(|p| (p.name.clone(), p.version.clone().unwrap_or_default()))
             .collect();
 
