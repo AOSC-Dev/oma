@@ -1,9 +1,9 @@
 //! Cached APT package database — parsed `Packages` files with binary cache support.
 
-use std::fs;
 use std::io::Read;
 use std::path::Path;
 use std::{collections::HashSet, io::Write};
+use std::{fs, io};
 
 use serde::{Deserialize, Serialize};
 use spdlog::debug;
@@ -38,11 +38,14 @@ impl AptDb {
         cache_path: impl AsRef<Path>,
         lists_dir: impl AsRef<Path>,
     ) -> Result<Self, crate::error::Error> {
-        if Self::cache_valid(&cache_path, &lists_dir)
-            && let Some(db) = Self::load_cache(&cache_path)
-        {
-            debug!("AptDb cache hit: {}", cache_path.as_ref().display());
-            return Ok(db);
+        if Self::cache_valid(&cache_path, &lists_dir) {
+            match Self::load_cache(&cache_path) {
+                Ok(db) => {
+                    debug!("AptDb cache hit: {}", cache_path.as_ref().display());
+                    return Ok(db);
+                }
+                Err(e) => debug!("AptDb cache invalid, rebuilding: {e}"),
+            }
         }
 
         debug!("AptDb cache miss: {}", cache_path.as_ref().display());
@@ -59,16 +62,16 @@ impl AptDb {
     }
 
     /// Try to load from a saved cache file.
-    pub(crate) fn load_cache(path: impl AsRef<Path>) -> Option<Self> {
-        let mut file = fs::File::open(path.as_ref()).ok()?;
+    pub(crate) fn load_cache(path: impl AsRef<Path>) -> io::Result<Self> {
         let mut buf = Vec::new();
-        file.read_to_end(&mut buf).ok()?;
+        fs::File::open(path.as_ref()).and_then(|mut f| f.read_to_end(&mut buf))?;
 
-        let mut db: Self = postcard::from_bytes(&buf).ok()?;
+        let mut db: Self = postcard::from_bytes(&buf)
+            .map_err(|e| std::io::Error::other(format!("Failed to decode cache: {e}")))?;
 
         // Rebuild the transient field
         db.available_names = db.entries.iter().map(|e| e.package.clone()).collect();
-        Some(db)
+        Ok(db)
     }
 
     /// Save to a binary cache file.
@@ -77,8 +80,7 @@ impl AptDb {
             fs::create_dir_all(parent)?;
         }
 
-        let encoded = postcard::to_allocvec(&self)
-            .map_err(std::io::Error::other)?;
+        let encoded = postcard::to_allocvec(&self).map_err(std::io::Error::other)?;
 
         let mut file = fs::File::create(path.as_ref())?;
         file.write_all(&encoded)?;
