@@ -201,10 +201,9 @@ impl OmaConfig {
         oma_apt::config::init_config_system();
 
         if !is_termux() {
-            oma_apt::raw::config::set(
-                "Dir".to_string(),
-                self.sysroot.to_string_lossy().to_string(),
-            );
+            let sysroot = self.sysroot.to_string_lossy().to_string();
+            oma_apt::raw::config::set("Dir".to_string(), sysroot.clone());
+            oma_apt::raw::config::set("RootDir".to_string(), sysroot);
         }
 
         for kv in &self.apt_options {
