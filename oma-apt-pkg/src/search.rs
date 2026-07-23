@@ -3,7 +3,8 @@
 //! Builds a search index from parsed APT list entries and dpkg status,
 //! without depending on the C++ `oma-apt` binding.
 
-use std::collections::HashMap;
+use std::io::Write;
+use std::{collections::HashMap, fs};
 use std::str::FromStr;
 
 use ahash::RandomState;
@@ -431,9 +432,6 @@ impl IndiciumSearch {
 
     /// Save the search index (pkg_map) to a binary cache file.
     fn save_search_cache(&self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
-        use std::fs;
-        use std::io::Write;
-
         if let Some(parent) = path.as_ref().parent() {
             fs::create_dir_all(parent)?;
         }
