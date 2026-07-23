@@ -240,14 +240,9 @@ fn local_searcher(
         "Dir::State::status".to_string(),
         "var/lib/dpkg/status".to_string(),
     );
-    let apt_cache = apt_config::find_file(
-        "Dir::Cache::oma-aptdb".to_string(),
-        "var/cache/apt/oma-aptdb.bincode".to_string(),
-    );
-    let search_cache = apt_config::find_file(
-        "Dir::Cache::oma-search".to_string(),
-        "var/cache/apt/oma-search.bincode".to_string(),
-    );
+    let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
+    let search_cache =
+        crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
     let searcher = IndiciumSearch::from_paths(
         &lists_dir,
         &dpkg_path,
