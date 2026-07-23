@@ -4,6 +4,7 @@
 //! without depending on the C++ `oma-apt` binding.
 
 use std::io::Write;
+use std::path::Path;
 use std::str::FromStr;
 use std::{collections::HashMap, fs};
 
@@ -316,42 +317,35 @@ impl IndiciumSearch {
 }
 
 impl IndiciumSearch {
-    /// Build a search index from explicit paths, handling cache automatically.
+    /// Build a search index, optionally loading from search cache when valid.
     ///
-    /// Cache hierarchy (fastest first):
-    /// 1. `search_cache_path` — serialized `pkg_map`; avoids rebuilding `SearchIndex`.
-    /// 2. `apt_cache_path` — serialized `Vec<PackageEntry>`; avoids re-parsing deb822.
-    /// 3. Cold path — parse from scratch.
-    ///
-    /// After loading (any tier) the search index is refreshed with current dpkg
-    /// status via `refresh_status`.
-    pub fn from_paths(
-        lists_dir: impl AsRef<std::path::Path>,
-        dpkg_status_path: impl AsRef<std::path::Path>,
-        apt_cache_path: impl AsRef<std::path::Path>,
-        search_cache_path: impl AsRef<std::path::Path>,
+    /// * If `search_cache_path` is valid the index is loaded from cache
+    ///   (fastest path) and the status is refreshed from `dpkg`.
+    /// * Otherwise the index is built from `apt_db` + `dpkg` and persisted
+    ///   to the search cache for next time.
+    pub fn new_with_cache(
+        apt_db: &AptDb,
+        dpkg: &DpkgState,
+        lists_dir: impl AsRef<Path>,
+        search_cache_path: impl AsRef<Path>,
         search_type: SearchType,
         progress: impl Fn(usize),
     ) -> Result<Self, crate::error::Error> {
         // Tier 1: try search cache (fastest)
         if Self::search_cache_valid(&search_cache_path, &lists_dir) {
-            let dpkg = DpkgState::from_file(&dpkg_status_path)?;
             if let Some(mut searcher) =
                 Self::load_search_cache(&search_cache_path, search_type.clone())
             {
                 debug!("Search cache hit");
-                searcher.refresh_status(&dpkg);
+                searcher.refresh_status(dpkg);
                 return Ok(searcher);
             }
         }
 
-        debug!("Search cache miss, trying AptDb cache");
-        // Tier 2: try apt DB cache
-        let dpkg = DpkgState::from_file(&dpkg_status_path)?;
-        let apt_db = AptDb::load_or_build(&apt_cache_path, &lists_dir)?;
+        debug!("Search cache miss, building index ...");
 
-        let mut searcher = Self::new(&apt_db, &dpkg, search_type, progress);
-        searcher.refresh_status(&dpkg);
+        let mut searcher = Self::new(apt_db, dpkg, search_type, progress);
+        searcher.refresh_status(dpkg);
 
         // Persist search cache for next time
         if let Err(e) = searcher.save_search_cache(&search_cache_path) {
@@ -365,10 +359,7 @@ impl IndiciumSearch {
 
     /// Check whether the search cache is still valid by comparing mtimes with
     /// the `*_Packages` source files.
-    fn search_cache_valid(
-        cache_path: impl AsRef<std::path::Path>,
-        lists_dir: impl AsRef<std::path::Path>,
-    ) -> bool {
+    fn search_cache_valid(cache_path: impl AsRef<Path>, lists_dir: impl AsRef<Path>) -> bool {
         use std::fs;
 
         let cache_mtime = match fs::metadata(&cache_path).and_then(|m| m.modified()) {
@@ -403,10 +394,7 @@ impl IndiciumSearch {
     }
 
     /// Try to load a previously saved search index from its binary cache.
-    fn load_search_cache(
-        path: impl AsRef<std::path::Path>,
-        search_type: SearchType,
-    ) -> Option<Self> {
+    fn load_search_cache(path: impl AsRef<Path>, search_type: SearchType) -> Option<Self> {
         use std::fs;
         use std::io::Read;
 
@@ -431,7 +419,7 @@ impl IndiciumSearch {
     }
 
     /// Save the search index (pkg_map) to a binary cache file.
-    fn save_search_cache(&self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
+    fn save_search_cache(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
         if let Some(parent) = path.as_ref().parent() {
             fs::create_dir_all(parent)?;
         }

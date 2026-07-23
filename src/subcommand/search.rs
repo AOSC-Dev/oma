@@ -6,6 +6,7 @@ use oma_apt_pkg::search::{
     IndiciumSearch, OmaSearch as _, PackageStatus, SearchResult, SearchType, StrSimSearch,
     TextSearch,
 };
+use oma_apt_pkg::{AptDb, DpkgState};
 use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
 use oma_pm::matches::SearchEngine;
 use oma_pm::oma_apt::raw::config as apt_config;
@@ -236,7 +237,7 @@ fn to_output_err(e: impl std::fmt::Display) -> OutputError {
     }
 }
 
-fn load_apt_db_and_dpkg() -> Result<(oma_apt_pkg::AptDb, oma_apt_pkg::DpkgState), OutputError> {
+fn load_apt_db_and_dpkg() -> Result<(AptDb, DpkgState), OutputError> {
     let lists_dir = apt_config::find_dir(
         "Dir::State::lists".to_string(),
         "var/lib/apt/lists".to_string(),
@@ -246,18 +247,17 @@ fn load_apt_db_and_dpkg() -> Result<(oma_apt_pkg::AptDb, oma_apt_pkg::DpkgState)
         "var/lib/dpkg/status".to_string(),
     );
     let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
-    let _search_cache =
-        crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
-    let apt_db =
-        oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| OutputError {
-            description: e.to_string(),
-            source: None,
-        })?;
-    let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
+    let apt_db = AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| OutputError {
         description: e.to_string(),
         source: None,
     })?;
+
+    let dpkg = DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
+        description: e.to_string(),
+        source: None,
+    })?;
+
     Ok((apt_db, dpkg))
 }
 
@@ -265,22 +265,20 @@ fn local_indicium_search(
     f: Box<dyn Fn(usize) + 'static>,
     query: String,
 ) -> Result<Vec<SearchResult>, OutputError> {
+    let (apt_db, dpkg) = load_apt_db_and_dpkg()?;
+
     let lists_dir = apt_config::find_dir(
         "Dir::State::lists".to_string(),
         "var/lib/apt/lists".to_string(),
     );
-    let dpkg_path = apt_config::find_file(
-        "Dir::State::status".to_string(),
-        "var/lib/dpkg/status".to_string(),
-    );
-    let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
+
     let search_cache =
         crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
-    let searcher = IndiciumSearch::from_paths(
+    let searcher = IndiciumSearch::new_with_cache(
+        &apt_db,
+        &dpkg,
         &lists_dir,
-        &dpkg_path,
-        &apt_cache,
         &search_cache,
         SearchType::Live,
         f,

@@ -240,10 +240,22 @@ fn local_searcher(pb: &Option<crate::pb::OmaProgressBar>) -> Result<Searcher, Ou
     let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
     let search_cache =
         crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
-    let searcher = IndiciumSearch::from_paths(
+
+    let dpkg =
+        oma_apt_pkg::DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
+            description: e.to_string(),
+            source: None,
+        })?;
+    let apt_db =
+        oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| OutputError {
+            description: e.to_string(),
+            source: None,
+        })?;
+
+    let searcher = IndiciumSearch::new_with_cache(
+        &apt_db,
+        &dpkg,
         &lists_dir,
-        &dpkg_path,
-        &apt_cache,
         &search_cache,
         SearchType::Live,
         |n| {
