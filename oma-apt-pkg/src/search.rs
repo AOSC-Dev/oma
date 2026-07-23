@@ -14,7 +14,7 @@ use memchr::memmem;
 use serde::{Deserialize, Serialize};
 use spdlog::debug;
 
-use crate::{AptDb, DpkgState};
+use crate::{AptDb, DpkgState, parse_dep_list};
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
 type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
@@ -180,17 +180,6 @@ impl OmaSearch for IndiciumSearch {
     }
 }
 
-/// Parse a `Provides` field value into individual virtual package names.
-/// Format: `"foo, bar (= 1.0), baz"` → `["foo", "bar", "baz"]`
-fn parse_provides(value: &str) -> Vec<String> {
-    value
-        .split(',')
-        .map(|s| s.trim())
-        .filter_map(|s| s.split_whitespace().next())
-        .map(|s| s.to_string())
-        .collect()
-}
-
 impl IndiciumSearch {
     /// Build a new search index from an `AptDb` (package entries) and `DpkgState`.
     ///
@@ -256,10 +245,15 @@ impl IndiciumSearch {
                 .map(|d| d.lines().next().unwrap_or(d).to_string())
                 .unwrap_or_else(|| "No description".to_string());
 
-            let provides = entry
+            let provides: IndexSet<String> = entry
                 .provides
                 .as_deref()
-                .map(parse_provides)
+                .map(|v| {
+                    parse_dep_list(v)
+                        .into_iter()
+                        .map(|d| d.name)
+                        .collect()
+                })
                 .unwrap_or_default();
 
             let has_dbg = apt_db.has_package(&format!("{name}-dbg"));
@@ -701,31 +695,6 @@ fn extract_versions(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_provides_simple() {
-        assert_eq!(
-            parse_provides("fish, fisher, fisherman"),
-            vec!["fish", "fisher", "fisherman"]
-        );
-    }
-
-    #[test]
-    fn test_parse_provides_with_version_constraint() {
-        let result = parse_provides("foo (= 1.0), bar (>= 2.0), baz");
-        assert_eq!(result, vec!["foo", "bar", "baz"]);
-    }
-
-    #[test]
-    fn test_parse_provides_empty() {
-        let result: Vec<String> = parse_provides("");
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn test_parse_provides_single() {
-        assert_eq!(parse_provides("sh"), vec!["sh"]);
-    }
 
     #[test]
     fn test_is_upgradable_newer_candidate() {
