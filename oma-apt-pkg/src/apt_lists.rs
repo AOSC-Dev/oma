@@ -11,7 +11,6 @@ pub enum AptListsError {
     Io(#[from] std::io::Error),
     #[error("Failed to parse deb822 data in {path}: {detail}")]
     Parse { path: String, detail: String },
-
 }
 
 /// A single package entry from a Packages file
@@ -93,10 +92,12 @@ pub fn parse_single_packages_file(
 
     let entries: Vec<PackageEntry> = deb822
         .iter()
-        .map(|p| PackageEntry::from_paragraph(p).map_err(|e| AptListsError::Parse {
-            path: path.to_string_lossy().to_string(),
-            detail: e,
-        }))
+        .map(|p| {
+            PackageEntry::from_paragraph(p).map_err(|e| AptListsError::Parse {
+                path: path.to_string_lossy().to_string(),
+                detail: e,
+            })
+        })
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(entries)

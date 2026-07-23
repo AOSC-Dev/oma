@@ -13,7 +13,7 @@ use crate::apt_lists::{PackageEntry, parse_apt_lists_dir};
 /// Parsed and cached APT package database.
 ///
 /// Wraps all `PackageEntry` items from `*_Packages` files and can be
-/// persisted to / loaded from a binary cache file for fast startup.
+/// pased to / loaded from a binary cache file
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AptDb {
     pub(crate) entries: Vec<PackageEntry>,
@@ -59,7 +59,7 @@ impl AptDb {
         Ok(db)
     }
 
-    /// Try to load from a previously saved cache file.
+    /// Try to load from a saved cache file.
     pub(crate) fn load_cache(path: impl AsRef<Path>) -> Option<Self> {
         let mut file = fs::File::open(path.as_ref()).ok()?;
         let mut buf = Vec::new();
@@ -126,7 +126,7 @@ impl AptDb {
         true
     }
 
-    /// Check if a package name exists in the database (for `-dbg` lookups).
+    /// Check if a package name exists in the database
     pub fn has_package(&self, name: &str) -> bool {
         self.available_names.contains(name)
     }

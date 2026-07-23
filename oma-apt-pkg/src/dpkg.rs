@@ -28,8 +28,6 @@ impl SelectionState {
     }
 }
 
-
-
 /// Information about a single package from dpkg status.
 #[derive(Debug, Clone, FromDeb822)]
 pub struct DpkgPackage {
@@ -62,7 +60,6 @@ impl DpkgPackage {
             SelectionState::Unknown
         }
     }
-
 }
 /// Parse `/var/lib/dpkg/status` and return full package information.
 pub fn parse_dpkg_status(path: impl AsRef<Path>) -> Result<Vec<DpkgPackage>, DpkgError> {
@@ -72,9 +69,8 @@ pub fn parse_dpkg_status(path: impl AsRef<Path>) -> Result<Vec<DpkgPackage>, Dpk
     deb822
         .iter()
         .map(|para| {
-            DpkgPackage::from_paragraph(para).map_err(|e| DpkgError::Deb822(
-                deb822_fast::Error::Io(std::io::Error::other(e)),
-            ))
+            DpkgPackage::from_paragraph(para)
+                .map_err(|e| DpkgError::Deb822(deb822_fast::Error::Io(std::io::Error::other(e))))
         })
         .collect()
 }
