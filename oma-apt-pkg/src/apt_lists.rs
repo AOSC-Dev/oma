@@ -11,11 +11,10 @@ pub enum AptListsError {
     Io(#[from] std::io::Error),
     #[error("Failed to parse deb822 data in {path}: {detail}")]
     Parse { path: String, detail: String },
-    #[error("No Packages files found in directory: {0}")]
-    NoPackagesFiles(String),
+
 }
 
-/// A single package entry from a Packages file (one paragraph).
+/// A single package entry from a Packages file
 #[derive(Debug, Clone, Serialize, Deserialize, FromDeb822)]
 pub struct PackageEntry {
     pub package: String,
@@ -47,10 +46,10 @@ pub struct PackageEntry {
     pub sha256: Option<String>,
 }
 
-/// Parsed contents of a single Packages file.
+/// Parsed contents of a single Packages file
 #[derive(Debug, Clone)]
 pub struct PackagesFile {
-    /// The source filename (e.g. `archive_dists_sid_main_binary-amd64_Packages`).
+    /// The source filename (e.g. `archive_dists_sid_main_binary-amd64_Packages`)
     pub source: String,
     pub entries: Vec<PackageEntry>,
 }
@@ -62,8 +61,6 @@ pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, 
     let dir = path.as_ref();
     let mut all_packages = Vec::new();
 
-    let mut found_any = false;
-
     for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
         let entry = entry.map_err(AptListsError::Io)?;
         let file_name = entry.file_name();
@@ -73,15 +70,8 @@ pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, 
             continue;
         }
 
-        found_any = true;
         let entries = parse_single_packages_file(entry.path())?;
         all_packages.extend(entries);
-    }
-
-    if !found_any {
-        return Err(AptListsError::NoPackagesFiles(
-            dir.to_string_lossy().to_string(),
-        ));
     }
 
     Ok(all_packages)
