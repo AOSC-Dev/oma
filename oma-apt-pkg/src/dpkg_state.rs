@@ -22,17 +22,16 @@ impl DpkgState {
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, crate::error::Error> {
         let dpkg_packages = parse_dpkg_status(path)?;
 
-        let installed: HashSet<String> = dpkg_packages
-            .iter()
-            .filter(|p| p.selection_state().is_installed())
-            .map(|p| p.name.clone())
-            .collect();
+        let mut installed = HashSet::new();
+        let mut installed_versions = HashMap::new();
 
-        let installed_versions: HashMap<String, String> = dpkg_packages
-            .iter()
-            .filter(|&p| p.selection_state().is_installed())
-            .map(|p| (p.name.clone(), p.version.clone().unwrap_or_default()))
-            .collect();
+        for p in &dpkg_packages {
+            if p.selection_state().is_installed() {
+                installed.insert(p.name.clone());
+                installed_versions
+                    .insert(p.name.clone(), p.version.clone().unwrap_or_default());
+            }
+        }
 
         Ok(Self {
             installed,
