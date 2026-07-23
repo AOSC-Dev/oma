@@ -348,7 +348,7 @@ impl IndiciumSearch {
         search_cache_path: impl AsRef<std::path::Path>,
         search_type: SearchType,
         progress: impl Fn(usize),
-    ) -> Result<Self, String> {
+    ) -> Result<Self, crate::error::Error> {
         // Tier 1: try search cache (fastest)
         if Self::search_cache_valid(&search_cache_path, &lists_dir) {
             let dpkg = DpkgState::from_file(&dpkg_status_path)?;

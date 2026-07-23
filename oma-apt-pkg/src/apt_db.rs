@@ -37,7 +37,7 @@ impl AptDb {
     pub fn load_or_build(
         cache_path: impl AsRef<Path>,
         lists_dir: impl AsRef<Path>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, crate::error::Error> {
         if Self::cache_valid(&cache_path, &lists_dir)
             && let Some(db) = Self::load_cache(&cache_path)
         {
@@ -46,8 +46,7 @@ impl AptDb {
         }
 
         debug!("AptDb cache miss: {}", cache_path.as_ref().display());
-        let entries = parse_apt_lists_dir(lists_dir)
-            .map_err(|e| format!("Failed to parse apt lists: {e}"))?;
+        let entries = parse_apt_lists_dir(lists_dir)?;
         let db = Self::from_entries(entries);
 
         if let Err(e) = db.save_cache(&cache_path) {

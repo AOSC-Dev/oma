@@ -262,7 +262,7 @@ fn local_searcher(
         },
     )
     .map_err(|e| OutputError {
-        description: e,
+        description: e.to_string(),
         source: None,
     })?;
     Ok(Searcher::Local(Box::new(searcher)))

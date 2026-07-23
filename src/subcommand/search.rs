@@ -261,11 +261,11 @@ fn load_apt_db_and_dpkg() -> Result<(oma_apt_pkg::AptDb, oma_apt_pkg::DpkgState)
 
     let apt_db =
         oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| OutputError {
-            description: e,
+            description: e.to_string(),
             source: None,
         })?;
     let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
-        description: e,
+        description: e.to_string(),
         source: None,
     })?;
     Ok((apt_db, dpkg))
@@ -301,7 +301,7 @@ fn local_indicium_search(
         f,
     )
     .map_err(|e| OutputError {
-        description: e,
+        description: e.to_string(),
         source: None,
     })?;
 
