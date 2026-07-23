@@ -7,7 +7,7 @@ use winnow::{
     token::{literal, take_till},
 };
 
-/// The version constraint operator in a dependency.
+/// Version constraint operators in a dependency.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Relation {
     /// << (less than)
@@ -76,7 +76,9 @@ fn version_string<'a>(input: &mut &'a str) -> ModalResult<&'a str> {
     take_till(1.., |c: char| c.is_whitespace() || c == ')').parse_next(input)
 }
 
-/// Version constraint: `(REL version)`
+/// Version constraint expression in a parenthetical expression.
+///
+/// e.g., libc6 (>= 2.38)
 fn version_constraint<'a>(input: &mut &'a str) -> ModalResult<(Relation, &'a str)> {
     delimited(
         preceded(space0, literal("(")),

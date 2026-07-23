@@ -1,4 +1,4 @@
-//! oma package database — parsed apt `Packages` files with binary cache support.
+//! oma package database — Parse APT `Packages` files with binary cache support.
 
 use std::io::Read;
 use std::path::Path;
@@ -10,7 +10,7 @@ use wincode::{SchemaRead, SchemaWrite};
 
 use crate::apt_lists::{PackageEntry, parse_apt_lists_dir};
 
-/// Parsed and cached APT package database.
+/// Parse and cache APT package database.
 ///
 /// Wraps all `PackageEntry` items from `*_Packages` files and can be
 /// pased to / loaded from a binary cache file

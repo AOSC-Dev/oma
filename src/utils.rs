@@ -12,9 +12,9 @@ pub fn get_lists_dir() -> PathBuf {
 /// Return a writable cache path for APT data files.
 ///
 /// When running as root the system APT cache (`/var/cache/apt/`) is used
-/// via `apt_config::find_file`.  For non-root users
-/// [`dirs::cache_dir`]`/oma/` (typically `$HOME/.cache/oma/`) is used
-/// instead so that the cache file can actually be written.
+/// via `apt_config::find_file`.  For non-root users, this will be found under
+/// [`dirs::cache_dir`] (typically `$HOME/.cache/oma/`) instead, so that the
+/// cache file can be written by an unprivileged user.
 #[inline]
 pub fn get_apt_cache_path(key: &str, filename: &str) -> String {
     if crate::root::is_root() {

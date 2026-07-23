@@ -45,7 +45,7 @@ pub struct PackageEntry {
     pub sha256: Option<String>,
 }
 
-/// Parsed contents of a single Packages file
+/// Parse contents of a single Packages file
 #[derive(Debug, Clone)]
 pub struct PackagesFile {
     /// The source filename (e.g. `archive_dists_sid_main_binary-amd64_Packages`)
