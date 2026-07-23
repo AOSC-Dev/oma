@@ -1,4 +1,4 @@
-//! Parsing of deb822 dependency list fields (Depends, Recommends, Provides, etc.).
+//! Parse DEB822 dependency fields (Depends, Recommends, etc.)
 
 use winnow::{
     ModalResult, Parser,
@@ -10,7 +10,7 @@ use winnow::{
 /// The version constraint operator in a dependency.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Relation {
-    /// << (strictly less than)
+    /// << (less than)
     Lt,
     /// <= (less than or equal)
     Le,
@@ -18,7 +18,7 @@ pub enum Relation {
     Eq,
     /// >= (greater than or equal)
     Ge,
-    /// >> (strictly greater than)
+    /// >> (greater than)
     Gt,
 }
 

@@ -1,4 +1,4 @@
-//! Cached APT package database — parsed `Packages` files with binary cache support.
+//! oma package database — parsed apt `Packages` files with binary cache support.
 
 use std::io::Read;
 use std::path::Path;
@@ -39,21 +39,27 @@ impl AptDb {
         if Self::cache_valid(&cache_path, &lists_dir) {
             match Self::load_cache(&cache_path) {
                 Ok(db) => {
-                    debug!("AptDb cache hit: {}", cache_path.as_ref().display());
+                    debug!(
+                        "oma packages database cache hit: {}",
+                        cache_path.as_ref().display()
+                    );
                     return Ok(db);
                 }
-                Err(e) => debug!("AptDb cache invalid, rebuilding: {e}"),
+                Err(e) => debug!("oma packages database cache invalid, rebuilding: {e}"),
             }
         }
 
-        debug!("AptDb cache miss: {}", cache_path.as_ref().display());
+        debug!("oma packages database cache miss: {}", cache_path.as_ref().display());
         let entries = parse_apt_lists_dir(lists_dir)?;
         let db = Self::from_entries(entries);
 
         if let Err(e) = db.save_cache(&cache_path) {
-            debug!("Failed to save AptDb cache: {e}");
+            debug!("Failed to save oma packages database cache: {e}");
         } else {
-            debug!("AptDb cache saved: {}", cache_path.as_ref().display());
+            debug!(
+                "oma packages database cache saved: {}",
+                cache_path.as_ref().display()
+            );
         }
 
         Ok(db)
