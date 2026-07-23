@@ -651,14 +651,14 @@ impl OmaSearch for TextSearch<'_> {
 }
 
 /// Sort results by status (Upgrade > Installed > Avail)
-/// and promote full-match entries to the front.
+/// and make full-match entries to the front.
 fn sort_and_promote(results: &mut [SearchResult]) {
-    results.sort_by(|a, b| {
-        let cmp = b.status.cmp(&a.status);
-        if cmp != std::cmp::Ordering::Equal {
-            return cmp;
-        }
-        a.full_match.cmp(&b.full_match).reverse()
+    results.sort_by(|a, b| match (a.full_match, b.full_match) {
+        // Full-match 的包总在最前面
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        // 如果没有 full match 的包，则排序包的状态
+        _ => b.status.cmp(&a.status),
     });
 }
 

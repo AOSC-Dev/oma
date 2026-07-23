@@ -224,11 +224,6 @@ pub fn search(
                 result.extend(res);
             }
 
-            if keywords.len() > 1 {
-                result.sort_by_key(|b| std::cmp::Reverse(b.status));
-                result.sort_by_key(|b| std::cmp::Reverse(b.full_match));
-            }
-
             Ok(result)
         }
     }
