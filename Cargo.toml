@@ -212,7 +212,7 @@ oma-mirror = { version = "0.8.2", path = "./oma-mirror" }
 apt-auth-config = { version = "0.6.0", path = "./apt-auth-config" }
 oma-tum = { version = "0.6.1", path = "./oma-tum" }
 oma-pm-operation-type = { version = "0.10.1", path = "./oma-pm-operation-type" }
-oma-apt-pkg = { version = "0.1.0", path = "./oma-apt-pkg" }
+oma-apt-pkg = { version = "0.2.0", path = "./oma-apt-pkg" }
 oma-apt = "0.13"
 oma-apt-sources-lists = "0.9"
 oma-inquire = "0.3"
