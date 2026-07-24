@@ -277,6 +277,7 @@ impl IndiciumSearch {
             .search_type(search_type)
             .exclude_keywords(None)
             .build();
+
         pkg_map.iter().for_each(|(key, value)| {
             search_index.insert(key, value);
         });
@@ -287,31 +288,76 @@ impl IndiciumSearch {
         }
     }
 
-    /// Refresh the status and version information of all entries from fresh
-    /// dpkg status data, without rebuilding the full-text search index.
-    pub fn refresh_status(&mut self, dpkg: &DpkgState) {
-        for entry in self.pkg_map.values_mut() {
-            let (status, old_ver, new_ver) = if dpkg.installed.contains(entry.name.as_str()) {
-                let inst_ver = dpkg.installed_versions.get(&entry.name).cloned();
-                if is_upgradable(
-                    Some(&entry.new_version),
-                    dpkg.installed_versions.get(&entry.name),
-                ) {
-                    (PackageStatus::Upgrade, inst_ver, entry.new_version.clone())
+    /// Refreshes the package status of existing entries and adds
+    /// new entries that appear in `apt_db` but have not yet been included
+    /// in the search index (e.g packages added to the software
+    /// sources since the search cache was created).
+    pub fn refresh_from(&mut self, apt_db: &AptDb, dpkg: &DpkgState) {
+        for entry in &apt_db.entries {
+            let name = &entry.package;
+            if name.ends_with("-dbg") {
+                continue;
+            }
+
+            let is_new = !self.pkg_map.contains_key(name);
+
+            if is_new {
+                // 源里的新包
+                let has_dbg = apt_db.has_package(&format!("{name}-dbg"));
+
+                let provides: IndexSet<String> = entry
+                    .provides
+                    .as_deref()
+                    .map(|v| parse_dep_list(v).into_iter().map(|d| d.name).collect())
+                    .unwrap_or_default();
+
+                let section_is_base = entry.section.as_deref().is_some_and(|s| s == "Bases");
+                let description = entry
+                    .description
+                    .as_deref()
+                    .map(|d| d.lines().next().unwrap_or(d).to_string())
+                    .unwrap_or_else(|| "No description".to_string());
+
+                self.pkg_map.insert(
+                    name.clone(),
+                    SearchEntry {
+                        name: name.clone(),
+                        description,
+                        status: PackageStatus::Avail,
+                        provides,
+                        has_dbg,
+                        section_is_base,
+                        old_version: None,
+                        new_version: entry.version.clone().unwrap_or_default(),
+                    },
+                );
+
+                self.index.insert(name, &self.pkg_map[name]);
+            }
+
+            let pkg_entry = self.pkg_map.get_mut(name).unwrap();
+
+            // 更新已安装的包的状态
+            if dpkg.installed.contains(name.as_str()) {
+                let inst_ver = dpkg.installed_versions.get(name).cloned();
+                if is_upgradable(entry.version.as_ref(), dpkg.installed_versions.get(name)) {
+                    pkg_entry.status = PackageStatus::Upgrade;
+                    pkg_entry.old_version = inst_ver;
+                    if let Some(ref v) = entry.version {
+                        pkg_entry.new_version.clone_from(v);
+                    }
                 } else {
-                    (
-                        PackageStatus::Installed,
-                        inst_ver,
-                        entry.new_version.clone(),
-                    )
+                    pkg_entry.status = PackageStatus::Installed;
+                    pkg_entry.old_version = inst_ver;
                 }
             } else {
-                (PackageStatus::Avail, None, entry.new_version.clone())
-            };
-
-            entry.status = status;
-            entry.old_version = old_ver;
-            entry.new_version = new_ver;
+                // 未安装的包
+                pkg_entry.status = PackageStatus::Avail;
+                pkg_entry.old_version = None;
+                if let Some(ref v) = entry.version {
+                    pkg_entry.new_version.clone_from(v);
+                }
+            }
         }
     }
 }
@@ -337,14 +383,13 @@ impl IndiciumSearch {
                 Self::load_search_cache(&search_cache_path, search_type.clone())
         {
             debug!("Search cache hit");
-            searcher.refresh_status(dpkg);
+            searcher.refresh_from(apt_db, dpkg);
             return Ok(searcher);
         }
 
         debug!("Search cache miss, building index ...");
 
-        let mut searcher = Self::new(apt_db, dpkg, search_type, progress);
-        searcher.refresh_status(dpkg);
+        let searcher = Self::new(apt_db, dpkg, search_type, progress);
 
         // Persist search cache for next time
         if let Err(e) = searcher.save_search_cache(&search_cache_path) {
