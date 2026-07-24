@@ -241,11 +241,10 @@ fn local_searcher(pb: &Option<crate::pb::OmaProgressBar>) -> Result<Searcher, Ou
     let search_cache =
         crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
-    let dpkg =
-        oma_apt_pkg::DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
-            description: e.to_string(),
-            source: None,
-        })?;
+    let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
+        description: e.to_string(),
+        source: None,
+    })?;
     let apt_db =
         oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| OutputError {
             description: e.to_string(),
