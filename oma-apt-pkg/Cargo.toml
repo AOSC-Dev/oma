@@ -1,6 +1,6 @@
 [package]
 name = "oma-apt-pkg"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "Rust-native parser for dpkg status and APT list files (deb822 format)"
 license = "MIT"
