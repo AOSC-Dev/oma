@@ -3,6 +3,7 @@
 //! Builds a search index from parsed APT list entries and dpkg status,
 //! without depending on the C++ `oma-apt` binding.
 
+use std::collections::HashSet;
 use std::io::Write;
 use std::path::Path;
 use std::str::FromStr;
@@ -359,6 +360,23 @@ impl IndiciumSearch {
                 }
             }
         }
+
+        // 移除源里已删除的包
+        let current: HashSet<&str> = apt_db
+            .entries
+            .iter()
+            .filter(|e| !e.package.ends_with("-dbg"))
+            .map(|e| e.package.as_str())
+            .collect();
+
+        self.pkg_map.retain(|name, entry| {
+            if current.contains(name.as_str()) {
+                true
+            } else {
+                self.index.remove(name, entry);
+                false
+            }
+        });
     }
 }
 
