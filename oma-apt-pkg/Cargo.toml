@@ -1,0 +1,22 @@
+[package]
+name = "oma-apt-pkg"
+version = "0.1.0"
+edition = "2024"
+description = "Rust-native parser for dpkg status and APT list files (deb822 format)"
+license = "GPL-3.0-or-later"
+authors = ["eatradish <sakiiily@aosc.io>"]
+
+[dependencies]
+deb822-fast = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+ahash = { workspace = true }
+indexmap = { workspace = true, features = ["serde"] }
+indicium = { workspace = true }
+debversion = { workspace = true }
+spdlog-rs = { workspace = true }
+glob-match = { workspace = true }
+memchr = { workspace = true }
+strsim = { workspace = true }
+winnow = { workspace = true }
+wincode = { workspace = true }

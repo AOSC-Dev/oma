@@ -1,0 +1,15 @@
+mod apt_db;
+mod apt_lists;
+mod dep;
+mod dpkg;
+mod dpkg_state;
+pub mod error;
+pub mod search;
+
+pub use apt_db::*;
+pub use apt_lists::*;
+pub use dep::*;
+pub use dpkg::*;
+pub use dpkg_state::*;
+pub use error::*;
+pub use search::*;

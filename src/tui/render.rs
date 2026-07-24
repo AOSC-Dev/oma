@@ -8,7 +8,8 @@ use std::{
 use super::state::StatefulList;
 use ansi_to_tui::IntoText;
 use dialoguer::console;
-use oma_pm::{apt::OmaApt, pkginfo::OmaPackage, search::SearchResult};
+use oma_apt_pkg::SearchResult;
+use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
 use ratatui::{
     crossterm::event::{self},
     style::Modifier,
