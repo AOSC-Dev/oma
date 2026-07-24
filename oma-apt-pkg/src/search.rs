@@ -332,14 +332,13 @@ impl IndiciumSearch {
         progress: impl Fn(usize),
     ) -> Result<Self, crate::error::Error> {
         // Tier 1: try search cache (fastest)
-        if Self::search_cache_valid(&search_cache_path, &lists_dir) {
-            if let Some(mut searcher) =
+        if Self::search_cache_valid(&search_cache_path, &lists_dir)
+            && let Some(mut searcher) =
                 Self::load_search_cache(&search_cache_path, search_type.clone())
-            {
-                debug!("Search cache hit");
-                searcher.refresh_status(dpkg);
-                return Ok(searcher);
-            }
+        {
+            debug!("Search cache hit");
+            searcher.refresh_status(dpkg);
+            return Ok(searcher);
         }
 
         debug!("Search cache miss, building index ...");
