@@ -28,7 +28,7 @@ use tabled::{Table, Tabled};
 #[allow(dead_code)]
 pub struct TopicUpdateEntryRef<'a>(&'a ());
 
-/// Debian version format, see https://www.debian.org/doc/debian-policy/ch-controlfields.html#version
+/// Debian version format, see <https://www.debian.org/doc/debian-policy/ch-controlfields.html#version>
 /// for more information
 ///
 /// Omitting ':' here as we have a preversion filter in `version_diff()`

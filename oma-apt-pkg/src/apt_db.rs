@@ -13,7 +13,7 @@ use crate::apt_lists::{PackageEntry, parse_apt_lists_dir};
 /// Parse and cache APT package database.
 ///
 /// Wraps all `PackageEntry` items from `*_Packages` files and can be
-/// pased to / loaded from a binary cache file
+/// passed to / loaded from from a binary cache file
 #[derive(Debug, Clone, SchemaWrite, SchemaRead)]
 pub struct AptDb {
     pub(crate) entries: Vec<PackageEntry>,
