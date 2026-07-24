@@ -3,7 +3,7 @@ name = "oma-apt-pkg"
 version = "0.1.0"
 edition = "2024"
 description = "Rust-native parser for dpkg status and APT list files (deb822 format)"
-license = "GPL-3.0-or-later"
+license = "MIT"
 authors = ["eatradish <sakiiily@aosc.io>"]
 
 [dependencies]
