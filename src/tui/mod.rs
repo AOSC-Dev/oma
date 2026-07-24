@@ -101,9 +101,9 @@ impl Searcher {
 
     #[allow(dead_code)]
     /// Refresh status metadata from fresh dpkg status data.
-    pub(crate) fn refresh(&mut self, dpkg: &oma_apt_pkg::DpkgState) {
+    pub(crate) fn refresh(&mut self, apt_db: &oma_apt_pkg::AptDb, dpkg: &oma_apt_pkg::DpkgState) {
         if let Searcher::Local(indicium_search) = self {
-            indicium_search.refresh_status(dpkg);
+            indicium_search.refresh_from(apt_db, dpkg);
         }
     }
 }
