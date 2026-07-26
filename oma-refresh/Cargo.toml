@@ -20,11 +20,15 @@ tokio = { workspace = true, default-features = false, features = [
 ] }
 oma-apt-sources-lists = { workspace = true }
 jiff = { workspace = true }
+oma-apt-pkg = { workspace = true, default-features = false, features = [
+    "filename",
+    "apt-config",
+    "apt-sources",
+] }
 oma-topics = { workspace = true, optional = true, default-features = false }
 spdlog-rs = { workspace = true }
 oma-repo-verify = { workspace = true, default-features = false }
 ahash = { workspace = true }
-oma-apt = { workspace = true, optional = true }
 aho-corasick = { workspace = true }
 bon = { workspace = true }
 once_cell = { workspace = true }
@@ -42,8 +46,7 @@ sequoia-openssl-backend = ["oma-repo-verify/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-repo-verify/sequoia-nettle-backend"]
 rustls = ["oma-fetch/rustls", "oma-topics/rustls"]
 native-tls = ["oma-fetch/native-tls", "oma-topics/native-tls"]
-apt = ["dep:oma-apt"]
-default = ["aosc", "sequoia-nettle-backend", "rustls", "apt"]
+default = ["aosc", "sequoia-nettle-backend", "rustls"]
 
 [dev-dependencies]
 flume = { workspace = true }

@@ -1,14 +1,10 @@
-use std::{
-    borrow::Cow,
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::{cmp::Ordering, collections::HashSet, path::Path};
 
 use ahash::AHashMap;
-use aho_corasick::AhoCorasick;
-#[cfg(feature = "apt")]
-use oma_apt::config::{Config, ConfigTree};
+use oma_apt_pkg::AptConfig;
+use oma_apt_pkg::apt_sources::{
+    IndexTargetTemplates, find_matching_combinations, strip_compression_ext, substitute,
+};
 use oma_fetch::CompressType;
 use once_cell::sync::OnceCell;
 use spdlog::debug;
@@ -62,33 +58,13 @@ impl PartialOrd for CompressFileWrapper {
     }
 }
 
-#[cfg(feature = "apt")]
-impl Ord for CompressFileWrapper {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let config = Config::new();
-        let t = COMPRESSION_ORDER.get_or_init(|| {
-            config
-                .get_compression_types()
-                .iter()
-                .map(|t| CompressFileWrapper::from(t.as_str()))
-                .collect::<Vec<_>>()
-        });
-
-        let self_pos = t.iter().position(|x| x == self).unwrap();
-        let other_pos = t.iter().position(|x| x == other).unwrap();
-
-        other_pos.cmp(&self_pos)
-    }
-}
-
-#[cfg(not(feature = "apt"))]
 impl Ord for CompressFileWrapper {
     fn cmp(&self, other: &Self) -> Ordering {
         let t = COMPRESSION_ORDER.get_or_init(|| {
             vec!["zst", "xz", "bz2", "lzma", "gz", "lz4", "uncompressed"]
                 .into_iter()
                 .map(CompressFileWrapper::from)
-                .collect::<Vec<_>>()
+                .collect()
         });
 
         let self_pos = t.iter().position(|x| x == self).unwrap();
@@ -106,107 +82,26 @@ impl From<CompressType> for CompressFileWrapper {
     }
 }
 
-#[cfg(feature = "apt")]
-fn modify_result(
-    tree: ConfigTree,
-    res: &mut HashMap<String, HashMap<String, String>>,
-    root_path: String,
-) {
-    use std::collections::VecDeque;
-    let mut stack = VecDeque::new();
-    stack.push_back((tree, root_path));
-
-    let mut first = true;
-
-    while let Some((node, tree_path)) = stack.pop_back() {
-        // 跳过要遍历根节点的相邻节点
-        if !first && let Some(entry) = node.sibling() {
-            stack.push_back((entry, tree_path.clone()));
-        }
-
-        let Some(tag) = node.tag() else {
-            continue;
-        };
-
-        if let Some(entry) = node.child() {
-            stack.push_back((entry, format!("{tree_path}::{tag}")));
-        }
-
-        if let Some((k, v)) = node.tag().zip(node.value()) {
-            res.entry(tree_path).or_default().insert(k, v);
-        }
-
-        first = false;
-    }
-}
-
-#[cfg(feature = "apt")]
-fn tree(key: &str) -> Option<ConfigTree> {
-    let tree = unsafe { oma_apt::raw::config::tree(key.to_string()) };
-
-    if tree.end() {
-        return None;
-    }
-
-    Some(ConfigTree::new(tree))
-}
-
-#[cfg(feature = "apt")]
-pub fn get_tree(key: &str) -> Vec<(String, HashMap<String, String>)> {
-    let mut res = HashMap::new();
-    let tree = tree(key);
-
-    let Some(tree) = tree else {
-        return vec![];
-    };
-
-    modify_result(
-        tree,
-        &mut res,
-        key.rsplit_once("::")
-            .map(|x| x.0.to_string())
-            .unwrap_or_else(|| key.to_string()),
-    );
-
-    res.into_iter().collect::<Vec<_>>()
-}
-
+/// IndexTarget config — stores only the enabled target keys and reads
+/// properties directly from [`AptConfig`] on demand.
 pub struct IndexTargetConfig<'a> {
-    deb: Vec<(String, HashMap<String, String>)>,
-    deb_src: Vec<(String, HashMap<String, String>)>,
-    replacer: AhoCorasick,
+    cfg: &'a AptConfig,
+    deb_keys: Vec<String>,
+    deb_src_keys: Vec<String>,
     native_arch: &'a str,
     langs: Vec<String>,
 }
 
 impl<'a> IndexTargetConfig<'a> {
-    #[cfg(feature = "apt")]
-    pub fn new_from_apt_config(native_arch: &'a str) -> Self {
-        Self::new(
-            get_index_target_tree("Acquire::IndexTargets::deb"),
-            get_index_target_tree("Acquire::IndexTargets::deb-src"),
-            native_arch,
-        )
-    }
-
-    pub fn new(
-        deb: Vec<(String, HashMap<String, String>)>,
-        deb_src: Vec<(String, HashMap<String, String>)>,
-        native_arch: &'a str,
-    ) -> Self {
+    pub fn new_from_apt_config(apt_cfg: &'a AptConfig, native_arch: &'a str) -> Self {
+        let templates = IndexTargetTemplates::new(apt_cfg);
         let locales = sys_locale::get_locales();
         let langs = get_matches_language(locales);
 
         Self {
-            deb,
-            deb_src,
-            replacer: AhoCorasick::new([
-                "$(ARCHITECTURE)",
-                "$(COMPONENT)",
-                "$(LANGUAGE)",
-                "$(NATIVE_ARCHITECTURE)",
-            ])
-            .unwrap(),
+            cfg: apt_cfg,
+            deb_keys: templates.get_enabled_keys("Acquire::IndexTargets::deb"),
+            deb_src_keys: templates.get_enabled_keys("Acquire::IndexTargets::deb-src"),
             native_arch,
             langs,
         }
@@ -220,9 +115,13 @@ impl<'a> IndexTargetConfig<'a> {
         archs: Vec<&str>,
         components: &[String],
     ) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
-        let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
+        let meta_key = if is_flat { "flatMetaKey" } else { "MetaKey" };
         let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
-        let tree = if is_source { &self.deb_src } else { &self.deb };
+        let tree = if is_source {
+            &self.deb_src_keys
+        } else {
+            &self.deb_keys
+        };
 
         let mut archs = archs;
 
@@ -230,25 +129,54 @@ impl<'a> IndexTargetConfig<'a> {
             archs.push("all");
         }
 
-        for c in checksums {
-            'a: for (template, (config_key, config)) in tree.iter().map(|x| (x.1.get(key), x)) {
-                let Some(template) = template else {
-                    debug!("{:?} config has no key: {}", config, key);
-                    continue 'a;
-                };
+        let templates = IndexTargetTemplates::new(self.cfg);
 
-                if is_flat {
-                    flat_repo_template_match(&mut res_map, c, config, template, config_key);
-                } else {
-                    self.normal_repo_match(
+        for c in checksums {
+            let name = strip_compression_ext(&c.name);
+
+            if is_flat {
+                let matches = templates
+                    .resolve_targets(name, &archs, "", "", "", true)
+                    .map_err(|e| RefreshError::InvalidUrl(e.to_string()))?;
+                for m in &matches {
+                    res_map
+                        .entry(name.to_string())
+                        .or_default()
+                        .push(to_download_entry(
+                            c,
+                            self.cfg,
+                            &m.config_key,
+                            &m.description,
+                        ));
+                }
+            } else {
+                let comps: Vec<&str> = components.iter().map(|s| s.as_str()).collect();
+                let langs: Vec<&str> = self.langs.iter().map(|s| s.as_str()).collect();
+
+                for config_key in tree {
+                    let template = self.cfg.get(&format!("{config_key}::{meta_key}"), "");
+                    if template.is_empty() {
+                        continue;
+                    }
+                    for m in find_matching_combinations(
+                        &template,
+                        name,
                         &archs,
-                        components,
-                        &mut res_map,
-                        c,
-                        config,
-                        template,
-                        config_key,
-                    );
+                        &comps,
+                        &langs,
+                        self.native_arch,
+                    ) {
+                        let desc = self.cfg.get(&format!("{config_key}::ShortDescription"), "");
+                        let desc = if desc.is_empty() {
+                            "Other".to_string()
+                        } else {
+                            substitute(&desc, "", &m.component, &m.arch, &m.lang, self.native_arch)
+                        };
+                        res_map
+                            .entry(name.to_string())
+                            .or_default()
+                            .push(to_download_entry(c, self.cfg, config_key, &desc));
+                    }
                 }
             }
         }
@@ -266,58 +194,6 @@ impl<'a> IndexTargetConfig<'a> {
         }
 
         Ok(fallback_of_filter(sort_res))
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn normal_repo_match(
-        &self,
-        archs: &[&str],
-        components: &[String],
-        res_map: &mut AHashMap<String, Vec<ChecksumDownloadEntry>>,
-        c: &ChecksumItem,
-        config: &HashMap<String, String>,
-        template: &str,
-        config_key: &str,
-    ) {
-        for a in archs {
-            for comp in components {
-                for l in &self.langs {
-                    if self.template_is_match(template, &c.name, a, comp, l) {
-                        let name_without_ext = uncompress_file_name(&c.name).to_string();
-                        res_map
-                            .entry(name_without_ext)
-                            .or_default()
-                            .push(to_download_entry(
-                                c,
-                                config,
-                                config_key,
-                                &config
-                                    .get("ShortDescription")
-                                    .map(|x| {
-                                        self.replacer
-                                            .replace_all(x, &[*a, comp, l, self.native_arch])
-                                    })
-                                    .unwrap_or_else(|| "Other".to_string()),
-                            ));
-                    }
-                }
-            }
-        }
-    }
-
-    fn template_is_match(
-        &self,
-        template: &str,
-        target: &str,
-        arch: &str,
-        component: &str,
-        lang: &str,
-    ) -> bool {
-        let name = uncompress_file_name(target);
-
-        name == self
-            .replacer
-            .replace_all(template, &[arch, component, lang, self.native_arch])
     }
 }
 
@@ -345,46 +221,22 @@ fn fallback_of_filter(res: Vec<ChecksumDownloadEntry>) -> Vec<ChecksumDownloadEn
         .collect()
 }
 
-fn flat_repo_template_match(
-    res_map: &mut AHashMap<String, Vec<ChecksumDownloadEntry>>,
-    c: &ChecksumItem,
-    config: &HashMap<String, String>,
-    template: &str,
-    config_key: &str,
-) {
-    let name_without_ext = uncompress_file_name(&c.name).to_string();
-    if *template == name_without_ext {
-        res_map
-            .entry(name_without_ext)
-            .or_default()
-            .push(to_download_entry(
-                c,
-                config,
-                config_key,
-                &config
-                    .get("ShortDescription")
-                    .map(|x| x.to_owned())
-                    .unwrap_or_else(|| "Other".to_string()),
-            ));
-    }
-}
-
 fn to_download_entry(
     c: &ChecksumItem,
-    config: &HashMap<String, String>,
+    cfg: &AptConfig,
     config_key: &str,
     msg: &str,
 ) -> ChecksumDownloadEntry {
     ChecksumDownloadEntry {
         item: c.to_owned(),
-        keep_compress: config
-            .get("KeepCompressed")
-            .and_then(|x| x.parse::<bool>().ok())
+        keep_compress: cfg
+            .get(&format!("{config_key}::KeepCompressed"), "")
+            .parse::<bool>()
             .unwrap_or(false),
         msg: msg.to_string(),
-        optional: match config.get("Optional").map(|x| x.as_str()) {
-            Some("0") => false,
-            Some("1") => true,
+        optional: match cfg.get(&format!("{config_key}::Optional"), "").as_str() {
+            "0" => false,
+            "1" => true,
             _ => true,
         },
         config_key: config_key
@@ -392,30 +244,11 @@ fn to_download_entry(
             .unwrap_or_default()
             .1
             .to_string(),
-        fallback_of: config.get("Fallback-Of").cloned(),
+        fallback_of: {
+            let v = cfg.get(&format!("{config_key}::Fallback-Of"), "");
+            if v.is_empty() { None } else { Some(v) }
+        },
     }
-}
-
-fn uncompress_file_name(target: &str) -> Cow<'_, str> {
-    if compress_file(target) == CompressType::None.into() {
-        Cow::Borrowed(target)
-    } else {
-        let compress_target_without_ext = Path::new(target).with_extension("");
-        let compress_target_without_ext = compress_target_without_ext.to_string_lossy().to_string();
-        compress_target_without_ext.into()
-    }
-}
-
-#[cfg(feature = "apt")]
-fn get_index_target_tree(key: &str) -> Vec<(String, HashMap<String, String>)> {
-    get_tree(key)
-        .into_iter()
-        .filter(|x| {
-            x.1.get("DefaultEnabled")
-                .and_then(|x| x.parse::<bool>().ok())
-                .unwrap_or(true)
-        })
-        .collect::<Vec<_>>()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -467,21 +300,21 @@ fn compress_file(name: &str) -> CompressFileWrapper {
     }
 }
 
-#[cfg(feature = "apt")]
 #[test]
 fn test_apt_config() {
-    let config = Config::new();
-
-    config.set_vector(
-        "Acquire::CompressionTypes::Order",
-        &vec!["zst", "xz", "bz2", "lzma", "gz", "lz4"],
-    );
-
-    let mut types = config
-        .get_compression_types()
-        .iter()
-        .map(|t| CompressFileWrapper::from(t.as_str()))
-        .collect::<Vec<_>>();
+    // Test that compression ordering is correct
+    let mut types: Vec<CompressFileWrapper> = vec![
+        CompressType::None,
+        CompressType::Xz,
+        CompressType::Zstd,
+        CompressType::Gzip,
+        CompressType::Bz2,
+        CompressType::Lz4,
+        CompressType::Lzma,
+    ]
+    .into_iter()
+    .map(|x| x.into())
+    .collect();
 
     types.sort_unstable();
     types.reverse();
@@ -495,16 +328,20 @@ fn test_apt_config() {
             CompressType::Lzma,
             CompressType::Gzip,
             CompressType::Lz4,
-            CompressType::None
+            CompressType::None,
         ]
         .into_iter()
         .map(|x| x.into())
         .collect::<Vec<CompressFileWrapper>>()
     );
 
-    let t = get_tree("Acquire::IndexTargets::deb");
-    assert!(t.iter().any(|x| x.0.contains("::deb::")));
-    assert!(t.iter().all(|x| !x.0.contains("::deb-src::")))
+    // Test that IndexTarget tree is correctly parsed from AptConfig
+    let mut cfg = AptConfig::new();
+    cfg.init_defaults().unwrap();
+    let templates = IndexTargetTemplates::new(&cfg);
+    let t = templates.get_enabled_keys("Acquire::IndexTargets::deb");
+    assert!(t.iter().any(|x| x.contains("::deb::")));
+    assert!(t.iter().all(|x| !x.contains("::deb-src::")));
 }
 
 #[test]

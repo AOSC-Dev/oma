@@ -1,27 +1,27 @@
+use std::io::Write;
+use std::str::FromStr;
 use std::{borrow::Cow, io::stdout};
 
+use anyhow::Context;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
+use debversion::Version;
 use dialoguer::console::{StyledObject, style};
-use oma_console::indicatif::HumanBytes;
-use oma_pm::{
-    apt::{OmaApt, OmaAptArgs},
-    matches::{GetArchMethod, PackagesMatcher},
-    oma_apt::records::RecordField,
-    pkginfo::{AptSource, OmaPackage},
+use oma_apt_pkg::apt_sources::SourceLookup;
+use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
+use oma_apt_pkg::{
+    AptConfig, AptDb, AptExtendedStates, AptListFilename, DpkgState, EntryWithSource, PackageEntry,
 };
+use oma_console::indicatif::HumanBytes;
+use serde::Serialize;
 use spdlog::info;
 
 use crate::{
-    completions::pkgnames_and_path_completions, config::OmaConfig, error::OutputError,
-    exit_handle::ExitHandle,
+    args::CliExecuter, completions::pkgnames_and_path_completions, config::OmaConfig,
+    error::OutputError, exit_handle::ExitHandle, fl,
 };
 
 use super::utils::handle_no_result;
-use crate::args::CliExecuter;
-use crate::fl;
-
-use std::io::Write;
 
 #[derive(Debug, Args)]
 pub struct Show {
@@ -37,22 +37,23 @@ pub struct Show {
     json: bool,
 }
 
-const RECORDS: &[&str] = &[
-    RecordField::Package,
-    RecordField::Version,
-    RecordField::Section,
-    RecordField::Maintainer,
-    RecordField::InstalledSize,
-    RecordField::PreDepends,
-    RecordField::Depends,
-    RecordField::Breaks,
-    RecordField::Conflicts,
-    RecordField::Replaces,
-    RecordField::Recommends,
-    RecordField::Suggests,
-    RecordField::Provides,
-    RecordField::Size,
-    RecordField::Description,
+/// Ordered list of (label, field accessor) for display.
+const DISPLAY_FIELDS: &[(&str, &str)] = &[
+    ("Package:", "Package"),
+    ("Version:", "Version"),
+    ("Section:", "Section"),
+    ("Maintainer:", "Maintainer"),
+    ("Installed-Size:", "Installed-Size"),
+    ("Pre-Depends:", "Pre-Depends"),
+    ("Depends:", "Depends"),
+    ("Breaks:", "Breaks"),
+    ("Conflicts:", "Conflicts"),
+    ("Replaces:", "Replaces"),
+    ("Recommends:", "Recommends"),
+    ("Suggests:", "Suggests"),
+    ("Provides:", "Provides"),
+    ("Download-Size:", "Size"),
+    ("Description:", "Description"),
 ];
 
 impl CliExecuter for Show {
@@ -63,139 +64,153 @@ impl CliExecuter for Show {
             packages,
         } = self;
 
-        let oma_apt_args = OmaAptArgs::builder()
-            .another_apt_options(&config.apt_options)
-            .sysroot(config.sysroot.to_string_lossy().to_string())
-            .build();
+        let package_names: Vec<&str> = packages.iter().map(|x| x.as_str()).collect();
 
-        let local_debs = packages
-            .iter()
-            .filter(|x| x.ends_with(".deb"))
-            .map(|x| x.to_owned())
-            .collect::<Vec<_>>();
+        let apt_cfg = config.apt_config();
+        let source_lookup = SourceLookup::build(apt_cfg);
+        let (apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
 
-        let apt = OmaApt::new(local_debs, oma_apt_args, false)?;
+        // Match packages: exact name lookup
+        let mut matched_entries: Vec<Vec<EntryWithSource<'_>>> = Vec::new();
+        let mut no_result: Vec<&str> = Vec::new();
 
-        let matcher = PackagesMatcher::builder()
-            .cache(&apt.cache)
-            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
-            .filter_candidate(!all)
-            .build();
-
-        let (pkgs, no_result) =
-            matcher.match_pkgs_and_versions(packages.iter().map(|x| x.as_str()))?;
+        for name in &package_names {
+            if apt_db.has_package(name) {
+                let entries = apt_db.get_all_with_source(name);
+                matched_entries.push(entries);
+            } else {
+                no_result.push(name);
+            }
+        }
 
         handle_no_result(no_result, config.no_progress())?;
 
         let mut stdout = stdout();
 
-        if !all {
-            for_each_show_package(json, &apt, &mut stdout, &pkgs)?;
-
-            if pkgs.len() == 1 && !json {
-                let pkg = &pkgs[0];
-                let pkg = pkg.package(&apt.cache);
-                let other_version_count = pkg.versions().count() - 1;
-
-                if other_version_count > 0 {
-                    info!("{}", fl!("additional-version", len = other_version_count));
-                }
+        for (i, entries) in matched_entries.iter().enumerate() {
+            if json {
+                display_entries_to_json(&mut stdout, entries, &dpkg)?;
+            } else {
+                display_entries(
+                    &mut stdout,
+                    entries,
+                    &dpkg,
+                    &ext_states,
+                    all,
+                    &source_lookup,
+                    apt_cfg,
+                );
             }
-        } else {
-            for_each_show_package(json, &apt, &mut stdout, &pkgs)?;
+
+            if i != matched_entries.len() - 1 {
+                writeln!(stdout).ok();
+            }
+
+            // Show additional version hint for single package without --all
+            if !all && !json && matched_entries.len() == 1 && entries.len() > 1 {
+                info!("{}", fl!("additional-version", len = entries.len()));
+            }
         }
 
         Ok(ExitHandle::default())
     }
 }
 
-fn for_each_show_package(
-    json: bool,
-    apt: &OmaApt,
-    stdout: &mut std::io::Stdout,
-    pkgs: &[OmaPackage],
-) -> Result<(), OutputError> {
-    for (i, pkg) in pkgs.iter().enumerate() {
-        if json {
-            display_to_json(stdout, pkg, apt)?;
-        } else {
-            display_records(stdout, pkg, apt);
-        }
+fn display_entries(
+    stdout: &mut impl Write,
+    entries: &[EntryWithSource<'_>],
+    dpkg: &DpkgState,
+    ext_states: &AptExtendedStates,
+    show_all: bool,
+    source_lookup: &SourceLookup,
+    apt_cfg: &AptConfig,
+) {
+    let shown_entries: Vec<&EntryWithSource<'_>> = if show_all {
+        entries.iter().collect()
+    } else {
+        // Show only the entry with the highest version
+        entries
+            .iter()
+            .max_by(|a, b| {
+                let a_ver = Version::from_str(a.entry.version.as_deref().unwrap_or("0")).ok();
+                let b_ver = Version::from_str(b.entry.version.as_deref().unwrap_or("0")).ok();
+                a_ver.cmp(&b_ver)
+            })
+            .into_iter()
+            .collect()
+    };
 
-        if i != pkgs.len() - 1 {
+    for (j, entry) in shown_entries.iter().enumerate() {
+        display_single_entry(
+            stdout,
+            entry.entry,
+            entry.source,
+            dpkg,
+            ext_states,
+            source_lookup,
+            apt_cfg,
+        );
+
+        if show_all && j != shown_entries.len() - 1 {
             writeln!(stdout).ok();
         }
     }
-
-    Ok(())
 }
 
-fn display_to_json(
-    stdout: &mut std::io::Stdout,
-    pkg: &OmaPackage,
-    apt: &OmaApt,
-) -> Result<(), OutputError> {
-    writeln!(
-        stdout,
-        "{}",
-        serde_json::to_string(&pkg.pkg_info(&apt.cache)?)?
-    )
-    .ok();
+fn display_single_entry(
+    stdout: &mut impl Write,
+    entry: &PackageEntry,
+    source: Option<&str>,
+    dpkg: &DpkgState,
+    ext_states: &AptExtendedStates,
+    source_lookup: &SourceLookup,
+    apt_cfg: &AptConfig,
+) {
+    for (label, field) in DISPLAY_FIELDS {
+        let value: Option<Cow<'_, str>> = match *field {
+            "Package" => Some(Cow::Borrowed(&entry.package)),
+            "Version" => entry.version.as_deref().map(Cow::Borrowed),
+            "Section" => entry.section.as_deref().map(Cow::Borrowed),
+            "Maintainer" => entry.maintainer.as_deref().map(Cow::Borrowed),
+            "Installed-Size" => entry
+                .installed_size
+                .map(|s| Cow::Owned(HumanBytes(s * 1024).to_string())),
+            "Pre-Depends" => entry.pre_depends.as_deref().map(Cow::Borrowed),
+            "Depends" => entry.depends.as_deref().map(Cow::Borrowed),
+            "Breaks" => entry.breaks.as_deref().map(Cow::Borrowed),
+            "Conflicts" => entry.conflicts.as_deref().map(Cow::Borrowed),
+            "Replaces" => entry.replaces.as_deref().map(Cow::Borrowed),
+            "Recommends" => entry.recommends.as_deref().map(Cow::Borrowed),
+            "Suggests" => entry.suggests.as_deref().map(Cow::Borrowed),
+            "Provides" => entry.provides.as_deref().map(Cow::Borrowed),
+            "Size" => entry.size.map(|s| Cow::Owned(HumanBytes(s).to_string())),
+            "Description" => entry.description.as_deref().map(Cow::Borrowed),
+            _ => None,
+        };
 
-    Ok(())
-}
-
-fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt) {
-    let version = pkg.version(&apt.cache);
-    for i in RECORDS {
-        let Some(mut v) = version.get_record(i) else {
+        let Some(value) = value else {
             continue;
         };
 
-        if *i == RecordField::InstalledSize {
-            v = HumanBytes(v.parse::<u64>().unwrap() * 1024).to_string();
-        } else if *i == RecordField::Size {
-            v = HumanBytes(v.parse().unwrap()).to_string();
-        }
-
-        let i = if *i == RecordField::Size {
-            key_style(Cow::Borrowed("Download-Size:"))
-        } else {
-            key_style(format!("{i}:").into())
-        };
-
-        writeln!(stdout, "{i} {v}").ok();
+        writeln!(stdout, "{} {value}", key_style(Cow::Borrowed(label))).ok();
     }
 
-    let apt_sources = version
-        .package_files()
-        .map(AptSource::from)
-        .collect::<Vec<_>>();
-
-    write!(stdout, "{}", key_style("APT-Sources:".into())).ok();
-    let apt_sources_without_dpkg = apt_sources
-        .iter()
-        .filter(|x| x.index_type.as_deref() != Some("Debian dpkg status file"))
-        .collect::<Vec<_>>();
-
-    match apt_sources_without_dpkg.len() {
-        0 => {
-            writeln!(stdout, " {}", apt_sources[0]).ok();
-        }
-        1 => {
-            writeln!(stdout, " {}", apt_sources_without_dpkg[0]).ok();
-        }
-        2.. => {
-            writeln!(stdout).ok();
-            for i in apt_sources_without_dpkg {
-                writeln!(stdout, "  {i}").ok();
-            }
-        }
+    // APT-Sources: decode the APT lists filename back to the original format
+    if let Some(src) = source {
+        let formatted = format_apt_source(src, source_lookup, apt_cfg);
+        write!(stdout, "{}", key_style(Cow::Borrowed("APT-Sources:"))).ok();
+        writeln!(stdout, " {formatted}").ok();
     }
 
-    if version.is_installed() {
-        write!(stdout, "{}", key_style("APT-Manual-Installed: ".into())).ok();
-        if version.parent().is_auto_installed() {
+    // APT-Manual-Installed: check dpkg status and auto-installed flag
+    if entry.is_installed(dpkg) {
+        write!(
+            stdout,
+            "{}",
+            key_style(Cow::Borrowed("APT-Manual-Installed: "))
+        )
+        .ok();
+        if entry.is_auto_installed(dpkg, ext_states) {
             writeln!(stdout, "no").ok();
         } else {
             writeln!(stdout, "yes").ok();
@@ -203,7 +218,128 @@ fn display_records(stdout: &mut std::io::Stdout, pkg: &OmaPackage, apt: &OmaApt)
     }
 }
 
+#[derive(Serialize)]
+struct PackageJson<'a> {
+    #[serde(flatten)]
+    entry: &'a PackageEntry,
+    #[serde(rename = "APT-Sources")]
+    apt_sources: Option<&'a str>,
+    installed: bool,
+}
+
+fn display_entries_to_json(
+    stdout: &mut impl Write,
+    entries: &[EntryWithSource<'_>],
+    dpkg: &DpkgState,
+) -> Result<(), OutputError> {
+    let json_entries: Vec<PackageJson<'_>> = entries
+        .iter()
+        .map(|ews| PackageJson {
+            entry: ews.entry,
+            apt_sources: ews.source,
+            installed: ews.entry.is_installed(dpkg),
+        })
+        .collect();
+
+    writeln!(
+        stdout,
+        "{}",
+        serde_json::to_string(&json_entries).map_err(|e| OutputError {
+            description: e.to_string(),
+            source: None,
+        })?
+    )
+    .ok();
+
+    Ok(())
+}
+
+fn load_apt_db_and_dpkg(
+    cfg: &AptConfig,
+) -> Result<(AptDb, DpkgState, AptExtendedStates), OutputError> {
+    let lists_dir = cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
+    let dpkg_path = cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
+    let ext_path = cfg.get_file("Dir::State::extended_states", "var/lib/apt/extended_states");
+    let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
+
+    let apt_db =
+        AptDb::load_or_build(&apt_cache, &lists_dir).context("Failed to load apt database")?;
+
+    let dpkg = DpkgState::from_file(&dpkg_path).context("Failed to load dpkg status")?;
+
+    let ext_states =
+        AptExtendedStates::from_file(ext_path).context("Failed to read apt extended states")?;
+
+    Ok((apt_db, dpkg, ext_states))
+}
+
 #[inline]
 fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
     style(key).bold()
+}
+
+/// Decode an APT lists filename stem and format as APT-Sources.
+///
+/// The result is `"{source_url} {substituted_description}"`, matching
+/// APT's `$(SITE) + Description` format (see `debmetaindex.cc`).
+fn format_apt_source(source: &str, source_lookup: &SourceLookup, apt_cfg: &AptConfig) -> String {
+    let cvt = AptListFilename::new();
+    let Ok(decoded) = cvt.decode(source) else {
+        return source.to_string();
+    };
+
+    let Some(matched) = source_lookup.resolve(&decoded) else {
+        return decoded;
+    };
+
+    let templates = IndexTargetTemplates::new(apt_cfg);
+    let base_url = matched.entry.url();
+    let is_flat = matched.component.is_none();
+    let suite = &matched.entry.suite;
+
+    let matched_template = if is_flat {
+        templates
+            .resolve_targets(matched.filename, &["$(ARCHITECTURE)"], "", "", "", true)
+            .ok()
+            .and_then(|v| v.into_iter().next())
+            .map(|r| (r.description, r.arch))
+    } else if let Some(component) = matched.component {
+        let archs: Vec<&str> = matched
+            .entry
+            .archs
+            .as_ref()
+            .map(|v| v.iter().map(|s| s.as_str()).collect())
+            .unwrap_or_default();
+        templates
+            .resolve_targets(matched.filename, &archs, component, "", "", false)
+            .ok()
+            .and_then(|v| v.into_iter().next())
+            .map(|r| (r.description, r.arch))
+    } else {
+        None
+    };
+
+    if let Some((template, arch)) = matched_template {
+        let formatted = substitute(
+            &template,
+            suite,
+            matched.component.unwrap_or(""),
+            &arch,
+            "",
+            "",
+        );
+        return format!("{base_url} {formatted}");
+    }
+
+    if let Some(component) = matched.component {
+        if matched.filename.is_empty() {
+            format!("{base_url} {}/{}", suite, component)
+        } else {
+            format!("{base_url} {}/{} {}", suite, component, matched.filename)
+        }
+    } else if is_flat {
+        format!("{base_url} {} {}", suite, matched.filename)
+    } else {
+        format!("{base_url} {}", suite)
+    }
 }

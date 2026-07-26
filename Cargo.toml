@@ -81,12 +81,13 @@ oma-repo-verify = { workspace = true, default-features = false }
 oma-mirror = { workspace = true, optional = true }
 apt-auth-config = { workspace = true }
 oma-tum = { workspace = true, optional = true }
-oma-apt-pkg = { workspace = true }
+oma-apt-pkg = { workspace = true, default-features = false, features = ["search", "filename", "apt-config", "apt-sources"] }
 
 # i18n
 i18n-embed = { workspace = true}
 i18n-embed-fl = { workspace = true }
 rust-embed = { workspace = true }
+oma-apt-sources-lists.workspace = true
 
 [workspace.dependencies]
 dialoguer = "0.12.0"
@@ -212,7 +213,7 @@ oma-mirror = { version = "0.8.2", path = "./oma-mirror" }
 apt-auth-config = { version = "0.6.0", path = "./apt-auth-config" }
 oma-tum = { version = "0.6.1", path = "./oma-tum" }
 oma-pm-operation-type = { version = "0.10.1", path = "./oma-pm-operation-type" }
-oma-apt-pkg = { version = "0.2.1", path = "./oma-apt-pkg" }
+oma-apt-pkg = { version = "0.2.1", path = "./oma-apt-pkg", default-features = false }
 oma-apt = "0.13"
 oma-apt-sources-lists = "0.9"
 oma-inquire = "0.3"
@@ -244,8 +245,8 @@ openssl = [
     "oma-refresh/native-tls",
     "oma-topics/native-tls",
 ]
-nice-setup = ["sequoia-nettle-backend", "rustls", "oma-refresh/apt"]
-openssl-setup = ["sequoia-openssl-backend", "openssl", "oma-refresh/apt"]
+nice-setup = ["sequoia-nettle-backend", "rustls"]
+openssl-setup = ["sequoia-openssl-backend", "openssl"]
 decompress-parallel = ["oma-fetch/xz-parallel"]
 default = ["aosc", "nice-setup"]
 
