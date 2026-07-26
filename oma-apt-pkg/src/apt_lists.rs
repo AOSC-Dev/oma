@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
+use serde::Serialize;
+
+use crate::{DpkgState, extended_states::AptExtendedStates};
+#[cfg(feature = "apt-lists")]
 use wincode::{SchemaRead, SchemaWrite};
 
 /// Errors that can occur when parsing APT list files.
@@ -14,19 +18,24 @@ pub enum AptListsError {
 }
 
 /// A single package entry from a Packages file
-#[derive(Debug, Clone, SchemaWrite, SchemaRead, FromDeb822)]
+#[derive(Debug, Clone, FromDeb822, Serialize)]
+#[cfg_attr(feature = "apt-lists", derive(SchemaWrite, SchemaRead))]
+#[serde(rename_all = "PascalCase")]
 pub struct PackageEntry {
     pub package: String,
     pub version: Option<String>,
     pub architecture: Option<String>,
     pub description: Option<String>,
     #[deb822(field = "Description-md5")]
+    #[serde(rename = "Description-md5")]
     pub description_md5: Option<String>,
     pub maintainer: Option<String>,
     #[deb822(field = "Installed-Size")]
+    #[serde(rename = "Installed-Size")]
     pub installed_size: Option<u64>,
     pub depends: Option<String>,
     #[deb822(field = "Pre-Depends")]
+    #[serde(rename = "Pre-Depends")]
     pub pre_depends: Option<String>,
     pub recommends: Option<String>,
     pub suggests: Option<String>,
@@ -38,11 +47,28 @@ pub struct PackageEntry {
     pub priority: Option<String>,
     pub homepage: Option<String>,
     #[deb822(field = "Multi-Arch")]
+    #[serde(rename = "Multi-Arch")]
     pub multi_arch: Option<String>,
     pub filename: Option<String>,
     pub size: Option<u64>,
     #[deb822(field = "SHA256")]
+    #[serde(rename = "SHA256")]
     pub sha256: Option<String>,
+}
+
+impl PackageEntry {
+    /// Whether this package is currently installed on the system.
+    pub fn is_installed(&self, dpkg: &DpkgState) -> bool {
+        dpkg.is_installed(&self.package)
+    }
+
+    /// Whether this package was automatically installed as a dependency.
+    ///
+    /// Requires an `AptExtendedStates` instance (parsed from
+    /// `/var/lib/apt/extended_states`); returns `false` if unavailable.
+    pub fn is_auto_installed(&self, dpkg: &DpkgState, ext: &AptExtendedStates) -> bool {
+        dpkg.is_installed(&self.package) && ext.is_auto_installed(&self.package)
+    }
 }
 
 /// Parse contents of a single Packages file
@@ -56,6 +82,7 @@ pub struct PackagesFile {
 /// Scan `/var/lib/apt/lists/` and parse all `*_Packages` files.
 ///
 /// Returns a flat list of all package entries across all repos/components/archs.
+/// Parse `/var/lib/apt/lists/` and return all package entries (without source tracking).
 pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, AptListsError> {
     let dir = path.as_ref();
     let mut all_packages = Vec::new();
@@ -74,6 +101,39 @@ pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, 
     }
 
     Ok(all_packages)
+}
+
+/// Parse `/var/lib/apt/lists/` and return entries alongside their source
+/// filename (the APT list filename stem, e.g.
+/// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`).
+///
+/// The two `Vec`s have the same length and are indexed in parallel.
+pub fn parse_apt_lists_dir_with_sources(
+    path: impl AsRef<Path>,
+) -> Result<(Vec<PackageEntry>, Vec<String>), AptListsError> {
+    let dir = path.as_ref();
+    let mut all_packages = Vec::new();
+    let mut all_sources = Vec::new();
+
+    for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
+        let entry = entry.map_err(AptListsError::Io)?;
+        let file_name = entry.file_name();
+        let name = file_name.to_string_lossy();
+
+        if !name.ends_with("_Packages") {
+            continue;
+        }
+
+        let source = name.to_string();
+        let entries = parse_single_packages_file(entry.path())?;
+
+        // Each entry from this file gets the same source
+        let len_before = all_sources.len();
+        all_sources.resize(len_before + entries.len(), source);
+        all_packages.extend(entries);
+    }
+
+    Ok((all_packages, all_sources))
 }
 
 /// Parse a single `*_Packages` file (deb822 format).

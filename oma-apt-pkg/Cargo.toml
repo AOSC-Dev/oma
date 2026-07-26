@@ -6,17 +6,61 @@ description = "Rust-native parser for dpkg status and APT list files (deb822 for
 license = "MIT"
 authors = ["eatradish <sakiiily@aosc.io>"]
 
+[features]
+default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config"]
+apt-config = ["dep:winnow"]
+apt-lists = ["dep:wincode", "dep:spdlog-rs"]
+apt-sources = ["apt-config", "filename", "dep:oma-apt-sources-lists"]
+dpkg-status = []
+filename = ["dep:aho-corasick", "dep:url"]
+search-indicium = [
+    "apt-lists",
+    "dpkg-status",
+    "dep:ahash",
+    "dep:indexmap",
+    "dep:debversion",
+    "dep:glob-match",
+    "dep:winnow",
+    "dep:indicium",
+]
+search-strsim = [
+    "apt-lists",
+    "dpkg-status",
+    "dep:ahash",
+    "dep:indexmap",
+    "dep:debversion",
+    "dep:glob-match",
+    "dep:winnow",
+    "dep:strsim",
+    "dep:memchr",
+]
+search-text = [
+    "apt-lists",
+    "dpkg-status",
+    "dep:ahash",
+    "dep:indexmap",
+    "dep:debversion",
+    "dep:glob-match",
+    "dep:winnow",
+    "dep:memchr",
+]
+
+search = ["search-indicium", "search-strsim", "search-text"]
+
 [dependencies]
 deb822-fast = { workspace = true }
+oma-apt-sources-lists = { workspace = true, optional = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-ahash = { workspace = true }
-indexmap = { workspace = true, features = ["serde"] }
-indicium = { workspace = true }
-debversion = { workspace = true }
-spdlog-rs = { workspace = true }
-glob-match = { workspace = true }
-memchr = { workspace = true }
-strsim = { workspace = true }
-winnow = { workspace = true }
-wincode = { workspace = true }
+wincode = { workspace = true, optional = true }
+spdlog-rs = { workspace = true, optional = true }
+ahash = { workspace = true, optional = true }
+indexmap = { workspace = true, features = ["serde"], optional = true }
+indicium = { workspace = true, optional = true }
+debversion = { workspace = true, optional = true }
+glob-match = { workspace = true, optional = true }
+memchr = { workspace = true, optional = true }
+strsim = { workspace = true, optional = true }
+winnow = { workspace = true, optional = true }
+aho-corasick = { workspace = true, optional = true }
+url = { workspace = true, optional = true }

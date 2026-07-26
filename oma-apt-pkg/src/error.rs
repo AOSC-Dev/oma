@@ -12,4 +12,7 @@ pub enum Error {
     /// dpkg status file parsing failed.
     #[error("Failed to parse dpkg status: {0}")]
     Dpkg(#[from] DpkgError),
+    /// APT-Sources formatting failed (e.g. missing architecture).
+    #[error("{0}")]
+    AptSources(String),
 }

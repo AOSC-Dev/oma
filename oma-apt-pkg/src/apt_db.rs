@@ -1,32 +1,70 @@
 //! oma package database — Parse APT `Packages` files with binary cache support.
 
+use std::collections::HashMap;
 use std::io::Read;
+use std::io::Write;
 use std::path::Path;
-use std::{collections::HashSet, io::Write};
 use std::{fs, io};
 
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
-use crate::apt_lists::{PackageEntry, parse_apt_lists_dir};
+use crate::apt_lists::{PackageEntry, parse_apt_lists_dir_with_sources};
+
+/// A package entry together with its source file information.
+#[derive(Debug, Clone)]
+pub struct EntryWithSource<'a> {
+    /// The parsed package entry data.
+    pub entry: &'a PackageEntry,
+    /// The APT lists filename, e.g.
+    /// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`.
+    pub source: Option<&'a str>,
+}
 
 /// Parse and cache APT package database.
 ///
-/// Wraps all `PackageEntry` items from `*_Packages` files and can be
-/// passed to / loaded from from a binary cache file
+/// Wraps all `PackageEntry` items from `*_Packages` files keyed by package
+/// name for O(1) lookup, with a binary cache via `wincode`.
 #[derive(Debug, Clone, SchemaWrite, SchemaRead)]
 pub struct AptDb {
-    pub(crate) entries: Vec<PackageEntry>,
-    pub(crate) available_names: HashSet<String>,
+    /// Map from package name → its entries across repos/components/versions.
+    /// The inner `Vec`s are parallel to the matching `entry_sources` entries.
+    pub(crate) entries: HashMap<String, Vec<PackageEntry>>,
+    /// Map from package name → source filenames, parallel to `entries`.
+    pub(crate) entry_sources: HashMap<String, Vec<String>>,
 }
 
 impl AptDb {
-    /// Build from a vector of entries (from parsing).
+    /// Build from entries without source tracking (used in tests).
+    #[allow(dead_code)]
     pub(crate) fn from_entries(entries: Vec<PackageEntry>) -> Self {
-        let available_names = entries.iter().map(|e| e.package.clone()).collect();
+        let mut map = HashMap::new();
+        for e in entries {
+            map.entry(e.package.clone())
+                .or_insert_with(Vec::new)
+                .push(e);
+        }
         Self {
-            entries,
-            available_names,
+            entry_sources: map.keys().map(|k| (k.clone(), Vec::new())).collect(),
+            entries: map,
+        }
+    }
+
+    /// Build from entries with parallel source tracking.
+    pub(crate) fn from_entries_with_sources(
+        entries: Vec<PackageEntry>,
+        entry_sources: Vec<String>,
+    ) -> Self {
+        let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
+        let mut sources: HashMap<String, Vec<String>> = HashMap::new();
+        for (e, src) in entries.into_iter().zip(entry_sources) {
+            let pkg = e.package.clone();
+            map.entry(pkg.clone()).or_default().push(e);
+            sources.entry(pkg).or_default().push(src);
+        }
+        Self {
+            entries: map,
+            entry_sources: sources,
         }
     }
 
@@ -53,8 +91,8 @@ impl AptDb {
             "oma packages database cache miss: {}",
             cache_path.as_ref().display()
         );
-        let entries = parse_apt_lists_dir(lists_dir)?;
-        let db = Self::from_entries(entries);
+        let (entries, sources) = parse_apt_lists_dir_with_sources(lists_dir)?;
+        let db = Self::from_entries_with_sources(entries, sources);
 
         if let Err(e) = db.save_cache(&cache_path) {
             debug!("Failed to save oma packages database cache: {e}");
@@ -73,12 +111,8 @@ impl AptDb {
         let mut buf = Vec::new();
         fs::File::open(path.as_ref()).and_then(|mut f| f.read_to_end(&mut buf))?;
 
-        let mut db: Self = wincode::deserialize(&buf)
-            .map_err(|e| std::io::Error::other(format!("Failed to decode cache: {e}")))?;
-
-        // Rebuild the transient field
-        db.available_names = db.entries.iter().map(|e| e.package.clone()).collect();
-        Ok(db)
+        wincode::deserialize(&buf)
+            .map_err(|e| std::io::Error::other(format!("Failed to decode cache: {e}")))
     }
 
     /// Save to a binary cache file.
@@ -132,13 +166,41 @@ impl AptDb {
         true
     }
 
-    /// Check if a package name exists in the database
+    /// Check if a package name exists in the database.
     pub fn has_package(&self, name: &str) -> bool {
-        self.available_names.contains(name)
+        self.entries.contains_key(name)
     }
 
-    /// Get an entry by exact package name.
+    /// Get the first entry for a package name.
     pub fn get(&self, name: &str) -> Option<&PackageEntry> {
-        self.entries.iter().find(|e| e.package == name)
+        self.entries.get(name).and_then(|v| v.first())
+    }
+
+    /// Iterate over all package entries (across all names).
+    pub fn entries(&self) -> impl Iterator<Item = &PackageEntry> {
+        self.entries.values().flatten()
+    }
+
+    /// Find all entries matching a package name.
+    pub fn get_all(&self, name: &str) -> Vec<&PackageEntry> {
+        self.entries.get(name).into_iter().flatten().collect()
+    }
+
+    /// Find all entries matching a package name, together with their source info.
+    pub fn get_all_with_source(&self, name: &str) -> Vec<EntryWithSource<'_>> {
+        let entries = match self.entries.get(name) {
+            Some(v) => v,
+            None => return vec![],
+        };
+        let sources = self.entry_sources.get(name);
+
+        entries
+            .iter()
+            .enumerate()
+            .map(|(i, entry)| EntryWithSource {
+                entry,
+                source: sources.and_then(|s| s.get(i)).map(|s| s.as_str()),
+            })
+            .collect()
     }
 }
