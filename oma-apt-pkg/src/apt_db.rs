@@ -22,20 +22,16 @@ pub struct EntryWithSource<'a> {
 }
 
 /// Parse and cache APT package database.
-///
-/// Wraps all `PackageEntry` items from `*_Packages` files keyed by package
-/// name for O(1) lookup, with a binary cache via `wincode`.
 #[derive(Debug, Clone, SchemaWrite, SchemaRead)]
 pub struct AptDb {
-    /// Map from package name → its entries across repos/components/versions.
-    /// The inner `Vec`s are parallel to the matching `entry_sources` entries.
+    /// Map from package name to package version entries
     pub(crate) entries: HashMap<String, Vec<PackageEntry>>,
-    /// Map from package name → source filenames, parallel to `entries`.
+    /// Map from package name to apt lists filenames
     pub(crate) entry_sources: HashMap<String, Vec<String>>,
 }
 
 impl AptDb {
-    /// Build from entries without source tracking (used in tests).
+    /// Build from entries without source tracking
     #[allow(dead_code)]
     pub(crate) fn from_entries(entries: Vec<PackageEntry>) -> Self {
         let mut map = HashMap::new();
@@ -57,11 +53,13 @@ impl AptDb {
     ) -> Self {
         let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
         let mut sources: HashMap<String, Vec<String>> = HashMap::new();
+
         for (e, src) in entries.into_iter().zip(entry_sources) {
             let pkg = e.package.clone();
             map.entry(pkg.clone()).or_default().push(e);
             sources.entry(pkg).or_default().push(src);
         }
+
         Self {
             entries: map,
             entry_sources: sources,
@@ -91,6 +89,7 @@ impl AptDb {
             "oma packages database cache miss: {}",
             cache_path.as_ref().display()
         );
+
         let (entries, sources) = parse_apt_lists_dir_with_sources(lists_dir)?;
         let db = Self::from_entries_with_sources(entries, sources);
 
@@ -171,9 +170,31 @@ impl AptDb {
         self.entries.contains_key(name)
     }
 
-    /// Get the first entry for a package name.
-    pub fn get(&self, name: &str) -> Option<&PackageEntry> {
-        self.entries.get(name).and_then(|v| v.first())
+    /// Get the candidate entry for a package name (highest version).
+    pub fn get_candidate(&self, name: &str) -> Option<&PackageEntry> {
+        let entries = self.entries.get(name)?;
+        entries.iter().max_by(|a, b| {
+            let a_ver = a
+                .version
+                .as_deref()
+                .and_then(|v| debversion::Version::parse_lenient(v).ok());
+            let b_ver = b
+                .version
+                .as_deref()
+                .and_then(|v| debversion::Version::parse_lenient(v).ok());
+            a_ver.cmp(&b_ver)
+        })
+    }
+
+    /// Get a specific version entry for a package name.
+    /// Get all entries matching a package name and version (one per source).
+    pub fn get(&self, name: &str, version: &str) -> Vec<&PackageEntry> {
+        self.entries
+            .get(name)
+            .into_iter()
+            .flatten()
+            .filter(|e| e.version.as_deref().is_some_and(|v| v == version))
+            .collect()
     }
 
     /// Iterate over all package entries (across all names).
@@ -192,6 +213,7 @@ impl AptDb {
             Some(v) => v,
             None => return vec![],
         };
+
         let sources = self.entry_sources.get(name);
 
         entries

@@ -1,24 +1,24 @@
-use std::collections::HashMap;
-use std::path::{Component, Path, PathBuf};
+use indexmap::IndexMap;
+use std::path::{Component, PathBuf};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Node {
     pub(crate) value: String,
-    pub(crate) children: HashMap<String, Node>,
+    pub(crate) children: IndexMap<String, Node>,
 }
 
 impl Node {
     pub(crate) fn new(value: impl Into<String>) -> Self {
         Self {
             value: value.into(),
-            children: HashMap::new(),
+            children: IndexMap::new(),
         }
     }
 
     pub(crate) fn empty() -> Self {
         Self {
             value: String::new(),
-            children: HashMap::new(),
+            children: IndexMap::new(),
         }
     }
 }
@@ -29,13 +29,14 @@ pub struct AptConfig {
 }
 
 impl AptConfig {
-    /// Create a fresh, empty APT configuration.
+    /// Create a empty APT configuration tree.
     pub fn new() -> Self {
         Self {
             root: Node::new("/"),
         }
     }
 
+    /// Init default apt config tree
     pub fn init_defaults(&mut self) -> std::io::Result<()> {
         self.set("APT::Architecture", &crate::config_parser::detect_arch()?);
         self.set_list("APT::Build-Essential", "build-essential");
@@ -161,44 +162,46 @@ impl AptConfig {
         Ok(())
     }
 
+    /// Get value from key, or fallback to default
     pub fn get(&self, key: &str, default: &str) -> String {
         self.node(key)
             .filter(|n| !n.value.is_empty())
             .map_or_else(|| default.to_string(), |n| n.value.clone())
     }
 
+    /// Get file path from key, or fallback to default.
+    ///
+    /// Resolves ancestor values (using `PathBuf::push` which naturally
+    /// handles absolute-path replacement), prepends `RootDir` (if set),
+    /// and normalizes via [`fl_normalize`].
     pub fn get_file(&self, key: &str, default: &str) -> String {
+        let mut buf = PathBuf::new();
+
+        // Prepend RootDir if set (like APT's FindFile)
+        if let Some(root) = self.node("RootDir") {
+            if !root.value.is_empty() {
+                buf.push(&root.value);
+            }
+        }
+
         match self.node(key) {
             Some(node) if !node.value.is_empty() => {
-                let ancestors = self.ancestors(key);
-                let mut path = node.value.clone();
-                for av in ancestors.iter().rev() {
-                    if path.starts_with('/')
-                        || path.starts_with("~/")
-                        || path.starts_with("./")
-                        || path.starts_with("../")
-                    {
-                        break;
-                    }
-                    path = format!("{}/{}", av.trim_end_matches('/'), path);
+                for av in self.ancestors(key) {
+                    buf.push(av);
                 }
-                fl_normalize(&path)
+                buf.push(&node.value);
+                fl_normalize(&buf.to_string_lossy())
             }
             _ => {
                 let dir = self.root.value.as_str();
-                if default.starts_with('/') {
-                    fl_normalize(default)
-                } else {
-                    fl_normalize(&format!(
-                        "{}/{}",
-                        dir.trim_end_matches('/'),
-                        default.trim_start_matches('/')
-                    ))
-                }
+                buf.push(dir);
+                buf.push(default);
+                fl_normalize(&buf.to_string_lossy())
             }
         }
     }
 
+    /// Get dir path from key, or fallback to default
     pub fn get_dir(&self, key: &str, default: &str) -> String {
         let mut path = self.get_file(key, default);
         if !path.ends_with('/') {
@@ -207,6 +210,7 @@ impl AptConfig {
         path
     }
 
+    /// Get bool from key, or fallback to default
     pub fn get_bool(&self, key: &str, default: bool) -> bool {
         match self.node(key) {
             Some(n) => match n.value.as_str() {
@@ -218,10 +222,12 @@ impl AptConfig {
         }
     }
 
+    /// Get tree node from key is exist
     pub fn exists(&self, key: &str) -> bool {
         self.node(key).is_some_and(|n| !n.value.is_empty())
     }
 
+    /// Set key and value
     pub fn set(&mut self, key: &str, value: &str) {
         let parts: Vec<&str> = key.split("::").collect();
         let mut cur = &mut self.root;
@@ -237,6 +243,7 @@ impl AptConfig {
         cur.value = value.to_string();
     }
 
+    /// Set key and list values
     pub fn set_list(&mut self, key: &str, value: &str) {
         let key = key.strip_suffix("::").unwrap_or(key);
         let parts: Vec<&str> = key.split("::").collect();
@@ -255,6 +262,7 @@ impl AptConfig {
             .or_insert_with(|| Node::new(value));
     }
 
+    /// Get tree node from key
     fn node(&self, key: &str) -> Option<&Node> {
         let parts: Vec<&str> = key.split("::").collect();
         let mut cur = &self.root;
@@ -273,17 +281,29 @@ impl AptConfig {
             .unwrap_or_default()
     }
 
+    /// For each tree, get full path
+    ///
+    /// e.g:
+    /// Dir -> "/"
+    /// Dir::State -> "var/lib/apt"
+    /// Dir::State::lists -> "lists/"
+    /// Dir::State::lists to Dir::State to Dir:
+    /// reverse `lists/ -> var/lib/apt -> /` :
+    /// /var/lib/apt/lists
     fn ancestors(&self, key: &str) -> Vec<&str> {
         let parts: Vec<&str> = key.split("::").collect();
         let mut vals: Vec<&str> = Vec::new();
         let mut cur = &self.root;
+
         if !cur.value.is_empty() {
             vals.push(cur.value.as_str());
         }
+
         for part in &parts {
             if *part == "Dir" {
                 continue;
             }
+
             match cur.children.get(*part) {
                 Some(c) => {
                     if !c.value.is_empty() {
@@ -294,8 +314,10 @@ impl AptConfig {
                 None => break,
             }
         }
+
         let skip = parts.first().is_some_and(|p| *p == "Dir");
         vals.truncate(if skip { parts.len() - 1 } else { parts.len() });
+
         vals
     }
 }
@@ -306,20 +328,50 @@ impl Default for AptConfig {
     }
 }
 
-/// Normalize a path by removing `//` and `..` and resolving `.` (like APT's
-/// `flNormalize`).
+/// Normalize a path using `canonicalize()` (handles symlinks when path exists),
+/// falling back to lexical `Path::components()` resolution for non-existent paths.
 fn fl_normalize(path: &str) -> String {
-    let mut buf = PathBuf::new();
-    for comp in Path::new(path).components() {
-        match comp {
-            Component::CurDir => continue,
+    if path.is_empty() {
+        return path.to_string();
+    }
+
+    // Try realpath first — handles symlinks, `..`, and `.` when path exists
+    if let Ok(canonical) = std::fs::canonicalize(path) {
+        let s = canonical.to_string_lossy().to_string();
+        if s.starts_with("/dev/null") {
+            return String::new();
+        }
+        return s;
+    }
+
+    // Fallback: lexical normalize for non-existent paths
+    let p = std::path::Path::new(path);
+    let mut buf = std::path::PathBuf::new();
+
+    for component in p.components() {
+        match component {
+            Component::CurDir => { /* skip `.` */ }
             Component::ParentDir => {
-                buf.pop();
+                match buf.components().last() {
+                    Some(Component::Normal(_)) => {
+                        buf.pop();
+                    }
+                    Some(Component::RootDir) => {} // root's parent is root
+                    _ => {
+                        buf.push(Component::ParentDir.as_os_str());
+                    }
+                }
             }
-            _ => buf.push(comp.as_os_str()),
+            other => buf.push(other.as_os_str()),
         }
     }
-    buf.to_string_lossy().to_string()
+
+    let s = buf.to_string_lossy().to_string();
+    if s.starts_with("/dev/null") {
+        return String::new();
+    }
+
+    s
 }
 
 #[cfg(test)]
@@ -333,6 +385,14 @@ mod tests {
         assert_eq!(fl_normalize("/foo/./bar"), "/foo/bar");
         assert_eq!(fl_normalize("/foo///bar/./baz"), "/foo/bar/baz");
         assert_eq!(fl_normalize("/foo/bar"), "/foo/bar");
+        // `..` is resolved lexically (like realpath, no filesystem)
+        assert_eq!(fl_normalize("/../foo"), "/foo");
+        assert_eq!(fl_normalize("../foo/bar"), "../foo/bar");
+        assert_eq!(fl_normalize("foo/../bar"), "bar");
+        // /dev/null special case
+        assert_eq!(fl_normalize("/dev/null"), "");
+        // /dev/../dev/null resolves to /dev/null → cleared
+        assert_eq!(fl_normalize("/dev/../dev/null"), "");
     }
 
     #[test]

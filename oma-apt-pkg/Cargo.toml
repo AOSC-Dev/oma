@@ -8,7 +8,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 [features]
 default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config"]
-apt-config = ["dep:winnow"]
+apt-config = ["dep:tree-sitter", "dep:tree-sitter-language"]
 apt-lists = ["dep:wincode", "dep:spdlog-rs"]
 apt-sources = ["apt-config", "filename", "dep:oma-apt-sources-lists"]
 dpkg-status = []
@@ -17,7 +17,6 @@ search-indicium = [
     "apt-lists",
     "dpkg-status",
     "dep:ahash",
-    "dep:indexmap",
     "dep:debversion",
     "dep:glob-match",
     "dep:winnow",
@@ -27,7 +26,6 @@ search-strsim = [
     "apt-lists",
     "dpkg-status",
     "dep:ahash",
-    "dep:indexmap",
     "dep:debversion",
     "dep:glob-match",
     "dep:winnow",
@@ -38,7 +36,6 @@ search-text = [
     "apt-lists",
     "dpkg-status",
     "dep:ahash",
-    "dep:indexmap",
     "dep:debversion",
     "dep:glob-match",
     "dep:winnow",
@@ -55,12 +52,17 @@ thiserror = { workspace = true }
 wincode = { workspace = true, optional = true }
 spdlog-rs = { workspace = true, optional = true }
 ahash = { workspace = true, optional = true }
-indexmap = { workspace = true, features = ["serde"], optional = true }
+indexmap = { workspace = true, features = ["serde"] }
 indicium = { workspace = true, optional = true }
 debversion = { workspace = true, optional = true }
 glob-match = { workspace = true, optional = true }
 memchr = { workspace = true, optional = true }
 strsim = { workspace = true, optional = true }
 winnow = { workspace = true, optional = true }
+tree-sitter = { workspace = true, optional = true }
+tree-sitter-language = { workspace = true, optional = true }
 aho-corasick = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
+
+[build-dependencies]
+cc = { workspace = true }

@@ -571,7 +571,7 @@ impl OmaSearch for StrSimSearch<'_> {
         let mut results: Vec<SearchResult> = scored
             .into_iter()
             .map(|(name, _, installed, upgradable)| {
-                let entry = self.apt_db.get(&name);
+                let entry = self.apt_db.get_candidate(&name);
                 let (old_version, new_version) = if let Some(e) = entry {
                     extract_versions(
                         if upgradable {
