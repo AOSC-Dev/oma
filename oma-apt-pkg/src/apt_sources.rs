@@ -89,18 +89,15 @@ impl SourceLookup {
                 SourceListType::Deb822(deb822) => Box::new(deb822.entries.into_iter()),
             };
 
-            for entry in parsed.filter(|e| e.enabled) {
+            for (idx, entry) in parsed.filter(|e| e.enabled).enumerate() {
                 let key = entry
                     .url()
-                    .split("://")
-                    .nth(1)
-                    .unwrap_or(entry.url())
+                    .split_once("://")
+                    .map_or(entry.url(), |(_, rest)| rest)
                     .trim_end_matches('/')
                     .to_string();
 
-                let idx = entries.len();
-
-                lookup.entry(key).or_insert(idx);
+                lookup.insert(key, idx);
                 entries.push(entry);
             }
         }
@@ -119,7 +116,7 @@ impl SourceLookup {
     /// This approximates APT's `FindIndex` (sourcelist.cc) via URL prefix
     /// matching.
     pub fn resolve<'a>(&'a self, decoded: &'a str) -> Option<SourceMatch<'a>> {
-        let host_path = decoded.split("://").nth(1).unwrap_or(decoded);
+        let host_path = decoded.split_once("://").map_or(decoded, |(_, rest)| rest);
         let (key, &idx) = self
             .lookup
             .iter()
@@ -144,7 +141,8 @@ impl SourceLookup {
                 .iter()
                 .zip(entry.dist_components())
                 .find(|(_, url)| {
-                    let comp_host_path = url.split("://").nth(1).unwrap_or(url);
+                    let comp_host_path =
+                        url.split_once("://").map_or(url.as_str(), |(_, rest)| rest);
                     host_path.starts_with(comp_host_path)
                 })
                 .map(|(name, _)| name.as_str())
@@ -207,14 +205,12 @@ impl<'a> IndexTargetTemplates<'a> {
 
     /// Iterate all `Acquire::IndexTargets` entries, read `MetaKey` (or
     /// `flatMetaKey`), substitute `$(ARCHITECTURE)` with each arch from
-    /// `archs`, and collect every target for which the resulting path
-    /// matches `filename` via full template substitution.
+    /// `archs`, run full template substitution on the result, and collect
+    /// every target whose substituted MetaKey matches `filename`.
     ///
-    /// `release` is substituted for `$(RELEASE)` in descriptions (and
-    /// optionally in MetaKey if present).
-    ///
-    /// This is the shared core used by both `show`'s APT-Sources formatting
-    /// and `oma-refresh`'s InRelease-to-download-list matching.
+    /// The returned `TargetResolution` contains the raw description
+    /// template (with `$(RELEASE)` etc. still unsubstituted); the caller
+    /// should perform substitution via [`substitute`] when formatting.
     #[allow(clippy::too_many_arguments)]
     pub fn resolve_targets(
         &self,
@@ -362,6 +358,7 @@ pub fn find_matching_combinations(
             }
         }
     }
+
     results
 }
 

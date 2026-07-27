@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use std::path::{Component, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Node {
@@ -192,16 +192,16 @@ impl AptConfig {
 
         // Prepend RootDir if set (APT's FindFile prepends it to the result)
         let root_dir = self.node("RootDir");
-        if let Some(r) = root_dir {
-            if !r.value.is_empty() {
-                let path = buf.to_string_lossy();
-                let combined = if path.starts_with('/') {
-                    format!("{}{}", r.value.trim_end_matches('/'), path)
-                } else {
-                    format!("{}/{}", r.value.trim_end_matches('/'), &path)
-                };
-                return fl_normalize(&combined);
-            }
+        if let Some(r) = root_dir
+            && !r.value.is_empty()
+        {
+            let path = buf.to_string_lossy();
+            let combined = if path.starts_with('/') {
+                format!("{}{}", r.value.trim_end_matches('/'), path)
+            } else {
+                format!("{}/{}", r.value.trim_end_matches('/'), path)
+            };
+            return fl_normalize(&combined);
         }
 
         fl_normalize(&buf.to_string_lossy())
@@ -235,10 +235,9 @@ impl AptConfig {
 
     /// Set key and value
     pub fn set(&mut self, key: &str, value: &str) {
-        let parts: Vec<&str> = key.split("::").collect();
         let mut cur = &mut self.root;
-        for part in &parts {
-            if *part == "Dir" {
+        for part in key.split("::") {
+            if part == "Dir" {
                 continue;
             }
             cur = cur
@@ -252,10 +251,9 @@ impl AptConfig {
     /// Set key and list values
     pub fn set_list(&mut self, key: &str, value: &str) {
         let key = key.strip_suffix("::").unwrap_or(key);
-        let parts: Vec<&str> = key.split("::").collect();
         let mut cur = &mut self.root;
-        for part in &parts {
-            if *part == "Dir" {
+        for part in key.split("::") {
+            if part == "Dir" {
                 continue;
             }
             cur = cur
@@ -270,13 +268,12 @@ impl AptConfig {
 
     /// Get tree node from key
     fn node(&self, key: &str) -> Option<&Node> {
-        let parts: Vec<&str> = key.split("::").collect();
         let mut cur = &self.root;
-        for part in &parts {
-            if *part == "Dir" && cur.value == self.root.value {
+        for part in key.split("::") {
+            if part == "Dir" && cur.value == self.root.value {
                 continue;
             }
-            cur = cur.children.get(*part)?;
+            cur = cur.children.get(part)?;
         }
         Some(cur)
     }
@@ -297,7 +294,6 @@ impl AptConfig {
     /// reverse `lists/ -> var/lib/apt -> /` :
     /// /var/lib/apt/lists
     fn ancestors(&self, key: &str) -> Vec<&str> {
-        let parts: Vec<&str> = key.split("::").collect();
         let mut vals: Vec<&str> = Vec::new();
         let mut cur = &self.root;
 
@@ -305,12 +301,12 @@ impl AptConfig {
             vals.push(cur.value.as_str());
         }
 
-        for part in &parts {
-            if *part == "Dir" {
+        for part in key.split("::") {
+            if part == "Dir" {
                 continue;
             }
 
-            match cur.children.get(*part) {
+            match cur.children.get(part) {
                 Some(c) => {
                     if !c.value.is_empty() {
                         vals.push(c.value.as_str());
@@ -348,8 +344,8 @@ fn fl_normalize(path: &str) -> String {
     }
 
     // Fallback: lexical normalize for non-existent paths
-    let p = std::path::Path::new(path);
-    let mut buf = std::path::PathBuf::new();
+    let p = Path::new(path);
+    let mut buf = PathBuf::new();
 
     for component in p.components() {
         match component {

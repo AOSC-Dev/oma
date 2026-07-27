@@ -54,10 +54,10 @@ impl AptDb {
         let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
         let mut sources: HashMap<String, Vec<String>> = HashMap::new();
 
-        for (e, src) in entries.into_iter().zip(entry_sources) {
-            let pkg = e.package.clone();
-            map.entry(pkg.clone()).or_default().push(e);
-            sources.entry(pkg).or_default().push(src);
+        for (mut e, src) in entries.into_iter().zip(entry_sources) {
+            let pkg = std::mem::take(&mut e.package);
+            sources.entry(pkg.clone()).or_default().push(src);
+            map.entry(pkg).or_default().push(e);
         }
 
         Self {
@@ -177,11 +177,13 @@ impl AptDb {
             let a_ver = a
                 .version
                 .as_deref()
-                .and_then(|v| debversion::Version::parse_lenient(v).ok());
+                .and_then(|v| v.parse::<debversion::Version>().ok());
+
             let b_ver = b
                 .version
                 .as_deref()
-                .and_then(|v| debversion::Version::parse_lenient(v).ok());
+                .and_then(|v| v.parse::<debversion::Version>().ok());
+
             a_ver.cmp(&b_ver)
         })
     }
