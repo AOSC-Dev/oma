@@ -2,7 +2,7 @@
   "name": "tree-sitter-apt-config",
   "version": "0.0.1",
   "description": "AptConfig grammar for tree-sitter",
-  "repository": "github:tree-sitter/tree-sitter-apt-config",
+  "repository": "github:AOSC-Dev/oma",
   "license": "MIT",
   "main": "bindings/node",
   "types": "bindings/node",
@@ -27,10 +27,10 @@
   },
   "devDependencies": {
     "prebuildify": "^6.0.1",
-    "tree-sitter-cli": "^0.23.0"
+    "tree-sitter-cli": "^0.26.0"
   },
   "peerDependencies": {
-    "tree-sitter": "^0.21.1"
+    "tree-sitter": "^0.25.0"
   },
   "peerDependenciesMeta": {
     "tree-sitter": {

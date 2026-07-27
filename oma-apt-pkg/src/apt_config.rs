@@ -177,28 +177,34 @@ impl AptConfig {
     pub fn get_file(&self, key: &str, default: &str) -> String {
         let mut buf = PathBuf::new();
 
-        // Prepend RootDir if set (like APT's FindFile)
-        if let Some(root) = self.node("RootDir") {
-            if !root.value.is_empty() {
-                buf.push(&root.value);
-            }
-        }
-
         match self.node(key) {
             Some(node) if !node.value.is_empty() => {
                 for av in self.ancestors(key) {
                     buf.push(av);
                 }
-                buf.push(&node.value);
-                fl_normalize(&buf.to_string_lossy())
             }
             _ => {
                 let dir = self.root.value.as_str();
                 buf.push(dir);
                 buf.push(default);
-                fl_normalize(&buf.to_string_lossy())
             }
         }
+
+        // Prepend RootDir if set (APT's FindFile prepends it to the result)
+        let root_dir = self.node("RootDir");
+        if let Some(r) = root_dir {
+            if !r.value.is_empty() {
+                let path = buf.to_string_lossy();
+                let combined = if path.starts_with('/') {
+                    format!("{}{}", r.value.trim_end_matches('/'), path)
+                } else {
+                    format!("{}/{}", r.value.trim_end_matches('/'), &path)
+                };
+                return fl_normalize(&combined);
+            }
+        }
+
+        fl_normalize(&buf.to_string_lossy())
     }
 
     /// Get dir path from key, or fallback to default
@@ -315,9 +321,6 @@ impl AptConfig {
             }
         }
 
-        let skip = parts.first().is_some_and(|p| *p == "Dir");
-        vals.truncate(if skip { parts.len() - 1 } else { parts.len() });
-
         vals
     }
 }
@@ -352,7 +355,7 @@ fn fl_normalize(path: &str) -> String {
         match component {
             Component::CurDir => { /* skip `.` */ }
             Component::ParentDir => {
-                match buf.components().last() {
+                match buf.components().next_back() {
                     Some(Component::Normal(_)) => {
                         buf.pop();
                     }
@@ -419,5 +422,86 @@ mod tests {
             "unexpected path: {path}"
         );
         assert_eq!(cfg.get_dir("Dir::State", ""), "/var/lib/apt/");
+    }
+
+    #[test]
+    fn test_set_and_get() {
+        let mut cfg = AptConfig::new();
+        cfg.set("APT::Color", "1");
+        assert_eq!(cfg.get("APT::Color", ""), "1");
+    }
+
+    #[test]
+    fn test_set_overrides() {
+        let mut cfg = AptConfig::new();
+        cfg.set("APT::Color", "1");
+        assert_eq!(cfg.get("APT::Color", ""), "1");
+        cfg.set("APT::Color", "0");
+        assert_eq!(cfg.get("APT::Color", ""), "0");
+    }
+
+    #[test]
+    fn test_set_nested_key() {
+        let mut cfg = AptConfig::new();
+        cfg.set("Dir::Etc::sourcelist", "/custom/sources.list");
+        assert_eq!(cfg.get("Dir::Etc::sourcelist", ""), "/custom/sources.list");
+    }
+
+    #[test]
+    fn test_set_skips_dir_segment() {
+        let mut cfg = AptConfig::new();
+        cfg.set("Dir::State::status", "/custom/status");
+        // "Dir" is skipped at root level, so the effective key is State::status
+        assert_eq!(cfg.get("Dir::State::status", ""), "/custom/status");
+    }
+
+    #[test]
+    fn test_set_default_fallback() {
+        let cfg = AptConfig::new();
+        assert_eq!(cfg.get("Nonexistent::Key", "default"), "default");
+    }
+
+    #[test]
+    fn test_set_list() {
+        let mut cfg = AptConfig::new();
+        cfg.set_list("Dir::List", "first");
+        cfg.set_list("Dir::List", "second");
+        // Each list value becomes a child node with an empty parent value
+        assert_eq!(cfg.get("Dir::List", ""), "");
+        assert!(cfg.exists("Dir::List::first"));
+        assert!(cfg.exists("Dir::List::second"));
+    }
+
+    #[test]
+    fn test_set_list_with_trailing_colons() {
+        let mut cfg = AptConfig::new();
+        cfg.set_list("Dir::List::", "item");
+        assert!(cfg.exists("Dir::List::item"));
+    }
+
+    #[test]
+    fn test_set_with_trailing_colons_get() {
+        let mut cfg = AptConfig::new();
+        // set with trailing :: creates an empty-string child node
+        cfg.set("APT::List::", "value");
+        assert_eq!(cfg.get("APT::List::", ""), "value");
+    }
+
+    #[test]
+    fn test_get_with_trailing_colons_non_list() {
+        let mut cfg = AptConfig::new();
+        // regular set, then get with trailing ::
+        cfg.set("APT::Color", "true");
+        // get with trailing :: should not find the value (empty-string child doesn't exist)
+        assert_eq!(cfg.get("APT::Color::", "fallback"), "fallback");
+    }
+
+    #[test]
+    fn test_set_list_get_with_trailing_colons() {
+        let mut cfg = AptConfig::new();
+        cfg.set_list("APT::List", "a");
+        cfg.set_list("APT::List", "b");
+        // get with trailing :: finds the empty-string child value (which is "")
+        assert_eq!(cfg.get("APT::List::", ""), "");
     }
 }

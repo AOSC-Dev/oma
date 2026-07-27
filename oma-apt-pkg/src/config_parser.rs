@@ -96,7 +96,7 @@ impl AptConfig {
         depth: usize,
     ) {
         for i in 0..node.child_count() {
-            let Some(child) = node.child(i) else {
+            let Some(child) = node.child(i as u32) else {
                 continue;
             };
             if !child.is_named() {
@@ -109,35 +109,45 @@ impl AptConfig {
                 "scope" => self.handle_scope(content, child, parent_key, depth),
                 "include_directive" => self.handle_include_directive(content, child, depth),
                 "clear_directive" => self.handle_clear_directive(content, child),
-                // unknown_statement (# comment), ERROR, MISNG → skip
+                // hash_comment, ERROR, MISNG → skip
                 _ => {}
             }
         }
     }
 
-    fn handle_key_value(
-        &mut self,
-        content: &str,
-        node: tree_sitter::Node,
-        parent_key: &str,
-    ) {
+    fn handle_key_value(&mut self, content: &str, node: tree_sitter::Node, parent_key: &str) {
         let Some(key_node) = node.child_by_field_name("key") else {
             return;
         };
-        let key = node_text(content, key_node).to_string();
+        let key_raw = node_text(content, key_node);
 
         let value: String = {
             let mut cursor = node.walk();
             node.children_by_field_name("value", &mut cursor)
-                .map(|n| unescape_string(&node_text(content, n)))
+                .map(|n| unescape_string(node_text(content, n)))
                 .collect::<Vec<_>>()
                 .join(" ")
         };
 
-        let full_key = if parent_key.is_empty() {
-            key
+        // Trailing "::" means list-append (e.g. Dir::List:: "value")
+        let full_key = if let Some(stripped) = key_raw.strip_suffix("::") {
+            let base_key = if parent_key.is_empty() {
+                stripped.to_string()
+            } else {
+                format!("{parent_key}::{stripped}")
+            };
+            if !value.is_empty() {
+                let first = value.split(' ').next().unwrap_or("");
+                let item_key = format!("{base_key}::{first}");
+                self.set(&item_key, first);
+            }
+            return;
         } else {
-            format!("{parent_key}::{key}")
+            if parent_key.is_empty() {
+                key_raw.to_string()
+            } else {
+                format!("{parent_key}::{key_raw}")
+            }
         };
 
         self.set(&full_key, &value);
@@ -147,13 +157,14 @@ impl AptConfig {
         let Some(value_node) = node.child_by_field_name("value") else {
             return;
         };
-        let value = unescape_string(&node_text(content, value_node));
+        let value = unescape_string(node_text(content, value_node));
 
         let key = if parent_key.is_empty() {
             value.clone()
         } else {
             format!("{parent_key}::{value}")
         };
+
         self.set(&key, &value);
     }
 
@@ -182,7 +193,7 @@ impl AptConfig {
         let Some(path_node) = node.child_by_field_name("path") else {
             return;
         };
-        let path = unescape_string(&node_text(content, path_node));
+        let path = unescape_string(node_text(content, path_node));
 
         if path.ends_with('/') {
             if Path::new(&path).is_dir() {
@@ -532,10 +543,7 @@ mod tests {
             "^linux-firmware$"
         );
         assert_eq!(
-            cfg.get(
-                "APT::VersionedKernelPackages::linux-image-unsigned",
-                ""
-            ),
+            cfg.get("APT::VersionedKernelPackages::linux-image-unsigned", ""),
             "linux-image-unsigned"
         );
         assert_eq!(
@@ -660,10 +668,7 @@ mod tests {
             cfg.get(&format!("{dsc}::MetaKey"), ""),
             "$(COMPONENT)/Contents-source"
         );
-        assert_eq!(
-            cfg.get(&format!("{dsc}::DefaultEnabled"), ""),
-            "false"
-        );
+        assert_eq!(cfg.get(&format!("{dsc}::DefaultEnabled"), ""), "false");
     }
 
     #[test]
@@ -748,8 +753,7 @@ mod tests {
             let key_raw = line[..quote_start].trim();
             let value = line[quote_start + 1..].trim_end_matches("\";").to_string();
 
-            if key_raw.starts_with("Version::") || key_raw == "CommandLine::AsString"
-            {
+            if key_raw.starts_with("Version::") || key_raw == "CommandLine::AsString" {
                 continue;
             }
 
@@ -790,5 +794,287 @@ mod tests {
             mismatches.len(),
             mismatches.join("\n")
         );
+    }
+
+    #[test]
+    fn test_boolean_values() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(r#"Flag1 "true"; Flag2 "yes"; Flag3 "1";"#, 0);
+        assert_eq!(cfg.get_bool("Flag1", false), true);
+        assert_eq!(cfg.get_bool("Flag2", false), true);
+        assert_eq!(cfg.get_bool("Flag3", false), true);
+        cfg.parse_config(r#"Flag4 "false"; Flag5 "no"; Flag6 "0";"#, 0);
+        assert_eq!(cfg.get_bool("Flag4", true), false);
+        assert_eq!(cfg.get_bool("Flag5", true), false);
+        assert_eq!(cfg.get_bool("Flag6", true), false);
+    }
+
+    #[test]
+    fn test_value_with_special_chars() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(r#"Path "/var/lib/apt/lists";"#, 0);
+        assert_eq!(cfg.get("Path", ""), "/var/lib/apt/lists");
+        cfg.parse_config(r#"Regex "^linux-image-[0-9]+.*$";"#, 0);
+        assert_eq!(cfg.get("Regex", ""), "^linux-image-[0-9]+.*$");
+    }
+
+    #[test]
+    fn test_scope_with_dotted_keys() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(
+            r#"
+            Acquire::IndexTargets {
+                deb::DEP-11 {
+                    MetaKey "$(COMPONENT)/dep11/Components-$(ARCHITECTURE).yml";
+                };
+            };
+            "#,
+            0,
+        );
+        assert_eq!(
+            cfg.get("Acquire::IndexTargets::deb::DEP-11::MetaKey", ""),
+            "$(COMPONENT)/dep11/Components-$(ARCHITECTURE).yml"
+        );
+    }
+
+    #[test]
+    fn test_mixed_inline_and_scope() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(
+            r#"
+            Dir::State "var/lib/apt";
+            Dir {
+                Cache "var/cache/apt";
+            };
+            "#,
+            0,
+        );
+        assert_eq!(cfg.get("Dir::State", ""), "var/lib/apt");
+        assert_eq!(cfg.get("Dir::Cache", ""), "var/cache/apt");
+    }
+
+    #[test]
+    fn test_scope_with_only_hash_comments() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(
+            r#"
+            Scope {
+                # comment 1
+                # comment 2
+                Key "value";
+            };
+            "#,
+            0,
+        );
+        assert_eq!(cfg.get("Scope::Key", ""), "value");
+    }
+
+    #[test]
+    fn test_include_depth_limit() {
+        let mut cfg = AptConfig::new();
+        // Direct call with depth beyond limit should be a no-op
+        cfg.parse_config(r#"Key "value";"#, 11);
+        assert_eq!(cfg.get("Key", ""), "");
+    }
+
+    #[test]
+    fn test_identifier_with_special_chars() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(r#"Apt::Pattern "^linux-image-[0-9]*$";"#, 0);
+        assert_eq!(cfg.get("Apt::Pattern", ""), "^linux-image-[0-9]*$");
+    }
+
+    #[test]
+    fn test_backslash_escape_variants() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(r#"Esc "line1\nline2\tcol";"#, 0);
+        assert_eq!(cfg.get("Esc", ""), "line1\nline2\tcol");
+        cfg.parse_config(r#"Slash "C:\\path\\to\\dir";"#, 0);
+        assert_eq!(cfg.get("Slash", ""), r"C:\path\to\dir");
+    }
+
+    #[test]
+    fn test_key_with_dir_scope() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(
+            r#"
+            Dir {
+                State "var/lib/apt";
+            };
+            "#,
+            0,
+        );
+        assert_eq!(cfg.get("Dir::State", ""), "var/lib/apt");
+    }
+
+    #[test]
+    fn test_very_deeply_nested_scope() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(
+            r#"
+            A {
+                B {
+                    C {
+                        D {
+                            E {
+                                F "deep";
+                            };
+                        };
+                    };
+                };
+            };
+            "#,
+            0,
+        );
+        assert_eq!(cfg.get("A::B::C::D::E::F", ""), "deep");
+    }
+
+    // -- Tests ported from APT's configuration_test.cc -----------------
+
+    #[test]
+    fn test_apt_parsing() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(
+            r#"
+            SimpleOption "true";
+            /* SimpleOption "false"; */
+            Answer::Simple "42";
+            # This is a comment
+            List::Option { "In"; "One"; "Line"; };
+            // this a comment as well
+            List::Option2 { "Multi";
+            "Line"; # inline comment
+                     "Options";
+            }; Trailing "true";
+            /* Commented::Out "true"; */
+            "#,
+            0,
+        );
+        assert_eq!(cfg.get_bool("SimpleOption", false), true);
+        assert_eq!(cfg.get("Answer::Simple", ""), "42");
+        // List::Option values are children of List::Option scope
+        assert_eq!(cfg.get("List::Option::In", ""), "In");
+        assert_eq!(cfg.get("List::Option::One", ""), "One");
+        assert_eq!(cfg.get("List::Option::Line", ""), "Line");
+        // Trailing key after scope
+        assert_eq!(cfg.get_bool("Trailing", false), true);
+        // Commented out should not exist
+        assert!(!cfg.exists("Commented::Out"));
+    }
+
+    #[test]
+    fn test_apt_dir_and_file_resolution() {
+        let mut cfg = AptConfig::new();
+        cfg.set("Dir", "/srv/sid");
+        cfg.set("Dir::State", "var/lib/apt");
+        cfg.set("Dir::Aptitude::State", "var/lib/aptitude");
+
+        assert_eq!(cfg.get_file("Dir::State", ""), "/srv/sid/var/lib/apt");
+        assert_eq!(
+            cfg.get_file("Dir::Aptitude::State", ""),
+            "/srv/sid/var/lib/aptitude"
+        );
+    }
+
+    #[test]
+    fn test_apt_rootdir() {
+        let mut cfg = AptConfig::new();
+        cfg.set("Dir", "/srv/sid");
+        cfg.set("Dir::State", "var/lib/apt");
+        cfg.set("RootDir", "/rootdir");
+
+        assert_eq!(
+            cfg.get_file("Dir::State", ""),
+            "/rootdir/srv/sid/var/lib/apt"
+        );
+    }
+
+    #[test]
+    fn test_apt_devnull_in_paths() {
+        let mut cfg = AptConfig::new();
+        cfg.set("Dir", "/");
+        cfg.set("Dir::State::status", "status");
+        assert_eq!(cfg.get_file("Dir::State::status", ""), "/status");
+
+        // Setting Dir::State to /dev/null makes sub-paths null too
+        cfg.set("Dir::State", "/dev/null");
+        assert_eq!(cfg.get_file("Dir::State", ""), "");
+        assert_eq!(cfg.get_file("Dir::State::status", ""), "");
+    }
+
+    #[test]
+    fn test_apt_lists() {
+        let mut cfg = AptConfig::new();
+        cfg.set_list("APT::Keep-Fds", "28");
+        cfg.set_list("APT::Keep-Fds", "17");
+        cfg.set_list("APT::Keep-Fds", "broken");
+        let keys = cfg.keys_under("APT::Keep-Fds");
+        assert_eq!(keys, vec!["28", "17", "broken"]);
+    }
+
+    #[test]
+    fn test_apt_integers() {
+        let mut cfg = AptConfig::new();
+        cfg.set("APT::Version", "42");
+        assert_eq!(cfg.get("APT::Version", ""), "42");
+        assert_eq!(cfg.get("APT::Version", "33"), "42");
+        assert_eq!(cfg.get("APT2::Version", "33"), "33");
+    }
+
+    #[test]
+    fn test_hash_comment_parsed() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(
+            r#"
+            # just a comment
+            # another one
+            Key "value";
+            "#,
+            0,
+        );
+        // hash_comment nodes are skipped; value after them is intact
+        assert_eq!(cfg.get("Key", ""), "value");
+    }
+
+    #[test]
+    fn test_list_append_inline() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(r#"Dir::List:: "item";"#, 0);
+        assert_eq!(cfg.get("Dir::List::item", ""), "item");
+    }
+
+    #[test]
+    fn test_list_append_multiple() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(
+            r#"
+            Dir::List:: "first";
+            Dir::List:: "second";
+            "#,
+            0,
+        );
+        assert_eq!(cfg.get("Dir::List::first", ""), "first");
+        assert_eq!(cfg.get("Dir::List::second", ""), "second");
+    }
+
+    #[test]
+    fn test_identifier_with_hyphen() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(r#"APT::Install-Recommends "true";"#, 0);
+        assert_eq!(cfg.get_bool("APT::Install-Recommends", false), true);
+    }
+
+    #[test]
+    fn test_identifier_with_plus() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(r#"Build-Essential+Extra "pkg";"#, 0);
+        assert_eq!(cfg.get("Build-Essential+Extra", ""), "pkg");
+    }
+
+    #[test]
+    fn test_identifier_with_dot() {
+        let mut cfg = AptConfig::new();
+        cfg.parse_config(r#"Dir::List:: ".bak";"#, 0);
+        assert_eq!(cfg.get("Dir::List::.bak", ""), ".bak");
     }
 }

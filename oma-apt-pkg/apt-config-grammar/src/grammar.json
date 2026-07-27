@@ -33,7 +33,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "unknown_statement"
+          "name": "hash_comment"
         }
       ]
     },
@@ -71,7 +71,7 @@
         }
       ]
     },
-    "unknown_statement": {
+    "hash_comment": {
       "type": "SEQ",
       "members": [
         {
@@ -170,7 +170,7 @@
       ]
     },
     "path": {
-      "type": "PREC_LEFT",
+      "type": "PREC_RIGHT",
       "value": 0,
       "content": {
         "type": "SEQ",
@@ -194,6 +194,18 @@
                 }
               ]
             }
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "::"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
           }
         ]
       }

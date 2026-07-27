@@ -109,6 +109,7 @@ impl<'a> IndexTargetConfig<'a> {
 
     pub fn get_download_list(
         &self,
+        release: &str,
         checksums: &[ChecksumItem],
         is_source: bool,
         is_flat: bool,
@@ -136,7 +137,7 @@ impl<'a> IndexTargetConfig<'a> {
 
             if is_flat {
                 let matches = templates
-                    .resolve_targets(name, &archs, "", "", "", true)
+                    .resolve_targets(name, release, &archs, "", "", "", true)
                     .map_err(|e| RefreshError::InvalidUrl(e.to_string()))?;
                 for m in &matches {
                     res_map
@@ -160,6 +161,7 @@ impl<'a> IndexTargetConfig<'a> {
                     }
                     for m in find_matching_combinations(
                         &template,
+                        release,
                         name,
                         &archs,
                         &comps,
@@ -170,7 +172,14 @@ impl<'a> IndexTargetConfig<'a> {
                         let desc = if desc.is_empty() {
                             "Other".to_string()
                         } else {
-                            substitute(&desc, "", &m.component, &m.arch, &m.lang, self.native_arch)
+                            substitute(
+                                &desc,
+                                release,
+                                &m.component,
+                                &m.arch,
+                                &m.lang,
+                                self.native_arch,
+                            )
                         };
                         res_map
                             .entry(name.to_string())

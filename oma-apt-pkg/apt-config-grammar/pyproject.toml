@@ -19,10 +19,10 @@ license.text = "MIT"
 readme = "README.md"
 
 [project.urls]
-Homepage = "https://github.com/tree-sitter/tree-sitter-apt-config"
+Homepage = "https://github.com/AOSC-Dev/oma"
 
 [project.optional-dependencies]
-core = ["tree-sitter~=0.22"]
+core = ["tree-sitter~=0.26"]
 
 [tool.cibuildwheel]
 build = "cp39-*"

@@ -18,7 +18,7 @@ module.exports = grammar({
       $.scope,
       $.include_directive,
       $.clear_directive,
-      $.unknown_statement,
+      $.hash_comment,
     ),
 
     include_directive: $ => seq(
@@ -31,7 +31,7 @@ module.exports = grammar({
       field('key', $.path),
     ),
 
-    unknown_statement: $ => seq(
+    hash_comment: $ => seq(
       '#',
       /[^\n]*/,
     ),
@@ -55,9 +55,10 @@ module.exports = grammar({
       optional(';'),
     ),
 
-    path: $ => prec.left(seq(
+    path: $ => prec.right(seq(
       $.identifier,
       repeat(seq('::', $.identifier)),
+      optional('::'),
     )),
 
     identifier: $ => /[a-zA-Z0-9_\-.+]+/,

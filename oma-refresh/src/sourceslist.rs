@@ -1,17 +1,10 @@
-use std::{
-    borrow::Cow,
-    fmt::Debug,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{borrow::Cow, fmt::Debug, path::Path, sync::Arc};
 
 use ahash::{AHashMap, HashMap};
 use fancy_regex::Regex;
 use flume::Sender;
 use oma_apt_pkg::AptConfig;
-use oma_apt_sources_lists::{
-    Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
-};
+use oma_apt_sources_lists::{Signature, SourceEntry};
 use oma_fetch::{
     SingleDownloadError,
     reqwest::{Method, Response, StatusCode},
@@ -57,35 +50,6 @@ impl Debug for OmaSourceEntry {
     }
 }
 
-pub(crate) fn scan_sources_lists_paths(
-    list_file: impl AsRef<str>,
-    list_dir: impl AsRef<str>,
-) -> Result<Vec<PathBuf>, SourcesListError> {
-    let mut paths = vec![];
-    let default = Path::new(list_file.as_ref());
-    let list_dir_path = Path::new(list_dir.as_ref());
-
-    if default.exists() {
-        paths.push(default.to_path_buf());
-    }
-
-    if list_dir_path.exists() {
-        let dir = std::fs::read_dir(list_dir_path)?;
-
-        for i in dir {
-            let i = i?;
-            let path = i.path();
-            if !path.is_file() {
-                continue;
-            }
-
-            paths.push(path.to_path_buf());
-        }
-    }
-
-    Ok(paths)
-}
-
 pub fn ignores(cfg: &AptConfig) -> Vec<Regex> {
     let ignores_lines = cfg
         .keys_under("Dir::Ignore-Files-Silently")
@@ -100,57 +64,6 @@ pub fn ignores(cfg: &AptConfig) -> Vec<Regex> {
             }).ok()
         })
         .collect::<Vec<_>>()
-}
-
-pub fn scan_sources_list_from_paths(
-    paths: &[impl AsRef<Path>],
-    arch: Arc<str>,
-    ignores: &[Regex],
-    cb: &mut impl FnMut(Event),
-) -> Result<Vec<OmaSourceEntry>, SourcesListError> {
-    let mut res = vec![];
-
-    for p in paths {
-        match SourcesList::new(p) {
-            Ok(s) => match s.entries {
-                SourceListType::SourceLine(source_list_line_style) => {
-                    for source in source_list_line_style.0 {
-                        if let SourceLine::Entry(entry) = source
-                            && entry.enabled
-                        {
-                            res.push(OmaSourceEntry::new(entry, arch.clone()));
-                        }
-                    }
-                }
-                SourceListType::Deb822(source_list_deb822) => {
-                    for source in source_list_deb822.entries.into_iter().filter(|s| s.enabled) {
-                        res.push(OmaSourceEntry::new(source, arch.clone()));
-                    }
-                }
-            },
-            Err(e) => match e {
-                SourcesListError::UnknownFile { path } => {
-                    let Some(file_name) = path.file_name() else {
-                        cb(Event::SourceListFileNotSupport { path });
-                        continue;
-                    };
-
-                    if ignores
-                        .iter()
-                        .any(|re| re.is_match(&file_name.to_string_lossy()).unwrap_or(false))
-                    {
-                        debug!("File {:?} matches ignore list.", file_name);
-                        continue;
-                    }
-
-                    cb(Event::SourceListFileNotSupport { path });
-                }
-                e => return Err(e),
-            },
-        }
-    }
-
-    Ok(res)
 }
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]

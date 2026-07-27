@@ -16,6 +16,11 @@
     }
   },
   {
+    "type": "hash_comment",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "include_directive",
     "named": true,
     "fields": {
@@ -112,6 +117,10 @@
           "named": true
         },
         {
+          "type": "hash_comment",
+          "named": true
+        },
+        {
           "type": "include_directive",
           "named": true
         },
@@ -125,10 +134,6 @@
         },
         {
           "type": "scope",
-          "named": true
-        },
-        {
-          "type": "unknown_statement",
           "named": true
         }
       ]
@@ -147,6 +152,10 @@
           "named": true
         },
         {
+          "type": "hash_comment",
+          "named": true
+        },
+        {
           "type": "include_directive",
           "named": true
         },
@@ -161,18 +170,9 @@
         {
           "type": "scope",
           "named": true
-        },
-        {
-          "type": "unknown_statement",
-          "named": true
         }
       ]
     }
-  },
-  {
-    "type": "unknown_statement",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "#",

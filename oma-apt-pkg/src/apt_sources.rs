@@ -1,81 +1,116 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use aho_corasick::{AhoCorasick, BuildError};
-use oma_apt_sources_lists::{SourceEntry, SourceLine, SourceListType, SourcesLists};
+use oma_apt_sources_lists::{SourceEntry, SourceLine, SourceListType, SourcesList};
 
 use crate::AptConfig;
 
-// ---------------------------------------------------------------------------
-// SourceLookup — built from sources.list, resolves decoded URIs
-// ---------------------------------------------------------------------------
+/// Scan the filesystem for sources list files, returning their paths.
+///
+/// Like APT's `GetListOfFilesInDir`, this looks for the default
+/// `sourcelist` file and scans `sourceparts` directory for additional
+/// regular files. Errors are silently skipped (empty vec on failure).
+pub fn scan_sources_list_paths(
+    list_file: impl AsRef<str>,
+    list_dir: impl AsRef<str>,
+) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    let default = Path::new(list_file.as_ref());
+    let list_dir_path = Path::new(list_dir.as_ref());
+
+    if default.exists() {
+        paths.push(default.to_path_buf());
+    }
+
+    if list_dir_path.exists()
+        && let Ok(dir) = std::fs::read_dir(list_dir_path)
+    {
+        for entry in dir.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                paths.push(path);
+            }
+        }
+    }
+
+    paths
+}
 
 /// Lookup from (host+path) → source entry, built from sources.list.
 pub struct SourceLookup {
-    inner: HashMap<String, SourceEntry>,
+    entries: Vec<SourceEntry>,
+    lookup: HashMap<String, usize>,
 }
 
 impl SourceLookup {
-    /// Build a lookup from (host+path) → source entry by reading the apt
-    /// sources list files via [`SourcesLists::new_from_paths`].
+    /// Build a source lookup from the default apt sources list paths.
     ///
-    /// Like APT's `pkgSourceList`, this collects the URL (as SITE), suite
-    /// and type for each configured source.
+    /// Like APT's `pkgSourceList`, this reads `Dir::Etc::sourcelist` and
+    /// `Dir::Etc::sourceparts` from config, scans for files, and collects
+    /// all enabled entries.
     pub fn build(apt_cfg: &AptConfig) -> Self {
-        let mut inner = HashMap::new();
-
         let list_file = apt_cfg.get_file("Dir::Etc::sourcelist", "etc/apt/sources.list");
         let list_dir = apt_cfg.get_dir("Dir::Etc::sourceparts", "etc/apt/sources.list.d");
+        let paths = scan_sources_list_paths(&list_file, &list_dir);
+        Self::from_paths(&paths, |_: &Path| {})
+    }
 
-        let mut paths = Vec::new();
-        if std::path::Path::new(&list_file).exists() {
-            paths.push(PathBuf::from(&list_file));
-        }
-        if let Ok(dir) = std::fs::read_dir(&list_dir) {
-            for entry in dir.flatten() {
-                let p = entry.path();
-                let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
-                if ext == "list" || ext == "sources" {
-                    paths.push(p);
-                }
-            }
-        }
+    /// Build from an .list and .sources file of paths.
+    ///
+    /// - `on_unknown_file` is called for each file whose extension is
+    ///   neither `.list` nor `.sources` (matching APT's `UnknownFile`
+    ///   behavior). The callback can inspect the file and decide whether
+    ///   to warn (e.g. skip files matching `Dir::Ignore-Files-Silently`).
+    pub fn from_paths<G>(paths: &[PathBuf], mut on_unknown_file: G) -> Self
+    where
+        G: FnMut(&Path),
+    {
+        let mut entries = Vec::new();
+        let mut lookup = HashMap::new();
 
-        let Ok(lists) = SourcesLists::new_from_paths(paths.iter()) else {
-            return Self { inner };
-        };
+        for path in paths {
+            let Ok(s) = SourcesList::new(path) else {
+                on_unknown_file(path);
+                continue;
+            };
 
-        for sources_list in lists.iter() {
-            let entries: Vec<&SourceEntry> = match &sources_list.entries {
-                SourceListType::SourceLine(lines) => lines
-                    .0
-                    .iter()
-                    .filter_map(|l| {
+            let parsed: Box<dyn Iterator<Item = SourceEntry>> = match s.entries {
+                SourceListType::SourceLine(lines) => {
+                    Box::new(lines.0.into_iter().filter_map(|l| {
                         if let SourceLine::Entry(e) = l {
                             Some(e)
                         } else {
                             None
                         }
-                    })
-                    .collect(),
-                SourceListType::Deb822(deb822) => deb822.entries.iter().collect(),
+                    }))
+                }
+                SourceListType::Deb822(deb822) => Box::new(deb822.entries.into_iter()),
             };
 
-            for entry in &entries {
+            for entry in parsed.filter(|e| e.enabled) {
                 let key = entry
-                    .url
+                    .url()
                     .split("://")
                     .nth(1)
-                    .unwrap_or(&entry.url)
+                    .unwrap_or(entry.url())
                     .trim_end_matches('/')
                     .to_string();
 
-                inner.entry(key).or_insert_with(|| (*entry).clone());
+                let idx = entries.len();
+
+                lookup.entry(key).or_insert(idx);
+                entries.push(entry);
             }
         }
 
-        Self { inner }
+        Self { entries, lookup }
+    }
+
+    /// All parsed entries (enabled only).
+    pub fn entries(&self) -> &[SourceEntry] {
+        &self.entries
     }
 
     /// Find which source entry a decoded URI belongs to, by checking if the
@@ -85,7 +120,12 @@ impl SourceLookup {
     /// matching.
     pub fn resolve<'a>(&'a self, decoded: &'a str) -> Option<SourceMatch<'a>> {
         let host_path = decoded.split("://").nth(1).unwrap_or(decoded);
-        let (key, entry) = self.inner.iter().find(|(k, _)| host_path.starts_with(*k))?;
+        let (key, &idx) = self
+            .lookup
+            .iter()
+            .find(|(k, _)| host_path.starts_with(*k))?;
+
+        let entry = &self.entries[idx];
 
         let rest = &host_path[key.len()..];
         let is_flat = entry.suite.ends_with('/');
@@ -170,11 +210,16 @@ impl<'a> IndexTargetTemplates<'a> {
     /// `archs`, and collect every target for which the resulting path
     /// matches `filename` via full template substitution.
     ///
+    /// `release` is substituted for `$(RELEASE)` in descriptions (and
+    /// optionally in MetaKey if present).
+    ///
     /// This is the shared core used by both `show`'s APT-Sources formatting
     /// and `oma-refresh`'s InRelease-to-download-list matching.
+    #[allow(clippy::too_many_arguments)]
     pub fn resolve_targets(
         &self,
         filename: &str,
+        release: &str,
         archs: &[&str],
         component: &str,
         lang: &str,
@@ -199,7 +244,8 @@ impl<'a> IndexTargetTemplates<'a> {
 
                 for &arch in archs {
                     let substituted = meta_key.replace("$(ARCHITECTURE)", arch);
-                    if substitute(&substituted, "", component, arch, lang, native_arch) != filename
+                    if substitute(&substituted, release, component, arch, lang, native_arch)
+                        != filename
                     {
                         continue;
                     }
@@ -236,6 +282,7 @@ impl<'a> IndexTargetTemplates<'a> {
                 }
             }
         }
+
         Ok(results)
     }
 }
@@ -290,12 +337,11 @@ pub struct MatchResult {
     pub lang: String,
 }
 
-/// Try all combinations of `archs × components × langs` and return every
+/// Try all combinations of `release x archs × components × langs` and return every
 /// set of variables for which the template matches.
-///
-/// Used by `oma-refresh`'s InRelease-to-download-list matching.
 pub fn find_matching_combinations(
     template: &str,
+    release: &str,
     filename: &str,
     archs: &[&str],
     components: &[&str],
@@ -306,7 +352,7 @@ pub fn find_matching_combinations(
     for a in archs {
         for comp in components {
             for lang in langs {
-                if substitute(template, "", comp, a, lang, native_arch) == filename {
+                if substitute(template, release, comp, a, lang, native_arch) == filename {
                     results.push(MatchResult {
                         arch: a.to_string(),
                         component: comp.to_string(),
@@ -319,10 +365,6 @@ pub fn find_matching_combinations(
     results
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 /// Strip well-known compression extensions from a filename.
 pub fn strip_compression_ext(name: &str) -> &str {
     for ext in &[".xz", ".bz2", ".gz", ".lzma", ".lz4", ".zst"] {
@@ -330,5 +372,6 @@ pub fn strip_compression_ext(name: &str) -> &str {
             return stripped;
         }
     }
+
     name
 }

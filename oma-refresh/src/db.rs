@@ -36,14 +36,16 @@ use serde::{Deserialize, Serialize};
 use spdlog::{debug, warn};
 use url::Url;
 
-use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
+use oma_apt_pkg::apt_sources::{SourceLookup, scan_sources_list_paths};
+
+use crate::sourceslist::{MirrorSource, MirrorSources};
 use crate::{
     config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
         ChecksumItem, InReleaseChecksum, InReleaseError, Release, file_is_compress,
         split_ext_and_filename, verify_inrelease,
     },
-    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, scan_sources_lists_paths},
+    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom},
     util::url_to_list_filename,
 };
 
@@ -130,8 +132,10 @@ impl OmaRefresh {
 
         let apt_cfg = self.init_apt_config();
 
-        let paths = if let Some(ref paths) = self.sources_lists_paths {
-            Cow::Borrowed(paths)
+        let ignores = crate::sourceslist::ignores(&apt_cfg);
+
+        let paths: Vec<PathBuf> = if let Some(ref p) = self.sources_lists_paths {
+            p.clone()
         } else {
             let list_file = if is_termux() {
                 "/data/data/com.termux/files/usr/etc/apt/sources.list".to_string()
@@ -148,21 +152,24 @@ impl OmaRefresh {
             debug!("sources.list is: {list_file}");
             debug!("sources.list.d is: {list_dir}");
 
-            Cow::Owned(
-                scan_sources_lists_paths(list_file, list_dir)
-                    .map_err(RefreshError::ScanSourceError)?,
-            )
+            scan_sources_list_paths(&list_file, &list_dir)
         };
 
-        let ignores = crate::sourceslist::ignores(&apt_cfg);
+        let source_lookup = SourceLookup::from_paths(&paths, |path| {
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if ignores.iter().any(|re| re.is_match(name).unwrap_or(false)) {
+                return;
+            }
+            callback(Event::SourceListFileNotSupport {
+                path: path.to_path_buf(),
+            });
+        });
 
-        let sourcelist = scan_sources_list_from_paths(
-            &paths,
-            Arc::from(self.arch.as_str()),
-            &ignores,
-            &mut callback,
-        )
-        .map_err(RefreshError::ScanSourceError)?;
+        let sourcelist: Vec<OmaSourceEntry> = source_lookup
+            .entries()
+            .iter()
+            .map(|entry| OmaSourceEntry::new(entry.clone(), Arc::from(self.arch.as_str())))
+            .collect();
 
         if !self.download_dir.is_dir() {
             std::fs::create_dir_all(&self.download_dir).map_err(|e| {
@@ -560,6 +567,7 @@ impl OmaRefresh {
                 };
 
                 let download_list = index_target_config.get_download_list(
+                    ose.suite(),
                     checksums,
                     ose.is_source(),
                     ose.is_flat(),

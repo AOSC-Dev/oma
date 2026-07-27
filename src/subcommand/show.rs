@@ -299,7 +299,15 @@ fn format_apt_source(source: &str, source_lookup: &SourceLookup, apt_cfg: &AptCo
 
     let matched_template = if is_flat {
         templates
-            .resolve_targets(matched.filename, &["$(ARCHITECTURE)"], "", "", "", true)
+            .resolve_targets(
+                matched.filename,
+                suite,
+                &["$(ARCHITECTURE)"],
+                "",
+                "",
+                "",
+                true,
+            )
             .ok()
             .and_then(|v| v.into_iter().next())
             .map(|r| (r.description, r.arch))
@@ -310,8 +318,9 @@ fn format_apt_source(source: &str, source_lookup: &SourceLookup, apt_cfg: &AptCo
             .as_ref()
             .map(|v| v.iter().map(|s| s.as_str()).collect())
             .unwrap_or_default();
+
         templates
-            .resolve_targets(matched.filename, &archs, component, "", "", false)
+            .resolve_targets(matched.filename, suite, &archs, component, "", "", false)
             .ok()
             .and_then(|v| v.into_iter().next())
             .map(|r| (r.description, r.arch))
