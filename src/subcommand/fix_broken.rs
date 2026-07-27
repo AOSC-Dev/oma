@@ -2,11 +2,10 @@ use clap::Args;
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 
 use crate::{
-    config::OmaConfig, core::commit_changes::CommitChanges, dbus::dbus_check, error::OutputError,
-    exit_handle::ExitHandle, fl, root::root,
+    config::OmaConfig, core::operation_pipeline::Pipeline, error::OutputError,
+    exit_handle::ExitHandle, fl,
 };
 
-use super::utils::lock_oma;
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -39,8 +38,6 @@ pub struct FixBroken {
 
 impl CliExecuter for FixBroken {
     fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
-        root()?;
-
         let FixBroken {
             force_unsafe_io,
             force_yes,
@@ -51,30 +48,27 @@ impl CliExecuter for FixBroken {
             no_clean,
         } = self;
 
-        let _lock_fd = lock_oma(&config.sysroot)?;
-
-        let mut _fds = dbus_check(false, &config)?;
-
-        let oma_apt_args = OmaAptArgs::builder()
-            .sysroot(config.sysroot.to_string_lossy().to_string())
-            .dpkg_force_unsafe_io(force_unsafe_io)
-            .force_yes(force_yes)
-            .dpkg_force_confnew(force_confnew)
-            .another_apt_options(&config.apt_options)
-            .build();
-        let apt = OmaApt::new(vec![], oma_apt_args, config.dry_run)?;
-
-        CommitChanges::builder()
-            .apt(apt)
-            .no_fixbroken(false)
+        Pipeline::builder()
+            .config(&config)
+            .always_escalate(true)
             .is_fixbroken(true)
+            .no_fixbroken(false)
             .fix_dpkg_status(!no_fix_dpkg_status)
-            .yes(false)
             .autoremove(autoremove)
             .remove_config(remove_config)
-            .config(&config)
             .no_clean(no_clean)
             .build()
-            .run()
+            .run(|ctx| {
+                let oma_apt_args = OmaAptArgs::builder()
+                    .sysroot(ctx.config.sysroot.to_string_lossy().to_string())
+                    .dpkg_force_unsafe_io(force_unsafe_io)
+                    .force_yes(force_yes)
+                    .dpkg_force_confnew(force_confnew)
+                    .another_apt_options(&ctx.config.apt_options)
+                    .build();
+                let apt = OmaApt::new(vec![], oma_apt_args, ctx.config.dry_run)?;
+
+                ctx.commit(apt)
+            })
     }
 }

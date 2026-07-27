@@ -8,6 +8,7 @@ use spdlog::warn;
 use crate::{color_formatter, fl};
 
 pub mod commit_changes;
+pub mod operation_pipeline;
 pub mod refresh;
 
 pub fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {

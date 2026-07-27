@@ -10,12 +10,12 @@ use spdlog::{info, warn};
 
 use crate::completions::pkgnames_remove_completions;
 use crate::config::OmaConfig;
-use crate::core::commit_changes::CommitChanges;
+use crate::core::operation_pipeline::Pipeline;
+use crate::error::OutputError;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
-use crate::{dbus::dbus_check, error::OutputError, root::root};
 
-use super::utils::{create_progress_spinner, handle_no_result, lock_oma};
+use super::utils::{create_progress_spinner, handle_no_result};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -140,79 +140,67 @@ impl CliExecuter for Remove {
             no_clean,
         } = self;
 
-        let _lock_fd = if !config.dry_run {
-            root()?;
-            Some(lock_oma(&config.sysroot)?)
-        } else {
-            None
-        };
-
-        let _fds = dbus_check(yes, &config)?;
-
-        if yes {
-            warn!("{}", fl!("automatic-mode-warn"));
-        }
-
-        let oma_apt_args = OmaAptArgs::builder()
+        Pipeline::builder()
+            .config(&config)
             .yes(yes)
-            .force_yes(force_yes)
-            .sysroot(config.sysroot.to_string_lossy().to_string())
-            .another_apt_options(&config.apt_options)
-            .dpkg_force_unsafe_io(force_unsafe_io)
-            .dpkg_force_confnew(force_confnew)
-            .build();
-
-        let mut apt = OmaApt::new(vec![], oma_apt_args, config.dry_run)?;
-        let matcher = PackagesMatcher::builder()
-            .cache(&apt.cache)
-            .filter_candidate(false)
-            .filter_downloadable_candidate(false)
-            .select_dbg(false)
-            .native_arch(GetArchMethod::SpecifySysroot(&config.sysroot))
-            .build();
-
-        let mut pkgs = vec![];
-        let mut no_result = vec![];
-
-        for i in &packages {
-            let res = matcher.match_pkgs_from_glob(i)?;
-            if res.is_empty() {
-                no_result.push(i.as_str());
-            } else {
-                pkgs.extend(res);
-            }
-        }
-
-        let pb = create_progress_spinner(config.no_progress(), fl!("resolving-dependencies"));
-
-        #[cfg(feature = "aosc")]
-        check_is_current_kernel_deleting(&config, &pkgs, &pb)?;
-
-        let context = apt.remove(pkgs, remove_config, no_autoremove)?;
-
-        if let Some(pb) = pb {
-            pb.inner.finish_and_clear()
-        }
-
-        if !context.is_empty() {
-            for c in context {
-                info!("{}", fl!("no-need-to-remove", name = c));
-            }
-        }
-
-        handle_no_result(no_result, config.no_progress())?;
-
-        CommitChanges::builder()
-            .apt(apt)
             .no_fixbroken(!fix_broken)
-            .yes(yes)
+            .fix_dpkg_status(fix_dpkg_status)
             .remove_config(remove_config)
             .autoremove(!no_autoremove)
-            .fix_dpkg_status(fix_dpkg_status)
-            .config(&config)
             .no_clean(no_clean)
             .build()
-            .run()
+            .run(|ctx| {
+                let oma_apt_args = OmaAptArgs::builder()
+                    .yes(yes)
+                    .force_yes(force_yes)
+                    .sysroot(ctx.config.sysroot.to_string_lossy().to_string())
+                    .another_apt_options(&ctx.config.apt_options)
+                    .dpkg_force_unsafe_io(force_unsafe_io)
+                    .dpkg_force_confnew(force_confnew)
+                    .build();
+
+                let mut apt = OmaApt::new(vec![], oma_apt_args, ctx.config.dry_run)?;
+                let matcher = PackagesMatcher::builder()
+                    .cache(&apt.cache)
+                    .filter_candidate(false)
+                    .filter_downloadable_candidate(false)
+                    .select_dbg(false)
+                    .native_arch(GetArchMethod::SpecifySysroot(&ctx.config.sysroot))
+                    .build();
+
+                let mut pkgs = vec![];
+                let mut no_result = vec![];
+
+                for i in &packages {
+                    let res = matcher.match_pkgs_from_glob(i)?;
+                    if res.is_empty() {
+                        no_result.push(i.as_str());
+                    } else {
+                        pkgs.extend(res);
+                    }
+                }
+
+                let pb = create_progress_spinner(ctx.config.no_progress(), fl!("resolving-dependencies"));
+
+                #[cfg(feature = "aosc")]
+                check_is_current_kernel_deleting(ctx.config, &pkgs, &pb)?;
+
+                let context = apt.remove(pkgs, remove_config, no_autoremove)?;
+
+                if let Some(pb) = pb {
+                    pb.inner.finish_and_clear()
+                }
+
+                if !context.is_empty() {
+                    for c in context {
+                        info!("{}", fl!("no-need-to-remove", name = c));
+                    }
+                }
+
+                handle_no_result(no_result, ctx.config.no_progress())?;
+
+                ctx.commit(apt)
+            })
     }
 }
 
