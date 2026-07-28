@@ -9,7 +9,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 [features]
 default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config"]
 apt-config = ["dep:tree-sitter", "dep:tree-sitter-language"]
-apt-lists = ["dep:wincode", "dep:spdlog-rs"]
+apt-lists = ["dep:wincode", "dep:spdlog-rs", "dep:glob-match"]
 apt-sources = ["apt-config", "filename", "dep:oma-apt-sources-lists"]
 dpkg-status = []
 filename = ["dep:aho-corasick", "dep:url"]
@@ -66,3 +66,6 @@ url = { workspace = true, optional = true }
 
 [build-dependencies]
 cc = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

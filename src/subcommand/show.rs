@@ -10,7 +10,8 @@ use dialoguer::console::{StyledObject, style};
 use oma_apt_pkg::apt_sources::SourceLookup;
 use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
-    AptConfig, AptDb, AptExtendedStates, AptListFilename, DpkgState, EntryWithSource, PackageEntry,
+    AptConfig, AptDb, AptExtendedStates, AptListFilename, DpkgState, EntryWithSource,
+    PackageMatcher, PackageEntry,
 };
 use oma_console::indicatif::HumanBytes;
 use serde::Serialize;
@@ -64,23 +65,19 @@ impl CliExecuter for Show {
             packages,
         } = self;
 
-        let package_names: Vec<&str> = packages.iter().map(|x| x.as_str()).collect();
-
         let apt_cfg = config.apt_config();
         let source_lookup = SourceLookup::build(apt_cfg);
         let (apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
 
-        // Match packages: exact name lookup
-        let mut matched_entries: Vec<Vec<EntryWithSource<'_>>> = Vec::new();
-        let mut no_result: Vec<&str> = Vec::new();
+        // Match packages: exact name (fast path), glob, version or branch.
+        let matcher = PackageMatcher::new(&apt_db);
+        let (matched, no_result) = matcher
+            .match_pkgs_and_versions(packages.iter().map(|s| s.as_str()))
+            .context("Failed to match packages")?;
 
-        for name in &package_names {
-            if apt_db.has_package(name) {
-                let entries = apt_db.get_all_with_source(name);
-                matched_entries.push(entries);
-            } else {
-                no_result.push(name);
-            }
+        let mut matched_entries: Vec<Vec<EntryWithSource<'_>>> = Vec::new();
+        for pkg in &matched {
+            matched_entries.push(apt_db.get_all_with_source(pkg.name));
         }
 
         handle_no_result(no_result, config.no_progress())?;
@@ -125,22 +122,27 @@ fn display_entries(
     source_lookup: &SourceLookup,
     apt_cfg: &AptConfig,
 ) {
-    let shown_entries: Vec<&EntryWithSource<'_>> = if show_all {
-        entries.iter().collect()
+    let shown_entries: Box<dyn Iterator<Item = &EntryWithSource<'_>>> = if show_all {
+        Box::new(entries.iter())
     } else {
         // Show only the entry with the highest version
-        entries
-            .iter()
-            .max_by(|a, b| {
-                let a_ver = Version::from_str(a.entry.version.as_deref().unwrap_or("0")).ok();
-                let b_ver = Version::from_str(b.entry.version.as_deref().unwrap_or("0")).ok();
-                a_ver.cmp(&b_ver)
-            })
-            .into_iter()
-            .collect()
+        Box::new(
+            entries
+                .iter()
+                .max_by(|a, b| {
+                    let a_ver = Version::from_str(a.entry.version.as_deref().unwrap_or("0")).ok();
+                    let b_ver = Version::from_str(b.entry.version.as_deref().unwrap_or("0")).ok();
+                    a_ver.cmp(&b_ver)
+                })
+                .into_iter(),
+        )
     };
 
-    for (j, entry) in shown_entries.iter().enumerate() {
+    for (idx, entry) in shown_entries.enumerate() {
+        if show_all && idx != 0 {
+            writeln!(stdout).ok();
+        }
+
         display_single_entry(
             stdout,
             entry.entry,
@@ -150,10 +152,6 @@ fn display_entries(
             source_lookup,
             apt_cfg,
         );
-
-        if show_all && j != shown_entries.len() - 1 {
-            writeln!(stdout).ok();
-        }
     }
 }
 

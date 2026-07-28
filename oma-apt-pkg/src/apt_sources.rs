@@ -38,10 +38,10 @@ pub fn scan_sources_list_paths(
     paths
 }
 
-/// Lookup from (host+path) → source entry, built from sources.list.
+/// Lookup from (host+path) → source entries, built from sources.list.
 pub struct SourceLookup {
     entries: Vec<SourceEntry>,
-    lookup: HashMap<String, usize>,
+    lookup: HashMap<String, Vec<usize>>,
 }
 
 impl SourceLookup {
@@ -68,7 +68,7 @@ impl SourceLookup {
         G: FnMut(&Path),
     {
         let mut entries = Vec::new();
-        let mut lookup = HashMap::new();
+        let mut lookup: HashMap<String, Vec<usize>> = HashMap::new();
 
         for path in paths {
             let Ok(s) = SourcesList::new(path) else {
@@ -97,7 +97,7 @@ impl SourceLookup {
                     .trim_end_matches('/')
                     .to_string();
 
-                lookup.insert(key, idx);
+                lookup.entry(key).or_default().push(idx);
                 entries.push(entry);
             }
         }
@@ -117,14 +117,23 @@ impl SourceLookup {
     /// matching.
     pub fn resolve<'a>(&'a self, decoded: &'a str) -> Option<SourceMatch<'a>> {
         let host_path = decoded.split_once("://").map_or(decoded, |(_, rest)| rest);
-        let (key, &idx) = self
+        let base_key = self
             .lookup
+            .keys()
+            .filter(|k| host_path.starts_with(*k))
+            .max_by_key(|k| k.len())?;
+
+        let &idx = self.lookup[base_key]
             .iter()
-            .find(|(k, _)| host_path.starts_with(*k))?;
+            .find(|&&idx| {
+                let entry = &self.entries[idx];
+                host_path.contains(&format!("/dists/{}/", entry.suite.trim_end_matches('/')))
+            })
+            .or_else(|| self.lookup[base_key].first())?;
 
         let entry = &self.entries[idx];
 
-        let rest = &host_path[key.len()..];
+        let rest = &host_path[base_key.len()..];
         let is_flat = entry.suite.ends_with('/');
 
         // Extract the bare filename from the last path segment

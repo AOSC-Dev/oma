@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -175,6 +176,37 @@ pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String
         }
     }
     map
+}
+
+/// Common interface for package data sources.
+///
+/// Both [`AptDb`](crate::AptDb) (eager, cached) and
+/// [`AptListsReader`](crate::AptListsReader) (lazy, offset-based) implement
+/// this, allowing consumers to switch between them transparently.
+///
+/// Methods return [`Cow`] so that implementations owning the data can
+/// borrow a slice/value, while implementations that parse on demand can
+/// return owned data.
+pub trait PackageIndex {
+    /// Check whether a package name exists.
+    fn has_package(&self, name: &str) -> bool;
+
+    /// Return all package names known to this index.
+    fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_>;
+
+    /// Return all entries for a package name.
+    fn get_all(&self, name: &str) -> Result<Cow<'_, [PackageEntry]>, AptListsError>;
+
+    /// Return all entries for a package name, together with the APT list
+    /// source filename for each entry.
+    fn get_with_source(
+        &self,
+        name: &str,
+    ) -> Result<Vec<(Cow<'_, PackageEntry>, String)>, AptListsError>;
+
+    /// Return the entry with the highest version, or `None` if the package
+    /// does not exist.
+    fn get_candidate(&self, name: &str) -> Result<Option<Cow<'_, PackageEntry>>, AptListsError>;
 }
 
 #[cfg(test)]

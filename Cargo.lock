@@ -3386,6 +3386,7 @@ dependencies = [
  "serde",
  "spdlog-rs",
  "strsim",
+ "tempfile",
  "thiserror 2.0.19",
  "tree-sitter",
  "tree-sitter-language",

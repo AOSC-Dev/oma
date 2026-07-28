@@ -1,5 +1,6 @@
 //! oma package database — Parse APT `Packages` files with binary cache support.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::Read;
 use std::io::Write;
@@ -9,7 +10,9 @@ use std::{fs, io};
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
-use crate::apt_lists::{PackageEntry, parse_apt_lists_dir_with_sources};
+use crate::apt_lists::{
+    AptListsError, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
+};
 
 /// A package entry together with its source file information.
 #[derive(Debug, Clone)]
@@ -54,8 +57,8 @@ impl AptDb {
         let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
         let mut sources: HashMap<String, Vec<String>> = HashMap::new();
 
-        for (mut e, src) in entries.into_iter().zip(entry_sources) {
-            let pkg = std::mem::take(&mut e.package);
+        for (e, src) in entries.into_iter().zip(entry_sources) {
+            let pkg = e.package.clone();
             sources.entry(pkg.clone()).or_default().push(src);
             map.entry(pkg).or_default().push(e);
         }
@@ -226,5 +229,63 @@ impl AptDb {
                 source: sources.and_then(|s| s.get(i)).map(|s| s.as_str()),
             })
             .collect()
+    }
+}
+
+impl PackageIndex for AptDb {
+    fn has_package(&self, name: &str) -> bool {
+        self.entries.contains_key(name)
+    }
+
+    fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+        Box::new(self.entries.keys().map(|s| s.as_str()))
+    }
+
+    fn get_all(&self, name: &str) -> Result<Cow<'_, [PackageEntry]>, AptListsError> {
+        Ok(match self.entries.get(name) {
+            Some(v) => Cow::Borrowed(v.as_slice()),
+            None => Cow::Owned(Vec::new()),
+        })
+    }
+
+    fn get_candidate(&self, name: &str) -> Result<Option<Cow<'_, PackageEntry>>, AptListsError> {
+        let entries = match self.entries.get(name) {
+            Some(v) => v,
+            None => return Ok(None),
+        };
+
+        Ok(entries
+            .iter()
+            .max_by(|a, b| {
+                let a_ver = a
+                    .version
+                    .as_deref()
+                    .and_then(|v| v.parse::<debversion::Version>().ok());
+                let b_ver = b
+                    .version
+                    .as_deref()
+                    .and_then(|v| v.parse::<debversion::Version>().ok());
+                a_ver.cmp(&b_ver)
+            })
+            .map(Cow::Borrowed))
+    }
+
+    fn get_with_source(
+        &self,
+        name: &str,
+    ) -> Result<Vec<(Cow<'_, PackageEntry>, String)>, AptListsError> {
+        let entries = match self.entries.get(name) {
+            Some(v) => v,
+            None => return Ok(Vec::new()),
+        };
+        let sources = self.entry_sources.get(name);
+        Ok(entries
+            .iter()
+            .enumerate()
+            .map(|(i, e)| {
+                let src = sources.and_then(|s| s.get(i)).cloned().unwrap_or_default();
+                (Cow::Borrowed(e), src)
+            })
+            .collect())
     }
 }
