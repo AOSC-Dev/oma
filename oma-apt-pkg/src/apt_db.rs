@@ -12,7 +12,7 @@ use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
 use crate::apt_lists::{
-    AptListsError, EntriesWithSource, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
+    EntriesWithSource, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
 };
 use crate::package_matcher::PackageMatcher;
 
@@ -329,20 +329,16 @@ impl PackageIndex for AptDb {
         Box::new(self.entries.keys().map(|s| s.as_str()))
     }
 
-    fn get_all(&self, name: &str) -> Result<Cow<'_, [PackageEntry]>, AptListsError> {
-        Ok(match self.entries.get(name) {
+    fn get_all(&self, name: &str) -> Cow<'_, [PackageEntry]> {
+        match self.entries.get(name) {
             Some(v) => Cow::Borrowed(v.as_slice()),
             None => Cow::Owned(Vec::new()),
-        })
+        }
     }
 
-    fn get_candidate(&self, name: &str) -> Result<Option<Cow<'_, PackageEntry>>, AptListsError> {
-        let entries = match self.entries.get(name) {
-            Some(v) => v,
-            None => return Ok(None),
-        };
-
-        Ok(entries
+    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageEntry>> {
+        self.entries
+            .get(name)?
             .iter()
             .max_by(|a, b| {
                 let a_ver = a
@@ -355,18 +351,18 @@ impl PackageIndex for AptDb {
                     .and_then(|v| v.parse::<debversion::Version>().ok());
                 a_ver.cmp(&b_ver)
             })
-            .map(Cow::Borrowed))
+            .map(Cow::Borrowed)
     }
 
-    fn get_with_source(&self, name: &str) -> Result<EntriesWithSource<'_>, AptListsError> {
+    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_> {
         let Some(entries) = self.entries.get(name) else {
-            return Ok(Box::new(std::iter::empty()));
+            return Box::new(std::iter::empty());
         };
         let sources = self.entry_sources.get(name);
-        Ok(Box::new(entries.iter().enumerate().map(move |(i, e)| {
+        Box::new(entries.iter().enumerate().map(move |(i, e)| {
             let src = sources.and_then(|s| s.get(i)).cloned().unwrap_or_default();
             (Cow::Borrowed(e), src)
-        })))
+        }))
     }
 }
 

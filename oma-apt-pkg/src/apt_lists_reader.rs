@@ -219,29 +219,36 @@ impl PackageIndex for AptListsReader {
         Box::new(self.index.keys().map(|s| s.as_str()))
     }
 
-    fn get_all(&self, name: &str) -> Result<Cow<'_, [PackageEntry]>, AptListsError> {
-        let entries = self.get(name)?;
-        Ok(Cow::Owned(entries))
+    fn get_all(&self, name: &str) -> Cow<'_, [PackageEntry]> {
+        // Parsing is best-effort: malformed paragraphs are skipped.
+        Cow::Owned(
+            self.index
+                .get(name)
+                .into_iter()
+                .flatten()
+                .filter_map(|entry| self.parse_at(entry).ok())
+                .collect(),
+        )
     }
 
-    fn get_with_source(&self, name: &str) -> Result<EntriesWithSource<'_>, AptListsError> {
-        let Some(entries) = self.index.get(name) else {
-            return Ok(Box::new(std::iter::empty()));
-        };
-        // Entries are parsed on demand, so the results are materialized
-        // before being yielded as an iterator.
-        let mut results = Vec::with_capacity(entries.len());
-        for entry in entries {
-            let pkg = self.parse_at(entry)?;
-            results.push((Cow::Owned(pkg), entry.source.clone()));
-        }
-        Ok(Box::new(results.into_iter()))
+    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_> {
+        // Parsing is best-effort: malformed paragraphs are skipped.
+        Box::new(
+            self.index
+                .get(name)
+                .into_iter()
+                .flatten()
+                .filter_map(|entry| {
+                    self.parse_at(entry)
+                        .ok()
+                        .map(|pkg| (Cow::Owned(pkg), entry.source.clone()))
+                }),
+        )
     }
 
-    fn get_candidate(&self, name: &str) -> Result<Option<Cow<'_, PackageEntry>>, AptListsError> {
-        let entries = self.get(name)?;
-        Ok(entries
-            .into_iter()
+    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageEntry>> {
+        self.get_all(name)
+            .iter()
             .max_by(|a, b| {
                 let a_ver = a
                     .version
@@ -253,7 +260,8 @@ impl PackageIndex for AptListsReader {
                     .and_then(|v| v.parse::<debversion::Version>().ok());
                 a_ver.cmp(&b_ver)
             })
-            .map(Cow::Owned))
+            .cloned()
+            .map(Cow::Owned)
     }
 }
 

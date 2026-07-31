@@ -222,15 +222,15 @@ pub trait PackageIndex {
     fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_>;
 
     /// Return all entries for a package name.
-    fn get_all(&self, name: &str) -> Result<Cow<'_, [PackageEntry]>, AptListsError>;
+    fn get_all(&self, name: &str) -> Cow<'_, [PackageEntry]>;
 
     /// Return all entries for a package name, together with the APT list
     /// source filename for each entry, as a lazy iterator.
-    fn get_with_source(&self, name: &str) -> Result<EntriesWithSource<'_>, AptListsError>;
+    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_>;
 
     /// Return the entry with the highest version, or `None` if the package
     /// does not exist.
-    fn get_candidate(&self, name: &str) -> Result<Option<Cow<'_, PackageEntry>>, AptListsError>;
+    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageEntry>>;
 }
 
 #[cfg(test)]

@@ -102,7 +102,7 @@ impl<'a> PackageMatcher<'a> {
         for name in names {
             res.push(MatchedPackage {
                 name,
-                entries: self.entries_of(name)?.collect(),
+                entries: self.entries_of(name).collect(),
             });
         }
         Ok(res)
@@ -119,7 +119,7 @@ impl<'a> PackageMatcher<'a> {
         }
 
         let entries: Vec<Cow<'a, PackageEntry>> = self
-            .entries_of(pkgname)?
+            .entries_of(pkgname)
             .filter(|e| e.version.as_deref() == Some(version_str))
             .collect();
 
@@ -153,7 +153,7 @@ impl<'a> PackageMatcher<'a> {
         let dists_prefix = format!("/dists/{branch}/");
         let entries: Vec<Cow<'a, PackageEntry>> = self
             .index
-            .get_with_source(pkgname)?
+            .get_with_source(pkgname)
             .filter(|(_, source)| {
                 cvt.decode(source)
                     .ok()
@@ -177,14 +177,11 @@ impl<'a> PackageMatcher<'a> {
     /// The iterator yields `Cow` entries without collecting; callers
     /// filter/collect on demand. Boxed because the borrowed and owned Cow
     /// variants produce different iterator types.
-    fn entries_of(
-        &self,
-        name: &str,
-    ) -> MatcherResult<Box<dyn Iterator<Item = Cow<'a, PackageEntry>> + 'a>> {
-        Ok(match self.index.get_all(name)? {
+    fn entries_of(&self, name: &str) -> Box<dyn Iterator<Item = Cow<'a, PackageEntry>> + 'a> {
+        match self.index.get_all(name) {
             Cow::Borrowed(slice) => Box::new(slice.iter().map(Cow::Borrowed)),
             Cow::Owned(vec) => Box::new(vec.into_iter().map(Cow::Owned)),
-        })
+        }
     }
 }
 
