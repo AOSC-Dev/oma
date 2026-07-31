@@ -23,13 +23,15 @@ pub enum MatcherError {
 
 pub type MatcherResult<T> = Result<T, MatcherError>;
 
-/// A matched package together with its (possibly filtered) entries.
+/// A matched package together with its (possibly filtered) entries and their
+/// sources.
 #[derive(Debug)]
 pub struct MatchedPackage<'a> {
     /// The package name.
-    pub name: &'a str,
-    /// The entries for this package (all, or filtered by version/branch).
-    pub entries: Vec<Cow<'a, PackageEntry>>,
+    pub name: Cow<'a, str>,
+    /// The entries for this package (all, or filtered by version/branch),
+    /// each paired with its source string.
+    pub entries: Vec<(Cow<'a, PackageEntry>, String)>,
 }
 
 /// Resolves user-supplied keywords into matched packages.
@@ -58,11 +60,13 @@ impl<'a> PackageMatcher<'a> {
     /// - contains `/` → [`match_from_branch`](Self::match_from_branch)
     /// - otherwise → [`match_pkgs_and_versions_from_glob`](Self::match_pkgs_and_versions_from_glob)
     ///
-    /// Returns the matched packages and the unmatched keywords.
-    pub fn match_pkgs_and_versions(
+    /// Returns the matched packages and the unmatched keywords. The returned
+    /// entries borrow the index; the keyword borrow is only used for
+    /// `no_result`.
+    pub fn match_pkgs_and_versions<'k>(
         &self,
-        keywords: impl IntoIterator<Item = &'a str>,
-    ) -> MatcherResult<(Vec<MatchedPackage<'a>>, Vec<&'a str>)> {
+        keywords: impl IntoIterator<Item = &'k str>,
+    ) -> MatcherResult<(Vec<MatchedPackage<'a>>, Vec<&'k str>)> {
         let mut pkgs = Vec::new();
         let mut no_result = Vec::new();
 
@@ -85,31 +89,30 @@ impl<'a> PackageMatcher<'a> {
 
     /// Match packages from a glob pattern (like `apt*`). A pattern without
     /// wildcards falls back to exact name matching.
-    pub fn match_pkgs_and_versions_from_glob(
+    pub fn match_pkgs_and_versions_from_glob<'k>(
         &self,
-        glob: &'a str,
+        glob: &'k str,
     ) -> MatcherResult<Vec<MatchedPackage<'a>>> {
-        let names: Vec<&'a str> = if self.index.has_package(glob) {
-            vec![glob]
-        } else {
-            self.index
-                .packages()
-                .filter(|p| glob_match(glob, p))
-                .collect()
-        };
-
-        let mut res = Vec::with_capacity(names.len());
-        for name in names {
+        let mut res = Vec::new();
+        if self.index.has_package(glob) {
             res.push(MatchedPackage {
-                name,
-                entries: self.entries_of(name).collect(),
+                name: Cow::Owned(glob.to_string()),
+                entries: self.index.get_with_source(glob).collect(),
             });
+        } else {
+            for name in self.index.packages().filter(|p| glob_match(glob, p)) {
+                res.push(MatchedPackage {
+                    name: Cow::Borrowed(name),
+                    entries: self.index.get_with_source(name).collect(),
+                });
+            }
         }
+
         Ok(res)
     }
 
     /// Match package from a version pattern (like `apt=2.5.4`).
-    pub fn match_from_version(&self, pat: &'a str) -> MatcherResult<Vec<MatchedPackage<'a>>> {
+    pub fn match_from_version<'k>(&self, pat: &'k str) -> MatcherResult<Vec<MatchedPackage<'a>>> {
         let (pkgname, version_str) = pat
             .split_once('=')
             .ok_or_else(|| MatcherError::InvalidPattern(pat.to_string()))?;
@@ -118,9 +121,10 @@ impl<'a> PackageMatcher<'a> {
             return Err(MatcherError::NoPackage(pat.to_string()));
         }
 
-        let entries: Vec<Cow<'a, PackageEntry>> = self
-            .entries_of(pkgname)
-            .filter(|e| e.version.as_deref() == Some(version_str))
+        let entries: Vec<(Cow<'a, PackageEntry>, String)> = self
+            .index
+            .get_with_source(pkgname)
+            .filter(|(entry, _)| entry.version.as_deref() == Some(version_str))
             .collect();
 
         if entries.is_empty() {
@@ -131,7 +135,7 @@ impl<'a> PackageMatcher<'a> {
         }
 
         Ok(vec![MatchedPackage {
-            name: pkgname,
+            name: Cow::Owned(pkgname.to_string()),
             entries,
         }])
     }
@@ -140,7 +144,7 @@ impl<'a> PackageMatcher<'a> {
     ///
     /// A package is matched by the suite of the APT list source it came
     /// from, i.e. the decoded source path contains `/dists/{branch}/`.
-    pub fn match_from_branch(&self, pat: &'a str) -> MatcherResult<Vec<MatchedPackage<'a>>> {
+    pub fn match_from_branch<'k>(&self, pat: &'k str) -> MatcherResult<Vec<MatchedPackage<'a>>> {
         let (pkgname, branch) = pat
             .split_once('/')
             .ok_or_else(|| MatcherError::InvalidPattern(pat.to_string()))?;
@@ -151,7 +155,7 @@ impl<'a> PackageMatcher<'a> {
 
         let cvt = AptListFilename::new();
         let dists_prefix = format!("/dists/{branch}/");
-        let entries: Vec<Cow<'a, PackageEntry>> = self
+        let entries: Vec<(Cow<'a, PackageEntry>, String)> = self
             .index
             .get_with_source(pkgname)
             .filter(|(_, source)| {
@@ -159,7 +163,6 @@ impl<'a> PackageMatcher<'a> {
                     .ok()
                     .is_some_and(|path| path.contains(&dists_prefix))
             })
-            .map(|(entry, _)| entry)
             .collect();
 
         if entries.is_empty() {
@@ -167,21 +170,9 @@ impl<'a> PackageMatcher<'a> {
         }
 
         Ok(vec![MatchedPackage {
-            name: pkgname,
+            name: Cow::Owned(pkgname.to_string()),
             entries,
         }])
-    }
-
-    /// Get all entries for a package as a lazy iterator.
-    ///
-    /// The iterator yields `Cow` entries without collecting; callers
-    /// filter/collect on demand. Boxed because the borrowed and owned Cow
-    /// variants produce different iterator types.
-    fn entries_of(&self, name: &str) -> Box<dyn Iterator<Item = Cow<'a, PackageEntry>> + 'a> {
-        match self.index.get_all(name) {
-            Cow::Borrowed(slice) => Box::new(slice.iter().map(Cow::Borrowed)),
-            Cow::Owned(vec) => Box::new(vec.into_iter().map(Cow::Owned)),
-        }
     }
 }
 
@@ -236,8 +227,8 @@ Filename: pool/preview/main/f/firefox/firefox_130.0_amd64.deb
         (dir, matcher)
     }
 
-    fn names<'a>(pkgs: &'a [MatchedPackage<'a>]) -> Vec<&'a str> {
-        pkgs.iter().map(|p| p.name).collect()
+    fn names<'a>(pkgs: &'a [MatchedPackage<'a>]) -> Vec<Cow<'a, str>> {
+        pkgs.iter().map(|p| p.name.clone()).collect()
     }
 
     #[test]
@@ -271,7 +262,7 @@ Filename: pool/preview/main/f/firefox/firefox_130.0_amd64.deb
         let res = m.match_from_version("apt=2.5.4").unwrap();
         assert_eq!(names(&res), vec!["apt"]);
         assert_eq!(res[0].entries.len(), 1);
-        assert_eq!(res[0].entries[0].version.as_deref(), Some("2.5.4"));
+        assert_eq!(res[0].entries[0].0.version.as_deref(), Some("2.5.4"));
     }
 
     #[test]
@@ -293,10 +284,10 @@ Filename: pool/preview/main/f/firefox/firefox_130.0_amd64.deb
         let res = m.match_from_branch("fish/stable").unwrap();
         assert_eq!(names(&res), vec!["fish"]);
         assert_eq!(res[0].entries.len(), 1);
-        assert_eq!(res[0].entries[0].version.as_deref(), Some("4.5.0"));
+        assert_eq!(res[0].entries[0].0.version.as_deref(), Some("4.5.0"));
 
         let res = m.match_from_branch("fish/preview").unwrap();
-        assert_eq!(res[0].entries[0].version.as_deref(), Some("4.8.1"));
+        assert_eq!(res[0].entries[0].0.version.as_deref(), Some("4.8.1"));
     }
 
     #[test]

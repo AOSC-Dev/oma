@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io::Write;
 use std::str::FromStr;
 use std::{borrow::Cow, io::stdout};
@@ -11,7 +12,6 @@ use oma_apt_pkg::apt_sources::SourceLookup;
 use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
     AptConfig, AptDb, AptExtendedStates, AptListFilename, DpkgState, EntryWithSource, PackageEntry,
-    QueryGroup,
 };
 use oma_console::indicatif::HumanBytes;
 use serde::Serialize;
@@ -67,7 +67,7 @@ impl CliExecuter for Show {
 
         let apt_cfg = config.apt_config();
         let source_lookup = SourceLookup::build(apt_cfg);
-        let (apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
+        let (mut apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
 
         // Resolve each query: local `.deb` files are parsed directly,
         // everything else is matched against the package database.
@@ -82,47 +82,29 @@ impl CliExecuter for Show {
 
         let mut stdout = stdout();
 
-        for (i, group) in resolution.groups.iter().enumerate() {
-            match group {
-                QueryGroup::Db(entries) => display_group(
-                    &mut stdout,
-                    entries,
-                    &dpkg,
-                    &ext_states,
-                    all,
-                    json,
-                    &source_lookup,
-                    apt_cfg,
-                )?,
-                QueryGroup::Local(entry) => {
-                    let entries = [EntryWithSource {
-                        entry: entry.as_ref(),
-                        source: None,
-                    }];
-                    display_group(
-                        &mut stdout,
-                        &entries,
-                        &dpkg,
-                        &ext_states,
-                        all,
-                        json,
-                        &source_lookup,
-                        apt_cfg,
-                    )?;
-                }
-            }
+        for (i, entries) in resolution.groups.iter().enumerate() {
+            display_group(
+                &mut stdout,
+                entries,
+                &dpkg,
+                &ext_states,
+                all,
+                json,
+                &source_lookup,
+                apt_cfg,
+            )?;
 
             if i != resolution.groups.len() - 1 {
                 writeln!(stdout).ok();
             }
 
             // Show additional version hint for single package without --all
-            let entry_count = match group {
-                QueryGroup::Db(entries) => entries.len(),
-                QueryGroup::Local(_) => 1,
-            };
+            let entry_count = entries.len();
             if !all && !json && resolution.groups.len() == 1 && entry_count > 1 {
-                info!("{}", fl!("additional-version", len = entry_count));
+                info!(
+                    "{}",
+                    fl!("additional-version", len = entry_count.saturating_sub(1))
+                );
             }
         }
 
@@ -167,93 +149,128 @@ fn display_entries(
     source_lookup: &SourceLookup,
     apt_cfg: &AptConfig,
 ) {
-    let shown_entries: Box<dyn Iterator<Item = &EntryWithSource<'_>>> = if show_all {
-        Box::new(entries.iter())
+    // Group entries by version so the same version coming from multiple
+    // sources (e.g. a repo package and a local `.deb`) renders as one block
+    // listing every source.
+    let mut versions: BTreeMap<&str, Vec<&EntryWithSource<'_>>> = BTreeMap::new();
+    for entry in entries {
+        versions
+            .entry(entry.entry.version.as_deref().unwrap_or("0"))
+            .or_default()
+            .push(entry);
+    }
+
+    let shown = if show_all {
+        versions.iter().collect::<Vec<_>>()
     } else {
-        // Show only the entry with the highest version
-        Box::new(
-            entries
-                .iter()
-                .max_by(|a, b| {
-                    let a_ver = Version::from_str(a.entry.version.as_deref().unwrap_or("0")).ok();
-                    let b_ver = Version::from_str(b.entry.version.as_deref().unwrap_or("0")).ok();
-                    a_ver.cmp(&b_ver)
-                })
-                .into_iter(),
-        )
+        // Show only the highest version.
+        versions
+            .iter()
+            .max_by(|(a, _), (b, _)| {
+                let a_ver = Version::from_str(a).ok();
+                let b_ver = Version::from_str(b).ok();
+                a_ver.cmp(&b_ver)
+            })
+            .into_iter()
+            .collect::<Vec<_>>()
     };
 
-    for (idx, entry) in shown_entries.enumerate() {
+    for (idx, (_, group)) in shown.iter().enumerate() {
         if show_all && idx != 0 {
             writeln!(stdout).ok();
         }
 
-        display_single_entry(
-            stdout,
-            entry.entry,
-            entry.source,
-            dpkg,
-            ext_states,
-            source_lookup,
-            apt_cfg,
-        );
+        display_version_group(stdout, group, dpkg, ext_states, source_lookup, apt_cfg);
     }
 }
 
-fn display_single_entry(
+/// Resolve one display field from a package entry, in the order of
+/// [`DISPLAY_FIELDS`].
+fn field_value<'a>(entry: &'a PackageEntry, field: &str) -> Option<Cow<'a, str>> {
+    match field {
+        "Package" => Some(Cow::Borrowed(&entry.package)),
+        "Version" => entry.version.as_deref().map(Cow::Borrowed),
+        "Section" => entry.section.as_deref().map(Cow::Borrowed),
+        "Maintainer" => entry.maintainer.as_deref().map(Cow::Borrowed),
+        "Installed-Size" => entry
+            .installed_size
+            .map(|s| Cow::Owned(HumanBytes(s * 1024).to_string())),
+        "Pre-Depends" => entry.pre_depends.as_deref().map(Cow::Borrowed),
+        "Depends" => entry.depends.as_deref().map(Cow::Borrowed),
+        "Breaks" => entry.breaks.as_deref().map(Cow::Borrowed),
+        "Conflicts" => entry.conflicts.as_deref().map(Cow::Borrowed),
+        "Replaces" => entry.replaces.as_deref().map(Cow::Borrowed),
+        "Recommends" => entry.recommends.as_deref().map(Cow::Borrowed),
+        "Suggests" => entry.suggests.as_deref().map(Cow::Borrowed),
+        "Provides" => entry.provides.as_deref().map(Cow::Borrowed),
+        "Size" => entry.size.map(|s| Cow::Owned(HumanBytes(s).to_string())),
+        "Description" => entry.description.as_deref().map(Cow::Borrowed),
+        _ => None,
+    }
+}
+
+/// Display all entries sharing one version as a single block, merging fields
+/// (the first entry carrying each field wins, so a repo entry's
+/// `Download-Size` shows next to a local `.deb`) and listing every source.
+fn display_version_group(
     stdout: &mut impl Write,
-    entry: &PackageEntry,
-    source: Option<&str>,
+    group: &[&EntryWithSource<'_>],
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     source_lookup: &SourceLookup,
     apt_cfg: &AptConfig,
 ) {
     for (label, field) in DISPLAY_FIELDS {
-        let value: Option<Cow<'_, str>> = match *field {
-            "Package" => Some(Cow::Borrowed(&entry.package)),
-            "Version" => entry.version.as_deref().map(Cow::Borrowed),
-            "Section" => entry.section.as_deref().map(Cow::Borrowed),
-            "Maintainer" => entry.maintainer.as_deref().map(Cow::Borrowed),
-            "Installed-Size" => entry
-                .installed_size
-                .map(|s| Cow::Owned(HumanBytes(s * 1024).to_string())),
-            "Pre-Depends" => entry.pre_depends.as_deref().map(Cow::Borrowed),
-            "Depends" => entry.depends.as_deref().map(Cow::Borrowed),
-            "Breaks" => entry.breaks.as_deref().map(Cow::Borrowed),
-            "Conflicts" => entry.conflicts.as_deref().map(Cow::Borrowed),
-            "Replaces" => entry.replaces.as_deref().map(Cow::Borrowed),
-            "Recommends" => entry.recommends.as_deref().map(Cow::Borrowed),
-            "Suggests" => entry.suggests.as_deref().map(Cow::Borrowed),
-            "Provides" => entry.provides.as_deref().map(Cow::Borrowed),
-            "Size" => entry.size.map(|s| Cow::Owned(HumanBytes(s).to_string())),
-            "Description" => entry.description.as_deref().map(Cow::Borrowed),
-            _ => None,
-        };
-
-        let Some(value) = value else {
+        let Some(value) = group
+            .iter()
+            .find_map(|e| field_value(e.entry.as_ref(), field))
+        else {
             continue;
         };
-
         writeln!(stdout, "{} {value}", key_style(Cow::Borrowed(label))).ok();
     }
 
-    // APT-Sources: decode the APT lists filename back to the original format
-    if let Some(src) = source {
-        let formatted = format_apt_source(src, source_lookup, apt_cfg);
+    // APT-Sources: every source of this version, deduplicated.
+    let mut sources: Vec<&str> = Vec::new();
+    for e in group {
+        if let Some(src) = e.source.as_deref()
+            && !sources.contains(&src)
+        {
+            sources.push(src);
+        }
+    }
+    if !sources.is_empty() {
         write!(stdout, "{}", key_style(Cow::Borrowed("APT-Sources:"))).ok();
-        writeln!(stdout, " {formatted}").ok();
+        if sources.len() == 1 {
+            writeln!(
+                stdout,
+                " {}",
+                format_apt_source(sources[0], source_lookup, apt_cfg)
+            )
+            .ok();
+        } else {
+            writeln!(stdout).ok();
+            for src in &sources {
+                writeln!(
+                    stdout,
+                    "  {}",
+                    format_apt_source(src, source_lookup, apt_cfg)
+                )
+                .ok();
+            }
+        }
     }
 
-    // APT-Manual-Installed: check dpkg status and auto-installed flag
-    if entry.is_installed(dpkg) {
+    // APT-Manual-Installed: check dpkg status and auto-installed flag.
+    let primary = &group[0].entry;
+    if primary.is_installed(dpkg) {
         write!(
             stdout,
             "{}",
             key_style(Cow::Borrowed("APT-Manual-Installed: "))
         )
         .ok();
-        if entry.is_auto_installed(dpkg, ext_states) {
+        if primary.is_auto_installed(dpkg, ext_states) {
             writeln!(stdout, "no").ok();
         } else {
             writeln!(stdout, "yes").ok();
@@ -278,8 +295,8 @@ fn display_entries_to_json(
     let json_entries: Vec<PackageJson<'_>> = entries
         .iter()
         .map(|ews| PackageJson {
-            entry: ews.entry,
-            apt_sources: ews.source,
+            entry: ews.entry.as_ref(),
+            apt_sources: ews.source.as_deref(),
             installed: ews.entry.is_installed(dpkg),
         })
         .collect();
@@ -321,11 +338,19 @@ fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
     style(key).bold()
 }
 
-/// Decode an APT lists filename stem and format as APT-Sources.
-///
-/// The result is `"{source_url} {substituted_description}"`, matching
-/// APT's `$(SITE) + Description` format (see `debmetaindex.cc`).
+/// Decode an APT lists filename stem and format as an `APT-Sources:` entry
+/// using the `Acquire::IndexTargets` `Description` template, producing
+/// `{uri} {description}` like `https://mirror/anthon/debs/ stable/main amd64
+/// Packages`.
 fn format_apt_source(source: &str, source_lookup: &SourceLookup, apt_cfg: &AptConfig) -> String {
+    // A `file:` source is a local `.deb`, stored as its `file:` URI. Render
+    // it in the same `{uri} {suite}/{component}` shape the template produces
+    // for repository sources, with APT's conventional `local-deb/local-deb`
+    // suite/component for local debs.
+    if let Some(uri) = source.strip_prefix("file:") {
+        return format!("file:{uri} local-deb/local-deb");
+    }
+
     let cvt = AptListFilename::new();
     let Ok(decoded) = cvt.decode(source) else {
         return source.to_string();
@@ -335,32 +360,31 @@ fn format_apt_source(source: &str, source_lookup: &SourceLookup, apt_cfg: &AptCo
         return decoded;
     };
 
-    let templates = IndexTargetTemplates::new(apt_cfg);
-    let base_url = matched.entry.url();
+    // `archive_uri` keeps a trailing slash, like libapt's URI handling.
+    let base_url = format!("{}/", matched.entry.url());
+    let suite = matched.entry.suite.trim_end_matches('/');
     let is_flat = matched.component.is_none();
-    let suite = &matched.entry.suite;
+
+    let templates = IndexTargetTemplates::new(apt_cfg);
 
     let matched_template = if is_flat {
+        // Flat repositories have no architecture dimension — pass an empty
+        // arch so `flatMetaKey` matches without resolving `APT::Architecture`.
         templates
-            .resolve_targets(
-                matched.filename,
-                suite,
-                &["$(ARCHITECTURE)"],
-                "",
-                "",
-                "",
-                true,
-            )
+            .resolve_targets(matched.filename, suite, &[""], "", "", "", true)
             .ok()
             .and_then(|v| v.into_iter().next())
             .map(|r| (r.description, r.arch))
     } else if let Some(component) = matched.component {
+        // Architectures to try: the source's declared ones, falling back to
+        // the one in the index path (`binary-<arch>`).
         let archs: Vec<&str> = matched
             .entry
             .archs
             .as_ref()
-            .map(|v| v.iter().map(|s| s.as_str()).collect())
-            .unwrap_or_default();
+            .filter(|a| !a.is_empty())
+            .map(|a| a.iter().map(String::as_str).collect())
+            .unwrap_or_else(|| index_arch(&decoded));
 
         templates
             .resolve_targets(matched.filename, suite, &archs, component, "", "", false)
@@ -383,15 +407,28 @@ fn format_apt_source(source: &str, source_lookup: &SourceLookup, apt_cfg: &AptCo
         return format!("{base_url} {formatted}");
     }
 
+    // Fallback: no matching IndexTarget (e.g. a file type without a
+    // configured target) — degrade to `{uri} {suite}/{component} {type}`.
+    let bare = matched.filename.rsplit('/').next().unwrap_or("");
     if let Some(component) = matched.component {
-        if matched.filename.is_empty() {
-            format!("{base_url} {}/{}", suite, component)
+        if bare.is_empty() {
+            format!("{base_url} {suite}/{component}")
         } else {
-            format!("{base_url} {}/{} {}", suite, component, matched.filename)
+            format!("{base_url} {suite}/{component} {bare}")
         }
     } else if is_flat {
-        format!("{base_url} {} {}", suite, matched.filename)
+        format!("{base_url} {suite} {bare}")
     } else {
-        format!("{base_url} {}", suite)
+        format!("{base_url} {suite}")
     }
+}
+
+/// The architecture from an index path segment `binary-<arch>`, if present.
+fn index_arch(decoded: &str) -> Vec<&str> {
+    decoded
+        .rsplit('/')
+        .find(|seg| seg.starts_with("binary-"))
+        .and_then(|seg| seg.strip_prefix("binary-"))
+        .into_iter()
+        .collect()
 }

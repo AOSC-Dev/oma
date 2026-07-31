@@ -17,13 +17,18 @@ use crate::apt_lists::{
 use crate::package_matcher::PackageMatcher;
 
 /// A package entry together with its source file information.
+///
+/// The entry is borrowed from the database when it comes from an APT lists
+/// file, or owned when it is a local `.deb` (whose source is the `file:` URL
+/// recorded at insert time).
 #[derive(Debug, Clone)]
 pub struct EntryWithSource<'a> {
     /// The parsed package entry data.
-    pub entry: &'a PackageEntry,
+    pub entry: Cow<'a, PackageEntry>,
     /// The APT lists filename, e.g.
-    /// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`.
-    pub source: Option<&'a str>,
+    /// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`,
+    /// or the `file:` source of a local `.deb`.
+    pub source: Option<Cow<'a, str>>,
 }
 
 /// Errors that can occur when resolving package queries.
@@ -35,22 +40,39 @@ pub enum QueryError {
     Matcher(#[from] crate::package_matcher::MatcherError),
 }
 
-/// One resolved package query.
-#[derive(Debug)]
-pub enum QueryGroup<'a> {
-    /// A package matched from the database (all versions with sources).
-    Db(Vec<EntryWithSource<'a>>),
-    /// A local `.deb` package parsed from disk (no APT source).
-    Local(Box<PackageEntry>),
-}
-
 /// Result of resolving package queries.
 #[derive(Debug)]
 pub struct QueryResolution<'a> {
-    /// Display groups in query order.
-    pub groups: Vec<QueryGroup<'a>>,
+    /// Display groups in query order; each group holds the (version/source
+    /// filtered) entries for one query — all versions of a package, a single
+    /// version (`pkg=1.2.3`), one branch (`pkg/suite`) or a local `.deb`.
+    pub groups: Vec<Vec<EntryWithSource<'a>>>,
     /// Queries that matched no package.
     pub no_match: Vec<String>,
+}
+
+/// Build the `file:` URI source for a local `.deb` path, e.g.
+/// `file:/home/oma/go_1.26.4%2btools0.45.0_amd64.deb`. The path is
+/// percent-encoded with lowercase hex (e.g. `+` → `%2b`) to match APT's URI
+/// form. Like repository sources (which are stored as URIs), the
+/// `local-deb/local-deb` suite/component is added when the source is
+/// rendered.
+fn local_deb_source(path: impl AsRef<Path>) -> String {
+    let path = path.as_ref();
+    let canonical = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let raw = canonical.to_string_lossy();
+
+    let mut encoded = String::with_capacity(raw.len());
+    for &byte in raw.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
+                encoded.push(char::from(byte));
+            }
+            _ => encoded.push_str(&format!("%{byte:02x}")),
+        }
+    }
+
+    format!("file:{encoded}")
 }
 
 /// Parse and cache APT package database.
@@ -66,14 +88,16 @@ impl AptDb {
     /// Build from entries without source tracking
     #[allow(dead_code)]
     pub(crate) fn from_entries(entries: Vec<PackageEntry>) -> Self {
-        let mut map = HashMap::new();
+        let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
+        let mut sources: HashMap<String, Vec<String>> = HashMap::new();
         for e in entries {
-            map.entry(e.package.clone())
-                .or_insert_with(Vec::new)
-                .push(e);
+            let name = e.package.clone();
+            map.entry(name.clone()).or_default().push(e);
+            // Keep `entry_sources` in lockstep; empty string means "no source".
+            sources.entry(name).or_default().push(String::new());
         }
         Self {
-            entry_sources: map.keys().map(|k| (k.clone(), Vec::new())).collect(),
+            entry_sources: sources,
             entries: map,
         }
     }
@@ -85,52 +109,96 @@ impl AptDb {
     /// [`get_all_with_source`](Self::get_all_with_source) reports
     /// `source: None` for them.
     pub fn insert(&mut self, entry: PackageEntry) {
-        self.entries
-            .entry(entry.package.clone())
+        let name = entry.package.clone();
+        self.entries.entry(name.clone()).or_default().push(entry);
+        // Keep `entry_sources` in lockstep; empty string means "no source".
+        self.entry_sources
+            .entry(name)
             .or_default()
-            .push(entry);
+            .push(String::new());
+    }
+
+    /// Insert a package entry together with its source, keeping `entries`
+    /// and `entry_sources` in sync so
+    /// [`get_all_with_source`](Self::get_all_with_source) reports the source.
+    pub fn insert_with_source(&mut self, entry: PackageEntry, source: String) {
+        let name = entry.package.clone();
+        self.entries.entry(name.clone()).or_default().push(entry);
+        self.entry_sources.entry(name).or_default().push(source);
     }
 
     /// Parse a local `.deb` file and insert its control entry into the
-    /// database as a local package.
+    /// database as a local package, recording its `file:` source. Returns
+    /// the package name.
     pub fn insert_from_deb(
         &mut self,
-        path: impl AsRef<std::path::Path>,
-    ) -> Result<(), crate::deb::DebError> {
-        let entry = crate::deb::parse_deb(path)?;
-        self.insert(entry);
-        Ok(())
+        path: impl AsRef<Path>,
+    ) -> Result<String, crate::deb::DebError> {
+        let entry = crate::deb::parse_deb(&path)?;
+        let name = entry.package.clone();
+        let source = local_deb_source(path);
+        self.insert_with_source(entry, source);
+
+        Ok(name)
     }
 
     /// Resolve package queries into display groups.
     ///
-    /// Each query is either a path to a local `.deb` file (parsed via
-    /// [`crate::deb`]) or a package name/glob/version/branch expression
-    /// matched via [`PackageMatcher`]. Local `.deb` files are returned
-    /// first, then matched packages, preserving query order within each
-    /// group.
-    pub fn resolve_queries(&self, queries: Vec<String>) -> Result<QueryResolution<'_>, QueryError> {
+    /// Each query is either a path to a local `.deb` file or a package
+    /// name/glob/version/branch expression matched via [`PackageMatcher`].
+    /// Local `.deb`s are parsed (in parallel), inserted with their `file:`
+    /// source, and resolved like `pkg=<version>` so their own version is
+    /// shown — merged with any repo entries of that version — consistent
+    /// with `pkg=1.2.3` / `pkg/suite` queries.
+    ///
+    /// Note: this inserts the local packages into the database for the
+    /// lifetime of this instance; the caller owns the database, so that is
+    /// harmless per process.
+    pub fn resolve_queries(
+        &mut self,
+        queries: Vec<String>,
+    ) -> Result<QueryResolution<'_>, QueryError> {
         let (deb_files, names): (Vec<String>, Vec<String>) = queries
             .into_iter()
             .partition(|q| q.ends_with(".deb") && Path::new(q).is_file());
 
-        // Parse local `.deb` files in parallel, boxing each entry straight
-        // into a group instead of collecting into an intermediate vec.
-        let mut groups = deb_files
+        let deb_entries: Vec<PackageEntry> = deb_files
             .par_iter()
-            .map(|path| crate::deb::parse_deb(path).map(|entry| QueryGroup::Local(Box::new(entry))))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(crate::deb::parse_deb)
+            .collect::<Result<_, _>>()?;
+
+        let mut keywords: Vec<String> = Vec::with_capacity(deb_files.len() + names.len());
+        for (path, entry) in deb_files.iter().zip(deb_entries) {
+            let source = local_deb_source(path);
+            let name = entry.package.clone();
+            let version = entry.version.clone();
+            self.insert_with_source(entry, source);
+            // Resolve the `.deb` like `pkg=<version>` so its own version is
+            // displayed (merged with any repo entries of that version).
+            keywords.push(match version {
+                Some(v) => format!("{name}={v}"),
+                None => name,
+            });
+        }
+        keywords.extend(names);
 
         let mut no_match = Vec::new();
-        if !names.is_empty() {
+        let mut groups = Vec::new();
+
+        if !keywords.is_empty() {
             let matcher = PackageMatcher::new(self);
             let (matched, no_result) =
-                matcher.match_pkgs_and_versions(names.iter().map(String::as_str))?;
-            groups.extend(
-                matched
+                matcher.match_pkgs_and_versions(keywords.iter().map(String::as_str))?;
+
+            groups.extend(matched.into_iter().map(|pkg| {
+                pkg.entries
                     .into_iter()
-                    .map(|pkg| QueryGroup::Db(self.get_all_with_source(pkg.name))),
-            );
+                    .map(|(entry, source)| EntryWithSource {
+                        entry,
+                        source: (!source.is_empty()).then_some(Cow::Owned(source)),
+                    })
+                    .collect()
+            }));
             no_match = no_result.into_iter().map(str::to_owned).collect();
         }
 
@@ -313,8 +381,11 @@ impl AptDb {
             .iter()
             .enumerate()
             .map(|(i, entry)| EntryWithSource {
-                entry,
-                source: sources.and_then(|s| s.get(i)).map(|s| s.as_str()),
+                entry: Cow::Borrowed(entry),
+                source: sources
+                    .and_then(|s| s.get(i))
+                    .filter(|s| !s.is_empty())
+                    .map(|s| Cow::Borrowed(s.as_str())),
             })
             .collect()
     }
@@ -428,7 +499,7 @@ mod tests {
 
     #[test]
     fn test_resolve_queries_db() {
-        let db = AptDb::from_entries(vec![
+        let mut db = AptDb::from_entries(vec![
             entry("fish", "3.6"),
             entry("fish", "3.7"),
             entry("apt", "2.5"),
@@ -439,13 +510,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(resolution.groups.len(), 1);
-        match &resolution.groups[0] {
-            QueryGroup::Db(entries) => {
-                assert_eq!(entries.len(), 2);
-                assert!(entries.iter().all(|e| e.entry.package == "fish"));
-            }
-            QueryGroup::Local(_) => panic!("expected Db group"),
-        }
+        let entries = &resolution.groups[0];
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().all(|e| e.entry.package == "fish"));
         assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
     }
 
@@ -457,19 +524,41 @@ mod tests {
         let deb_path = dir.path().join("hello_2.10-2_amd64.deb");
         std::fs::write(&deb_path, build_deb(CONTROL)).unwrap();
 
-        let db = AptDb::from_entries(Vec::new());
+        let mut db = AptDb::from_entries(Vec::new());
         let resolution = db
             .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
             .unwrap();
 
         assert!(resolution.no_match.is_empty());
         assert_eq!(resolution.groups.len(), 1);
-        match &resolution.groups[0] {
-            QueryGroup::Local(entry) => {
-                assert_eq!(entry.package, "hello");
-                assert_eq!(entry.version.as_deref(), Some("2.10-2"));
-            }
-            QueryGroup::Db(_) => panic!("expected Local group"),
-        }
+        let entries = &resolution.groups[0];
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].entry.package, "hello");
+        assert_eq!(entries[0].entry.version.as_deref(), Some("2.10-2"));
+
+        // The local `.deb` carries a `file:` URI source.
+        let source = entries[0].source.as_deref().unwrap();
+        assert!(source.starts_with("file:"));
+    }
+
+    #[test]
+    fn test_resolve_queries_local_deb_merges_with_db() {
+        use crate::deb::test_util::{CONTROL, build_deb};
+
+        let dir = tempfile::tempdir().unwrap();
+        let deb_path = dir.path().join("hello_2.10-2_amd64.deb");
+        std::fs::write(&deb_path, build_deb(CONTROL)).unwrap();
+
+        let mut db = AptDb::from_entries(vec![entry("hello", "2.10-2")]);
+        let resolution = db
+            .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
+            .unwrap();
+
+        assert_eq!(resolution.groups.len(), 1);
+        let entries = &resolution.groups[0];
+        // repo entry + merged local entry
+        assert_eq!(entries.len(), 2);
+        assert!(entries[0].source.is_none());
+        assert!(entries[1].source.as_deref().unwrap().starts_with("file:"));
     }
 }

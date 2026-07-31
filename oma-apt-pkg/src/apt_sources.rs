@@ -136,8 +136,18 @@ impl SourceLookup {
         let rest = &host_path[base_key.len()..];
         let is_flat = entry.suite.ends_with('/');
 
-        // Extract the bare filename from the last path segment
-        let filename = rest.rsplit('/').next().unwrap_or("");
+        // The index path relative to the repository root, matching an
+        // IndexTarget `MetaKey`: `dists/{suite}/...` → the part after the
+        // dists dir (`main/binary-amd64/Packages`); for flat repos the bare
+        // filename (`Packages`).
+        let filename = if is_flat {
+            rest.rsplit('/').next().unwrap_or("")
+        } else {
+            let suite = entry.suite.trim_end_matches('/');
+            rest.strip_prefix(&format!("/dists/{suite}/"))
+                .unwrap_or(rest)
+                .trim_start_matches('/')
+        };
         let filename = strip_compression_ext(filename);
 
         let component = if is_flat {
@@ -172,8 +182,9 @@ pub struct SourceMatch<'a> {
     pub entry: &'a SourceEntry,
     /// The component name, or `None` for flat repos.
     pub component: Option<&'a str>,
-    /// The bare filename (last segment of the decoded URI, stripped of
-    /// compression extensions).
+    /// The index path relative to the repository root
+    /// (`main/binary-amd64/Packages`), or the bare filename for flat repos
+    /// (`Packages`) — the form IndexTarget `MetaKey`s are matched against.
     pub filename: &'a str,
 }
 
