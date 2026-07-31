@@ -10,8 +10,8 @@ use dialoguer::console::{StyledObject, style};
 use oma_apt_pkg::apt_sources::SourceLookup;
 use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
-    AptConfig, AptDb, AptExtendedStates, AptListFilename, DpkgState, EntryWithSource,
-    PackageMatcher, PackageEntry,
+    AptConfig, AptDb, AptExtendedStates, AptListFilename, DpkgState, EntryWithSource, PackageEntry,
+    PackageMatcher,
 };
 use oma_console::indicatif::HumanBytes;
 use serde::Serialize;

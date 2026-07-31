@@ -49,6 +49,30 @@ impl AptDb {
         }
     }
 
+    /// Insert a local package entry (e.g. parsed from a local `.deb`) into
+    /// the database.
+    ///
+    /// Local packages have no APT list source, so
+    /// [`get_all_with_source`](Self::get_all_with_source) reports
+    /// `source: None` for them.
+    pub fn insert(&mut self, entry: PackageEntry) {
+        self.entries
+            .entry(entry.package.clone())
+            .or_default()
+            .push(entry);
+    }
+
+    /// Parse a local `.deb` file and insert its control entry into the
+    /// database as a local package.
+    pub fn insert_from_deb(
+        &mut self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<(), crate::deb::DebError> {
+        let entry = crate::deb::parse_deb(path)?;
+        self.insert(entry);
+        Ok(())
+    }
+
     /// Build from entries with parallel source tracking.
     pub(crate) fn from_entries_with_sources(
         entries: Vec<PackageEntry>,
@@ -287,5 +311,66 @@ impl PackageIndex for AptDb {
                 (Cow::Borrowed(e), src)
             })
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(name: &str, version: &str) -> PackageEntry {
+        PackageEntry {
+            package: name.to_string(),
+            version: Some(version.to_string()),
+            ..PackageEntry {
+                package: String::new(),
+                version: None,
+                architecture: None,
+                description: None,
+                description_md5: None,
+                maintainer: None,
+                installed_size: None,
+                depends: None,
+                pre_depends: None,
+                recommends: None,
+                suggests: None,
+                breaks: None,
+                conflicts: None,
+                replaces: None,
+                provides: None,
+                section: None,
+                priority: None,
+                homepage: None,
+                multi_arch: None,
+                filename: None,
+                size: None,
+                sha256: None,
+            }
+        }
+    }
+
+    #[test]
+    fn test_insert_local_package() {
+        let mut db = AptDb::from_entries(Vec::new());
+        db.insert(entry("localpkg", "1.0"));
+
+        assert!(db.has_package("localpkg"));
+        let all = db.get_all("localpkg");
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].version.as_deref(), Some("1.0"));
+
+        // Local packages have no APT list source.
+        let with_src = db.get_all_with_source("localpkg");
+        assert_eq!(with_src.len(), 1);
+        assert!(with_src[0].source.is_none());
+    }
+
+    #[test]
+    fn test_insert_appends_existing_package() {
+        let mut db = AptDb::from_entries(vec![entry("localpkg", "1.0")]);
+        db.insert(entry("localpkg", "2.0"));
+
+        let all = db.get_all("localpkg");
+        assert_eq!(all.len(), 2);
     }
 }

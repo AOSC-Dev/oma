@@ -9,7 +9,17 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 [features]
 default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config"]
 apt-config = ["dep:tree-sitter", "dep:tree-sitter-language"]
-apt-lists = ["dep:wincode", "dep:spdlog-rs", "dep:glob-match"]
+apt-lists = [
+    "dep:wincode",
+    "dep:spdlog-rs",
+    "dep:glob-match",
+    "dep:debian-control",
+    "dep:ar",
+    "dep:tar",
+    "dep:flate2",
+    "dep:zstd",
+    "dep:liblzma",
+]
 apt-sources = ["apt-config", "filename", "dep:oma-apt-sources-lists"]
 dpkg-status = []
 filename = ["dep:aho-corasick", "dep:url"]
@@ -46,11 +56,17 @@ search = ["search-indicium", "search-strsim", "search-text"]
 
 [dependencies]
 deb822-fast = { workspace = true }
+debian-control = { workspace = true, optional = true }
 oma-apt-sources-lists = { workspace = true, optional = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 wincode = { workspace = true, optional = true }
 spdlog-rs = { workspace = true, optional = true }
+tar = { workspace = true, optional = true }
+ar = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+zstd = { workspace = true, optional = true }
+liblzma = { workspace = true, optional = true }
 ahash = { workspace = true, optional = true }
 indexmap = { workspace = true, features = ["serde"] }
 indicium = { workspace = true, optional = true }

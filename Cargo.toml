@@ -163,6 +163,9 @@ cc = "1"
 flate2 = "1.0"
 lzzzz = "2.0"
 zstd = "0.13"
+tar = "0.4"
+ar = "0.9"
+debian-control = { version = "0.3", default-features = false, features = ["lossless"] }
 memchr = "2"
 async-compression = "=0.4.27"
 liblzma = { version = "0", features = ["uncheck_liblzma_version"] }

@@ -2,6 +2,10 @@ pub mod apt_config;
 #[cfg(feature = "apt-lists")]
 mod apt_db;
 #[cfg(feature = "apt-lists")]
+pub mod deb;
+#[cfg(feature = "apt-lists")]
+pub use deb::*;
+#[cfg(feature = "apt-lists")]
 pub mod apt_lists_reader;
 #[cfg(feature = "apt-lists")]
 pub use apt_lists_reader::*;

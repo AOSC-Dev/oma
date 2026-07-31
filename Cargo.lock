@@ -166,6 +166,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ar"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d67af77d68a931ecd5cbd8a3b5987d63a1d1d1278f7f6a60ae33db485cdebb69"
+
+[[package]]
 name = "arc-swap"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1149,6 +1155,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "debian-control"
+version = "0.3.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ec825d3da4fc04cac8dfaf42b2a22085d004f2c8c7501bd9a05620d430523f8"
+dependencies = [
+ "deb822-fast",
+ "deb822-lossless",
+ "debversion",
+ "regex",
+ "rowan",
+ "url",
+]
+
+[[package]]
 name = "debversion"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1520,6 +1540,16 @@ dependencies = [
  "libc",
  "thiserror 1.0.69",
  "winapi",
+]
+
+[[package]]
+name = "filetime"
+version = "0.2.29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c287a33c7f0a620c38e641e7f60827713987b3c0f26e8ddc9462cc69cf75759"
+dependencies = [
+ "cfg-if",
+ "libc",
 ]
 
 [[package]]
@@ -3375,17 +3405,22 @@ version = "0.2.1"
 dependencies = [
  "ahash",
  "aho-corasick",
+ "ar",
  "cc",
  "deb822-fast",
+ "debian-control",
  "debversion",
+ "flate2",
  "glob-match",
  "indexmap",
  "indicium",
+ "liblzma",
  "memchr",
  "oma-apt-sources-lists",
  "serde",
  "spdlog-rs",
  "strsim",
+ "tar",
  "tempfile",
  "thiserror 2.0.19",
  "tree-sitter",
@@ -3393,6 +3428,7 @@ dependencies = [
  "url",
  "wincode",
  "winnow",
+ "zstd",
 ]
 
 [[package]]
@@ -5296,6 +5332,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tar"
+version = "0.4.46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f6221d9a6003c78398e3b239969f352578258df48c8eb051caadae0015bc840"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
+]
+
+[[package]]
 name = "tempfile"
 version = "3.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6575,6 +6622,16 @@ name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
+
+[[package]]
+name = "xattr"
+version = "1.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32e45ad4206f6d2479085147f02bc2ef834ac85886624a23575ae137c8aa8156"
+dependencies = [
+ "libc",
+ "rustix",
+]
 
 [[package]]
 name = "xxhash-rust"
