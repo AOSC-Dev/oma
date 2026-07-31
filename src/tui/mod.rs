@@ -1,6 +1,8 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Args;
+use oma_apt_pkg::AptConfig;
 use oma_apt_pkg::search::{IndiciumSearch, OmaSearch, SearchResult, SearchType};
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::apt::{OmaApt, OmaAptArgs, Upgrade};
@@ -150,10 +152,10 @@ impl CliExecuter for Tui {
         let searcher = if config.amo && !config.no_check_dbus {
             match RT.block_on(Searcher::connect_amo()) {
                 Ok(searcher) => searcher,
-                Err(_) => local_searcher(&pb)?,
+                Err(_) => local_searcher(&pb, config.apt_config())?,
             }
         } else {
-            local_searcher(&pb)?
+            local_searcher(&pb, config.apt_config())?
         };
 
         pb.finish_and_clear();
@@ -218,7 +220,10 @@ impl CliExecuter for Tui {
     }
 }
 
-fn local_searcher(pb: &ProgressBar) -> Result<Searcher, OutputError> {
+fn local_searcher(
+    pb: &Option<crate::pb::OmaProgressBar>,
+    cfg: &Arc<AptConfig>,
+) -> Result<Searcher, OutputError> {
     let lists_dir = apt_config::find_dir(
         "Dir::State::lists".to_string(),
         "var/lib/apt/lists".to_string(),
@@ -231,8 +236,16 @@ fn local_searcher(pb: &ProgressBar) -> Result<Searcher, OutputError> {
     let search_cache =
         crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
-    let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path)?;
-    let apt_db = oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir)?;
+    let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
+        description: e.to_string(),
+        source: None,
+    })?;
+    let apt_db = oma_apt_pkg::AptDb::load_or_build(cfg, &apt_cache, &lists_dir).map_err(|e| {
+        OutputError {
+            description: e.to_string(),
+            source: None,
+        }
+    })?;
 
     let searcher = IndiciumSearch::new_with_cache(
         &apt_db,

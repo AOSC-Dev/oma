@@ -71,6 +71,28 @@ impl PackageEntry {
     pub fn is_auto_installed(&self, dpkg: &DpkgState, ext: &AptExtendedStates) -> bool {
         dpkg.is_installed(&self.package) && ext.is_auto_installed(&self.package)
     }
+
+    /// The display full name, `name:arch`, like apt's `Package:` line.
+    ///
+    /// Mirrors apt's `PkgIterator::FullName(Pretty)`: with `pretty == false`
+    /// the `:arch` qualifier is always shown (`foo:amd64`, `foo:all`, ...);
+    /// with `pretty == true` it is omitted when the package's architecture
+    /// equals `native_arch` or is `all`/`any`/unset — so a native amd64
+    /// `apt` shows `apt`, an `Architecture: all` package shows `foo`, and a
+    /// foreign `foo:i386` shows `foo:i386`.
+    pub fn fullname(&self, pretty: bool, native_arch: &str) -> String {
+        match self.architecture.as_deref() {
+            Some(arch) if !arch.is_empty() => {
+                let omit = pretty && (arch == "all" || arch == "any" || arch == native_arch);
+                if omit {
+                    self.package.clone()
+                } else {
+                    format!("{}:{arch}", self.package)
+                }
+            }
+            _ => self.package.clone(),
+        }
+    }
 }
 
 /// Parse contents of a single Packages file
@@ -259,6 +281,63 @@ Depends: libc6
             Some("A smarter cd command for your terminal")
         );
         assert_eq!(entry.depends.as_deref(), Some("libc6"));
+    }
+
+    #[test]
+    fn test_fullname() {
+        let parse = |control: &str| {
+            let deb822: Deb822 = control.parse().unwrap();
+            PackageEntry::from_paragraph(deb822.iter().next().unwrap()).unwrap()
+        };
+
+        let native = "amd64";
+        // `pretty == true`: native arch → bare name
+        assert_eq!(
+            parse("Package: apt\nVersion: 1\nArchitecture: amd64\n\n").fullname(true, native),
+            "apt"
+        );
+        // `pretty == true`: `all` → bare name
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: all\n\n").fullname(true, native),
+            "foo"
+        );
+        // `pretty == true`: foreign arch → `name:arch`
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: i386\n\n").fullname(true, native),
+            "foo:i386"
+        );
+        // `pretty == true`: `any` / unset → bare name
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: any\n\n").fullname(true, native),
+            "foo"
+        );
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\n\n").fullname(true, native),
+            "foo"
+        );
+
+        // `pretty == false`: qualifier always shown, even native/`all`/`any`.
+        assert_eq!(
+            parse("Package: apt\nVersion: 1\nArchitecture: amd64\n\n").fullname(false, native),
+            "apt:amd64"
+        );
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: all\n\n").fullname(false, native),
+            "foo:all"
+        );
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: any\n\n").fullname(false, native),
+            "foo:any"
+        );
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: i386\n\n").fullname(false, native),
+            "foo:i386"
+        );
+        // unset arch has nothing to qualify with
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\n\n").fullname(false, native),
+            "foo"
+        );
     }
 
     #[test]

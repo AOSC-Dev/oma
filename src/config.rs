@@ -1,4 +1,5 @@
-use std::{borrow::Cow, path::PathBuf, sync::OnceLock};
+use std::sync::{Arc, OnceLock};
+use std::{borrow::Cow, path::PathBuf};
 
 use apt_auth_config::AuthConfig;
 use clap::ColorChoice;
@@ -49,7 +50,7 @@ pub struct OmaConfig {
     http_client_blocking: OnceCell<reqwest::blocking::Client>,
     rustls_crypto_provider: OnceCell<()>,
     pub amo: bool,
-    apt_config: OnceLock<AptConfig>,
+    apt_config: OnceLock<Arc<AptConfig>>,
 }
 
 impl Default for OmaConfig {
@@ -231,10 +232,10 @@ impl OmaConfig {
             cfg.set(k, v);
         }
 
-        self.apt_config.set(cfg).ok();
+        self.apt_config.set(Arc::new(cfg)).ok();
     }
 
-    pub fn apt_config(&self) -> &AptConfig {
+    pub fn apt_config(&self) -> &Arc<AptConfig> {
         self.apt_config
             .get()
             .expect("AptConfig not initialized — call init_apt_config first")

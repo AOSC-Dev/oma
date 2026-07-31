@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::{borrow::Cow, io::stdout};
 
 use anyhow::Context;
@@ -315,7 +316,7 @@ fn display_entries_to_json(
 }
 
 fn load_apt_db_and_dpkg(
-    cfg: &AptConfig,
+    cfg: &Arc<AptConfig>,
 ) -> Result<(AptDb, DpkgState, AptExtendedStates), OutputError> {
     let lists_dir = cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
     let dpkg_path = cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
@@ -323,7 +324,7 @@ fn load_apt_db_and_dpkg(
     let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
 
     let apt_db =
-        AptDb::load_or_build(&apt_cache, &lists_dir).context("Failed to load apt database")?;
+        AptDb::load_or_build(cfg, &apt_cache, &lists_dir).context("Failed to load apt database")?;
 
     let dpkg = DpkgState::from_file(&dpkg_path).context("Failed to load dpkg status")?;
 

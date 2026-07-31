@@ -750,6 +750,8 @@ fn extract_versions(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::AptConfig;
+    use std::sync::Arc;
 
     #[test]
     fn test_is_upgradable_newer_candidate() {
@@ -864,7 +866,7 @@ mod tests {
                 sha256: None,
             },
         ];
-        let db = AptDb::from_entries(entries);
+        let db = AptDb::from_entries(&Arc::new(AptConfig::new()), entries);
         assert!(db.has_package("foo"));
         assert!(db.has_package("foo-dbg"));
     }

@@ -5,12 +5,14 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::io::Write;
 use std::path::Path;
+use std::sync::Arc;
 use std::{fs, io};
 
 use rayon::prelude::*;
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
+use crate::AptConfig;
 use crate::apt_lists::{
     EntriesWithSource, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
 };
@@ -82,12 +84,18 @@ pub struct AptDb {
     pub(crate) entries: HashMap<String, Vec<PackageEntry>>,
     /// Map from package name to apt lists filenames
     pub(crate) entry_sources: HashMap<String, Vec<String>>,
+    /// APT configuration (used by [`Self::fullname`] to omit the `:arch`
+    /// qualifier for native-arch packages in the pretty form). Shared as an
+    /// immutable `Arc`, set once at load time. Not serialized; restored
+    /// from the caller's config at load time.
+    #[wincode(skip)]
+    pub(crate) apt_config: Arc<AptConfig>,
 }
 
 impl AptDb {
     /// Build from entries without source tracking
     #[allow(dead_code)]
-    pub(crate) fn from_entries(entries: Vec<PackageEntry>) -> Self {
+    pub(crate) fn from_entries(cfg: &Arc<AptConfig>, entries: Vec<PackageEntry>) -> Self {
         let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
         let mut sources: HashMap<String, Vec<String>> = HashMap::new();
         for e in entries {
@@ -99,6 +107,7 @@ impl AptDb {
         Self {
             entry_sources: sources,
             entries: map,
+            apt_config: Arc::clone(cfg),
         }
     }
 
@@ -207,6 +216,7 @@ impl AptDb {
 
     /// Build from entries with parallel source tracking.
     pub(crate) fn from_entries_with_sources(
+        cfg: &Arc<AptConfig>,
         entries: Vec<PackageEntry>,
         entry_sources: Vec<String>,
     ) -> Self {
@@ -222,18 +232,25 @@ impl AptDb {
         Self {
             entries: map,
             entry_sources: sources,
+            apt_config: Arc::clone(cfg),
         }
     }
 
     /// Load from a binary cache file, or build from scratch if the cache
     /// is missing or stale.
+    ///
+    /// The `cfg` is stored on the database (restoring it after a cache hit)
+    /// so [`Self::fullname`] can consult `APT::Architecture` when deciding
+    /// whether to show the `:arch` qualifier.
     pub fn load_or_build(
+        cfg: &Arc<AptConfig>,
         cache_path: impl AsRef<Path>,
         lists_dir: impl AsRef<Path>,
     ) -> Result<Self, crate::error::Error> {
         if Self::cache_valid(&cache_path, &lists_dir) {
             match Self::load_cache(&cache_path) {
-                Ok(db) => {
+                Ok(mut db) => {
+                    db.apt_config = Arc::clone(cfg);
                     debug!(
                         "oma packages database cache hit: {}",
                         cache_path.as_ref().display()
@@ -250,7 +267,7 @@ impl AptDb {
         );
 
         let (entries, sources) = parse_apt_lists_dir_with_sources(lists_dir)?;
-        let db = Self::from_entries_with_sources(entries, sources);
+        let db = Self::from_entries_with_sources(cfg, entries, sources);
 
         if let Err(e) = db.save_cache(&cache_path) {
             debug!("Failed to save oma packages database cache: {e}");
@@ -327,6 +344,16 @@ impl AptDb {
     /// Check if a package name exists in the database.
     pub fn has_package(&self, name: &str) -> bool {
         self.entries.contains_key(name)
+    }
+
+    /// The display full name of an entry, `name:arch`, using this database's
+    /// native architecture (from `APT::Architecture` in the stored config)
+    /// for the pretty form.
+    ///
+    /// See [`PackageEntry::fullname`].
+    pub fn fullname(&self, entry: &PackageEntry, pretty: bool) -> String {
+        let native_arch = self.apt_config.get("APT::Architecture", "");
+        entry.fullname(pretty, &native_arch)
     }
 
     /// Get the candidate entry for a package name (highest version).
@@ -441,6 +468,10 @@ impl PackageIndex for AptDb {
 mod tests {
     use super::*;
 
+    fn test_cfg() -> Arc<AptConfig> {
+        Arc::new(AptConfig::new())
+    }
+
     fn entry(name: &str, version: &str) -> PackageEntry {
         PackageEntry {
             package: name.to_string(),
@@ -474,7 +505,7 @@ mod tests {
 
     #[test]
     fn test_insert_local_package() {
-        let mut db = AptDb::from_entries(Vec::new());
+        let mut db = AptDb::from_entries(&test_cfg(), Vec::new());
         db.insert(entry("localpkg", "1.0"));
 
         assert!(db.has_package("localpkg"));
@@ -490,7 +521,7 @@ mod tests {
 
     #[test]
     fn test_insert_appends_existing_package() {
-        let mut db = AptDb::from_entries(vec![entry("localpkg", "1.0")]);
+        let mut db = AptDb::from_entries(&test_cfg(), vec![entry("localpkg", "1.0")]);
         db.insert(entry("localpkg", "2.0"));
 
         let all = db.get_all("localpkg");
@@ -499,11 +530,14 @@ mod tests {
 
     #[test]
     fn test_resolve_queries_db() {
-        let mut db = AptDb::from_entries(vec![
-            entry("fish", "3.6"),
-            entry("fish", "3.7"),
-            entry("apt", "2.5"),
-        ]);
+        let mut db = AptDb::from_entries(
+            &test_cfg(),
+            vec![
+                entry("fish", "3.6"),
+                entry("fish", "3.7"),
+                entry("apt", "2.5"),
+            ],
+        );
 
         let resolution = db
             .resolve_queries(vec!["fish".into(), "nosuchpkg".into()])
@@ -524,7 +558,7 @@ mod tests {
         let deb_path = dir.path().join("hello_2.10-2_amd64.deb");
         std::fs::write(&deb_path, build_deb(CONTROL)).unwrap();
 
-        let mut db = AptDb::from_entries(Vec::new());
+        let mut db = AptDb::from_entries(&test_cfg(), Vec::new());
         let resolution = db
             .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
             .unwrap();
@@ -549,7 +583,7 @@ mod tests {
         let deb_path = dir.path().join("hello_2.10-2_amd64.deb");
         std::fs::write(&deb_path, build_deb(CONTROL)).unwrap();
 
-        let mut db = AptDb::from_entries(vec![entry("hello", "2.10-2")]);
+        let mut db = AptDb::from_entries(&test_cfg(), vec![entry("hello", "2.10-2")]);
         let resolution = db
             .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
             .unwrap();
