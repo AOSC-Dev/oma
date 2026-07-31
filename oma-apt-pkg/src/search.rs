@@ -274,7 +274,7 @@ impl IndiciumSearch {
                     name: name.clone(),
                     description,
                     status,
-                    provides: provides.into_iter().collect(),
+                    provides,
                     has_dbg,
                     section_is_base,
                     old_version,

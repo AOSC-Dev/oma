@@ -134,12 +134,11 @@ fn read_control_from_tar(tar_bytes: &[u8]) -> Result<String, DebError> {
     Err(DebError::MissingControl)
 }
 
+/// Test helper: build a minimal `.deb` archive in memory.
 #[cfg(test)]
-mod tests {
-    use super::*;
-
+pub(crate) mod test_util {
     /// Build a `control.tar.gz` containing the given control text.
-    fn control_tar_gz(control: &str) -> Vec<u8> {
+    pub fn control_tar_gz(control: &str) -> Vec<u8> {
         let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         {
             let mut tar = tar::Builder::new(&mut gz);
@@ -155,7 +154,7 @@ mod tests {
     }
 
     /// Build a complete `.deb` archive as bytes using the `ar` crate.
-    fn build_deb(control: &str) -> Vec<u8> {
+    pub fn build_deb(control: &str) -> Vec<u8> {
         let mut out = Vec::new();
         {
             let mut builder = ar::Builder::new(&mut out);
@@ -183,7 +182,8 @@ mod tests {
         out
     }
 
-    const CONTROL: &str = concat!(
+    /// Control file for the `hello` test package.
+    pub const CONTROL: &str = concat!(
         "Package: hello\n",
         "Version: 2.10-2\n",
         "Architecture: amd64\n",
@@ -197,6 +197,12 @@ mod tests {
         "Description: A test package\n",
         " Long description line.\n",
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_util::*;
+    use super::*;
 
     #[test]
     fn build_deb_members() {

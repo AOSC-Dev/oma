@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
+use rayon::prelude::*;
 use serde::Serialize;
 
 use crate::{DpkgState, extended_states::AptExtendedStates};
@@ -86,22 +87,28 @@ pub struct PackagesFile {
 /// Parse `/var/lib/apt/lists/` and return all package entries (without source tracking).
 pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, AptListsError> {
     let dir = path.as_ref();
-    let mut all_packages = Vec::new();
+    let mut files = Vec::new();
 
     for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
         let entry = entry.map_err(AptListsError::Io)?;
-        let file_name = entry.file_name();
-        let name = file_name.to_string_lossy();
-
-        if !name.ends_with("_Packages") {
-            continue;
+        if entry.file_name().to_string_lossy().ends_with("_Packages") {
+            files.push(entry.path());
         }
-
-        let entries = parse_single_packages_file(entry.path())?;
-        all_packages.extend(entries);
     }
 
-    Ok(all_packages)
+    // Parse each `*_Packages` file in parallel, folding into a single flat
+    // vec instead of collecting into an intermediate nested vec.
+    files
+        .par_iter()
+        .map(parse_single_packages_file)
+        .try_fold(Vec::new, |mut acc, entries| {
+            acc.extend(entries?);
+            Ok(acc)
+        })
+        .try_reduce(Vec::new, |mut acc, entries| {
+            acc.extend(entries);
+            Ok(acc)
+        })
 }
 
 /// Parse `/var/lib/apt/lists/` and return entries alongside their source
@@ -113,28 +120,44 @@ pub fn parse_apt_lists_dir_with_sources(
     path: impl AsRef<Path>,
 ) -> Result<(Vec<PackageEntry>, Vec<String>), AptListsError> {
     let dir = path.as_ref();
-    let mut all_packages = Vec::new();
-    let mut all_sources = Vec::new();
+    let mut files = Vec::new();
 
     for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
         let entry = entry.map_err(AptListsError::Io)?;
-        let file_name = entry.file_name();
-        let name = file_name.to_string_lossy();
-
-        if !name.ends_with("_Packages") {
-            continue;
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.ends_with("_Packages") {
+            files.push((entry.path(), name.into_owned()));
         }
-
-        let source = name.to_string();
-        let entries = parse_single_packages_file(entry.path())?;
-
-        // Each entry from this file gets the same source
-        let len_before = all_sources.len();
-        all_sources.resize(len_before + entries.len(), source);
-        all_packages.extend(entries);
     }
 
-    Ok((all_packages, all_sources))
+    // Parse each `*_Packages` file in parallel, pairing each entry with its
+    // source and folding into flat parallel vecs.
+    files
+        .par_iter()
+        .map(|(path, source)| {
+            parse_single_packages_file(path).map(|entries| {
+                let sources = vec![source.clone(); entries.len()];
+                (entries, sources)
+            })
+        })
+        .try_fold(
+            || (Vec::new(), Vec::new()),
+            |(mut pkgs, mut srcs), item| {
+                let (entries, sources) = item?;
+                pkgs.extend(entries);
+                srcs.extend(sources);
+                Ok((pkgs, srcs))
+            },
+        )
+        .try_reduce(
+            || (Vec::new(), Vec::new()),
+            |(mut a_pkgs, mut a_srcs), (b_pkgs, b_srcs)| {
+                a_pkgs.extend(b_pkgs);
+                a_srcs.extend(b_srcs);
+                Ok((a_pkgs, a_srcs))
+            },
+        )
 }
 
 /// Parse a single `*_Packages` file (deb822 format).

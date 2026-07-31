@@ -3417,6 +3417,7 @@ dependencies = [
  "liblzma",
  "memchr",
  "oma-apt-sources-lists",
+ "rayon",
  "serde",
  "spdlog-rs",
  "strsim",

@@ -11,7 +11,7 @@ use oma_apt_pkg::apt_sources::SourceLookup;
 use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
     AptConfig, AptDb, AptExtendedStates, AptListFilename, DpkgState, EntryWithSource, PackageEntry,
-    PackageMatcher,
+    QueryGroup,
 };
 use oma_console::indicatif::HumanBytes;
 use serde::Serialize;
@@ -69,48 +69,93 @@ impl CliExecuter for Show {
         let source_lookup = SourceLookup::build(apt_cfg);
         let (apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
 
-        // Match packages: exact name (fast path), glob, version or branch.
-        let matcher = PackageMatcher::new(&apt_db);
-        let (matched, no_result) = matcher
-            .match_pkgs_and_versions(packages.iter().map(|s| s.as_str()))
-            .context("Failed to match packages")?;
+        // Resolve each query: local `.deb` files are parsed directly,
+        // everything else is matched against the package database.
+        let resolution = apt_db
+            .resolve_queries(packages)
+            .context("Failed to resolve package queries")?;
 
-        let mut matched_entries: Vec<Vec<EntryWithSource<'_>>> = Vec::new();
-        for pkg in &matched {
-            matched_entries.push(apt_db.get_all_with_source(pkg.name));
-        }
-
-        handle_no_result(no_result, config.no_progress())?;
+        handle_no_result(
+            resolution.no_match.iter().map(String::as_str).collect(),
+            config.no_progress(),
+        )?;
 
         let mut stdout = stdout();
 
-        for (i, entries) in matched_entries.iter().enumerate() {
-            if json {
-                display_entries_to_json(&mut stdout, entries, &dpkg)?;
-            } else {
-                display_entries(
+        for (i, group) in resolution.groups.iter().enumerate() {
+            match group {
+                QueryGroup::Db(entries) => display_group(
                     &mut stdout,
                     entries,
                     &dpkg,
                     &ext_states,
                     all,
+                    json,
                     &source_lookup,
                     apt_cfg,
-                );
+                )?,
+                QueryGroup::Local(entry) => {
+                    let entries = [EntryWithSource {
+                        entry: entry.as_ref(),
+                        source: None,
+                    }];
+                    display_group(
+                        &mut stdout,
+                        &entries,
+                        &dpkg,
+                        &ext_states,
+                        all,
+                        json,
+                        &source_lookup,
+                        apt_cfg,
+                    )?;
+                }
             }
 
-            if i != matched_entries.len() - 1 {
+            if i != resolution.groups.len() - 1 {
                 writeln!(stdout).ok();
             }
 
             // Show additional version hint for single package without --all
-            if !all && !json && matched_entries.len() == 1 && entries.len() > 1 {
-                info!("{}", fl!("additional-version", len = entries.len()));
+            let entry_count = match group {
+                QueryGroup::Db(entries) => entries.len(),
+                QueryGroup::Local(_) => 1,
+            };
+            if !all && !json && resolution.groups.len() == 1 && entry_count > 1 {
+                info!("{}", fl!("additional-version", len = entry_count));
             }
         }
 
         Ok(ExitHandle::default())
     }
+}
+
+/// Display one resolved group, honoring the JSON flag.
+#[allow(clippy::too_many_arguments)]
+fn display_group(
+    stdout: &mut impl Write,
+    entries: &[EntryWithSource<'_>],
+    dpkg: &DpkgState,
+    ext_states: &AptExtendedStates,
+    all: bool,
+    json: bool,
+    source_lookup: &SourceLookup,
+    apt_cfg: &AptConfig,
+) -> Result<(), OutputError> {
+    if json {
+        display_entries_to_json(stdout, entries, dpkg)?;
+    } else {
+        display_entries(
+            stdout,
+            entries,
+            dpkg,
+            ext_states,
+            all,
+            source_lookup,
+            apt_cfg,
+        );
+    }
+    Ok(())
 }
 
 fn display_entries(

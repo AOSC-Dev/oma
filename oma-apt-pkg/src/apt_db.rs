@@ -7,12 +7,14 @@ use std::io::Write;
 use std::path::Path;
 use std::{fs, io};
 
+use rayon::prelude::*;
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
 use crate::apt_lists::{
     AptListsError, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
 };
+use crate::package_matcher::PackageMatcher;
 
 /// A package entry together with its source file information.
 #[derive(Debug, Clone)]
@@ -22,6 +24,33 @@ pub struct EntryWithSource<'a> {
     /// The APT lists filename, e.g.
     /// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`.
     pub source: Option<&'a str>,
+}
+
+/// Errors that can occur when resolving package queries.
+#[derive(Debug, thiserror::Error)]
+pub enum QueryError {
+    #[error("Failed to parse .deb: {0}")]
+    Deb(#[from] crate::deb::DebError),
+    #[error(transparent)]
+    Matcher(#[from] crate::package_matcher::MatcherError),
+}
+
+/// One resolved package query.
+#[derive(Debug)]
+pub enum QueryGroup<'a> {
+    /// A package matched from the database (all versions with sources).
+    Db(Vec<EntryWithSource<'a>>),
+    /// A local `.deb` package parsed from disk (no APT source).
+    Local(Box<PackageEntry>),
+}
+
+/// Result of resolving package queries.
+#[derive(Debug)]
+pub struct QueryResolution<'a> {
+    /// Display groups in query order.
+    pub groups: Vec<QueryGroup<'a>>,
+    /// Queries that matched no package.
+    pub no_match: Vec<String>,
 }
 
 /// Parse and cache APT package database.
@@ -71,6 +100,41 @@ impl AptDb {
         let entry = crate::deb::parse_deb(path)?;
         self.insert(entry);
         Ok(())
+    }
+
+    /// Resolve package queries into display groups.
+    ///
+    /// Each query is either a path to a local `.deb` file (parsed via
+    /// [`crate::deb`]) or a package name/glob/version/branch expression
+    /// matched via [`PackageMatcher`]. Local `.deb` files are returned
+    /// first, then matched packages, preserving query order within each
+    /// group.
+    pub fn resolve_queries(&self, queries: Vec<String>) -> Result<QueryResolution<'_>, QueryError> {
+        let (deb_files, names): (Vec<String>, Vec<String>) = queries
+            .into_iter()
+            .partition(|q| q.ends_with(".deb") && Path::new(q).is_file());
+
+        // Parse local `.deb` files in parallel, boxing each entry straight
+        // into a group instead of collecting into an intermediate vec.
+        let mut groups = deb_files
+            .par_iter()
+            .map(|path| crate::deb::parse_deb(path).map(|entry| QueryGroup::Local(Box::new(entry))))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut no_match = Vec::new();
+        if !names.is_empty() {
+            let matcher = PackageMatcher::new(self);
+            let (matched, no_result) =
+                matcher.match_pkgs_and_versions(names.iter().map(String::as_str))?;
+            groups.extend(
+                matched
+                    .into_iter()
+                    .map(|pkg| QueryGroup::Db(self.get_all_with_source(pkg.name))),
+            );
+            no_match = no_result.into_iter().map(str::to_owned).collect();
+        }
+
+        Ok(QueryResolution { groups, no_match })
     }
 
     /// Build from entries with parallel source tracking.
@@ -372,5 +436,52 @@ mod tests {
 
         let all = db.get_all("localpkg");
         assert_eq!(all.len(), 2);
+    }
+
+    #[test]
+    fn test_resolve_queries_db() {
+        let db = AptDb::from_entries(vec![
+            entry("fish", "3.6"),
+            entry("fish", "3.7"),
+            entry("apt", "2.5"),
+        ]);
+
+        let resolution = db
+            .resolve_queries(vec!["fish".into(), "nosuchpkg".into()])
+            .unwrap();
+
+        assert_eq!(resolution.groups.len(), 1);
+        match &resolution.groups[0] {
+            QueryGroup::Db(entries) => {
+                assert_eq!(entries.len(), 2);
+                assert!(entries.iter().all(|e| e.entry.package == "fish"));
+            }
+            QueryGroup::Local(_) => panic!("expected Db group"),
+        }
+        assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
+    }
+
+    #[test]
+    fn test_resolve_queries_local_deb() {
+        use crate::deb::test_util::{CONTROL, build_deb};
+
+        let dir = tempfile::tempdir().unwrap();
+        let deb_path = dir.path().join("hello_2.10-2_amd64.deb");
+        std::fs::write(&deb_path, build_deb(CONTROL)).unwrap();
+
+        let db = AptDb::from_entries(Vec::new());
+        let resolution = db
+            .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
+            .unwrap();
+
+        assert!(resolution.no_match.is_empty());
+        assert_eq!(resolution.groups.len(), 1);
+        match &resolution.groups[0] {
+            QueryGroup::Local(entry) => {
+                assert_eq!(entry.package, "hello");
+                assert_eq!(entry.version.as_deref(), Some("2.10-2"));
+            }
+            QueryGroup::Db(_) => panic!("expected Local group"),
+        }
     }
 }

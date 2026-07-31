@@ -19,6 +19,7 @@ apt-lists = [
     "dep:flate2",
     "dep:zstd",
     "dep:liblzma",
+    "dep:rayon",
 ]
 apt-sources = ["apt-config", "filename", "dep:oma-apt-sources-lists"]
 dpkg-status = []
@@ -65,6 +66,7 @@ spdlog-rs = { workspace = true, optional = true }
 tar = { workspace = true, optional = true }
 ar = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
 zstd = { workspace = true, optional = true }
 liblzma = { workspace = true, optional = true }
 ahash = { workspace = true, optional = true }
