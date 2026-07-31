@@ -6,6 +6,7 @@ use std::borrow::Cow;
 use glob_match::glob_match;
 
 use crate::apt_lists::{AptListsError, PackageEntry, PackageIndex};
+use crate::filename::AptListFilename;
 
 /// Errors produced by [`PackageMatcher`].
 #[derive(Debug, thiserror::Error)]
@@ -137,8 +138,8 @@ impl<'a> PackageMatcher<'a> {
 
     /// Match package from a branch pattern (like `apt/stable`).
     ///
-    /// The package `filename` field (`pool/stable/main/f/foo/foo_1.0_amd64.deb`)
-    /// has the branch as its second path segment.
+    /// A package is matched by the suite of the APT list source it came
+    /// from, i.e. the decoded source path contains `/dists/{branch}/`.
     pub fn match_from_branch(&self, pat: &'a str) -> MatcherResult<Vec<MatchedPackage<'a>>> {
         let (pkgname, branch) = pat
             .split_once('/')
@@ -148,13 +149,18 @@ impl<'a> PackageMatcher<'a> {
             return Err(MatcherError::NoPackage(pat.to_string()));
         }
 
+        let cvt = AptListFilename::new();
+        let dists_prefix = format!("/dists/{branch}/");
         let entries: Vec<Cow<'a, PackageEntry>> = self
-            .entries_of(pkgname)?
-            .filter(|e| {
-                e.filename
-                    .as_deref()
-                    .is_some_and(|f| f.split('/').nth(1) == Some(branch))
+            .index
+            .get_with_source(pkgname)?
+            .into_iter()
+            .filter(|(_, source)| {
+                cvt.decode(source)
+                    .ok()
+                    .is_some_and(|path| path.contains(&dists_prefix))
             })
+            .map(|(entry, _)| entry)
             .collect();
 
         if entries.is_empty() {
@@ -198,7 +204,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_packages(
             dir.path(),
-            "repo_stable_main_binary-amd64_Packages",
+            "repo_dists_stable_main_binary-amd64_Packages",
             r#"Package: fish
 Version: 4.5.0
 Filename: pool/stable/main/f/fish/fish_4.5.0_amd64.deb
@@ -215,7 +221,7 @@ Filename: pool/stable/main/b/bash/bash_5.2.3_amd64.deb
         );
         write_packages(
             dir.path(),
-            "repo_preview_main_binary-amd64_Packages",
+            "repo_dists_preview_main_binary-amd64_Packages",
             r#"Package: fish
 Version: 4.8.1
 Filename: pool/preview/main/f/fish/fish_4.8.1_amd64.deb

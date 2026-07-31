@@ -10,6 +10,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config"]
 apt-config = ["dep:tree-sitter", "dep:tree-sitter-language"]
 apt-lists = [
+    "filename",
     "dep:wincode",
     "dep:spdlog-rs",
     "dep:glob-match",
