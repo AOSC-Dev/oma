@@ -101,7 +101,7 @@ impl<'a> PackageMatcher<'a> {
         for name in names {
             res.push(MatchedPackage {
                 name,
-                entries: self.entries_of(name)?,
+                entries: self.entries_of(name)?.collect(),
             });
         }
         Ok(res)
@@ -117,11 +117,10 @@ impl<'a> PackageMatcher<'a> {
             return Err(MatcherError::NoPackage(pat.to_string()));
         }
 
-        let entries = self
+        let entries: Vec<Cow<'a, PackageEntry>> = self
             .entries_of(pkgname)?
-            .into_iter()
             .filter(|e| e.version.as_deref() == Some(version_str))
-            .collect::<Vec<_>>();
+            .collect();
 
         if entries.is_empty() {
             return Err(MatcherError::NoVersion(
@@ -149,15 +148,14 @@ impl<'a> PackageMatcher<'a> {
             return Err(MatcherError::NoPackage(pat.to_string()));
         }
 
-        let entries = self
+        let entries: Vec<Cow<'a, PackageEntry>> = self
             .entries_of(pkgname)?
-            .into_iter()
             .filter(|e| {
                 e.filename
                     .as_deref()
                     .is_some_and(|f| f.split('/').nth(1) == Some(branch))
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         if entries.is_empty() {
             return Ok(Vec::new());
@@ -169,10 +167,18 @@ impl<'a> PackageMatcher<'a> {
         }])
     }
 
-    fn entries_of(&self, name: &str) -> MatcherResult<Vec<Cow<'a, PackageEntry>>> {
+    /// Get all entries for a package as a lazy iterator.
+    ///
+    /// The iterator yields `Cow` entries without collecting; callers
+    /// filter/collect on demand. Boxed because the borrowed and owned Cow
+    /// variants produce different iterator types.
+    fn entries_of(
+        &self,
+        name: &str,
+    ) -> MatcherResult<Box<dyn Iterator<Item = Cow<'a, PackageEntry>> + 'a>> {
         Ok(match self.index.get_all(name)? {
-            Cow::Borrowed(slice) => slice.iter().map(Cow::Borrowed).collect(),
-            Cow::Owned(vec) => vec.into_iter().map(Cow::Owned).collect(),
+            Cow::Borrowed(slice) => Box::new(slice.iter().map(Cow::Borrowed)),
+            Cow::Owned(vec) => Box::new(vec.into_iter().map(Cow::Owned)),
         })
     }
 }
