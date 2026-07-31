@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use deb822_fast::{Deb822, FromDeb822Paragraph};
 
-use crate::apt_lists::{AptListsError, PackageEntry, PackageIndex};
+use crate::apt_lists::{AptListsError, EntriesWithSource, PackageEntry, PackageIndex};
 
 /// A (source filename, byte offset) pair pointing to a single deb822
 /// paragraph in a `*_Packages` file.
@@ -224,19 +224,18 @@ impl PackageIndex for AptListsReader {
         Ok(Cow::Owned(entries))
     }
 
-    fn get_with_source(
-        &self,
-        name: &str,
-    ) -> Result<Vec<(Cow<'_, PackageEntry>, String)>, AptListsError> {
+    fn get_with_source(&self, name: &str) -> Result<EntriesWithSource<'_>, AptListsError> {
         let Some(entries) = self.index.get(name) else {
-            return Ok(Vec::new());
+            return Ok(Box::new(std::iter::empty()));
         };
+        // Entries are parsed on demand, so the results are materialized
+        // before being yielded as an iterator.
         let mut results = Vec::with_capacity(entries.len());
         for entry in entries {
             let pkg = self.parse_at(entry)?;
             results.push((Cow::Owned(pkg), entry.source.clone()));
         }
-        Ok(results)
+        Ok(Box::new(results.into_iter()))
     }
 
     fn get_candidate(&self, name: &str) -> Result<Option<Cow<'_, PackageEntry>>, AptListsError> {

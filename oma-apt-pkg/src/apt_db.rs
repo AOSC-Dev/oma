@@ -12,7 +12,7 @@ use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
 use crate::apt_lists::{
-    AptListsError, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
+    AptListsError, EntriesWithSource, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
 };
 use crate::package_matcher::PackageMatcher;
 
@@ -358,23 +358,15 @@ impl PackageIndex for AptDb {
             .map(Cow::Borrowed))
     }
 
-    fn get_with_source(
-        &self,
-        name: &str,
-    ) -> Result<Vec<(Cow<'_, PackageEntry>, String)>, AptListsError> {
-        let entries = match self.entries.get(name) {
-            Some(v) => v,
-            None => return Ok(Vec::new()),
+    fn get_with_source(&self, name: &str) -> Result<EntriesWithSource<'_>, AptListsError> {
+        let Some(entries) = self.entries.get(name) else {
+            return Ok(Box::new(std::iter::empty()));
         };
         let sources = self.entry_sources.get(name);
-        Ok(entries
-            .iter()
-            .enumerate()
-            .map(|(i, e)| {
-                let src = sources.and_then(|s| s.get(i)).cloned().unwrap_or_default();
-                (Cow::Borrowed(e), src)
-            })
-            .collect())
+        Ok(Box::new(entries.iter().enumerate().map(move |(i, e)| {
+            let src = sources.and_then(|s| s.get(i)).cloned().unwrap_or_default();
+            (Cow::Borrowed(e), src)
+        })))
     }
 }
 

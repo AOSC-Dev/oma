@@ -201,6 +201,10 @@ pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String
     map
 }
 
+/// Lazy iterator over a package's entries paired with their APT list source
+/// filenames.
+pub type EntriesWithSource<'a> = Box<dyn Iterator<Item = (Cow<'a, PackageEntry>, String)> + 'a>;
+
 /// Common interface for package data sources.
 ///
 /// Both [`AptDb`](crate::AptDb) (eager, cached) and
@@ -221,11 +225,8 @@ pub trait PackageIndex {
     fn get_all(&self, name: &str) -> Result<Cow<'_, [PackageEntry]>, AptListsError>;
 
     /// Return all entries for a package name, together with the APT list
-    /// source filename for each entry.
-    fn get_with_source(
-        &self,
-        name: &str,
-    ) -> Result<Vec<(Cow<'_, PackageEntry>, String)>, AptListsError>;
+    /// source filename for each entry, as a lazy iterator.
+    fn get_with_source(&self, name: &str) -> Result<EntriesWithSource<'_>, AptListsError>;
 
     /// Return the entry with the highest version, or `None` if the package
     /// does not exist.

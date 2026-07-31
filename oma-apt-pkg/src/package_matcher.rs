@@ -154,7 +154,6 @@ impl<'a> PackageMatcher<'a> {
         let entries: Vec<Cow<'a, PackageEntry>> = self
             .index
             .get_with_source(pkgname)?
-            .into_iter()
             .filter(|(_, source)| {
                 cvt.decode(source)
                     .ok()
