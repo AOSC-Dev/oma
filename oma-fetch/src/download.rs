@@ -386,8 +386,10 @@ impl SingleDownloader {
         debug!("file {} is symlink = {}", file.display(), is_symlink);
 
         // Net bytes this attempt has actually reported to the global progress
-        // bar so far. 0 until the first progress update, then it mirrors
-        // downloaded_size. Reported on every return so the wrapper can undo it.
+        // bar so far. Starts at the checksum-seeded bytes of an existing file
+        // (the checksum helper adds them), then mirrors downloaded_size once
+        // progress updates begin. Reported on every return so the wrapper can
+        // undo it.
         let mut reported: u64 = 0;
 
         // downloaded HTTP content representation size
@@ -434,6 +436,10 @@ impl SingleDownloader {
                     self.entry.filename
                 );
                 old_downloaded_size = read;
+                // The checksum helper already added these seeded bytes to the
+                // global bar; account for them so a failure before the first
+                // progress update undoes them too (otherwise they leak).
+                reported = read;
             }
 
             if self.entry.file_type != CompressType::None {
