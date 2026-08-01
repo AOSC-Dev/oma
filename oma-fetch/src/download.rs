@@ -207,6 +207,26 @@ impl<'de> Deserialize<'de> for SingleDownloadError {
     }
 }
 
+/// An error from a download attempt together with the bytes that attempt had
+/// already reported to the global progress bar, so the caller can undo them
+/// before retrying or falling back to the next source.
+pub(crate) struct ProgressedError {
+    pub(crate) error: SingleDownloadError,
+    pub(crate) bytes: u64,
+}
+
+impl ProgressedError {
+    pub(crate) fn new(error: SingleDownloadError, bytes: u64) -> Self {
+        Self { error, bytes }
+    }
+}
+
+impl From<SingleDownloadError> for ProgressedError {
+    fn from(error: SingleDownloadError) -> Self {
+        Self { error, bytes: 0 }
+    }
+}
+
 #[bon]
 impl SingleDownloader {
     #[builder]
@@ -387,53 +407,64 @@ impl SingleDownloader {
                 Ok(s) => {
                     return Ok(s);
                 }
-                Err(e) => match e {
-                    SingleDownloadError::ChecksumMismatch => {
-                        if self.retry_times == times {
+                Err(ProgressedError { error: e, bytes }) => {
+                    // Undo this attempt's global progress contribution before
+                    // retrying or handing the failure up, so the retry (or the
+                    // next source) starts from a clean bar.
+                    if bytes != 0 {
+                        callback(Event::GlobalProgressSub(bytes)).await;
+                    }
+                    match e {
+                        SingleDownloadError::ChecksumMismatch => {
+                            if self.retry_times == times {
+                                return Err(e);
+                            }
+
+                            if times > 1 {
+                                callback(Event::ChecksumMismatch {
+                                    index: self.download_list_index,
+                                    filename: self.entry.filename.to_string(),
+                                    times,
+                                })
+                                .await;
+                            }
+
+                            times += 1;
+                            allow_resume = false;
+                        }
+                        SingleDownloadError::DownloadTimeout => {
+                            if self.retry_times == times {
+                                return Err(e);
+                            }
+
+                            if times > 1 {
+                                callback(Event::Timeout {
+                                    filename: self.entry.filename.to_string(),
+                                    times,
+                                })
+                                .await;
+                            }
+
+                            times += 1;
+                        }
+                        e => {
                             return Err(e);
                         }
-
-                        if times > 1 {
-                            callback(Event::ChecksumMismatch {
-                                index: self.download_list_index,
-                                filename: self.entry.filename.to_string(),
-                                times,
-                            })
-                            .await;
-                        }
-
-                        times += 1;
-                        allow_resume = false;
                     }
-                    SingleDownloadError::DownloadTimeout => {
-                        if self.retry_times == times {
-                            return Err(e);
-                        }
-
-                        if times > 1 {
-                            callback(Event::Timeout {
-                                filename: self.entry.filename.to_string(),
-                                times,
-                            })
-                            .await;
-                        }
-
-                        times += 1;
-                    }
-                    e => {
-                        return Err(e);
-                    }
-                },
+                }
             }
         }
     }
 
+    /// Inner download attempt. On error the [`ProgressedError`] carries the
+    /// bytes this attempt already reported to the global progress bar, so the
+    /// retry loop can undo them before retrying / trying the next source.
     async fn http_download<F, Fut>(
         &self,
         allow_resume: bool,
         source: &DownloadSource,
         callback: &F,
-    ) -> Result<bool, SingleDownloadError>
+    ) -> Result<bool, ProgressedError>
     where
         F: Fn(Event) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
@@ -448,13 +479,20 @@ impl SingleDownloader {
 
         debug!("file {} is symlink = {}", file.display(), is_symlink);
 
-        if is_symlink {
-            tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
-        }
+        // Net bytes this attempt has actually reported to the global progress
+        // bar so far. Starts at the checksum-seeded bytes of an existing file
+        // (the checksum helper adds them), then mirrors downloaded_size once
+        // progress updates begin. Reported on every return so the wrapper can
+        // undo it.
+        let mut reported: u64 = 0;
 
         // downloaded HTTP content representation size
         let mut downloaded_size: u64 = 0;
         let mut old_downloaded_size: u64 = 0;
+
+        if is_symlink {
+            tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
+        }
 
         let mut validator = self
             .entry
@@ -492,6 +530,10 @@ impl SingleDownloader {
                     self.entry.filename
                 );
                 old_downloaded_size = read;
+                // The checksum helper already added these seeded bytes to the
+                // global bar; account for them so a failure before the first
+                // progress update undoes them too (otherwise they leak).
+                reported = read;
             }
 
             if self.entry.file_type != CompressType::None {
@@ -518,7 +560,10 @@ impl SingleDownloader {
             Ok(f) => f,
             Err(e) => {
                 callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(SingleDownloadError::Create { source: e });
+                return Err(ProgressedError::new(
+                    SingleDownloadError::Create { source: e },
+                    reported,
+                ));
             }
         };
 
@@ -565,17 +610,28 @@ impl SingleDownloader {
                         // some servers reply with Bad Request when Range is invalid
                         // so retry once
                         if downloaded_size == 0 {
-                            return Err(SingleDownloadError::ReqwestMiddlewareError { source: e });
+                            return Err(ProgressedError::new(
+                                SingleDownloadError::ReqwestMiddlewareError { source: e },
+                                reported,
+                            ));
                         } else {
                             debug!("HTTP Bad Request from server, restarting ...");
                             downloaded_size = 0;
                             continue 'download;
                         }
                     }
-                    _ => return Err(SingleDownloadError::ReqwestMiddlewareError { source: e }),
+                    _ => {
+                        return Err(ProgressedError::new(
+                            SingleDownloadError::ReqwestMiddlewareError { source: e },
+                            reported,
+                        ));
+                    }
                 },
                 Err(_) => {
-                    return Err(SingleDownloadError::SendRequestTimeout);
+                    return Err(ProgressedError::new(
+                        SingleDownloadError::SendRequestTimeout,
+                        reported,
+                    ));
                 }
             };
 
@@ -644,7 +700,10 @@ impl SingleDownloader {
                 debug!("moving writer from {old_downloaded_size} to {downloaded_size}");
                 if let Err(e) = dest.seek(SeekFrom::Start(0)).await {
                     callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(SingleDownloadError::Seek { source: e });
+                    return Err(ProgressedError::new(
+                        SingleDownloadError::Seek { source: e },
+                        reported,
+                    ));
                 }
 
                 if downloaded_size == 0 {
@@ -655,7 +714,10 @@ impl SingleDownloader {
                         let mut dest_buf = Vec::with_capacity(downloaded_size.try_into().unwrap());
                         if let Err(e) = dest.read_to_end(&mut dest_buf).await {
                             callback(Event::ProgressDone(self.download_list_index)).await;
-                            return Err(SingleDownloadError::Seek { source: e });
+                            return Err(ProgressedError::new(
+                                SingleDownloadError::Seek { source: e },
+                                reported,
+                            ));
                         }
                         validator.reset();
                         validator.update(dest_buf);
@@ -663,18 +725,27 @@ impl SingleDownloader {
 
                     if let Err(e) = dest.seek(SeekFrom::Start(downloaded_size)).await {
                         callback(Event::ProgressDone(self.download_list_index)).await;
-                        return Err(SingleDownloadError::Seek { source: e });
+                        return Err(ProgressedError::new(
+                            SingleDownloadError::Seek { source: e },
+                            reported,
+                        ));
                     }
                 }
             } else if let Err(e) = dest.seek(SeekFrom::Start(downloaded_size)).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(SingleDownloadError::Seek { source: e });
+                return Err(ProgressedError::new(
+                    SingleDownloadError::Seek { source: e },
+                    reported,
+                ));
             }
 
             // truncate file
             if let Err(e) = dest.set_len(downloaded_size).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(SingleDownloadError::Write { source: e });
+                return Err(ProgressedError::new(
+                    SingleDownloadError::Write { source: e },
+                    reported,
+                ));
             }
 
             // update progress
@@ -714,6 +785,7 @@ impl SingleDownloader {
                 callback(Event::GlobalProgressAdd(new_offset)).await;
             }
 
+            reported = downloaded_size;
             old_downloaded_size = downloaded_size;
 
             let stream = resp
@@ -743,11 +815,17 @@ impl SingleDownloader {
                     Ok(Ok(size)) => size,
                     Ok(Err(e)) => {
                         callback(Event::ProgressDone(self.download_list_index)).await;
-                        return Err(SingleDownloadError::BrokenPipe { source: e });
+                        return Err(ProgressedError::new(
+                            SingleDownloadError::BrokenPipe { source: e },
+                            reported,
+                        ));
                     }
                     Err(_) => {
                         callback(Event::ProgressDone(self.download_list_index)).await;
-                        return Err(SingleDownloadError::DownloadTimeout);
+                        return Err(ProgressedError::new(
+                            SingleDownloadError::DownloadTimeout,
+                            reported,
+                        ));
                     }
                 };
                 if buf_size == 0 {
@@ -755,7 +833,10 @@ impl SingleDownloader {
                 }
                 if let Err(e) = dest.write_all(&buf[..buf_size]).await {
                     callback(Event::ProgressDone(self.download_list_index)).await;
-                    return Err(SingleDownloadError::Write { source: e });
+                    return Err(ProgressedError::new(
+                        SingleDownloadError::Write { source: e },
+                        reported,
+                    ));
                 }
                 validator.update(&buf[..buf_size]);
 
@@ -768,6 +849,7 @@ impl SingleDownloader {
                 })
                 .await;
                 callback(Event::GlobalProgressAdd(http_size)).await;
+                reported = downloaded_size;
             }
 
             debug!("downloaded {} bytes", downloaded_size - old_downloaded_size);
@@ -789,16 +871,21 @@ impl SingleDownloader {
         // verify checksum
         if !validator.finish() {
             debug!("checksum mismatch for {}", self.entry.filename);
-            callback(Event::GlobalProgressSub(downloaded_size)).await;
             callback(Event::ProgressDone(self.download_list_index)).await;
 
             // truncate file, avoid attempts to reuse it in retries
             if let Err(e) = dest.set_len(0).await {
                 callback(Event::ProgressDone(self.download_list_index)).await;
-                return Err(SingleDownloadError::Write { source: e });
+                return Err(ProgressedError::new(
+                    SingleDownloadError::Write { source: e },
+                    reported,
+                ));
             }
 
-            return Err(SingleDownloadError::ChecksumMismatch);
+            return Err(ProgressedError::new(
+                SingleDownloadError::ChecksumMismatch,
+                reported,
+            ));
         }
         if matches!(validator, ChecksumValidator::None) {
             trace!(
@@ -810,7 +897,10 @@ impl SingleDownloader {
         // flush
         if let Err(e) = dest.shutdown().await {
             callback(Event::ProgressDone(self.download_list_index)).await;
-            return Err(SingleDownloadError::Flush { source: e });
+            return Err(ProgressedError::new(
+                SingleDownloadError::Flush { source: e },
+                reported,
+            ));
         }
 
         callback(Event::ProgressDone(self.download_list_index)).await;
@@ -892,6 +982,36 @@ impl SingleDownloader {
             self.entry.dir.join(&*self.entry.filename).display()
         );
 
+        // Single cleanup point: undo the local copy's global progress on
+        // failure, so a fallback to the next source starts from a clean bar.
+        match self
+            .download_local_copy(&mut to, &mut reader, callback)
+            .await
+        {
+            Ok(()) => Ok(true),
+            Err(ProgressedError { error, bytes }) => {
+                if bytes != 0 {
+                    callback(Event::GlobalProgressSub(bytes)).await;
+                }
+                Err(error)
+            }
+        }
+    }
+
+    /// Copy loop for a local source. On error the [`ProgressedError`] carries
+    /// the bytes already reported to the global progress bar, so the caller
+    /// can undo them.
+    async fn download_local_copy<R, F, Fut>(
+        &self,
+        to: &mut File,
+        reader: &mut R,
+        callback: &F,
+    ) -> Result<(), ProgressedError>
+    where
+        R: tokio::io::AsyncRead + Unpin + Send,
+        F: Fn(Event) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+    {
         let mut v = self
             .entry
             .hash
@@ -903,14 +1023,30 @@ impl SingleDownloader {
         let mut self_progress = 0;
 
         loop {
-            let size = reader.read(&mut buf[..]).await.context(BrokenPipeSnafu)?;
-            self_progress += size;
+            let size = match reader.read(&mut buf[..]).await {
+                Ok(size) => size,
+                Err(e) => {
+                    callback(Event::ProgressDone(self.download_list_index)).await;
+                    return Err(ProgressedError::new(
+                        SingleDownloadError::BrokenPipe { source: e },
+                        self_progress as u64,
+                    ));
+                }
+            };
 
             if size == 0 {
                 break;
             }
 
-            to.write_all(&buf[..size]).await.context(WriteSnafu)?;
+            if let Err(e) = to.write_all(&buf[..size]).await {
+                callback(Event::ProgressDone(self.download_list_index)).await;
+                return Err(ProgressedError::new(
+                    SingleDownloadError::Write { source: e },
+                    self_progress as u64,
+                ));
+            }
+
+            self_progress += size;
 
             callback(Event::ProgressInc {
                 index: self.download_list_index,
@@ -923,14 +1059,16 @@ impl SingleDownloader {
         }
 
         if !v.finish() {
-            callback(Event::GlobalProgressSub(self_progress as u64)).await;
             callback(Event::ProgressDone(self.download_list_index)).await;
-            return Err(SingleDownloadError::ChecksumMismatch);
+            return Err(ProgressedError::new(
+                SingleDownloadError::ChecksumMismatch,
+                self_progress as u64,
+            ));
         }
 
         callback(Event::ProgressDone(self.download_list_index)).await;
 
-        Ok(true)
+        Ok(())
     }
 
     async fn checksum_local<F, Fut>(
