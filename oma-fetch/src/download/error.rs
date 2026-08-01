@@ -17,10 +17,6 @@ pub enum BuilderError {
 
 #[derive(Debug, Error)]
 pub enum SingleDownloadError {
-    #[error("Failed to set permission")]
-    SetPermission { source: io::Error },
-    #[error("Failed to open file as rw mode")]
-    OpenAsWriteMode { source: io::Error },
     #[error("Failed to open file")]
     Open { source: io::Error },
     #[error("Failed to create file")]
@@ -37,8 +33,8 @@ pub enum SingleDownloadError {
     CreateSymlink { source: io::Error },
     #[error("Request Error")]
     ReqwestMiddlewareError { source: reqwest_middleware::Error },
-    #[error("Broken pipe")]
-    BrokenPipe { source: io::Error },
+    #[error("Failed to read")]
+    Read { source: io::Error },
     #[error("Send request timeout")]
     SendRequestTimeout,
     #[error("Download file timeout")]
@@ -55,12 +51,6 @@ impl Serialize for SingleDownloadError {
         S: Serializer,
     {
         let helper = match self {
-            Self::SetPermission { source } => SingleDownloadErrorHelper::SetPermission {
-                source: source.to_string(),
-            },
-            Self::OpenAsWriteMode { source } => SingleDownloadErrorHelper::OpenAsWriteMode {
-                source: source.to_string(),
-            },
             Self::Open { source } => SingleDownloadErrorHelper::Open {
                 source: source.to_string(),
             },
@@ -87,7 +77,7 @@ impl Serialize for SingleDownloadError {
                     source: source.to_string(),
                 }
             }
-            Self::BrokenPipe { source } => SingleDownloadErrorHelper::BrokenPipe {
+            Self::Read { source } => SingleDownloadErrorHelper::Read {
                 source: source.to_string(),
             },
             Self::SendRequestTimeout => SingleDownloadErrorHelper::SendRequestTimeout,
@@ -108,12 +98,6 @@ impl<'de> Deserialize<'de> for SingleDownloadError {
         let helper = SingleDownloadErrorHelper::deserialize(deserializer)?;
 
         let error = match helper {
-            SingleDownloadErrorHelper::SetPermission { source } => Self::SetPermission {
-                source: io::Error::other(source),
-            },
-            SingleDownloadErrorHelper::OpenAsWriteMode { source } => Self::OpenAsWriteMode {
-                source: io::Error::other(source),
-            },
             SingleDownloadErrorHelper::Open { source } => Self::Open {
                 source: io::Error::other(source),
             },
@@ -144,8 +128,8 @@ impl<'de> Deserialize<'de> for SingleDownloadError {
                 }
             }
 
-            SingleDownloadErrorHelper::BrokenPipe { source } => Self::BrokenPipe {
-                source: io::Error::new(io::ErrorKind::BrokenPipe, source),
+            SingleDownloadErrorHelper::Read { source } => Self::Read {
+                source: io::Error::other(source),
             },
             SingleDownloadErrorHelper::SendRequestTimeout => Self::SendRequestTimeout,
             SingleDownloadErrorHelper::DownloadTimeout => Self::DownloadTimeout,
@@ -164,12 +148,6 @@ mod tests {
     #[test]
     fn serde_roundtrip_all_variants() {
         let cases = vec![
-            SingleDownloadError::SetPermission {
-                source: io::Error::other("perm"),
-            },
-            SingleDownloadError::OpenAsWriteMode {
-                source: io::Error::other("open-rw"),
-            },
             SingleDownloadError::Open {
                 source: io::Error::other("open"),
             },
@@ -194,8 +172,8 @@ mod tests {
             SingleDownloadError::ReqwestMiddlewareError {
                 source: reqwest_middleware::Error::Middleware(anyhow::anyhow!("req")),
             },
-            SingleDownloadError::BrokenPipe {
-                source: io::Error::other("pipe"),
+            SingleDownloadError::Read {
+                source: io::Error::other("read"),
             },
             SingleDownloadError::SendRequestTimeout,
             SingleDownloadError::DownloadTimeout,

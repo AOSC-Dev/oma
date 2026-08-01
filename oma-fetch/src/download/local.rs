@@ -96,7 +96,7 @@ impl SingleDownloader {
 
         let from = File::open(url_path)
             .await
-            .map_err(|source| SingleDownloadError::Create { source })?;
+            .map_err(|source| SingleDownloadError::Open { source })?;
         let from = tokio::io::BufReader::new(from).compat();
 
         trace!("Successfully opened file: {}", url_path.display());
@@ -163,7 +163,7 @@ impl SingleDownloader {
         loop {
             let size = match reader.read(&mut buf[..]).await {
                 Ok(size) => size,
-                Err(e) => return Err(SingleDownloadError::BrokenPipe { source: e }),
+                Err(e) => return Err(SingleDownloadError::Read { source: e }),
             };
 
             if size == 0 {

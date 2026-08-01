@@ -149,8 +149,6 @@ pub enum Event {
 
 #[derive(Serialize, Deserialize)]
 pub(crate) enum SingleDownloadErrorHelper {
-    SetPermission { source: String },
-    OpenAsWriteMode { source: String },
     Open { source: String },
     Create { source: String },
     Seek { source: String },
@@ -159,7 +157,7 @@ pub(crate) enum SingleDownloadErrorHelper {
     Remove { source: String },
     CreateSymlink { source: String },
     ReqwestMiddlewareError { source: String },
-    BrokenPipe { source: String },
+    Read { source: String },
     SendRequestTimeout,
     DownloadTimeout,
     ChecksumMismatch,

@@ -1081,14 +1081,6 @@ impl From<HistoryError> for OutputError {
 impl From<SingleDownloadError> for OutputError {
     fn from(value: SingleDownloadError) -> Self {
         match value {
-            SingleDownloadError::SetPermission { source } => Self {
-                description: fl!("set-permission"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::OpenAsWriteMode { source } => Self {
-                description: fl!("open-file-as-write-mode"),
-                source: Some(Box::new(source)),
-            },
             SingleDownloadError::Open { source } => Self {
                 description: fl!("open-err"),
                 source: Some(Box::new(source)),
@@ -1121,8 +1113,8 @@ impl From<SingleDownloadError> for OutputError {
                 description: fl!("reqwest-err"),
                 source: Some(Box::new(source)),
             },
-            SingleDownloadError::BrokenPipe { source } => Self {
-                description: fl!("broken-pipe-err"),
+            SingleDownloadError::Read { source } => Self {
+                description: fl!("read-err"),
                 source: Some(Box::new(source)),
             },
             SingleDownloadError::SendRequestTimeout => Self {

@@ -565,7 +565,7 @@ impl SingleDownloader {
         loop {
             let buf_size = match timeout(self.timeout, reader.read(&mut buf[..])).await {
                 Ok(Ok(size)) => size,
-                Ok(Err(e)) => return Err(SingleDownloadError::BrokenPipe { source: e }),
+                Ok(Err(e)) => return Err(SingleDownloadError::Read { source: e }),
                 Err(_) => return Err(SingleDownloadError::DownloadTimeout),
             };
 
