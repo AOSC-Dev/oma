@@ -43,3 +43,40 @@ pub(super) async fn checksum(
 
     (read, v.finish())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{checksum::Checksum, test_support::TempDir};
+
+    #[tokio::test]
+    async fn verifies_matching_checksum() {
+        let dir = TempDir::new("verify");
+        let path = dir.path().join("f.bin");
+        let data = b"checksum verification";
+        tokio::fs::write(&path, data).await.unwrap();
+
+        let expected = Checksum::from_file_sha256(&path).unwrap();
+        let mut validator = expected.get_validator();
+        let mut file = File::open(&path).await.unwrap();
+        let (tx, _rx) = flume::unbounded::<Event>();
+
+        let (read, ok) = checksum(&tx, &mut file, &mut validator).await;
+        assert_eq!(read, data.len() as u64);
+        assert!(ok);
+    }
+
+    #[tokio::test]
+    async fn detects_mismatched_checksum() {
+        let dir = TempDir::new("verify-mismatch");
+        let path = dir.path().join("f.bin");
+        tokio::fs::write(&path, b"data").await.unwrap();
+
+        let mut validator = Checksum::Sha256(vec![0; 32]).get_validator();
+        let mut file = File::open(&path).await.unwrap();
+        let (tx, _rx) = flume::unbounded::<Event>();
+
+        let (_, ok) = checksum(&tx, &mut file, &mut validator).await;
+        assert!(!ok);
+    }
+}

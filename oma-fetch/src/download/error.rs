@@ -156,3 +156,57 @@ impl<'de> Deserialize<'de> for SingleDownloadError {
         Ok(error)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serde_roundtrip_all_variants() {
+        let cases = vec![
+            SingleDownloadError::SetPermission {
+                source: io::Error::other("perm"),
+            },
+            SingleDownloadError::OpenAsWriteMode {
+                source: io::Error::other("open-rw"),
+            },
+            SingleDownloadError::Open {
+                source: io::Error::other("open"),
+            },
+            SingleDownloadError::Create {
+                source: io::Error::other("create"),
+            },
+            SingleDownloadError::Seek {
+                source: io::Error::other("seek"),
+            },
+            SingleDownloadError::Write {
+                source: io::Error::other("write"),
+            },
+            SingleDownloadError::Flush {
+                source: io::Error::other("flush"),
+            },
+            SingleDownloadError::Remove {
+                source: io::Error::other("remove"),
+            },
+            SingleDownloadError::CreateSymlink {
+                source: io::Error::other("symlink"),
+            },
+            SingleDownloadError::ReqwestMiddlewareError {
+                source: reqwest_middleware::Error::Middleware(anyhow::anyhow!("req")),
+            },
+            SingleDownloadError::BrokenPipe {
+                source: io::Error::other("pipe"),
+            },
+            SingleDownloadError::SendRequestTimeout,
+            SingleDownloadError::DownloadTimeout,
+            SingleDownloadError::ChecksumMismatch,
+            SingleDownloadError::AcquireError,
+        ];
+
+        for error in cases {
+            let json = serde_json::to_string(&error).unwrap();
+            let decoded: SingleDownloadError = serde_json::from_str(&json).unwrap();
+            assert_eq!(serde_json::to_string(&decoded).unwrap(), json);
+        }
+    }
+}

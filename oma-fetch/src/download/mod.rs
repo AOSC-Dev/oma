@@ -223,3 +223,86 @@ impl SingleDownloader {
             .to_string()
     }
 }
+
+/// Test helpers for building ready-to-run downloaders.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use super::*;
+
+    fn build_client(pool_idle_per_host: usize) -> ClientWithMiddleware {
+        #[cfg(feature = "rustls")]
+        {
+            let _ = rustls::crypto::ring::default_provider().install_default();
+        }
+        reqwest_middleware::ClientBuilder::new(
+            reqwest::Client::builder()
+                .pool_max_idle_per_host(pool_idle_per_host)
+                .build()
+                .expect("build reqwest client"),
+        )
+        .build()
+    }
+
+    /// Build a middleware client. Tests that only use local sources never
+    /// make network requests, so the concrete backend doesn't matter.
+    pub(crate) fn client() -> ClientWithMiddleware {
+        build_client(usize::MAX)
+    }
+
+    /// A client that never reuses idle connections, for tests that stall the
+    /// first connection and rely on the retry opening a fresh one.
+    pub(crate) fn client_no_pool() -> ClientWithMiddleware {
+        build_client(0)
+    }
+
+    /// Build a ready-to-run `SingleDownloader` for one entry.
+    pub(crate) fn downloader(entry: DownloadEntry) -> SingleDownloader {
+        downloader_with(entry, 1, Duration::from_secs(30))
+    }
+
+    /// Like [`downloader`], with explicit retry and timeout settings.
+    pub(crate) fn downloader_with(
+        entry: DownloadEntry,
+        retry_times: usize,
+        timeout: Duration,
+    ) -> SingleDownloader {
+        downloader_with_client(client(), entry, retry_times, timeout)
+    }
+
+    /// Like [`downloader`], with a custom client and explicit retry/timeout.
+    pub(crate) fn downloader_with_client(
+        client: ClientWithMiddleware,
+        entry: DownloadEntry,
+        retry_times: usize,
+        timeout: Duration,
+    ) -> SingleDownloader {
+        SingleDownloader::builder()
+            .client(client)
+            .entry(entry)
+            .total(1)
+            .retry_times(retry_times)
+            .download_list_index(0)
+            .timeout(timeout)
+            .build()
+            .expect("valid downloader")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builder_rejects_empty_sources() {
+        let result = SingleDownloader::builder()
+            .client(test_support::client())
+            .entry(DownloadEntry::default())
+            .total(1)
+            .retry_times(1)
+            .download_list_index(0)
+            .timeout(Duration::from_secs(5))
+            .build();
+
+        assert!(matches!(result, Err(BuilderError::EmptySource { .. })));
+    }
+}

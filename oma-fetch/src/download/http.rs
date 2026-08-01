@@ -601,3 +601,540 @@ fn read_buffer() -> Vec<u8> {
 
     buf
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        DownloadEntry, DownloadSourceType,
+        checksum::Checksum,
+        download::{DownloadResult, test_support},
+        test_support::TempDir,
+    };
+    use axum::{
+        Router,
+        body::{Body, Bytes},
+        extract::State,
+        http::{HeaderMap, StatusCode, header},
+        response::{IntoResponse, Response},
+        routing::get,
+    };
+    use futures::StreamExt as _;
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    fn sha256(data: &[u8]) -> Vec<u8> {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        hasher.finalize().to_vec()
+    }
+
+    /// Build an entry that downloads `url` to `dir/out/out.bin`.
+    fn http_entry(dir: &Path, url: &str, hash: Option<Checksum>) -> DownloadEntry {
+        DownloadEntry {
+            source: vec![DownloadSource {
+                url: url.to_string(),
+                source_type: DownloadSourceType::Http,
+            }],
+            filename: "out.bin".to_string(),
+            dir: dir.join("out"),
+            hash,
+            ..Default::default()
+        }
+    }
+
+    /// Run a downloader, bounded by a timeout so a broken server can't hang
+    /// the test suite, and collect every progress event it emitted.
+    async fn run_downloader(downloader: SingleDownloader) -> (DownloadResult, Vec<Event>) {
+        let (tx, rx) = flume::unbounded::<Event>();
+        let result = tokio::time::timeout(Duration::from_secs(20), downloader.try_download(&tx))
+            .await
+            .expect("download timed out");
+        let events: Vec<Event> = rx.drain().collect();
+        (result, events)
+    }
+
+    /// Run `try_download` for one entry, discarding progress events.
+    async fn run_download(entry: DownloadEntry) -> DownloadResult {
+        run_downloader(test_support::downloader(entry)).await.0
+    }
+
+    /// Serve `app` on an ephemeral port and return its `http://.../pkg` URL.
+    async fn serve(app: Router) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app).await.expect("axum server");
+        });
+        format!("http://{addr}/pkg")
+    }
+
+    /// One response plan for [`behavior_handler`].
+    #[derive(Clone, Copy)]
+    enum Behavior {
+        /// Full 200 response carrying `body`.
+        Ok(&'static [u8]),
+        /// 200 with `Content-Length: full_len`, sending only `partial` bytes
+        /// and then stalling, so the client hits its read timeout.
+        Stall {
+            full_len: usize,
+            partial: &'static [u8],
+        },
+    }
+
+    /// Serves each [`Behavior`] in order across consecutive requests.
+    #[derive(Clone)]
+    struct BehaviorState {
+        behaviors: Arc<Vec<Behavior>>,
+        next: Arc<AtomicUsize>,
+    }
+
+    async fn behavior_handler(State(state): State<BehaviorState>) -> Response {
+        let index = state.next.fetch_add(1, Ordering::SeqCst);
+        match state.behaviors[index % state.behaviors.len()] {
+            Behavior::Ok(body) => body.into_response(),
+            Behavior::Stall { full_len, partial } => {
+                // Yield one chunk, then never complete, so the client hits its
+                // read timeout and retries on a fresh connection.
+                let stream = futures::stream::iter([Ok::<Bytes, std::io::Error>(
+                    Bytes::from_static(partial),
+                )])
+                .chain(futures::stream::pending::<Result<Bytes, std::io::Error>>());
+
+                axum::http::Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_LENGTH, full_len)
+                    .body(Body::from_stream(stream))
+                    .unwrap()
+                    .into_response()
+            }
+        }
+    }
+
+    /// The body served by [`range_handler`].
+    const RESUME_BODY: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+
+    /// Honors `Range: bytes=N-` with a 206 tail response.
+    async fn range_handler(headers: HeaderMap) -> Response {
+        let start = headers
+            .get(header::RANGE)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("bytes="))
+            .and_then(|v| v.split('-').next())
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(0);
+
+        if start == 0 {
+            return RESUME_BODY.into_response();
+        }
+
+        axum::http::Response::builder()
+            .status(StatusCode::PARTIAL_CONTENT)
+            .header(
+                header::CONTENT_RANGE,
+                format!(
+                    "bytes {start}-{}/{}",
+                    RESUME_BODY.len() - 1,
+                    RESUME_BODY.len()
+                ),
+            )
+            .body(Body::from(&RESUME_BODY[start..]))
+            .unwrap()
+            .into_response()
+    }
+
+    /// Refuses any range request with 416; otherwise serves [`RESUME_BODY`].
+    async fn range_416_handler(headers: HeaderMap) -> Response {
+        if headers.contains_key(header::RANGE) {
+            return StatusCode::RANGE_NOT_SATISFIABLE.into_response();
+        }
+        RESUME_BODY.into_response()
+    }
+
+    /// Build an `axum::http::Response`-backed [`reqwest::Response`] for
+    /// exercising `negotiate_resume` without a real server.
+    fn response(status: StatusCode, headers: &[(&str, &str)], body: &[u8]) -> reqwest::Response {
+        let mut builder = axum::http::Response::builder().status(status);
+        for (name, value) in headers {
+            builder = builder.header(*name, *value);
+        }
+
+        builder
+            .body(reqwest::Body::from(body.to_vec()))
+            .unwrap()
+            .into()
+    }
+
+    #[tokio::test]
+    async fn downloads_over_http_with_checksum() {
+        let dir = TempDir::new("http-download");
+        let data: &'static [u8] = b"hello from the http server";
+        let url = serve(Router::new().route("/pkg", get(move || async move { data }))).await;
+        let entry = http_entry(dir.path(), &url, Some(Checksum::Sha256(sha256(data))));
+
+        let result = run_download(entry).await;
+        match result {
+            DownloadResult::Success(summary) => {
+                assert!(summary.wrote);
+                assert_eq!(
+                    tokio::fs::read(dir.path().join("out/out.bin"))
+                        .await
+                        .unwrap(),
+                    data
+                );
+            }
+            DownloadResult::Failed { file_name } => {
+                panic!("expected success, got failed: {file_name}")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn fails_on_checksum_mismatch_over_http() {
+        let dir = TempDir::new("http-mismatch");
+        let data: &'static [u8] = b"body that does not match";
+        let url = serve(Router::new().route("/pkg", get(move || async move { data }))).await;
+        let entry = http_entry(dir.path(), &url, Some(Checksum::Sha256(vec![0; 32])));
+
+        let result = run_download(entry).await;
+        assert!(matches!(result, DownloadResult::Failed { .. }));
+    }
+
+    #[tokio::test]
+    async fn fails_on_http_error_status() {
+        let dir = TempDir::new("http-404");
+        let url = serve(Router::new().route("/pkg", get(|| async { StatusCode::NOT_FOUND }))).await;
+        let entry = http_entry(dir.path(), &url, None);
+
+        let result = run_download(entry).await;
+        assert!(matches!(result, DownloadResult::Failed { .. }));
+    }
+
+    #[tokio::test]
+    async fn resumes_from_partial_file() {
+        let dir = TempDir::new("http-resume");
+        let full = RESUME_BODY;
+        let url = serve(Router::new().route("/pkg", get(range_handler))).await;
+
+        // simulate an interrupted download: the first 10 bytes are present
+        let out_dir = dir.path().join("out");
+        tokio::fs::create_dir_all(&out_dir).await.unwrap();
+        tokio::fs::write(out_dir.join("out.bin"), &full[..10])
+            .await
+            .unwrap();
+
+        let entry = DownloadEntry {
+            source: vec![DownloadSource {
+                url,
+                source_type: DownloadSourceType::Http,
+            }],
+            filename: "out.bin".to_string(),
+            dir: out_dir.clone(),
+            hash: Some(Checksum::Sha256(sha256(full))),
+            allow_resume: true,
+            ..Default::default()
+        };
+
+        let result = run_download(entry).await;
+        assert!(matches!(result, DownloadResult::Success(_)));
+        assert_eq!(
+            tokio::fs::read(out_dir.join("out.bin")).await.unwrap(),
+            full
+        );
+    }
+
+    #[tokio::test]
+    async fn retries_after_checksum_mismatch_and_undoes_progress() {
+        let dir = TempDir::new("http-retry-mismatch");
+        let correct: &'static [u8] = b"the correct body";
+        let url = {
+            let state = BehaviorState {
+                behaviors: Arc::new(vec![
+                    Behavior::Ok(b"wrong body one"),
+                    Behavior::Ok(b"wrong body two"),
+                    Behavior::Ok(correct),
+                ]),
+                next: Arc::new(AtomicUsize::new(0)),
+            };
+            serve(
+                Router::new()
+                    .route("/pkg", get(behavior_handler))
+                    .with_state(state),
+            )
+            .await
+        };
+
+        let entry = http_entry(dir.path(), &url, Some(Checksum::Sha256(sha256(correct))));
+        let downloader = test_support::downloader_with(entry, 3, Duration::from_secs(30));
+
+        let (result, events) = run_downloader(downloader).await;
+        assert!(matches!(result, DownloadResult::Success(_)));
+        assert_eq!(
+            tokio::fs::read(dir.path().join("out/out.bin"))
+                .await
+                .unwrap(),
+            correct
+        );
+
+        // both failed attempts were undone on the global progress bar
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::GlobalProgressSub(n) if *n > 0))
+        );
+        // the second mismatch is reported to the UI as a retry notice
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::ChecksumMismatch { times: 2, .. }))
+        );
+    }
+
+    #[tokio::test]
+    async fn retries_after_timeout_and_undoes_progress() {
+        let dir = TempDir::new("http-retry-timeout");
+        let full: &'static [u8] = b"the body that eventually arrives";
+        let url = {
+            let state = BehaviorState {
+                behaviors: Arc::new(vec![
+                    Behavior::Stall {
+                        full_len: full.len(),
+                        partial: b"12345",
+                    },
+                    Behavior::Stall {
+                        full_len: full.len(),
+                        partial: b"67890",
+                    },
+                    Behavior::Ok(full),
+                ]),
+                next: Arc::new(AtomicUsize::new(0)),
+            };
+            serve(
+                Router::new()
+                    .route("/pkg", get(behavior_handler))
+                    .with_state(state),
+            )
+            .await
+        };
+
+        let entry = http_entry(dir.path(), &url, Some(Checksum::Sha256(sha256(full))));
+        // No connection pooling: the stalled connection must not block the
+        // retry. 400ms per attempt is short enough to keep the test fast.
+        let downloader = test_support::downloader_with_client(
+            test_support::client_no_pool(),
+            entry,
+            3,
+            Duration::from_millis(400),
+        );
+
+        let (result, events) = run_downloader(downloader).await;
+        assert!(matches!(result, DownloadResult::Success(_)));
+        assert_eq!(
+            tokio::fs::read(dir.path().join("out/out.bin"))
+                .await
+                .unwrap(),
+            full
+        );
+
+        // the stalled attempts' bytes were undone on the global progress bar
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::GlobalProgressSub(n) if *n > 0))
+        );
+        // the second timeout is reported to the UI as a retry notice
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::Timeout { times: 2, .. }))
+        );
+    }
+
+    #[tokio::test]
+    async fn restarts_when_server_rejects_range() {
+        let dir = TempDir::new("http-416");
+        let full = RESUME_BODY;
+
+        // The server refuses any range request with 416, so the client must
+        // restart the loop and re-fetch the whole body without a Range header.
+        let url = serve(Router::new().route("/pkg", get(range_416_handler))).await;
+
+        // simulate an interrupted download: the first 10 bytes are present
+        let out_dir = dir.path().join("out");
+        tokio::fs::create_dir_all(&out_dir).await.unwrap();
+        tokio::fs::write(out_dir.join("out.bin"), &full[..10])
+            .await
+            .unwrap();
+
+        let entry = DownloadEntry {
+            source: vec![DownloadSource {
+                url,
+                source_type: DownloadSourceType::Http,
+            }],
+            filename: "out.bin".to_string(),
+            dir: out_dir.clone(),
+            hash: Some(Checksum::Sha256(sha256(full))),
+            allow_resume: true,
+            ..Default::default()
+        };
+
+        let result = run_download(entry).await;
+        assert!(matches!(result, DownloadResult::Success(_)));
+        assert_eq!(
+            tokio::fs::read(out_dir.join("out.bin")).await.unwrap(),
+            full
+        );
+    }
+
+    #[tokio::test]
+    async fn falls_back_to_next_source() {
+        let dir = TempDir::new("http-fallback");
+        let correct: &'static [u8] = b"served by the http source";
+        let hash = Checksum::Sha256(sha256(correct));
+
+        // A local source whose content does not match the expected checksum:
+        // it fails, and the download falls back to the http source.
+        let local_src = dir.path().join("local.bin");
+        std::fs::write(&local_src, b"wrong local content").unwrap();
+
+        let url = serve(Router::new().route("/pkg", get(move || async move { correct }))).await;
+
+        let entry = DownloadEntry {
+            source: vec![
+                DownloadSource {
+                    url: format!("file://{}", local_src.display()),
+                    source_type: DownloadSourceType::Local(false),
+                },
+                DownloadSource {
+                    url,
+                    source_type: DownloadSourceType::Http,
+                },
+            ],
+            filename: "out.bin".to_string(),
+            dir: dir.path().join("out"),
+            hash: Some(hash),
+            ..Default::default()
+        };
+
+        let (result, events) = run_downloader(test_support::downloader(entry)).await;
+        assert!(matches!(result, DownloadResult::Success(_)));
+        assert_eq!(
+            tokio::fs::read(dir.path().join("out/out.bin"))
+                .await
+                .unwrap(),
+            correct
+        );
+        // the failed local source was reported as a fallback notice
+        assert!(events.iter().any(|e| matches!(e, Event::NextUrl { .. })));
+    }
+
+    #[tokio::test]
+    async fn fails_on_send_request_timeout_without_retry() {
+        let dir = TempDir::new("http-send-timeout");
+        let accepted = Arc::new(AtomicUsize::new(0));
+
+        // A server that accepts connections but never writes a response, so
+        // the client's request send times out.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/pkg", listener.local_addr().unwrap());
+        let accepted_in_server = accepted.clone();
+        tokio::spawn(async move {
+            loop {
+                let Ok(sock) = listener.accept().await else {
+                    break;
+                };
+                accepted_in_server.fetch_add(1, Ordering::SeqCst);
+                tokio::spawn(async move {
+                    // hold the connection open without responding, so the
+                    // client's send hangs until its timeout fires
+                    let _socket = sock;
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                });
+            }
+        });
+
+        let entry = http_entry(dir.path(), &url, None);
+        // SendRequestTimeout is fatal (not retried): even with a retry budget,
+        // the download fails after a single attempt.
+        let downloader = test_support::downloader_with(entry, 3, Duration::from_millis(300));
+
+        let (result, events) = run_downloader(downloader).await;
+        assert!(matches!(result, DownloadResult::Failed { .. }));
+        assert!(events.iter().any(|e| matches!(
+            e,
+            Event::Failed {
+                error: SingleDownloadError::SendRequestTimeout,
+                ..
+            }
+        )));
+        // exactly one connection: the fatal error was not retried
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn negotiate_resume_accepts_matching_partial() {
+        let mut state = DownloadState::new();
+        state.downloaded_size = 100;
+        let resp = response(
+            StatusCode::PARTIAL_CONTENT,
+            &[("content-range", "bytes 100-199/200")],
+            b"",
+        );
+        assert_eq!(
+            SingleDownloader::negotiate_resume(&resp, &mut state),
+            ResumeOutcome::Proceed
+        );
+        assert_eq!(state.total_size, Some(200));
+    }
+
+    #[test]
+    fn negotiate_resume_restarts_on_range_mismatch() {
+        let mut state = DownloadState::new();
+        state.downloaded_size = 100;
+        let resp = response(
+            StatusCode::PARTIAL_CONTENT,
+            &[("content-range", "bytes 0-99/200")],
+            b"",
+        );
+        assert_eq!(
+            SingleDownloader::negotiate_resume(&resp, &mut state),
+            ResumeOutcome::Restart
+        );
+        assert_eq!(state.downloaded_size, 0);
+    }
+
+    #[test]
+    fn negotiate_resume_restarts_without_content_range() {
+        let mut state = DownloadState::new();
+        state.downloaded_size = 100;
+        let resp = response(StatusCode::PARTIAL_CONTENT, &[], b"");
+        assert_eq!(
+            SingleDownloader::negotiate_resume(&resp, &mut state),
+            ResumeOutcome::Restart
+        );
+    }
+
+    #[test]
+    fn negotiate_resume_reads_content_length_from_ok() {
+        let mut state = DownloadState::new();
+        let resp = response(StatusCode::OK, &[("content-length", "42")], b"");
+        assert_eq!(
+            SingleDownloader::negotiate_resume(&resp, &mut state),
+            ResumeOutcome::Proceed
+        );
+        assert_eq!(state.total_size, Some(42));
+    }
+
+    #[test]
+    fn negotiate_resume_restarts_when_range_not_honored() {
+        let mut state = DownloadState::new();
+        state.downloaded_size = 50;
+        let resp = response(StatusCode::OK, &[("content-length", "100")], b"");
+        assert_eq!(
+            SingleDownloader::negotiate_resume(&resp, &mut state),
+            ResumeOutcome::Proceed
+        );
+        assert_eq!(state.downloaded_size, 0);
+    }
+}

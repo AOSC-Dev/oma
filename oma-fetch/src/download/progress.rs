@@ -151,3 +151,55 @@ pub(crate) enum ResumeOutcome {
     /// The server didn't honor our range; restart the download loop.
     Restart,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::CompressType;
+
+    #[test]
+    fn in_progress_until_total_reached() {
+        let mut state = DownloadState::new();
+        assert!(state.in_progress()); // no known total yet
+
+        state.total_size = Some(100);
+        state.downloaded_size = 50;
+        assert!(state.in_progress());
+        state.downloaded_size = 100;
+        assert!(!state.in_progress());
+    }
+
+    #[test]
+    fn begin_attempt_keeps_offset_when_resume_allowed() {
+        let mut state = DownloadState::new();
+        state.total_size = Some(100);
+        state.downloaded_size = 42;
+        state.begin_attempt(true, CompressType::None);
+        assert_eq!(state.downloaded_size, 42);
+        assert_eq!(state.old_total_size, Some(100));
+    }
+
+    #[test]
+    fn begin_attempt_restarts_when_resume_disallowed() {
+        let mut state = DownloadState::new();
+        state.downloaded_size = 42;
+        state.begin_attempt(false, CompressType::None);
+        assert_eq!(state.downloaded_size, 0);
+    }
+
+    #[test]
+    fn begin_attempt_restarts_for_compressed() {
+        let mut state = DownloadState::new();
+        state.downloaded_size = 42;
+        state.begin_attempt(true, CompressType::Xz);
+        assert_eq!(state.downloaded_size, 0);
+    }
+
+    #[test]
+    fn restart_zeroes_offset() {
+        let mut state = DownloadState::new();
+        state.downloaded_size = 99;
+        state.restart();
+        assert_eq!(state.downloaded_size, 0);
+    }
+}

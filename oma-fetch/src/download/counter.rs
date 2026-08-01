@@ -53,3 +53,40 @@ impl<R: AsyncBufRead + Unpin> AsyncBufRead for Counter<'_, R> {
         pin.consume(amt);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::{AsyncReadExt as _, io::Cursor};
+
+    #[tokio::test]
+    async fn counts_every_byte_read() {
+        let data = b"hello world".to_vec();
+        let counter = AtomicUsize::new(0);
+        let mut reader = Counter::new(Cursor::new(data.clone()), &counter);
+
+        let mut buf = vec![0u8; 4];
+        let mut read = 0;
+        loop {
+            let n = reader.read(&mut buf).await.unwrap();
+            if n == 0 {
+                break;
+            }
+            read += n;
+        }
+        assert_eq!(read, data.len());
+        assert_eq!(counter.load(Ordering::SeqCst), data.len());
+    }
+
+    #[tokio::test]
+    async fn stops_counting_after_eof() {
+        let data = b"abc".to_vec();
+        let counter = AtomicUsize::new(0);
+        let mut reader = Counter::new(Cursor::new(data), &counter);
+
+        let mut buf = vec![0u8; 1024];
+        assert_eq!(reader.read(&mut buf).await.unwrap(), 3);
+        assert_eq!(reader.read(&mut buf).await.unwrap(), 0);
+        assert_eq!(counter.load(Ordering::SeqCst), 3);
+    }
+}

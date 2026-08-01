@@ -89,6 +89,7 @@ i18n-embed-fl = { workspace = true }
 rust-embed = { workspace = true }
 
 [workspace.dependencies]
+axum = "0.8"
 dialoguer = "0.12.0"
 clap = { version = "4.6", features = [
     "cargo",

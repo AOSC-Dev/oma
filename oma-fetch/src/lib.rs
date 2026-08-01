@@ -335,3 +335,69 @@ pub async fn send_request(request: RequestBuilder) -> Result<Response, reqwest_m
 
     Ok(resp)
 }
+
+/// Test-only helpers shared across the crate's `#[cfg(test)]` modules.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::path::{Path, PathBuf};
+
+    /// A unique temporary directory that is removed when dropped.
+    pub(crate) struct TempDir(PathBuf);
+
+    impl TempDir {
+        pub(crate) fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "oma-fetch-{label}-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("system clock before epoch")
+                    .as_nanos()
+            ));
+            std::fs::create_dir_all(&path).expect("create temp dir");
+            Self(path)
+        }
+
+        pub(crate) fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compress_type_from_str() {
+        assert_eq!(CompressType::from("xz"), CompressType::Xz);
+        assert_eq!(CompressType::from("gz"), CompressType::Gzip);
+        assert_eq!(CompressType::from("bz2"), CompressType::Bz2);
+        assert_eq!(CompressType::from("zst"), CompressType::Zstd);
+        assert_eq!(CompressType::from("unknown"), CompressType::None);
+    }
+
+    #[test]
+    fn local_sources_rank_above_http() {
+        let http = DownloadSource {
+            url: "http://example.com/a".into(),
+            source_type: DownloadSourceType::Http,
+        };
+        let local = DownloadSource {
+            url: "file:///a".into(),
+            source_type: DownloadSourceType::Local(false),
+        };
+        assert!(local.source_type > http.source_type);
+
+        let mut sources = [http.clone(), local.clone()];
+        sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
+        assert_eq!(sources[0].source_type, local.source_type);
+        assert_eq!(sources[1].source_type, http.source_type);
+    }
+}

@@ -179,3 +179,123 @@ impl Display for Checksum {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::TempDir;
+
+    fn sha256_of(data: &[u8]) -> Vec<u8> {
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        hasher.finalize().to_vec()
+    }
+
+    fn sha512_of(data: &[u8]) -> Vec<u8> {
+        let mut hasher = Sha512::new();
+        hasher.update(data);
+        hasher.finalize().to_vec()
+    }
+
+    fn md5_of(data: &[u8]) -> Vec<u8> {
+        let mut hasher = Md5::new();
+        hasher.update(data);
+        hasher.finalize().to_vec()
+    }
+
+    #[test]
+    fn parses_sha256_hex_string() {
+        let data = b"hello world";
+        let digest = sha256_of(data);
+        let hex = hex_string(&digest);
+        assert_eq!(
+            Checksum::from_sha256_str(&hex).unwrap(),
+            Checksum::Sha256(digest)
+        );
+    }
+
+    #[test]
+    fn parses_sha512_hex_string() {
+        let data = b"hello world";
+        let digest = sha512_of(data);
+        let hex = hex_string(&digest);
+        assert_eq!(
+            Checksum::from_sha512_str(&hex).unwrap(),
+            Checksum::Sha512(digest)
+        );
+    }
+
+    #[test]
+    fn parses_md5_hex_string() {
+        let data = b"hello world";
+        let digest = md5_of(data);
+        let hex = hex_string(&digest);
+        assert_eq!(Checksum::from_md5_str(&hex).unwrap(), Checksum::Md5(digest));
+    }
+
+    #[test]
+    fn rejects_bad_length() {
+        assert!(Checksum::from_sha256_str("abc").is_err());
+        assert!(Checksum::from_sha512_str("abc").is_err());
+        assert!(Checksum::from_md5_str("abc").is_err());
+        assert!(Checksum::from_sha256_str("").is_err());
+    }
+
+    #[test]
+    fn validator_accepts_matching_data() {
+        let data = b"hello world";
+        let mut v = Checksum::Sha256(sha256_of(data)).get_validator();
+        v.update(data);
+        assert!(v.finish());
+    }
+
+    #[test]
+    fn validator_rejects_mismatched_data() {
+        let data = b"hello world";
+        let mut v = Checksum::Sha256(sha256_of(data)).get_validator();
+        v.update(b"tampered with");
+        assert!(!v.finish());
+    }
+
+    #[test]
+    fn reset_clears_hasher() {
+        let data = b"hello world";
+        let mut v = Checksum::Sha256(sha256_of(data)).get_validator();
+        v.update(b"wrong data");
+        v.reset();
+        v.update(data);
+        assert!(v.finish());
+    }
+
+    #[test]
+    fn none_validator_always_passes() {
+        let mut v = ChecksumValidator::None;
+        v.update(b"anything");
+        assert!(v.finish());
+    }
+
+    #[test]
+    fn cmp_read_matches_and_rejects() {
+        let data = b"hello world";
+        let checksum = Checksum::Sha256(sha256_of(data));
+
+        let reader: Box<dyn std::io::Read> = Box::new(std::io::Cursor::new(data.to_vec()));
+        assert!(checksum.cmp_read(reader).unwrap());
+
+        let reader: Box<dyn std::io::Read> = Box::new(std::io::Cursor::new(b"other".to_vec()));
+        assert!(!checksum.cmp_read(reader).unwrap());
+    }
+
+    #[test]
+    fn cmp_file_and_from_file_roundtrip() {
+        let dir = TempDir::new("checksum");
+        let path = dir.path().join("data.bin");
+        std::fs::write(&path, b"hello world").unwrap();
+
+        let checksum = Checksum::from_file_sha256(&path).unwrap();
+        assert!(checksum.cmp_file(&path).unwrap());
+
+        let wrong = Checksum::Sha256(vec![0; 32]);
+        assert!(!wrong.cmp_file(&path).unwrap());
+    }
+}
