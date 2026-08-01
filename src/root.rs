@@ -7,9 +7,10 @@ use std::{
 use anyhow::anyhow;
 use oma_utils::is_termux;
 use rustix::process;
-use spdlog::info;
+use spdlog::{debug, info};
+use zbus::{Connection, fdo::DBusProxy, names::BusName};
 
-use crate::{NOT_ALLOW_CTRLC, error::OutputError, fl};
+use crate::{NOT_ALLOW_CTRLC, RT, error::OutputError, fl};
 
 type Result<T> = std::result::Result<T, OutputError>;
 
@@ -34,7 +35,12 @@ pub fn root() -> Result<()> {
     let is_wsl = is_wsl();
 
     // Fix issue https://github.com/AOSC-Dev/oma/issues/609
-    if which::which("systemd-run").is_ok() && !is_wsl {
+    // `systemd-run --pty` needs a running systemd-logind to attach the
+    // command to a login session; the binary may exist even when logind
+    // isn't running (e.g. a systemd container with logind disabled), so
+    // require logind before trying it and let the pkexec/sudo/doas branches
+    // take over otherwise.
+    if which::which("systemd-run").is_ok() && !is_wsl && is_logind_running() {
         systemd_run_oma()?;
     } else if is_desktop_env() && !is_wsl && which::which("pkexec").is_ok() {
         // 检测是否有 DISPLAY，如果有，则在提权时使用 pkexec
@@ -121,4 +127,28 @@ fn is_wsl() -> bool {
     let kernel_info = kernel_info.to_ascii_lowercase();
 
     kernel_info.contains("microsoft") || kernel_info.contains("wsl")
+}
+
+fn is_logind_running() -> bool {
+    let running = RT.block_on(async {
+        let Ok(conn) = Connection::system().await else {
+            return false;
+        };
+
+        let Ok(dbus) = DBusProxy::new(&conn).await else {
+            return false;
+        };
+
+        let Ok(name) = BusName::try_from("org.freedesktop.login1") else {
+            return false;
+        };
+
+        dbus.name_has_owner(name).await.unwrap_or(false)
+    });
+
+    if !running {
+        debug!("systemd-logind is not running, falling back to other privilege tools");
+    }
+
+    running
 }
