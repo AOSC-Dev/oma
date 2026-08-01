@@ -18,23 +18,23 @@ pub enum BuilderError {
 #[derive(Debug, Error)]
 pub enum SingleDownloadError {
     #[error("Failed to open file")]
-    Open { source: io::Error },
+    Open(io::Error),
     #[error("Failed to create file")]
-    Create { source: io::Error },
+    Create(io::Error),
     #[error("Failed to seek file")]
-    Seek { source: io::Error },
+    Seek(io::Error),
     #[error("Failed to write file")]
-    Write { source: io::Error },
+    Write(io::Error),
     #[error("Failed to flush file")]
-    Flush { source: io::Error },
+    Flush(io::Error),
     #[error("Failed to remove file")]
-    Remove { source: io::Error },
+    Remove(io::Error),
     #[error("Failed to create symlink")]
-    CreateSymlink { source: io::Error },
+    CreateSymlink(io::Error),
     #[error("Request Error")]
-    ReqwestMiddlewareError { source: reqwest_middleware::Error },
+    ReqwestMiddlewareError(reqwest_middleware::Error),
     #[error("Failed to read")]
-    Read { source: io::Error },
+    Read(io::Error),
     #[error("Send request timeout")]
     SendRequestTimeout,
     #[error("Download file timeout")]
@@ -51,33 +51,33 @@ impl Serialize for SingleDownloadError {
         S: Serializer,
     {
         let helper = match self {
-            Self::Open { source } => SingleDownloadErrorHelper::Open {
+            Self::Open(source) => SingleDownloadErrorHelper::Open {
                 source: source.to_string(),
             },
-            Self::Create { source } => SingleDownloadErrorHelper::Create {
+            Self::Create(source) => SingleDownloadErrorHelper::Create {
                 source: source.to_string(),
             },
-            Self::Seek { source } => SingleDownloadErrorHelper::Seek {
+            Self::Seek(source) => SingleDownloadErrorHelper::Seek {
                 source: source.to_string(),
             },
-            Self::Write { source } => SingleDownloadErrorHelper::Write {
+            Self::Write(source) => SingleDownloadErrorHelper::Write {
                 source: source.to_string(),
             },
-            Self::Flush { source } => SingleDownloadErrorHelper::Flush {
+            Self::Flush(source) => SingleDownloadErrorHelper::Flush {
                 source: source.to_string(),
             },
-            Self::Remove { source } => SingleDownloadErrorHelper::Remove {
+            Self::Remove(source) => SingleDownloadErrorHelper::Remove {
                 source: source.to_string(),
             },
-            Self::CreateSymlink { source } => SingleDownloadErrorHelper::CreateSymlink {
+            Self::CreateSymlink(source) => SingleDownloadErrorHelper::CreateSymlink {
                 source: source.to_string(),
             },
-            Self::ReqwestMiddlewareError { source } => {
+            Self::ReqwestMiddlewareError(source) => {
                 SingleDownloadErrorHelper::ReqwestMiddlewareError {
                     source: source.to_string(),
                 }
             }
-            Self::Read { source } => SingleDownloadErrorHelper::Read {
+            Self::Read(source) => SingleDownloadErrorHelper::Read {
                 source: source.to_string(),
             },
             Self::SendRequestTimeout => SingleDownloadErrorHelper::SendRequestTimeout,
@@ -98,39 +98,25 @@ impl<'de> Deserialize<'de> for SingleDownloadError {
         let helper = SingleDownloadErrorHelper::deserialize(deserializer)?;
 
         let error = match helper {
-            SingleDownloadErrorHelper::Open { source } => Self::Open {
-                source: io::Error::other(source),
-            },
-            SingleDownloadErrorHelper::Create { source } => Self::Create {
-                source: io::Error::other(source),
-            },
-            SingleDownloadErrorHelper::Seek { source } => Self::Seek {
-                source: io::Error::other(source),
-            },
-            SingleDownloadErrorHelper::Write { source } => Self::Write {
-                source: io::Error::other(source),
-            },
-            SingleDownloadErrorHelper::Flush { source } => Self::Flush {
-                source: io::Error::other(source),
-            },
-            SingleDownloadErrorHelper::Remove { source } => Self::Remove {
-                source: io::Error::other(source),
-            },
-            SingleDownloadErrorHelper::CreateSymlink { source } => Self::CreateSymlink {
-                source: io::Error::other(source),
-            },
+            SingleDownloadErrorHelper::Open { source } => Self::Open(io::Error::other(source)),
+            SingleDownloadErrorHelper::Create { source } => Self::Create(io::Error::other(source)),
+            SingleDownloadErrorHelper::Seek { source } => Self::Seek(io::Error::other(source)),
+            SingleDownloadErrorHelper::Write { source } => Self::Write(io::Error::other(source)),
+            SingleDownloadErrorHelper::Flush { source } => Self::Flush(io::Error::other(source)),
+            SingleDownloadErrorHelper::Remove { source } => Self::Remove(io::Error::other(source)),
+            SingleDownloadErrorHelper::CreateSymlink { source } => {
+                Self::CreateSymlink(io::Error::other(source))
+            }
 
             // reqwest_middleware::Error 无法简单 new，但它通常支持从标准 Error 转换，或者转为自定义格式
             // 这里可以通过 anyhow 或标准映射转换为中间状态错误
             SingleDownloadErrorHelper::ReqwestMiddlewareError { source } => {
-                Self::ReqwestMiddlewareError {
-                    source: reqwest_middleware::Error::Middleware(anyhow::anyhow!(source)),
-                }
+                Self::ReqwestMiddlewareError(reqwest_middleware::Error::Middleware(
+                    anyhow::anyhow!(source),
+                ))
             }
 
-            SingleDownloadErrorHelper::Read { source } => Self::Read {
-                source: io::Error::other(source),
-            },
+            SingleDownloadErrorHelper::Read { source } => Self::Read(io::Error::other(source)),
             SingleDownloadErrorHelper::SendRequestTimeout => Self::SendRequestTimeout,
             SingleDownloadErrorHelper::DownloadTimeout => Self::DownloadTimeout,
             SingleDownloadErrorHelper::ChecksumMismatch => Self::ChecksumMismatch,
@@ -148,33 +134,17 @@ mod tests {
     #[test]
     fn serde_roundtrip_all_variants() {
         let cases = vec![
-            SingleDownloadError::Open {
-                source: io::Error::other("open"),
-            },
-            SingleDownloadError::Create {
-                source: io::Error::other("create"),
-            },
-            SingleDownloadError::Seek {
-                source: io::Error::other("seek"),
-            },
-            SingleDownloadError::Write {
-                source: io::Error::other("write"),
-            },
-            SingleDownloadError::Flush {
-                source: io::Error::other("flush"),
-            },
-            SingleDownloadError::Remove {
-                source: io::Error::other("remove"),
-            },
-            SingleDownloadError::CreateSymlink {
-                source: io::Error::other("symlink"),
-            },
-            SingleDownloadError::ReqwestMiddlewareError {
-                source: reqwest_middleware::Error::Middleware(anyhow::anyhow!("req")),
-            },
-            SingleDownloadError::Read {
-                source: io::Error::other("read"),
-            },
+            SingleDownloadError::Open(io::Error::other("open")),
+            SingleDownloadError::Create(io::Error::other("create")),
+            SingleDownloadError::Seek(io::Error::other("seek")),
+            SingleDownloadError::Write(io::Error::other("write")),
+            SingleDownloadError::Flush(io::Error::other("flush")),
+            SingleDownloadError::Remove(io::Error::other("remove")),
+            SingleDownloadError::CreateSymlink(io::Error::other("symlink")),
+            SingleDownloadError::ReqwestMiddlewareError(reqwest_middleware::Error::Middleware(
+                anyhow::anyhow!("req"),
+            )),
+            SingleDownloadError::Read(io::Error::other("read")),
             SingleDownloadError::SendRequestTimeout,
             SingleDownloadError::DownloadTimeout,
             SingleDownloadError::ChecksumMismatch,

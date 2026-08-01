@@ -5,14 +5,10 @@
 use std::{
     io::{self, SeekFrom},
     path::Path,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
-use async_compression::futures::bufread::{
-    BzDecoder, GzipDecoder, Lz4Decoder, LzmaDecoder, XzDecoder, ZstdDecoder,
-};
 use flume::Sender;
-use futures::{AsyncRead, TryStreamExt, io::BufReader};
+use futures::TryStreamExt;
 use headers::{ContentLength, ContentRange, HeaderMapExt};
 use reqwest::{Method, StatusCode, header::RANGE};
 use spdlog::{debug, trace};
@@ -26,8 +22,7 @@ use tokio_util::compat::FuturesAsyncReadCompatExt;
 use crate::{CompressType, DownloadSource, Event, checksum::ChecksumValidator, send_request};
 
 use super::{
-    DOWNLOAD_BUFSIZE, SingleDownloader,
-    counter::Counter,
+    DOWNLOAD_BUFSIZE, READ_FILE_BUFSIZE, SingleDownloader, decompress_reader,
     error::SingleDownloadError,
     progress::{DownloadState, ProgressReporter},
     verify,
@@ -59,9 +54,12 @@ impl SingleDownloader {
         source: &DownloadSource,
         tx: &Sender<Event>,
     ) -> Result<bool, SingleDownloadError> {
-        let mut times = 1;
         let mut allow_resume = self.entry.allow_resume;
-        loop {
+
+        // Up to `retry_times` attempts. Checksum mismatches and timeouts are
+        // retried; any other error is fatal. The first failure is expected and
+        // stays silent; each later retry announces itself to the UI.
+        for attempt in 1..=self.retry_times.max(1) {
             // A fresh reporter per attempt: on success `finish()` clears the
             // per-file bar; on error `Drop` also undoes the bytes reported to
             // the global bar, so a retry starts from a clean bar.
@@ -80,44 +78,36 @@ impl SingleDownloader {
                     // undoes this attempt's global progress contribution, so
                     // the retry (or the next source) starts from a clean bar.
                     drop(progress);
-                    match e {
-                        SingleDownloadError::ChecksumMismatch => {
-                            if self.retry_times == times {
-                                return Err(e);
-                            }
 
-                            if times > 1 {
+                    // Retryable errors give up on the last attempt: the guards
+                    // below fall through and the error is returned as-is.
+                    match e {
+                        SingleDownloadError::ChecksumMismatch if attempt < self.retry_times => {
+                            // resuming a checksum-mismatched file is pointless
+                            allow_resume = false;
+                            if attempt > 1 {
                                 let _ = tx.send(Event::ChecksumMismatch {
                                     index: self.download_list_index,
                                     filename: self.entry.filename.to_string(),
-                                    times,
+                                    times: attempt,
                                 });
                             }
-
-                            times += 1;
-                            allow_resume = false;
                         }
-                        SingleDownloadError::DownloadTimeout => {
-                            if self.retry_times == times {
-                                return Err(e);
-                            }
-
-                            if times > 1 {
+                        SingleDownloadError::DownloadTimeout if attempt < self.retry_times => {
+                            if attempt > 1 {
                                 let _ = tx.send(Event::Timeout {
                                     filename: self.entry.filename.to_string(),
-                                    times,
+                                    times: attempt,
                                 });
                             }
-
-                            times += 1;
                         }
-                        e => {
-                            return Err(e);
-                        }
+                        e => return Err(e),
                     }
                 }
             }
         }
+
+        unreachable!()
     }
 
     /// Inner download attempt. The caller owns the [`ProgressReporter`]; on
@@ -209,7 +199,7 @@ impl SingleDownloader {
         if is_symlink {
             tokio::fs::remove_file(file)
                 .await
-                .map_err(|source| SingleDownloadError::Remove { source })?;
+                .map_err(SingleDownloadError::Remove)?;
         }
 
         if !file_exist || is_symlink {
@@ -229,12 +219,11 @@ impl SingleDownloader {
                 .read(true)
                 .open(file)
                 .await
-                .map_err(|source| SingleDownloadError::Open { source })?;
+                .map_err(SingleDownloadError::Open)?;
 
-            let (read, finish) =
-                verify::checksum(progress, &mut f, validator).await;
+            let result = verify::checksum(progress, &mut f, validator).await;
 
-            if finish {
+            if result.matches {
                 trace!("checksum of {} matches, cache hit!", self.entry.filename);
                 return Ok(true);
             }
@@ -243,7 +232,7 @@ impl SingleDownloader {
                 "checksum mismatch, initiating re-download for file {} ...",
                 self.entry.filename
             );
-            state.prev_size = read;
+            state.prev_size = result.bytes;
         }
 
         if self.entry.file_type != CompressType::None {
@@ -263,7 +252,7 @@ impl SingleDownloader {
             .truncate(false)
             .open(file)
             .await
-            .map_err(|source| SingleDownloadError::Create { source })
+            .map_err(SingleDownloadError::Create)
     }
 
     /// Repeatedly fetch the body, resuming from the current offset, until the
@@ -322,7 +311,12 @@ impl SingleDownloader {
             );
 
             if state.downloaded_size == state.prev_size {
-                // this should not happen ...
+                // No bytes arrived in this round; without a known total the
+                // loop can't make progress, so stop instead of spinning.
+                spdlog::warn!(
+                    "download stalled: no bytes received for {}",
+                    self.entry.filename
+                );
                 break 'download;
             }
 
@@ -350,9 +344,7 @@ impl SingleDownloader {
             debug!("checksum mismatch for {}", self.entry.filename);
 
             // truncate file, avoid attempts to reuse it in retries
-            dest.set_len(0)
-                .await
-                .map_err(|source| SingleDownloadError::Write { source })?;
+            dest.set_len(0).await.map_err(SingleDownloadError::Write)?;
 
             return Err(SingleDownloadError::ChecksumMismatch);
         }
@@ -365,9 +357,7 @@ impl SingleDownloader {
         }
 
         // flush
-        dest.shutdown()
-            .await
-            .map_err(|source| SingleDownloadError::Flush { source })?;
+        dest.shutdown().await.map_err(SingleDownloadError::Flush)?;
 
         Ok(())
     }
@@ -402,18 +392,14 @@ impl SingleDownloader {
                     // some servers reply with Bad Request when Range is invalid
                     // so retry once
                     if state.downloaded_size == 0 {
-                        RequestOutcome::Fatal(SingleDownloadError::ReqwestMiddlewareError {
-                            source: e,
-                        })
+                        RequestOutcome::Fatal(SingleDownloadError::ReqwestMiddlewareError(e))
                     } else {
                         debug!("HTTP Bad Request from server, restarting ...");
                         state.restart();
                         RequestOutcome::Restart
                     }
                 }
-                _ => {
-                    RequestOutcome::Fatal(SingleDownloadError::ReqwestMiddlewareError { source: e })
-                }
+                _ => RequestOutcome::Fatal(SingleDownloadError::ReqwestMiddlewareError(e)),
             },
             Err(_) => RequestOutcome::Fatal(SingleDownloadError::SendRequestTimeout),
         }
@@ -480,7 +466,9 @@ impl SingleDownloader {
     }
 
     /// Position the destination file at `downloaded_size` and refresh the
-    /// hasher state, so the incoming body can be appended and verified.
+    /// hasher state, so the incoming body can be appended and verified. The
+    /// already-downloaded bytes are streamed through the hasher in chunks
+    /// rather than loaded into memory all at once.
     async fn prepare_destination(
         &self,
         dest: &mut File,
@@ -495,34 +483,46 @@ impl SingleDownloader {
             );
             dest.seek(SeekFrom::Start(0))
                 .await
-                .map_err(|source| SingleDownloadError::Seek { source })?;
+                .map_err(SingleDownloadError::Seek)?;
 
             if state.downloaded_size == 0 {
                 validator.reset();
             } else {
-                // refresh hasher state
-                let mut dest_buf = Vec::with_capacity(state.downloaded_size.try_into().unwrap());
-                dest.read_to_end(&mut dest_buf)
-                    .await
-                    .map_err(|source| SingleDownloadError::Seek { source })?;
-
+                // Refresh the hasher from the bytes already in the file,
+                // streaming them in chunks so memory use stays bounded even
+                // for large partial downloads.
+                let mut buf = vec![0u8; READ_FILE_BUFSIZE];
+                let mut remaining = state.downloaded_size;
                 validator.reset();
-                validator.update(dest_buf);
+
+                while remaining != 0 {
+                    let size = dest
+                        .read(&mut buf[..])
+                        .await
+                        .map_err(SingleDownloadError::Seek)?;
+                    if size == 0 {
+                        // The file is shorter than expected; the body is
+                        // re-fetched from `downloaded_size` below.
+                        break;
+                    }
+                    validator.update(&buf[..size]);
+                    remaining -= size as u64;
+                }
 
                 dest.seek(SeekFrom::Start(state.downloaded_size))
                     .await
-                    .map_err(|source| SingleDownloadError::Seek { source })?;
+                    .map_err(SingleDownloadError::Seek)?;
             }
         } else {
             dest.seek(SeekFrom::Start(state.downloaded_size))
                 .await
-                .map_err(|source| SingleDownloadError::Seek { source })?;
+                .map_err(SingleDownloadError::Seek)?;
         }
 
         // truncate file
         dest.set_len(state.downloaded_size)
             .await
-            .map_err(|source| SingleDownloadError::Write { source })?;
+            .map_err(SingleDownloadError::Write)?;
 
         Ok(())
     }
@@ -541,32 +541,17 @@ impl SingleDownloader {
     ) -> Result<(), SingleDownloadError> {
         let msg = self.download_message();
 
-        let stream = resp
+        let raw = resp
             .bytes_stream()
             .map_err(io::Error::other)
             .into_async_read();
-        let mut stream = BufReader::new(stream);
-
-        // initialize decompressor
-        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.entry.file_type {
-            CompressType::Xz => &mut XzDecoder::new(&mut stream),
-            CompressType::Gzip => &mut GzipDecoder::new(&mut stream),
-            CompressType::Bz2 => &mut BzDecoder::new(&mut stream),
-            CompressType::Zstd => &mut ZstdDecoder::new(&mut stream),
-            CompressType::Lzma => &mut LzmaDecoder::new(&mut stream),
-            CompressType::Lz4 => &mut Lz4Decoder::new(&mut stream),
-            CompressType::None => &mut stream,
-        };
-
-        let stream_counter = AtomicUsize::new(0);
-        let counted_reader = Counter::new(reader, &stream_counter);
-        let mut reader = counted_reader.compat();
+        let mut reader = decompress_reader(raw, self.entry.file_type).compat();
 
         // copy data
         loop {
             let buf_size = match timeout(self.timeout, reader.read(&mut buf[..])).await {
                 Ok(Ok(size)) => size,
-                Ok(Err(e)) => return Err(SingleDownloadError::Read { source: e }),
+                Ok(Err(e)) => return Err(SingleDownloadError::Read(e)),
                 Err(_) => return Err(SingleDownloadError::DownloadTimeout),
             };
 
@@ -576,12 +561,10 @@ impl SingleDownloader {
 
             dest.write_all(&buf[..buf_size])
                 .await
-                .map_err(|source| SingleDownloadError::Write { source })?;
+                .map_err(SingleDownloadError::Write)?;
             validator.update(&buf[..buf_size]);
 
-            let http_size = stream_counter.swap(0, Ordering::AcqRel);
-            let http_size: u64 = http_size.try_into().unwrap();
-            state.downloaded_size += http_size;
+            state.downloaded_size += buf_size as u64;
             progress.update(&msg, state.downloaded_size, state.total_size);
         }
 
@@ -620,6 +603,7 @@ mod tests {
     };
     use futures::StreamExt as _;
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
 
     fn sha256(data: &[u8]) -> Vec<u8> {
@@ -841,6 +825,42 @@ mod tests {
             tokio::fs::read(out_dir.join("out.bin")).await.unwrap(),
             full
         );
+    }
+
+    #[tokio::test]
+    async fn prepare_destination_refreshes_hasher_from_existing_bytes() {
+        let dir = TempDir::new("prepare-dest");
+        let out = dir.path().join("out");
+        let path = out.join("out.bin");
+        tokio::fs::create_dir_all(&out).await.unwrap();
+        let data = b"resume payload";
+        tokio::fs::write(&path, data).await.unwrap();
+
+        let downloader = test_support::downloader_with(
+            http_entry(dir.path(), "http://example.invalid/x", None),
+            1,
+            Duration::from_secs(5),
+        );
+
+        let expected = Checksum::from_file_sha256(&path).unwrap();
+        let mut validator = expected.get_validator();
+        let mut state = DownloadState::new();
+        state.downloaded_size = data.len() as u64; // resume offset; prev_size stays 0
+
+        let mut f = tokio::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .await
+            .unwrap();
+
+        downloader
+            .prepare_destination(&mut f, &mut validator, &mut state)
+            .await
+            .unwrap();
+
+        // the hasher now reflects the already-present bytes
+        assert!(validator.finish());
     }
 
     #[tokio::test]

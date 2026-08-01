@@ -10,10 +10,8 @@
 //! | `progress` | progress bars + per-attempt download state                   |
 //! | `http`     | HTTP download implementation                                 |
 //! | `local`    | local (`file://`) source implementation                      |
-//! | `counter`  | byte-counting reader for the HTTP body stream                |
 //! | `verify`   | shared checksum helper                                       |
 
-pub(crate) mod counter;
 pub(crate) mod error;
 pub(crate) mod http;
 pub(crate) mod local;
@@ -22,12 +20,16 @@ pub(crate) mod verify;
 
 use std::time::Duration;
 
+use async_compression::futures::bufread::{
+    BzDecoder, GzipDecoder, Lz4Decoder, LzmaDecoder, XzDecoder, ZstdDecoder,
+};
 use bon::bon;
 use flume::Sender;
+use futures::{AsyncRead, io};
 use reqwest_middleware::ClientWithMiddleware;
 use spdlog::trace;
 
-use crate::{DownloadEntry, DownloadSourceType, Event};
+use crate::{CompressType, DownloadEntry, DownloadSourceType, Event};
 
 pub use self::error::{BuilderError, SingleDownloadError};
 
@@ -94,14 +96,14 @@ impl SingleDownloader {
         if let Err(e) = tokio::fs::create_dir_all(&self.entry.dir).await {
             let _ = tx.send(Event::Failed {
                 file_name: self.entry.filename.clone(),
-                error: SingleDownloadError::Create { source: e },
+                error: SingleDownloadError::Create(e),
             });
             return DownloadResult::Failed {
                 file_name: self.entry.filename.to_string(),
             };
         }
 
-        let msg = self.entry.msg.as_deref().unwrap_or(&*self.entry.filename);
+        let msg = self.download_message();
 
         // If the file already exists at its final destination and matches the
         // checksum, there is nothing to download.
@@ -116,10 +118,9 @@ impl SingleDownloader {
                 if let Ok(mut f) = tokio::fs::File::open(&local_file_in_formal).await {
                     let mut progress =
                         ProgressReporter::new(tx, self.download_list_index, self.total);
-                    let (size, finish) =
-                        verify::checksum(&progress, &mut f, &mut validator).await;
+                    let result = verify::checksum(&progress, &mut f, &mut validator).await;
 
-                    if finish {
+                    if result.matches {
                         progress.finish();
                         let _ = tx.send(Event::FileDone { msg: msg.into() });
 
@@ -134,7 +135,7 @@ impl SingleDownloader {
                     // Not a hit: undo the bytes the pre-check added to the
                     // global bar so the real download below starts clean (the
                     // reporter's `Drop` does the undo).
-                    progress.set_position(size);
+                    progress.set_position(result.bytes);
                 }
             }
         }
@@ -163,7 +164,7 @@ impl SingleDownloader {
                         {
                             let _ = tx.send(Event::Failed {
                                 file_name: final_dir.to_string_lossy().to_string(),
-                                error: SingleDownloadError::Create { source: e },
+                                error: SingleDownloadError::Create(e),
                             });
                             return DownloadResult::Failed {
                                 file_name: self.entry.filename.to_string(),
@@ -179,7 +180,7 @@ impl SingleDownloader {
                             if let Err(e) = tokio::fs::rename(&current_path, &target_path).await {
                                 let _ = tx.send(Event::Failed {
                                     file_name: self.entry.filename.clone(),
-                                    error: SingleDownloadError::Write { source: e },
+                                    error: SingleDownloadError::Write(e),
                                 });
                                 return DownloadResult::Failed {
                                     file_name: self.entry.filename.to_string(),
@@ -198,7 +199,9 @@ impl SingleDownloader {
                     });
                 }
                 Err(e) => {
-                    if index == sources.len() - 1 {
+                    // After the last source fails there is nothing left to
+                    // fall back to: report the failure and stop.
+                    if index + 1 == sources.len() {
                         let _ = tx.send(Event::Failed {
                             file_name: self.entry.filename.clone(),
                             error: e,
@@ -215,6 +218,9 @@ impl SingleDownloader {
             }
         }
 
+        // The loop always returns: the last source's failure is handled inside
+        // it, so this is only reachable if `sources` was empty (which the
+        // `assert!` above rules out).
         unreachable!()
     }
 
@@ -225,6 +231,26 @@ impl SingleDownloader {
             .as_deref()
             .unwrap_or(&self.entry.filename)
             .to_string()
+    }
+}
+
+/// Wrap a raw byte source in the decompressor matching `file_type`, returning
+/// an owned reader so callers can `.compat()` it into a tokio reader. Shared
+/// by the HTTP and local download paths.
+fn decompress_reader(
+    raw: impl AsyncRead + Send + Unpin + 'static,
+    file_type: CompressType,
+) -> Box<dyn AsyncRead + Unpin + Send> {
+    let stream = io::BufReader::new(raw);
+
+    match file_type {
+        CompressType::Xz => Box::new(XzDecoder::new(stream)),
+        CompressType::Gzip => Box::new(GzipDecoder::new(stream)),
+        CompressType::Bz2 => Box::new(BzDecoder::new(stream)),
+        CompressType::Zstd => Box::new(ZstdDecoder::new(stream)),
+        CompressType::Lzma => Box::new(LzmaDecoder::new(stream)),
+        CompressType::Lz4 => Box::new(Lz4Decoder::new(stream)),
+        CompressType::None => Box::new(stream),
     }
 }
 

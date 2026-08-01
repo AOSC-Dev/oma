@@ -425,12 +425,12 @@ impl MirrorSource {
 
                 is_release = true;
 
-                resp.map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e })
+                resp.map_err(SingleDownloadError::ReqwestMiddlewareError)
                     .map_err(|e| RefreshError::DownloadFailed(Some(e)))?
             }
             Err(e) => {
                 return Err(RefreshError::DownloadFailed(Some(
-                    SingleDownloadError::ReqwestMiddlewareError { source: e },
+                    SingleDownloadError::ReqwestMiddlewareError(e),
                 )));
             }
         };
@@ -461,7 +461,7 @@ impl MirrorSource {
             let resp = send_request_with_url_and_method(&url, client, Method::GET)
                 .await
                 .and_then(|resp| resp.error_for_status().map_err(|e| e.into()))
-                .map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e })
+                .map_err(SingleDownloadError::ReqwestMiddlewareError)
                 .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
             let file_name = self.get_download_file_name(Some("Release.gpg"), replacer)?;
@@ -507,19 +507,19 @@ impl MirrorSource {
         if !tmp_dir.is_dir() {
             tokio::fs::create_dir_all(tmp_dir)
                 .await
-                .map_err(|e| SingleDownloadError::Create { source: e })?;
+                .map_err(SingleDownloadError::Create)?;
         }
 
         let tmp = tmp_dir.join(file_name);
 
         let mut f = File::create(&tmp)
             .await
-            .map_err(|e| SingleDownloadError::Create { source: e })?;
+            .map_err(SingleDownloadError::Create)?;
 
         while let Some(chunk) = resp
             .chunk()
             .await
-            .map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e.into() })?
+            .map_err(|e| SingleDownloadError::ReqwestMiddlewareError(e.into()))?
         {
             let _ = tx
                 .send_async(Event::DownloadEvent(oma_fetch::Event::Advance {
@@ -530,12 +530,10 @@ impl MirrorSource {
 
             f.write_all(&chunk)
                 .await
-                .map_err(|e| SingleDownloadError::Write { source: e })?;
+                .map_err(SingleDownloadError::Write)?;
         }
 
-        f.shutdown()
-            .await
-            .map_err(|e| SingleDownloadError::Flush { source: e })?;
+        f.shutdown().await.map_err(SingleDownloadError::Flush)?;
 
         debug!(
             "Rename release metadata from {} to {}",
@@ -544,7 +542,7 @@ impl MirrorSource {
         );
         tokio::fs::rename(&tmp, &download_dir.join(file_name))
             .await
-            .map_err(|e| SingleDownloadError::Write { source: e })?;
+            .map_err(SingleDownloadError::Write)?;
 
         let _ = tx
             .send_async(Event::DownloadEvent(oma_fetch::Event::Cleared {

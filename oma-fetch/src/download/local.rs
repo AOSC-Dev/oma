@@ -4,11 +4,7 @@
 
 use std::path::Path;
 
-use async_compression::futures::bufread::{
-    BzDecoder, GzipDecoder, Lz4Decoder, LzmaDecoder, XzDecoder, ZstdDecoder,
-};
 use flume::Sender;
-use futures::{AsyncRead, io::BufReader};
 use spdlog::{debug, trace};
 use tokio::{
     fs::{self, File},
@@ -17,13 +13,13 @@ use tokio::{
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 use crate::{
-    CompressType, DownloadSource, Event,
+    DownloadSource, Event,
     checksum::{Checksum, ChecksumValidator},
 };
 
 use super::{
-    READ_FILE_BUFSIZE, SingleDownloader, error::SingleDownloadError, progress::ProgressReporter,
-    verify,
+    READ_FILE_BUFSIZE, SingleDownloader, decompress_reader, error::SingleDownloadError,
+    progress::ProgressReporter, verify,
 };
 
 impl SingleDownloader {
@@ -42,7 +38,7 @@ impl SingleDownloader {
         // any symlink or copy is attempted.
         let total_size = fs::metadata(url_path)
             .await
-            .map_err(|source| SingleDownloadError::Open { source })?
+            .map_err(SingleDownloadError::Open)?
             .len();
 
         // A stale symlink, or an existing file when linking, must not stay in
@@ -51,7 +47,7 @@ impl SingleDownloader {
         if file.is_symlink() || (as_symlink && file.is_file()) {
             fs::remove_file(&file)
                 .await
-                .map_err(|source| SingleDownloadError::Remove { source })?;
+                .map_err(SingleDownloadError::Remove)?;
         }
 
         if as_symlink {
@@ -77,7 +73,7 @@ impl SingleDownloader {
         let file = self.entry.dir.join(&*self.entry.filename);
         fs::symlink(url_path, file)
             .await
-            .map_err(|source| SingleDownloadError::CreateSymlink { source })?;
+            .map_err(SingleDownloadError::CreateSymlink)?;
 
         Ok(())
     }
@@ -97,26 +93,16 @@ impl SingleDownloader {
 
         let from = File::open(url_path)
             .await
-            .map_err(|source| SingleDownloadError::Open { source })?;
+            .map_err(SingleDownloadError::Open)?;
         let from = tokio::io::BufReader::new(from).compat();
 
         trace!("Successfully opened file: {}", url_path.display());
 
         let mut to = File::create(self.entry.dir.join(&*self.entry.filename))
             .await
-            .map_err(|source| SingleDownloadError::Create { source })?;
+            .map_err(SingleDownloadError::Create)?;
 
-        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.entry.file_type {
-            CompressType::Xz => &mut XzDecoder::new(BufReader::new(from)),
-            CompressType::Gzip => &mut GzipDecoder::new(BufReader::new(from)),
-            CompressType::Bz2 => &mut BzDecoder::new(BufReader::new(from)),
-            CompressType::Zstd => &mut ZstdDecoder::new(BufReader::new(from)),
-            CompressType::Lzma => &mut LzmaDecoder::new(BufReader::new(from)),
-            CompressType::Lz4 => &mut Lz4Decoder::new(BufReader::new(from)),
-            CompressType::None => &mut BufReader::new(from),
-        };
-
-        let mut reader = reader.compat();
+        let mut reader = decompress_reader(from, self.entry.file_type).compat();
 
         trace!(
             "Successfully created file: {}",
@@ -164,7 +150,7 @@ impl SingleDownloader {
         loop {
             let size = match reader.read(&mut buf[..]).await {
                 Ok(size) => size,
-                Err(e) => return Err(SingleDownloadError::Read { source: e }),
+                Err(e) => return Err(SingleDownloadError::Read(e)),
             };
 
             if size == 0 {
@@ -173,7 +159,7 @@ impl SingleDownloader {
 
             to.write_all(&buf[..size])
                 .await
-                .map_err(|source| SingleDownloadError::Write { source })?;
+                .map_err(SingleDownloadError::Write)?;
 
             self_progress += size;
 
@@ -197,16 +183,16 @@ impl SingleDownloader {
     ) -> Result<(), SingleDownloadError> {
         let mut f = fs::File::open(url_path)
             .await
-            .map_err(|source| SingleDownloadError::Open { source })?;
+            .map_err(SingleDownloadError::Open)?;
 
         // The checksum helper advances the global bar while verifying; on
         // failure the reporter's `Drop` undoes those bytes (and clears the
         // per-file bar), on success `finish()` keeps them.
         let mut progress = ProgressReporter::new(tx, self.download_list_index, self.total);
-        let (size, finish) = verify::checksum(&progress, &mut f, &mut hash.get_validator()).await;
+        let result = verify::checksum(&progress, &mut f, &mut hash.get_validator()).await;
 
-        if !finish {
-            progress.set_position(size);
+        if !result.matches {
+            progress.set_position(result.bytes);
             return Err(SingleDownloadError::ChecksumMismatch);
         }
 
@@ -220,7 +206,7 @@ mod tests {
     use super::*;
     use crate::test_support::TempDir;
     use crate::{
-        DownloadEntry, DownloadSourceType,
+        CompressType, DownloadEntry, DownloadSourceType,
         download::{DownloadResult, test_support},
     };
 
@@ -314,5 +300,62 @@ mod tests {
         let final_path = dir.path().join("final/out.bin");
         assert_eq!(tokio::fs::read(&final_path).await.unwrap(), data);
         assert!(!dir.path().join("out/out.bin").exists());
+    }
+
+    #[tokio::test]
+    async fn copies_compressed_local_source() {
+        let dir = TempDir::new("local-gzip");
+        let data: &[u8] = b"compressed local payload";
+
+        // a gzip-compressed version of `data` (fixed bytes so the test needs
+        // no encoder dependency)
+        let compressed: &[u8] = &[
+            31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 75, 206, 207, 45, 40, 74, 45, 46, 78, 77, 81, 200,
+            201, 79, 78, 204, 81, 40, 72, 172, 204, 201, 79, 76, 1, 0, 230, 247, 37, 109, 24, 0, 0,
+            0,
+        ];
+
+        let src = dir.path().join("source.bin.gz");
+        std::fs::write(&src, compressed).unwrap();
+
+        let entry = DownloadEntry {
+            source: vec![DownloadSource {
+                url: format!("file://{}", src.display()),
+                source_type: DownloadSourceType::Local(false),
+            }],
+            filename: "out.bin".to_string(),
+            dir: dir.path().join("out"),
+            file_type: CompressType::Gzip,
+            ..Default::default()
+        };
+
+        let (tx, _rx) = flume::unbounded::<Event>();
+        let result = test_support::downloader(entry).try_download(&tx).await;
+        assert!(matches!(result, DownloadResult::Success(_)));
+        assert_eq!(
+            tokio::fs::read(dir.path().join("out/out.bin"))
+                .await
+                .unwrap(),
+            data
+        );
+    }
+
+    #[tokio::test]
+    async fn fails_symlink_on_checksum_mismatch_and_undoes_global() {
+        let dir = TempDir::new("local-link-mismatch");
+        let data = b"payload";
+        let (mut entry, _src) = local_entry(dir.path(), data, true); // symlink path
+        entry.hash = Some(Checksum::Sha256(vec![0; 32])); // wrong on purpose
+
+        let (tx, rx) = flume::unbounded::<Event>();
+        let result = test_support::downloader(entry).try_download(&tx).await;
+        assert!(matches!(result, DownloadResult::Failed { .. }));
+
+        // the checksummed bytes were undone from the global progress bar
+        let events: Vec<_> = rx.drain().collect();
+        assert!(events.iter().any(|e| matches!(
+            e,
+            Event::Cleared { sub, .. } if *sub == data.len() as u64
+        )));
     }
 }

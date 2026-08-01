@@ -422,7 +422,7 @@ impl OmaRefresh {
             if let Err(e) = result {
                 match e {
                     RefreshError::DownloadFailed(Some(
-                        SingleDownloadError::ReqwestMiddlewareError { source },
+                        SingleDownloadError::ReqwestMiddlewareError(source),
                     )) if source
                         .status()
                         .map(|x| x == StatusCode::NOT_FOUND)

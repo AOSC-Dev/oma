@@ -10,14 +10,23 @@ use crate::checksum::ChecksumValidator;
 
 use super::{READ_FILE_BUFSIZE, progress::ProgressReporter};
 
+/// Outcome of [`checksum`]: how many bytes were read and whether they matched
+/// the expected checksum.
+pub(super) struct ChecksumResult {
+    /// Bytes read while verifying.
+    pub bytes: u64,
+    /// Whether the content matched the expected checksum.
+    pub matches: bool,
+}
+
 /// Stream a whole file through a [`ChecksumValidator`], advancing the
 /// per-file progress bar for each chunk (consumers advance the global bar
-/// from it). Returns `(bytes_read, checksum_matches)`.
+/// from it).
 pub(super) async fn checksum(
     progress: &ProgressReporter,
     f: &mut File,
     v: &mut ChecksumValidator,
-) -> (u64, bool) {
+) -> ChecksumResult {
     let mut reader = BufReader::with_capacity(READ_FILE_BUFSIZE, f);
 
     let mut read = 0;
@@ -41,7 +50,10 @@ pub(super) async fn checksum(
         reader.consume(len);
     }
 
-    (read, v.finish())
+    ChecksumResult {
+        bytes: read,
+        matches: v.finish(),
+    }
 }
 
 #[cfg(test)]
@@ -62,9 +74,9 @@ mod tests {
         let (tx, _rx) = flume::unbounded::<Event>();
         let progress = ProgressReporter::new(&tx, 0, 1);
 
-        let (read, ok) = checksum(&progress, &mut file, &mut validator).await;
-        assert_eq!(read, data.len() as u64);
-        assert!(ok);
+        let result = checksum(&progress, &mut file, &mut validator).await;
+        assert_eq!(result.bytes, data.len() as u64);
+        assert!(result.matches);
     }
 
     #[tokio::test]
@@ -78,7 +90,7 @@ mod tests {
         let (tx, _rx) = flume::unbounded::<Event>();
         let progress = ProgressReporter::new(&tx, 0, 1);
 
-        let (_, ok) = checksum(&progress, &mut file, &mut validator).await;
-        assert!(!ok);
+        let result = checksum(&progress, &mut file, &mut validator).await;
+        assert!(!result.matches);
     }
 }

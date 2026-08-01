@@ -398,4 +398,78 @@ mod tests {
         assert_eq!(sources[0].source_type, local.source_type);
         assert_eq!(sources[1].source_type, http.source_type);
     }
+
+    #[tokio::test]
+    async fn start_download_collects_success_and_failure() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let dir = test_support::TempDir::new("manager");
+        let src_a = dir.path().join("a.bin");
+        let src_b = dir.path().join("b.bin");
+        tokio::fs::write(&src_a, b"alpha").await.unwrap();
+        tokio::fs::write(&src_b, b"beta").await.unwrap();
+
+        let entry = |src: &std::path::Path, out: std::path::PathBuf, name: &str| DownloadEntry {
+            source: vec![DownloadSource {
+                url: format!("file://{}", src.display()),
+                source_type: DownloadSourceType::Local(false),
+            }],
+            filename: name.to_string(),
+            dir: out,
+            final_dir: None,
+            hash: None,
+            allow_resume: true,
+            msg: None,
+            file_type: CompressType::None,
+        };
+
+        let manager = DownloadManager::builder()
+            .client(download::test_support::client())
+            .download_list(
+                vec![
+                    entry(&src_a, dir.path().join("out-a"), "a.bin"),
+                    entry(&src_b, dir.path().join("out-b"), "b.bin"),
+                    // a missing local source must land in `failed`
+                    entry(
+                        &dir.path().join("missing.bin"),
+                        dir.path().join("out-c"),
+                        "c.bin",
+                    ),
+                ]
+                .into_boxed_slice(),
+            )
+            .threads(2)
+            .build();
+
+        let seen_all_done = Arc::new(AtomicBool::new(false));
+        let seen = seen_all_done.clone();
+        let summary = manager
+            .start_download(move |event| {
+                let seen = seen.clone();
+                async move {
+                    if matches!(event, Event::AllDone) {
+                        seen.store(true, Ordering::SeqCst);
+                    }
+                }
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.success.len(), 2);
+        assert_eq!(summary.failed, vec!["c.bin"]);
+        assert!(seen_all_done.load(Ordering::SeqCst));
+        assert_eq!(
+            tokio::fs::read(dir.path().join("out-a/a.bin"))
+                .await
+                .unwrap(),
+            b"alpha"
+        );
+        assert_eq!(
+            tokio::fs::read(dir.path().join("out-b/b.bin"))
+                .await
+                .unwrap(),
+            b"beta"
+        );
+    }
 }
