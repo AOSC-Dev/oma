@@ -3,8 +3,8 @@ use faster_hex::{hex_decode, hex_string};
 use md5::{Digest as _, Md5};
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Sha512};
-use snafu::ResultExt;
 use std::{fmt::Display, fs::File, io, path::Path};
+use thiserror::Error;
 
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum Checksum {
@@ -50,15 +50,15 @@ impl ChecksumValidator {
     }
 }
 
-#[derive(Debug, snafu::Snafu)]
+#[derive(Debug, Error)]
 pub enum ChecksumError {
-    #[snafu(display("Failed to open file"))]
+    #[error("Failed to open file")]
     OpenFile { source: io::Error, path: Box<Path> },
-    #[snafu(display("Failed to checksum file"))]
+    #[error("Failed to checksum file")]
     Copy { source: io::Error },
-    #[snafu(display("Bad Length"))]
+    #[error("Bad Length")]
     BadLength,
-    #[snafu(display("Failed to verify data"))]
+    #[error("Failed to verify data")]
     Decode { source: faster_hex::Error },
 }
 
@@ -66,12 +66,13 @@ pub type Result<T> = std::result::Result<T, ChecksumError>;
 
 impl Checksum {
     pub fn from_file_sha256(path: &Path) -> Result<Self> {
-        let mut file = File::open(path).context(OpenFileSnafu {
+        let mut file = File::open(path).map_err(|source| ChecksumError::OpenFile {
+            source,
             path: Box::from(path),
         })?;
 
         let mut hasher = IoWrapper(Sha256::new());
-        io::copy(&mut file, &mut hasher).context(CopySnafu)?;
+        io::copy(&mut file, &mut hasher).map_err(|source| ChecksumError::Copy { source })?;
         let hash = hasher.0.finalize().to_vec();
 
         Ok(Self::Sha256(hash))
@@ -86,7 +87,7 @@ impl Checksum {
         let from = s.as_bytes();
         // dst 的长度必须是 src 的一半
         let mut dst = vec![0; from.len() / 2];
-        hex_decode(from, &mut dst).context(DecodeSnafu)?;
+        hex_decode(from, &mut dst).map_err(|source| ChecksumError::Decode { source })?;
 
         Ok(Checksum::Sha256(dst))
     }
@@ -100,7 +101,7 @@ impl Checksum {
         let from = s.as_bytes();
         // dst 的长度必须是 src 的一半
         let mut dst = vec![0; from.len() / 2];
-        hex_decode(from, &mut dst).context(DecodeSnafu)?;
+        hex_decode(from, &mut dst).map_err(|source| ChecksumError::Decode { source })?;
 
         Ok(Checksum::Sha512(dst))
     }
@@ -114,7 +115,7 @@ impl Checksum {
         let from = s.as_bytes();
         // dst 的长度必须是 src 的一半
         let mut dst = vec![0; from.len() / 2];
-        hex_decode(from, &mut dst).context(DecodeSnafu)?;
+        hex_decode(from, &mut dst).map_err(|source| ChecksumError::Decode { source })?;
 
         Ok(Checksum::Md5(dst))
     }
@@ -131,19 +132,19 @@ impl Checksum {
         match self {
             Checksum::Sha256(hex) => {
                 let mut hasher = IoWrapper(Sha256::new());
-                io::copy(&mut r, &mut hasher).context(CopySnafu)?;
+                io::copy(&mut r, &mut hasher).map_err(|source| ChecksumError::Copy { source })?;
                 let hash = hasher.0.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Sha512(hex) => {
                 let mut hasher = IoWrapper(Sha512::new());
-                io::copy(&mut r, &mut hasher).context(CopySnafu)?;
+                io::copy(&mut r, &mut hasher).map_err(|source| ChecksumError::Copy { source })?;
                 let hash = hasher.0.finalize().to_vec();
                 Ok(hex == &hash)
             }
             Checksum::Md5(hex) => {
                 let mut hasher = IoWrapper(Md5::new());
-                io::copy(&mut r, &mut hasher).context(CopySnafu)?;
+                io::copy(&mut r, &mut hasher).map_err(|source| ChecksumError::Copy { source })?;
                 let hash = hasher.0.finalize().to_vec();
                 Ok(hex == &hash)
             }
@@ -151,7 +152,8 @@ impl Checksum {
     }
 
     pub fn cmp_file(&self, path: &Path) -> Result<bool> {
-        let file = File::open(path).context(OpenFileSnafu {
+        let file = File::open(path).map_err(|source| ChecksumError::OpenFile {
+            source,
             path: Box::from(path),
         })?;
 

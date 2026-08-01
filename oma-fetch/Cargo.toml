@@ -38,12 +38,13 @@ spdlog-rs = { workspace = true }
 tokio-util = { workspace = true, features = ["compat"] }
 md-5 = { workspace = true }
 bon = { workspace = true }
-snafu = { workspace = true }
+thiserror = { workspace = true }
 headers = { workspace = true }
 digest-io = { workspace = true }
 reqwest-middleware = { workspace = true }
 anyhow = { workspace = true }
 ahash = { workspace = true }
+flume = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = [
@@ -54,7 +55,6 @@ tokio = { workspace = true, features = [
     "fs",
     "time",
 ] }
-flume = { workspace = true }
 
 [features]
 rustls = ["reqwest/rustls-no-provider", "dep:rustls"]

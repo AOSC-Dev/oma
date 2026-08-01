@@ -239,25 +239,34 @@ impl DownloadManager {
             list.push((single, source_sem));
         }
 
+        // Downloaders produce events synchronously onto this channel; a
+        // forwarding task delivers them in order to the async callback. This
+        // lets the internal progress code run without awaiting (and enables
+        // automatic cleanup via `Drop`).
+        let (tx, rx) = flume::unbounded::<Event>();
+        let forwarder = tokio::spawn(async move {
+            while let Ok(event) = rx.recv_async().await {
+                callback(event).await;
+            }
+        });
+
         if self.total_size != 0 {
-            callback(Event::NewGlobalProgressBar(self.total_size)).await;
+            let _ = tx.send(Event::NewGlobalProgressBar(self.total_size));
         }
 
         let mut set = JoinSet::new();
-        let callback_arc = Arc::new(callback);
 
         for (single, source_sem) in list {
-            let cb = callback_arc.clone();
+            let tx = tx.clone();
 
             set.spawn(async move {
                 let _permit = match source_sem.acquire_owned().await {
                     Ok(p) => Some(p),
                     Err(_) => {
-                        cb(Event::Failed {
+                        let _ = tx.send(Event::Failed {
                             file_name: single.entry.filename.to_string(),
                             error: SingleDownloadError::AcquireError,
-                        })
-                        .await;
+                        });
 
                         return download::DownloadResult::Failed {
                             file_name: single.entry.filename,
@@ -265,7 +274,7 @@ impl DownloadManager {
                     }
                 };
 
-                single.try_download(&*cb).await
+                single.try_download(&tx).await
             });
         }
 
@@ -286,7 +295,9 @@ impl DownloadManager {
             }
         }
 
-        callback_arc(Event::AllDone).await;
+        let _ = tx.send(Event::AllDone);
+        drop(tx);
+        let _ = forwarder.await;
 
         Ok(Summary { success, failed })
     }
