@@ -495,7 +495,10 @@ impl OmaRefresh {
             cb(Event::TopicNotInMirror { topic, mirror });
         })?;
 
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
+        callback(Event::DownloadEvent(oma_fetch::Event::Cleared {
+            index: 1,
+            sub: 0,
+        }));
 
         Ok(())
     }

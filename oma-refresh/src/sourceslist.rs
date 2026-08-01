@@ -394,7 +394,7 @@ impl MirrorSource {
         let msg = self.get_human_download_message(None)?;
 
         let _ = tx
-            .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+            .send_async(Event::DownloadEvent(oma_fetch::Event::Indeterminate {
                 index,
                 total,
                 msg,
@@ -406,7 +406,10 @@ impl MirrorSource {
 
         let resp = send_request_with_url_and_method(&url, client, Method::GET).await;
         let _ = tx
-            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+            .send_async(Event::DownloadEvent(oma_fetch::Event::Cleared {
+                index,
+                sub: 0,
+            }))
             .await;
 
         let resp = match resp {
@@ -493,7 +496,7 @@ impl MirrorSource {
         let total_size = content_length(&resp);
 
         let _ = tx
-            .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
+            .send_async(Event::DownloadEvent(oma_fetch::Event::Determinate {
                 index,
                 total,
                 msg: self.get_human_download_message(Some(file_name)).unwrap(),
@@ -519,7 +522,7 @@ impl MirrorSource {
             .map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e.into() })?
         {
             let _ = tx
-                .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressInc {
+                .send_async(Event::DownloadEvent(oma_fetch::Event::Advance {
                     index,
                     size: chunk.len() as u64,
                 }))
@@ -544,7 +547,10 @@ impl MirrorSource {
             .map_err(|e| SingleDownloadError::Write { source: e })?;
 
         let _ = tx
-            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+            .send_async(Event::DownloadEvent(oma_fetch::Event::Cleared {
+                index,
+                sub: 0,
+            }))
             .await;
 
         Ok(())
@@ -569,7 +575,7 @@ impl MirrorSource {
         let msg = self.get_human_download_message(None)?;
 
         let _ = tx
-            .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+            .send_async(Event::DownloadEvent(oma_fetch::Event::Indeterminate {
                 index,
                 total,
                 msg,
@@ -629,7 +635,10 @@ impl MirrorSource {
         }
 
         let _ = tx
-            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+            .send_async(Event::DownloadEvent(oma_fetch::Event::Cleared {
+                index,
+                sub: 0,
+            }))
             .await;
 
         let name = name.ok_or_else(|| RefreshError::NoInReleaseFile(self.url().to_string()))?;

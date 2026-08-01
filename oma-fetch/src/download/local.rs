@@ -90,7 +90,8 @@ impl SingleDownloader {
         total_size: u64,
     ) -> Result<(), SingleDownloadError> {
         let mut progress = ProgressReporter::new(tx, self.download_list_index, self.total);
-        progress.bar(&self.download_message(), total_size);
+        let msg = self.download_message();
+        progress.start_determinate(&msg, total_size);
 
         trace!("Path for file: {}", url_path.display());
 
@@ -122,19 +123,17 @@ impl SingleDownloader {
             self.entry.dir.join(&*self.entry.filename).display()
         );
 
-        // On failure, undo the bytes this copy reported so a fallback starts
-        // from a clean bar; the per-file bar is cleared when `progress` drops.
+        // On success, clear the per-file bar while keeping the global bytes;
+        // on failure, dropping the reporter also undoes the global bytes.
         match self
-            .download_local_copy(&mut to, &mut reader, &mut progress)
+            .download_local_copy(&mut to, &mut reader, &msg, total_size, &mut progress)
             .await
         {
-            Ok(()) => Ok(()),
-            Err(error) => {
-                if progress.reported() != 0 {
-                    progress.sub(progress.reported());
-                }
-                Err(error)
+            Ok(()) => {
+                progress.finish();
+                Ok(())
             }
+            Err(error) => Err(error),
         }
     }
 
@@ -145,6 +144,8 @@ impl SingleDownloader {
         &self,
         to: &mut File,
         reader: &mut R,
+        msg: &str,
+        total_size: u64,
         progress: &mut ProgressReporter,
     ) -> Result<(), SingleDownloadError>
     where
@@ -176,10 +177,8 @@ impl SingleDownloader {
 
             self_progress += size;
 
-            progress.inc(size as u64);
             v.update(&buf[..size]);
-            progress.add(size as u64);
-            progress.set_reported(self_progress as u64);
+            progress.update(msg, self_progress as u64, Some(total_size));
         }
 
         if !v.finish() {
@@ -199,14 +198,19 @@ impl SingleDownloader {
         let mut f = fs::File::open(url_path)
             .await
             .map_err(|source| SingleDownloadError::Open { source })?;
-        let (size, finish) = verify::checksum(tx, &mut f, &mut hash.get_validator()).await;
+
+        // The checksum helper advances the global bar while verifying; on
+        // failure the reporter's `Drop` undoes those bytes (and clears the
+        // per-file bar), on success `finish()` keeps them.
+        let mut progress = ProgressReporter::new(tx, self.download_list_index, self.total);
+        let (size, finish) = verify::checksum(&progress, &mut f, &mut hash.get_validator()).await;
 
         if !finish {
-            let _ = tx.send(Event::GlobalProgressSub(size));
-            let _ = tx.send(Event::ProgressDone(self.download_list_index));
+            progress.set_position(size);
             return Err(SingleDownloadError::ChecksumMismatch);
         }
 
+        progress.finish();
         Ok(())
     }
 }

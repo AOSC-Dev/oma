@@ -218,34 +218,27 @@ impl OmaMultiProgressBar {
             } => {
                 self.error(&fl!("checksum-mismatch-retry", c = filename, retry = times));
             }
-            Event::GlobalProgressAdd(num) => {
-                if let Some(gpb) = self.pb_map.get(&0) {
-                    gpb.inc(num);
-                    let pos = gpb.position();
-                    osc94(is_refresh, download_only, pos, gpb);
-                }
-            }
-            Event::GlobalProgressSub(num) => {
-                if let Some(gpb) = self.pb_map.get(&0) {
-                    gpb.set_position(gpb.position().saturating_sub(num));
-                    osc94(is_refresh, download_only, gpb.position(), gpb);
-                }
-            }
-            Event::ProgressDone(index) => {
+            Event::Cleared { index, sub } => {
                 // Remove the bar from the MultiProgress as well, not just
-                // finish/clear it: a later NewProgressSpinner/NewProgressBar
-                // re-inserts at the same index, and `insert` shifts any
-                // lingering member down, so every retry would otherwise pile
-                // up one more dead bar on screen.
+                // finish/clear it: a later Indeterminate/Determinate re-inserts
+                // at the same index, and `insert` shifts any lingering member
+                // down, so every retry would otherwise pile up one more dead
+                // bar on screen.
                 if let Some(pb) = self.pb_map.remove(&(index + 1)) {
                     pb.finish_and_clear();
                     self.mb.remove(&pb);
                 }
+                if sub != 0
+                    && let Some(gpb) = self.pb_map.get(&0)
+                {
+                    gpb.set_position(gpb.position().saturating_sub(sub));
+                    osc94(is_refresh, download_only, gpb.position(), gpb);
+                }
             }
-            Event::NewProgressSpinner { index, total, msg } => {
+            Event::Indeterminate { index, total, msg } => {
                 // A previous attempt may have left a bar at this slot without
-                // a ProgressDone (e.g. an early request-phase failure): drop
-                // it before inserting so the ordering stays 1:1 with files.
+                // a Cleared (e.g. an early request-phase failure): drop it
+                // before inserting so the ordering stays 1:1 with files.
                 if let Some(old) = self.pb_map.remove(&(index + 1)) {
                     old.finish_and_clear();
                     self.mb.remove(&old);
@@ -259,7 +252,7 @@ impl OmaMultiProgressBar {
                 pb.enable_steady_tick(inv);
                 self.pb_map.insert(index + 1, pb);
             }
-            Event::NewProgressBar {
+            Event::Determinate {
                 index,
                 total,
                 msg,
@@ -279,20 +272,21 @@ impl OmaMultiProgressBar {
                 pb.set_message(format!("({:>total_width$}/{total}) {msg}", index + 1));
                 self.pb_map.insert(index + 1, pb);
             }
-            Event::ProgressInc { index, size } => {
+            Event::Advance { index, size } => {
                 if let Some(pb) = self.pb_map.get(&(index + 1)) {
                     pb.inc(size);
                 }
+                if let Some(gpb) = self.pb_map.get(&0) {
+                    gpb.inc(size);
+                    let pos = gpb.position();
+                    osc94(is_refresh, download_only, pos, gpb);
+                }
             }
-            Event::NextUrl {
-                index: _,
-                file_name,
-                err,
-            } => {
+            Event::NextUrl { file_name, err } => {
                 self.handle_download_err(file_name, is_refresh, err);
                 self.info(&fl!("can-not-get-source-next-url"));
             }
-            Event::DownloadDone { index: _, msg } => {
+            Event::FileDone { msg } => {
                 spdlog::debug!("Downloaded {msg}");
             }
             Event::AllDone => {
@@ -304,7 +298,7 @@ impl OmaMultiProgressBar {
                 }
                 return true;
             }
-            Event::NewGlobalProgressBar(total_size) => {
+            Event::GlobalDeterminate(total_size) => {
                 let sty = global_progress_bar_style(WRITER.get_length());
                 let pb = self
                     .mb
@@ -458,28 +452,24 @@ impl NoProgressBar {
                     fl!("checksum-mismatch-retry", c = filename, retry = times)
                 );
             }
-            Event::GlobalProgressAdd(inc) => {
-                self.progress += inc;
+            Event::Cleared { sub, .. } => {
+                self.progress = self.progress.saturating_sub(sub);
+                self.old_downloaded = self.old_downloaded.saturating_sub(sub);
                 self.print_progress();
             }
-            Event::GlobalProgressSub(num) => {
-                self.progress = self.progress.saturating_sub(num);
-                self.old_downloaded = self.old_downloaded.saturating_sub(num);
+            Event::Advance { size, .. } => {
+                self.progress += size;
                 self.print_progress();
             }
-            Event::NextUrl {
-                index: _,
-                file_name,
-                err,
-            } => {
+            Event::NextUrl { file_name, err } => {
                 handle_no_pb_download_error(file_name, err, is_refresh);
                 info!("{}", fl!("can-not-get-source-next-url"));
             }
-            Event::DownloadDone { index: _, msg } => {
+            Event::FileDone { msg } => {
                 WRITER.writeln("DONE", &msg).ok();
             }
             Event::AllDone => return true,
-            Event::NewGlobalProgressBar(total_size) => {
+            Event::GlobalDeterminate(total_size) => {
                 self.total_size.get_or_init(|| total_size);
             }
             Event::Failed { file_name, error } => {

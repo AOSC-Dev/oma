@@ -31,6 +31,8 @@ use crate::{DownloadEntry, DownloadSourceType, Event};
 
 pub use self::error::{BuilderError, SingleDownloadError};
 
+use self::progress::ProgressReporter;
+
 const READ_FILE_BUFSIZE: usize = 65536;
 const DOWNLOAD_BUFSIZE: usize = 8192;
 
@@ -112,13 +114,14 @@ impl SingleDownloader {
                 let mut validator = hash.get_validator();
 
                 if let Ok(mut f) = tokio::fs::File::open(&local_file_in_formal).await {
-                    let (_, finish) = verify::checksum(tx, &mut f, &mut validator).await;
+                    let mut progress =
+                        ProgressReporter::new(tx, self.download_list_index, self.total);
+                    let (size, finish) =
+                        verify::checksum(&progress, &mut f, &mut validator).await;
 
                     if finish {
-                        let _ = tx.send(Event::DownloadDone {
-                            index: self.download_list_index,
-                            msg: msg.into(),
-                        });
+                        progress.finish();
+                        let _ = tx.send(Event::FileDone { msg: msg.into() });
 
                         return DownloadResult::Success(SuccessSummary {
                             file_name: self.entry.filename.to_string(),
@@ -127,6 +130,11 @@ impl SingleDownloader {
                             wrote: false,
                         });
                     }
+
+                    // Not a hit: undo the bytes the pre-check added to the
+                    // global bar so the real download below starts clean (the
+                    // reporter's `Drop` does the undo).
+                    progress.set_position(size);
                 }
             }
         }
@@ -180,10 +188,7 @@ impl SingleDownloader {
                         }
                     }
 
-                    let _ = tx.send(Event::DownloadDone {
-                        index: self.download_list_index,
-                        msg: msg.into(),
-                    });
+                    let _ = tx.send(Event::FileDone { msg: msg.into() });
 
                     return DownloadResult::Success(SuccessSummary {
                         file_name: self.entry.filename.to_string(),
@@ -203,7 +208,6 @@ impl SingleDownloader {
                         };
                     }
                     let _ = tx.send(Event::NextUrl {
-                        index: self.download_list_index,
                         file_name: self.entry.filename.to_string(),
                         err: e,
                     });

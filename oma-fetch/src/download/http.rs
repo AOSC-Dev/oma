@@ -29,9 +29,28 @@ use super::{
     DOWNLOAD_BUFSIZE, SingleDownloader,
     counter::Counter,
     error::SingleDownloadError,
-    progress::{DownloadState, ProgressReporter, RequestOutcome, ResumeOutcome},
+    progress::{DownloadState, ProgressReporter},
     verify,
 };
+
+/// Outcome of sending one HTTP request.
+pub(crate) enum RequestOutcome {
+    /// Response received, proceed to the next phase.
+    Ready(reqwest::Response),
+    /// The server rejected our range; restart the download loop.
+    Restart,
+    /// Fatal request error.
+    Fatal(SingleDownloadError),
+}
+
+/// Outcome of reconciling a response with our resume offset.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum ResumeOutcome {
+    /// Response accepted, continue to the next phase.
+    Proceed,
+    /// The server didn't honor our range; restart the download loop.
+    Restart,
+}
 
 impl SingleDownloader {
     /// Download file with retry (http)
@@ -43,27 +62,24 @@ impl SingleDownloader {
         let mut times = 1;
         let mut allow_resume = self.entry.allow_resume;
         loop {
-            // A fresh reporter per attempt: its `Drop` clears the per-file bar
-            // (even on error), and `reported()` tells us how many bytes to undo
-            // on the global bar before retrying.
+            // A fresh reporter per attempt: on success `finish()` clears the
+            // per-file bar; on error `Drop` also undoes the bytes reported to
+            // the global bar, so a retry starts from a clean bar.
             let mut progress = ProgressReporter::new(tx, self.download_list_index, self.total);
 
             match self
-                .http_download(allow_resume, source, tx, &mut progress)
+                .http_download(allow_resume, source, &mut progress)
                 .await
             {
                 Ok(s) => {
+                    progress.finish();
                     return Ok(s);
                 }
                 Err(e) => {
-                    // Undo this attempt's global progress contribution before
-                    // retrying or handing the failure up, so the retry (or the
-                    // next source) starts from a clean bar.
-                    let bytes = progress.reported();
+                    // The reporter is dropped: it clears the per-file bar and
+                    // undoes this attempt's global progress contribution, so
+                    // the retry (or the next source) starts from a clean bar.
                     drop(progress);
-                    if bytes != 0 {
-                        let _ = tx.send(Event::GlobalProgressSub(bytes));
-                    }
                     match e {
                         SingleDownloadError::ChecksumMismatch => {
                             if self.retry_times == times {
@@ -104,15 +120,14 @@ impl SingleDownloader {
         }
     }
 
-    /// Inner download attempt. The caller owns the [`ProgressReporter`], so on
-    /// error it can read `reported()` and undo the bytes this attempt already
-    /// added to the global progress bar before retrying / trying the next
-    /// source. The per-file bar is cleared when the reporter drops.
+    /// Inner download attempt. The caller owns the [`ProgressReporter`]; on
+    /// error the reporter's `Drop` clears the per-file bar and undoes the
+    /// bytes this attempt already added to the global progress bar, before
+    /// retrying or trying the next source.
     async fn http_download(
         &self,
         allow_resume: bool,
         source: &DownloadSource,
-        tx: &Sender<Event>,
         progress: &mut ProgressReporter,
     ) -> Result<bool, SingleDownloadError> {
         let file = self.entry.dir.join(&*self.entry.filename);
@@ -134,13 +149,19 @@ impl SingleDownloader {
             // 1. Remove stale symlinks and seed the resume offset from an
             //    existing file; a matching checksum is a cache hit.
             if self
-                .prepare_existing_file(&file, tx, &mut state, &mut validator)
+                .prepare_existing_file(&file, progress, &mut state, &mut validator)
                 .await?
             {
                 return Ok(false);
             }
 
-            progress.spinner(&self.download_message());
+            // Seeding checksummed an existing file, so those bytes are already
+            // on the global bar (added by the checksum helper). Tell the
+            // reporter so failure undo and bar recreation account for them
+            // exactly.
+            progress.set_position(state.prev_size);
+
+            progress.start_indeterminate(&self.download_message());
 
             // 2. Open the destination without truncating, so resuming works.
             let mut dest = self.open_destination(&file).await?;
@@ -174,7 +195,7 @@ impl SingleDownloader {
     async fn prepare_existing_file(
         &self,
         file: &Path,
-        tx: &Sender<Event>,
+        progress: &ProgressReporter,
         state: &mut DownloadState,
         validator: &mut ChecksumValidator,
     ) -> Result<bool, SingleDownloadError> {
@@ -210,7 +231,8 @@ impl SingleDownloader {
                 .await
                 .map_err(|source| SingleDownloadError::Open { source })?;
 
-            let (read, finish) = verify::checksum(tx, &mut f, validator).await;
+            let (read, finish) =
+                verify::checksum(progress, &mut f, validator).await;
 
             if finish {
                 trace!("checksum of {} matches, cache hit!", self.entry.filename);
@@ -221,7 +243,7 @@ impl SingleDownloader {
                 "checksum mismatch, initiating re-download for file {} ...",
                 self.entry.filename
             );
-            state.old_downloaded_size = read;
+            state.prev_size = read;
         }
 
         if self.entry.file_type != CompressType::None {
@@ -284,8 +306,11 @@ impl SingleDownloader {
             self.prepare_destination(dest, validator, state).await?;
 
             // 4. (re)create or advance the progress bar
-            self.sync_progress(progress, state);
-            progress.set_reported(state.downloaded_size);
+            progress.update(
+                &self.download_message(),
+                state.downloaded_size,
+                state.total_size,
+            );
 
             // 5. stream the body into the file (decompressing as needed)
             self.copy_body(resp, dest, validator, &mut buf, state, progress)
@@ -293,10 +318,10 @@ impl SingleDownloader {
 
             debug!(
                 "downloaded {} bytes",
-                state.downloaded_size - state.old_downloaded_size
+                state.downloaded_size - state.prev_size
             );
 
-            if state.downloaded_size == state.old_downloaded_size {
+            if state.downloaded_size == state.prev_size {
                 // this should not happen ...
                 break 'download;
             }
@@ -306,7 +331,7 @@ impl SingleDownloader {
                 break 'download;
             }
 
-            state.old_downloaded_size = state.downloaded_size;
+            state.prev_size = state.downloaded_size;
         }
 
         debug!("download end, {} bytes", state.downloaded_size);
@@ -462,11 +487,11 @@ impl SingleDownloader {
         validator: &mut ChecksumValidator,
         state: &mut DownloadState,
     ) -> Result<(), SingleDownloadError> {
-        if state.downloaded_size != state.old_downloaded_size {
+        if state.downloaded_size != state.prev_size {
             assert!(state.downloaded_size == 0 || self.entry.file_type == CompressType::None);
             debug!(
                 "moving writer from {} to {}",
-                state.old_downloaded_size, state.downloaded_size
+                state.prev_size, state.downloaded_size
             );
             dest.seek(SeekFrom::Start(0))
                 .await
@@ -502,32 +527,6 @@ impl SingleDownloader {
         Ok(())
     }
 
-    /// (Re)create or advance the per-file progress bar to match the current
-    /// download offset, keeping the global bar consistent with it.
-    fn sync_progress(&self, progress: &ProgressReporter, state: &mut DownloadState) {
-        if state.old_total_size != state.total_size
-            || state.old_downloaded_size > state.downloaded_size
-            || state.first_request
-        {
-            // recreate the progress bar if:
-            // 1. total size updated
-            // 2. offset moved backwards
-            // 3. is the first request (the previous bar is a spinner)
-            state.first_request = false;
-            progress.done();
-            progress.bar(&self.download_message(), state.total_size.unwrap_or(0));
-            progress.inc(state.downloaded_size);
-            if state.old_downloaded_size != state.downloaded_size {
-                progress.sub(state.old_downloaded_size);
-                progress.add(state.downloaded_size);
-            }
-        } else if state.old_downloaded_size < state.downloaded_size {
-            let new_offset = state.downloaded_size - state.old_downloaded_size;
-            progress.inc(new_offset);
-            progress.add(new_offset);
-        }
-    }
-
     /// Stream the response body into `dest`, decompressing as needed, and
     /// report per-file + global progress. Updates `downloaded_size` and the
     /// reporter's byte count on each chunk.
@@ -540,6 +539,8 @@ impl SingleDownloader {
         state: &mut DownloadState,
         progress: &mut ProgressReporter,
     ) -> Result<(), SingleDownloadError> {
+        let msg = self.download_message();
+
         let stream = resp
             .bytes_stream()
             .map_err(io::Error::other)
@@ -581,9 +582,7 @@ impl SingleDownloader {
             let http_size = stream_counter.swap(0, Ordering::AcqRel);
             let http_size: u64 = http_size.try_into().unwrap();
             state.downloaded_size += http_size;
-            progress.inc(http_size);
-            progress.add(http_size);
-            progress.set_reported(state.downloaded_size);
+            progress.update(&msg, state.downloaded_size, state.total_size);
         }
 
         Ok(())
@@ -881,7 +880,7 @@ mod tests {
         assert!(
             events
                 .iter()
-                .any(|e| matches!(e, Event::GlobalProgressSub(n) if *n > 0))
+                .any(|e| matches!(e, Event::Cleared { sub, .. } if *sub > 0))
         );
         // the second mismatch is reported to the UI as a retry notice
         assert!(
@@ -941,7 +940,7 @@ mod tests {
         assert!(
             events
                 .iter()
-                .any(|e| matches!(e, Event::GlobalProgressSub(n) if *n > 0))
+                .any(|e| matches!(e, Event::Cleared { sub, .. } if *sub > 0))
         );
         // the second timeout is reported to the UI as a retry notice
         assert!(

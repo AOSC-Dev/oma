@@ -112,31 +112,31 @@ pub enum Event {
         filename: String,
         times: usize,
     },
-    GlobalProgressAdd(u64),
-    GlobalProgressSub(u64),
-    ProgressDone(usize),
-    NewProgressSpinner {
+    Cleared {
+        index: usize,
+        /// Bytes to remove from the global progress bar (0 on success).
+        sub: u64,
+    },
+    Indeterminate {
         index: usize,
         total: usize,
         msg: String,
     },
-    NewProgressBar {
+    Determinate {
         index: usize,
         total: usize,
         msg: String,
         size: u64,
     },
-    ProgressInc {
+    Advance {
         index: usize,
         size: u64,
     },
     NextUrl {
-        index: usize,
         file_name: String,
         err: SingleDownloadError,
     },
-    DownloadDone {
-        index: usize,
+    FileDone {
         msg: Box<str>,
     },
     Failed {
@@ -144,7 +144,7 @@ pub enum Event {
         error: SingleDownloadError,
     },
     AllDone,
-    NewGlobalProgressBar(u64),
+    GlobalDeterminate(u64),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -249,7 +249,7 @@ impl DownloadManager {
         });
 
         if self.total_size != 0 {
-            let _ = tx.send(Event::NewGlobalProgressBar(self.total_size));
+            let _ = tx.send(Event::GlobalDeterminate(self.total_size));
         }
 
         let mut set = JoinSet::new();

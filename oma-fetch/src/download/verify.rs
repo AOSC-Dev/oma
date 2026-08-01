@@ -1,20 +1,20 @@
 //! Checksum verification helper shared by the HTTP and local download paths.
 
-use flume::Sender;
 use spdlog::debug;
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt as _, BufReader},
 };
 
-use crate::{Event, checksum::ChecksumValidator};
+use crate::checksum::ChecksumValidator;
 
-use super::READ_FILE_BUFSIZE;
+use super::{READ_FILE_BUFSIZE, progress::ProgressReporter};
 
-/// Stream a whole file through a [`ChecksumValidator`], reporting each chunk
-/// to the global progress bar. Returns `(bytes_read, checksum_matches)`.
+/// Stream a whole file through a [`ChecksumValidator`], advancing the
+/// per-file progress bar for each chunk (consumers advance the global bar
+/// from it). Returns `(bytes_read, checksum_matches)`.
 pub(super) async fn checksum(
-    tx: &Sender<Event>,
+    progress: &ProgressReporter,
     f: &mut File,
     v: &mut ChecksumValidator,
 ) -> (u64, bool) {
@@ -34,7 +34,7 @@ pub(super) async fn checksum(
 
         v.update(buffer);
 
-        let _ = tx.send(Event::GlobalProgressAdd(buffer.len() as u64));
+        progress.advance(buffer.len() as u64);
         read += buffer.len() as u64;
         let len = buffer.len();
 
@@ -47,7 +47,7 @@ pub(super) async fn checksum(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{checksum::Checksum, test_support::TempDir};
+    use crate::{Event, checksum::Checksum, test_support::TempDir};
 
     #[tokio::test]
     async fn verifies_matching_checksum() {
@@ -60,8 +60,9 @@ mod tests {
         let mut validator = expected.get_validator();
         let mut file = File::open(&path).await.unwrap();
         let (tx, _rx) = flume::unbounded::<Event>();
+        let progress = ProgressReporter::new(&tx, 0, 1);
 
-        let (read, ok) = checksum(&tx, &mut file, &mut validator).await;
+        let (read, ok) = checksum(&progress, &mut file, &mut validator).await;
         assert_eq!(read, data.len() as u64);
         assert!(ok);
     }
@@ -75,8 +76,9 @@ mod tests {
         let mut validator = Checksum::Sha256(vec![0; 32]).get_validator();
         let mut file = File::open(&path).await.unwrap();
         let (tx, _rx) = flume::unbounded::<Event>();
+        let progress = ProgressReporter::new(&tx, 0, 1);
 
-        let (_, ok) = checksum(&tx, &mut file, &mut validator).await;
+        let (_, ok) = checksum(&progress, &mut file, &mut validator).await;
         assert!(!ok);
     }
 }
