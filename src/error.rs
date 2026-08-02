@@ -62,16 +62,35 @@ impl Error for OutputError {
     }
 }
 
+/// Marker error for [`OutputError::already_reported`]: the full details were
+/// already printed (e.g. dependency issues that logged each message
+/// individually), so nothing more should be displayed.
+#[derive(Debug)]
+struct AlreadyReported;
+
+impl Display for AlreadyReported {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
+impl Error for AlreadyReported {}
+
 impl OutputError {
     /// Wrap a localized message with no underlying cause.
     pub fn msg(message: impl Into<Cow<'static, str>>) -> Self {
         OutputError(anyhow::Error::msg(message.into()))
     }
 
-    /// An empty error, used when the full details were already printed
-    /// (e.g. dependency issues that logged each message individually).
-    pub fn empty() -> Self {
-        OutputError(anyhow::Error::msg(""))
+    /// An error whose details were already printed (e.g. dependency issues
+    /// that logged each message individually); the display logic skips it.
+    pub fn already_reported() -> Self {
+        OutputError(anyhow::Error::new(AlreadyReported))
+    }
+
+    /// Whether the full details of this error were already printed elsewhere.
+    pub fn is_already_reported(&self) -> bool {
+        self.0.is::<AlreadyReported>()
     }
 
     /// Wrap a localized message over an underlying cause.
@@ -431,7 +450,7 @@ impl From<OmaContentsError> for OutputError {
             OmaContentsError::LzzzErr(e) => {
                 Self::with_source(fl!("failed-to-decompress-contents"), e)
             }
-            OmaContentsError::NoResult => OutputError::empty(),
+            OmaContentsError::NoResult => OutputError::already_reported(),
             OmaContentsError::IllegalFile(path) => format!("Illegal file: {path}").into(),
             OmaContentsError::InvalidContents(_) => value.to_string().into(),
             OmaContentsError::InvalidContentsWithLine(_, _) => unreachable!(),
@@ -535,7 +554,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 }
             }
 
-            OutputError::empty()
+            OutputError::already_reported()
         }
         OmaAptError::PkgIsEssential(pkg) => fl!("pkg-is-essential", name = pkg).into(),
         OmaAptError::PkgNoCandidate(s) => fl!("no-candidate-ver", pkg = s).into(),
@@ -589,7 +608,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             #[cfg(feature = "aosc")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
-            OutputError::empty()
+            OutputError::already_reported()
         }
         OmaAptError::SetUpgradeMode(apt_errors) => {
             error!("{}", fl!("failed-set-upgrade-mode"));
@@ -601,7 +620,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             #[cfg(feature = "aosc")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
-            OutputError::empty()
+            OutputError::already_reported()
         }
         OmaAptError::LockApt(apt_errors) => {
             error!("{}", fl!("failed-lock-apt"));
@@ -613,7 +632,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             #[cfg(feature = "aosc")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
-            OutputError::empty()
+            OutputError::already_reported()
         }
         OmaAptError::InstallPackages(apt_errors) => {
             error!("{}", fl!("failed-install-pkgs"));
@@ -625,7 +644,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             #[cfg(feature = "aosc")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
-            OutputError::empty()
+            OutputError::already_reported()
         }
         OmaAptError::PathNotExist(path) => fl!("path-not-exist", path = path).into(),
         OmaAptError::DpkgStatusGetPkg(_) => anyhow::anyhow!("{err}").into(),

@@ -391,43 +391,45 @@ fn color_formatter() -> &'static OmaColorFormat {
 }
 
 fn display_error(e: OutputError) -> io::Result<()> {
+    if e.is_already_reported() {
+        return Ok(());
+    }
+
     let message = e.to_string();
-    if !message.is_empty() {
-        log_error!("{message}");
+    log_error!("{message}");
 
-        let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
-        let last_cause = cause.last();
+    let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
+    let last_cause = cause.last();
 
-        if let Some(ref last) = last_cause {
-            due_to!("{last}");
-            let cause_writer = Writer::new(3);
-            if cause.len() > 1 {
-                for (i, c) in cause.iter().enumerate() {
-                    if i == 0 {
-                        WRITER.write_prefix(&console::style("TRACE").magenta().to_string())?;
+    if let Some(ref last) = last_cause {
+        due_to!("{last}");
+        let cause_writer = Writer::new(3);
+        if cause.len() > 1 {
+            for (i, c) in cause.iter().enumerate() {
+                if i == 0 {
+                    WRITER.write_prefix(&console::style("TRACE").magenta().to_string())?;
+                } else {
+                    WRITER.write_prefix("")?;
+                }
+
+                let res = wrap_content(
+                    "",
+                    &c.to_string(),
+                    cause_writer.get_max_len(),
+                    cause_writer.get_prefix_len() + WRITER.get_prefix_len(),
+                )
+                .into_iter()
+                .map(|(_, s)| s)
+                .collect::<Vec<_>>();
+
+                for (k, j) in res.iter().enumerate() {
+                    if k == 0 {
+                        cause_writer.write_prefix(&format!("{i}."))?;
                     } else {
                         WRITER.write_prefix("")?;
+                        cause_writer.write_prefix("")?;
                     }
-
-                    let res = wrap_content(
-                        "",
-                        &c.to_string(),
-                        cause_writer.get_max_len(),
-                        cause_writer.get_prefix_len() + WRITER.get_prefix_len(),
-                    )
-                    .into_iter()
-                    .map(|(_, s)| s)
-                    .collect::<Vec<_>>();
-
-                    for (k, j) in res.iter().enumerate() {
-                        if k == 0 {
-                            cause_writer.write_prefix(&format!("{i}."))?;
-                        } else {
-                            WRITER.write_prefix("")?;
-                            cause_writer.write_prefix("")?;
-                        }
-                        print!("{j}");
-                    }
+                    print!("{j}");
                 }
             }
         }
