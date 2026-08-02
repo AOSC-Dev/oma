@@ -195,10 +195,9 @@ impl CliExecuter for Tree {
         let res = res.lines().collect::<Vec<_>>();
 
         let mut pager = oma_display_with_normal_output(false, res.len())?;
-        let mut w = pager.get_writer().map_err(|e| OutputError {
-            description: "Failed to get writer".to_string(),
-            source: Some(Box::new(e)),
-        })?;
+        let mut w = pager
+            .get_writer()
+            .map_err(|e| OutputError::with_source("Failed to get writer", e))?;
 
         writeln!(w, "{}", res.join("\n")).ok();
         drop(w);

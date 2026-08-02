@@ -46,10 +46,7 @@ pub fn root() -> Result<()> {
         other_permission_tools_run_oma("doas")?;
     }
 
-    Err(OutputError {
-        description: fl!("please-run-me-as-root"),
-        source: None,
-    })
+    Err(OutputError::msg(fl!("please-run-me-as-root")))
 }
 
 #[inline]

@@ -35,9 +35,11 @@ impl CliExecuter for Download {
     fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let Download { packages, path } = self;
 
-        let path = path.canonicalize().map_err(|e| OutputError {
-            description: format!("Failed to canonicalize path: {}", path.display()),
-            source: Some(Box::new(e)),
+        let path = path.canonicalize().map_err(|e| {
+            OutputError::with_source(
+                format!("Failed to canonicalize path: {}", path.display()),
+                e,
+            )
         })?;
         let path: Arc<Path> = Arc::from(path.as_ref());
 
@@ -98,10 +100,7 @@ impl CliExecuter for Download {
         if !summary.is_download_success() {
             let len = summary.failed.len();
 
-            return Err(OutputError {
-                description: fl!("download-failed-with-len", len = len),
-                source: None,
-            });
+            return Err(OutputError::msg(fl!("download-failed-with-len", len = len)));
         }
 
         Ok(ExitHandle::default().ring(true))

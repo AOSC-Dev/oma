@@ -52,12 +52,12 @@ use oma_console::console;
 
 use crate::config::OmaConfig;
 use crate::config_file::ConfigFile;
-use crate::error::Chain;
 use crate::exit_handle::ExitHandle;
 #[cfg(not(feature = "tokio-console"))]
 use crate::logger::init_logger;
 use crate::logger::remove_old_log_file_impl;
 use crate::subcommand::*;
+use anyhow::Chain;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static NOT_ALLOW_CTRLC: AtomicBool = AtomicBool::new(false);
@@ -391,8 +391,9 @@ fn color_formatter() -> &'static OmaColorFormat {
 }
 
 fn display_error(e: OutputError) -> io::Result<()> {
-    if !e.description.is_empty() {
-        log_error!("{e}");
+    let message = e.to_string();
+    if !message.is_empty() {
+        log_error!("{message}");
 
         let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
         let last_cause = cause.last();

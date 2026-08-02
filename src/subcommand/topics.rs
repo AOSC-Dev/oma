@@ -272,13 +272,10 @@ impl CliExecuter for Topics {
 
                     // 如果现在删除的版本是正在使用的内核版本，将拒绝操作
                     if is_current_kernel {
-                        return Err(OutputError {
-                            description: fl!(
-                                "not-allow-delete-using-kernel",
-                                ver = current_kernel_ver
-                            ),
-                            source: None,
-                        });
+                        return Err(OutputError::msg(fl!(
+                            "not-allow-delete-using-kernel",
+                            ver = current_kernel_ver
+                        )));
                     }
 
                     remove_pkgs.push(OmaPackageWithoutVersion {

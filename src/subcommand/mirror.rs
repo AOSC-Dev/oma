@@ -693,10 +693,9 @@ fn speedtest(
         )
         .ok();
 
-    let (name, _) = score.first().ok_or_else(|| OutputError {
-        description: fl!("all-speedtest-failed"),
-        source: None,
-    })?;
+    let (name, _) = score
+        .first()
+        .ok_or_else(|| OutputError::msg(fl!("all-speedtest-failed")))?;
 
     if !set_fastest {
         eprintln!();

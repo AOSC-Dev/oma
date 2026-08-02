@@ -160,32 +160,22 @@ impl CliExecuter for Search {
             Pager::plain()
         };
 
-        let mut writer = pager.get_writer().map_err(|e| OutputError {
-            description: "Failed to get writer".to_string(),
-            source: Some(Box::new(e)),
-        })?;
+        let mut writer = pager
+            .get_writer()
+            .map_err(|e| OutputError::with_source("Failed to get writer", e))?;
 
         if !json {
             for i in res {
                 write!(writer, "{}", SearchResultDisplay(&i)).ok();
             }
         } else {
-            writeln!(
-                writer,
-                "{}",
-                serde_json::to_string(&res).map_err(|e| OutputError {
-                    description: e.to_string(),
-                    source: None,
-                })?
-            )
-            .ok();
+            writeln!(writer, "{}", serde_json::to_string(&res)?).ok();
         }
 
         drop(writer);
-        let exit = pager.wait_for_exit().map_err(|e| OutputError {
-            description: "Failed to wait exit".to_string(),
-            source: Some(Box::new(e)),
-        })?;
+        let exit = pager
+            .wait_for_exit()
+            .map_err(|e| OutputError::with_source("Failed to wait exit", e))?;
 
         Ok(ExitHandle::default().status(exit.into()))
     }
@@ -212,28 +202,19 @@ pub fn search(
         SearchEngine::Strsim => {
             let (apt_db, dpkg) = load_apt_db_and_dpkg()?;
             let searcher = StrSimSearch::new(&apt_db, &dpkg);
-            Ok(searcher
-                .search(&keywords.join(" "))
-                .map_err(to_output_err)?)
+            Ok(searcher.search(&keywords.join(" "))?)
         }
         SearchEngine::Text => {
             let (apt_db, dpkg) = load_apt_db_and_dpkg()?;
             let searcher = TextSearch::new(&apt_db, &dpkg);
             let mut result = vec![];
             for keyword in keywords {
-                let res = searcher.search(keyword).map_err(to_output_err)?;
+                let res = searcher.search(keyword)?;
                 result.extend(res);
             }
 
             Ok(result)
         }
-    }
-}
-
-fn to_output_err(e: impl std::fmt::Display) -> OutputError {
-    OutputError {
-        description: e.to_string(),
-        source: None,
     }
 }
 
@@ -248,15 +229,9 @@ fn load_apt_db_and_dpkg() -> Result<(AptDb, DpkgState), OutputError> {
     );
     let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
 
-    let apt_db = AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?;
+    let apt_db = AptDb::load_or_build(&apt_cache, &lists_dir)?;
 
-    let dpkg = DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?;
+    let dpkg = DpkgState::from_file(&dpkg_path)?;
 
     Ok((apt_db, dpkg))
 }
@@ -282,13 +257,9 @@ fn local_indicium_search(
         &search_cache,
         SearchType::Live,
         f,
-    )
-    .map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?;
+    )?;
 
-    searcher.search(&query).map_err(to_output_err)
+    Ok(searcher.search(&query)?)
 }
 
 async fn amo_search(query: &str) -> anyhow::Result<Vec<SearchResult>> {
