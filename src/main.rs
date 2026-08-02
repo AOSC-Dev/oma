@@ -419,10 +419,9 @@ fn display_error(e: OutputError) -> io::Result<()> {
                     cause_writer.get_prefix_len() + WRITER.get_prefix_len(),
                 )
                 .into_iter()
-                .map(|(_, s)| s)
-                .collect::<Vec<_>>();
+                .map(|(_, s)| s);
 
-                for (k, j) in res.iter().enumerate() {
+                for (k, j) in res.enumerate() {
                     if k == 0 {
                         cause_writer.write_prefix(&format!("{i}."))?;
                     } else {
