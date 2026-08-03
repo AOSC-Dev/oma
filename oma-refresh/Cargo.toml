@@ -19,7 +19,7 @@ tokio = { workspace = true, default-features = false, features = [
     "rt-multi-thread",
 ] }
 oma-apt-sources-lists = { workspace = true }
-chrono = { workspace = true, features = ["unstable-locales"] }
+jiff = { workspace = true }
 oma-topics = { workspace = true, optional = true, default-features = false }
 spdlog-rs = { workspace = true }
 oma-repo-verify = { workspace = true, default-features = false }

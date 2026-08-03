@@ -28,7 +28,7 @@ pub fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
             .expect("Failed to get state dir")
             .join("oma")
     })
-    .join(format!("oma.log.{}", chrono::Local::now().timestamp()));
+    .join(format!("oma.log.{}", jiff::Timestamp::now().as_second()));
 
     init_log_crate_proxy().unwrap();
 

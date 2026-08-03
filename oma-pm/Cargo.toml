@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later"
 [dependencies]
 oma-apt = { workspace = true }
 thiserror = { workspace = true }
-chrono = { workspace = true, features = ["unstable-locales"] }
+jiff = { workspace = true, features = ["tz-system", "tzdb-zoneinfo"] }
 glob-match = { workspace = true }
 oma-utils = { workspace = true, features = [
     "dpkg",

@@ -2,9 +2,9 @@ use std::{fs, path::Path, sync::atomic::Ordering, thread};
 
 use ahash::{HashMap, HashSet};
 use bon::Builder;
-use chrono::Local;
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use flume::unbounded;
+use jiff::Timestamp;
 use oma_console::{indicatif::HumanBytes, pager::PagerExit, print::Action};
 use oma_history::{DATABASE_PATH, HistoryInfo};
 use oma_pm::{
@@ -184,7 +184,7 @@ impl CommitChanges<'_> {
 
         let id = history.write(HistoryInfo {
             summary: &op,
-            start_time: Local::now().timestamp(),
+            start_time: Timestamp::now().as_second(),
             success: false,
             is_fix_broken: is_fixbroken,
             is_undo,

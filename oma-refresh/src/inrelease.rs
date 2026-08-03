@@ -1,5 +1,5 @@
-use chrono::{DateTime, FixedOffset, ParseError, Utc};
 use deb822_fast::{FromDeb822, FromDeb822Paragraph, Paragraph};
+use jiff::Timestamp;
 use oma_apt_sources_lists::Signature;
 use oma_repo_verify::verify_release_by_sysroot;
 use once_cell::sync::OnceCell;
@@ -129,7 +129,7 @@ impl Release {
         })
     }
 
-    pub fn check_date(&self, now: &DateTime<Utc>) -> Result<(), InReleaseError> {
+    pub fn check_date(&self, now: &Timestamp) -> Result<(), InReleaseError> {
         let date = self
             .source
             .date
@@ -148,7 +148,7 @@ impl Release {
         Ok(())
     }
 
-    pub fn check_valid_until(&self, now: &DateTime<Utc>) -> Result<(), InReleaseError> {
+    pub fn check_valid_until(&self, now: &Timestamp) -> Result<(), InReleaseError> {
         // Check if the `Valid-Until` field is valid only when it is defined.
         if let Some(valid_until_date) = &self.source.valid_until {
             let valid_until = parse_date(valid_until_date).map_err(|e| {
@@ -278,18 +278,18 @@ pub(crate) fn file_is_compress(name: &str) -> bool {
 #[derive(Debug, Error)]
 enum ParseDateError {
     #[error(transparent)]
-    ParseError(#[from] ParseError),
+    ParseError(#[from] jiff::Error),
     #[error("Could not parse date: {0}")]
     BadDate(ParseIntError),
 }
 
-fn parse_date(date: &str) -> Result<DateTime<FixedOffset>, ParseDateError> {
-    match DateTime::parse_from_rfc2822(date) {
-        Ok(res) => Ok(res),
+fn parse_date(date: &str) -> Result<Timestamp, ParseDateError> {
+    match jiff::fmt::rfc2822::parse(date) {
+        Ok(res) => Ok(res.timestamp()),
         Err(e) => {
             debug!("Failed to parse {}: {e}, trying to use date hack ...", date);
             let hack_date = date_hack(date).map_err(ParseDateError::BadDate)?;
-            Ok(DateTime::parse_from_rfc2822(&hack_date)?)
+            Ok(jiff::fmt::rfc2822::parse(&hack_date)?.timestamp())
         }
     }
 }
@@ -301,12 +301,12 @@ fn parse_date(date: &str) -> Result<DateTime<FixedOffset>, ParseDateError> {
 ///   Time, which is not allowed in RFC 1123 or 822/2822 (all calls for "GMT" or "UT", 822 allows "Z", and 2822 allows
 ///   "+0000").
 /// - This is used by many commercial software vendors, such as Google, Microsoft, and Spotify.
-/// - This is allowed in APT's RFC 1123 parser. However, as chrono requires full compliance with the
+/// - This is allowed in APT's RFC 1123 parser. However, as jiff requires full compliance with the
 ///   aforementioned RFC documents, "UTC" is considered illegal.
 ///
-/// Replace the "UTC" marker at the end of date strings to make it palatable to chronos.
+/// Replace the "UTC" marker at the end of date strings to make it palatable to jiff.
 ///
-/// and for non-standard X:YY:ZZ conversion to XX:YY:ZZ to make it palatable to chronos.
+/// and for non-standard X:YY:ZZ conversion to XX:YY:ZZ to make it palatable to jiff.
 fn date_hack(date: &str) -> Result<String, ParseIntError> {
     let mut split_time = date
         .split_ascii_whitespace()
@@ -320,7 +320,7 @@ fn date_hack(date: &str) -> Result<String, ParseIntError> {
 
         let mut time_split = c.split(':').map(|x| x.to_string()).collect::<Vec<_>>();
 
-        // X:YY:ZZ conversion to XX:YY:ZZ to make it palatable to chronos
+        // X:YY:ZZ conversion to XX:YY:ZZ to make it palatable to jiff
         for k in time_split.iter_mut() {
             match k.parse::<u64>()? {
                 0..=9 if k.len() == 1 => {
@@ -343,19 +343,19 @@ fn test_date_hack() {
     let a = "Thu, 02 May 2024  9:58:03 UTC";
     let hack = date_hack(&a).unwrap();
     assert_eq!(hack, "Thu, 02 May 2024 09:58:03 +0000");
-    let b = DateTime::parse_from_rfc2822(&hack);
+    let b = jiff::fmt::rfc2822::parse(&hack);
     assert!(b.is_ok());
 
     let a = "Thu, 02 May 2024 09:58:03 +0000";
     let hack = date_hack(&a).unwrap();
     assert_eq!(hack, "Thu, 02 May 2024 09:58:03 +0000");
-    let b = DateTime::parse_from_rfc2822(&hack);
+    let b = jiff::fmt::rfc2822::parse(&hack);
     assert!(b.is_ok());
 
     let a = "Thu, 02 May 2024  0:58:03 +0000";
     let hack = date_hack(&a).unwrap();
     assert_eq!(hack, "Thu, 02 May 2024 00:58:03 +0000");
-    let b = DateTime::parse_from_rfc2822(&hack);
+    let b = jiff::fmt::rfc2822::parse(&hack);
     assert!(b.is_ok());
 }
 

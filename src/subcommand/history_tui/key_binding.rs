@@ -3,7 +3,7 @@ use std::{
     ops::ControlFlow,
 };
 
-use chrono::{Local, TimeZone, offset::LocalResult};
+use jiff::Timestamp;
 use ratatui::{
     backend::Backend,
     crossterm::{
@@ -109,12 +109,11 @@ impl<'a> HistorySelectTui<'a> {
                     .all_entries
                     .iter()
                     .filter(|entry| {
-                        let dt = match Local.timestamp_opt(entry.time, 0) {
-                            LocalResult::None => Local.timestamp_opt(0, 0).unwrap(),
-                            x => x.unwrap(),
-                        }
-                        .format("%H:%M:%S on %Y-%m-%d")
-                        .to_string();
+                        let dt = Timestamp::from_second(entry.time)
+                            .unwrap_or_default()
+                            .to_zoned(jiff::tz::TimeZone::system())
+                            .strftime("%H:%M:%S on %Y-%m-%d")
+                            .to_string();
 
                         entry.command.to_lowercase().contains(query)
                             || contains_query_pkg.contains(&entry.id)

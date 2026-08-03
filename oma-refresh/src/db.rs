@@ -8,7 +8,7 @@ use std::{
 use ahash::{AHashMap, HashSet, HashSetExt};
 use aho_corasick::BuildError;
 use bon::Builder;
-use chrono::Utc;
+use jiff::Timestamp;
 
 use flume::Sender;
 #[cfg(feature = "apt")]
@@ -566,7 +566,7 @@ impl OmaRefresh {
                 .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.clone(), e))?;
 
             if !m.is_flat() {
-                let now = Utc::now();
+                let now = Timestamp::now();
                 release
                     .check_date(&now)
                     .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.clone(), e))?;

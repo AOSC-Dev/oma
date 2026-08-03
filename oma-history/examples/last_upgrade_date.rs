@@ -6,6 +6,6 @@ fn main() {
 
     println!(
         "Last upgrade system date: {}",
-        chrono::DateTime::from_timestamp(n, 0).unwrap()
+        jiff::Timestamp::from_second(n).unwrap()
     );
 }

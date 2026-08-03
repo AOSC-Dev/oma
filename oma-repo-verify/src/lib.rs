@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::bail;
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::civil::date;
 use oma_apt_sources_lists::Signature;
 use sequoia_openpgp::{
     Cert, KeyHandle,
@@ -200,29 +200,33 @@ fn policy() -> StandardPolicy<'static> {
 fn default_policy() -> StandardPolicy<'static> {
     let mut policy = StandardPolicy::new();
 
-    let expire_20240201: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(
-        NaiveDate::from_ymd_opt(2024, 2, 1).unwrap().into(),
-        Utc,
-    )
-    .into();
+    let expire_20240201: SystemTime = date(2024, 2, 1)
+        .at(0, 0, 0, 0)
+        .to_zoned(jiff::tz::TimeZone::UTC)
+        .unwrap()
+        .timestamp()
+        .into();
 
-    let expire_20280201: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(
-        NaiveDate::from_ymd_opt(2028, 2, 1).unwrap().into(),
-        Utc,
-    )
-    .into();
+    let expire_20280201: SystemTime = date(2028, 2, 1)
+        .at(0, 0, 0, 0)
+        .to_zoned(jiff::tz::TimeZone::UTC)
+        .unwrap()
+        .timestamp()
+        .into();
 
-    let expire_20300201: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(
-        NaiveDate::from_ymd_opt(2030, 2, 1).unwrap().into(),
-        Utc,
-    )
-    .into();
+    let expire_20300201: SystemTime = date(2030, 2, 1)
+        .at(0, 0, 0, 0)
+        .to_zoned(jiff::tz::TimeZone::UTC)
+        .unwrap()
+        .timestamp()
+        .into();
 
-    let expire_20260201: SystemTime = DateTime::<Utc>::from_naive_utc_and_offset(
-        NaiveDate::from_ymd_opt(2026, 2, 1).unwrap().into(),
-        Utc,
-    )
-    .into();
+    let expire_20260201: SystemTime = date(2026, 2, 1)
+        .at(0, 0, 0, 0)
+        .to_zoned(jiff::tz::TimeZone::UTC)
+        .unwrap()
+        .timestamp()
+        .into();
 
     policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::DSA2048, Some(expire_20240201));
     policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::DSA3072, Some(expire_20240201));
