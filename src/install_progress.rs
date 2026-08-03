@@ -112,7 +112,7 @@ impl InstallProgressManager for OmaInstallProgressManager {
     }
 }
 
-/// Terminal taskbar progress via OSC 94, shared by the download renderer
+/// Terminal percentage progress via OSC 94, shared by the download renderer
 /// thread, the dpkg progress manager and the exit handler. The only shared
 /// state is the last reported integer percent, so a plain atomic is enough:
 /// updates are lock-free and redundant writes are throttled away.
@@ -125,8 +125,8 @@ pub struct Osc94 {
 }
 
 impl Osc94 {
-    /// Report `percent` (0-100) to the taskbar. The write is skipped when the
-    /// rounded value equals the last one reported.
+    /// Report `percent` (0-100) as terminal progress. The write is skipped when
+    /// the rounded value equals the last one reported.
     pub fn set(&self, percent: f32) {
         let percent = percent.round() as u32;
         if self.last.swap(percent, Ordering::Relaxed) != percent {
@@ -134,14 +134,14 @@ impl Osc94 {
         }
     }
 
-    /// Remove the taskbar progress. Always writes, regardless of throttling,
+    /// Clear the terminal progress. Always writes, regardless of throttling,
     /// so a later [`Self::set`] with a different value reports again.
     pub fn finish(&self) {
         self.last.store(100, Ordering::Relaxed);
         Self::write_remove();
     }
 
-    /// Write the OSC 94 escape sequence that sets the taskbar progress.
+    /// Write the OSC 94 escape sequence that reports percentage progress.
     ///
     /// From https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC
     /// `ESC ] 9 ; 4 ; st ; pr ST`:

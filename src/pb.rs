@@ -415,7 +415,7 @@ impl ProgressRenderer {
 }
 
 impl ProgressRenderer {
-    /// Report the download phase through the terminal's taskbar (OSC 94).
+    /// Report the download phase as terminal percentage progress (OSC 94).
     fn update_osc94(&self, is_refresh: bool, download_only: bool) {
         if let Some((pos, len)) = self.sink.position_len() {
             osc94(is_refresh, download_only, pos, len);
@@ -472,8 +472,8 @@ impl ProgressRenderer {
                 if download_only {
                     OSC94.finish();
                 } else if !is_refresh {
-                    // Hand the taskbar over to the dpkg phase: the download
-                    // phase occupies 0-50%, the dpkg phase 50-100%.
+                    // Hand the progress reporting over to the dpkg phase: the
+                    // download phase occupies 0-50%, the dpkg phase 50-100%.
                     OSC94.set(50.0);
                 }
                 return true;
@@ -496,9 +496,9 @@ fn total_width(total: usize) -> usize {
     total.to_string().len()
 }
 
-/// Report download progress through the terminal's taskbar (OSC 94), used by
+/// Report download progress as terminal percentage progress (OSC 94), used by
 /// `oma install` and `oma download`. The download phase occupies 0-50% of the
-/// taskbar for installs (the dpkg phase fills the remaining 50-100% via
+/// progress for installs (the dpkg phase fills the remaining 50-100% via
 /// `OmaInstallProgressManager`) and 0-100% for `oma download`. Refresh never
 /// reports anything.
 fn osc94(is_refresh: bool, download_only: bool, pos: u64, len: u64) {
