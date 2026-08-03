@@ -516,6 +516,7 @@ impl SingleDownloader {
                         // some servers reply with Bad Request when Range is invalid
                         // so retry once
                         if downloaded_size == 0 {
+                            callback(Event::ProgressDone(self.download_list_index)).await;
                             return Err(ProgressedError::new(
                                 SingleDownloadError::ReqwestMiddlewareError { source: e },
                                 reported,
@@ -527,6 +528,7 @@ impl SingleDownloader {
                         }
                     }
                     _ => {
+                        callback(Event::ProgressDone(self.download_list_index)).await;
                         return Err(ProgressedError::new(
                             SingleDownloadError::ReqwestMiddlewareError { source: e },
                             reported,
@@ -534,6 +536,7 @@ impl SingleDownloader {
                     }
                 },
                 Err(_) => {
+                    callback(Event::ProgressDone(self.download_list_index)).await;
                     return Err(ProgressedError::new(
                         SingleDownloadError::SendRequestTimeout,
                         reported,
@@ -895,6 +898,10 @@ impl SingleDownloader {
                 if bytes != 0 {
                     callback(Event::GlobalProgressSub(bytes)).await;
                 }
+                // Undo this source's bar: the copy loop cannot report a
+                // `ProgressDone` itself (it never mounted a bar), so do it
+                // here before handing the error up.
+                callback(Event::ProgressDone(self.download_list_index)).await;
                 Err(error)
             }
         }
