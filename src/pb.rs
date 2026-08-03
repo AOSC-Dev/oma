@@ -232,11 +232,24 @@ impl OmaMultiProgressBar {
                 }
             }
             Event::ProgressDone(index) => {
-                if let Some(pb) = self.pb_map.get(&(index + 1)) {
+                // Remove the bar from the MultiProgress as well, not just
+                // finish/clear it: a later NewProgressSpinner/NewProgressBar
+                // re-inserts at the same index, and `insert` shifts any
+                // lingering member down, so every retry would otherwise pile
+                // up one more dead bar on screen.
+                if let Some(pb) = self.pb_map.remove(&(index + 1)) {
                     pb.finish_and_clear();
+                    self.mb.remove(&pb);
                 }
             }
             Event::NewProgressSpinner { index, total, msg } => {
+                // A previous attempt may have left a bar at this slot without
+                // a ProgressDone (e.g. an early request-phase failure): drop
+                // it before inserting so the ordering stays 1:1 with files.
+                if let Some(old) = self.pb_map.remove(&(index + 1)) {
+                    old.finish_and_clear();
+                    self.mb.remove(&old);
+                }
                 let (sty, inv) = spinner_style();
                 let pb = self
                     .mb
@@ -252,6 +265,12 @@ impl OmaMultiProgressBar {
                 msg,
                 size,
             } => {
+                // See NewProgressSpinner: clear any leftover bar at this slot
+                // before inserting so retries do not accumulate dead bars.
+                if let Some(old) = self.pb_map.remove(&(index + 1)) {
+                    old.finish_and_clear();
+                    self.mb.remove(&old);
+                }
                 let sty = progress_bar_style(WRITER.get_length());
                 let pb = self
                     .mb

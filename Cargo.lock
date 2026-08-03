@@ -3432,7 +3432,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.38.2"
+version = "0.38.3"
 dependencies = [
  "ahash",
  "anyhow",
