@@ -1091,6 +1091,53 @@ mod tests {
         assert_eq!(accepted.load(Ordering::SeqCst), 1);
     }
 
+    /// Every bar that is opened (`Indeterminate` / `Determinate`) must be
+    /// closed (`Cleared` / `FileDone`) once the download finishes, no matter
+    /// which error path was taken. A leaked bar is exactly what makes the
+    /// terminal show more progress entries than there are worker threads.
+    #[tokio::test]
+    async fn every_bar_is_closed_on_request_timeout() {
+        let dir = TempDir::new("http-bar-lifecycle");
+
+        // A server that accepts connections but never writes a response, so
+        // the client's request send times out (`SendRequestTimeout`).
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/pkg", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            loop {
+                let Ok(sock) = listener.accept().await else {
+                    break;
+                };
+                tokio::spawn(async move {
+                    // hold the connection open without responding, so the
+                    // client's send hangs until its timeout fires
+                    let _socket = sock;
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                });
+            }
+        });
+
+        let entry = http_entry(dir.path(), &url, None);
+        let downloader = test_support::downloader_with(entry, 3, Duration::from_millis(300));
+
+        let (result, events) = run_downloader(downloader).await;
+        assert!(matches!(result, DownloadResult::Failed { .. }));
+
+        let opened = events
+            .iter()
+            .filter(|e| matches!(e, Event::Indeterminate { .. } | Event::Determinate { .. }))
+            .count();
+        let closed = events
+            .iter()
+            .filter(|e| matches!(e, Event::Cleared { .. } | Event::FileDone { .. }))
+            .count();
+        assert_eq!(
+            opened, closed,
+            "bar lifecycle is unbalanced: {opened} opened but only {closed} closed \
+             (a leaked spinner/bar would pile up on screen)"
+        );
+    }
+
     #[test]
     fn negotiate_resume_accepts_matching_partial() {
         let mut state = DownloadState::new();
