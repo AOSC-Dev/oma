@@ -8,6 +8,9 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[dev-dependencies]
+indicatif = { workspace = true, features = ["in_memory"] }
+
 [dependencies]
 # Cli
 clap = { workspace = true }

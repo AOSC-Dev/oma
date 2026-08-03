@@ -219,14 +219,13 @@ impl OmaMultiProgressBar {
                 self.error(&fl!("checksum-mismatch-retry", c = filename, retry = times));
             }
             Event::Cleared { index, sub } => {
-                // Remove the bar from the MultiProgress as well, not just
-                // finish/clear it: a later Indeterminate/Determinate re-inserts
-                // at the same index, and `insert` shifts any lingering member
-                // down, so every retry would otherwise pile up one more dead
-                // bar on screen.
-                if let Some(pb) = self.pb_map.remove(&(index + 1)) {
+                // Keep the bar mounted so a retry can reset/reuse it in the
+                // Indeterminate/Determinate arms below: finish_and_clear only
+                // hides the line, it does not remove the member from the
+                // MultiProgress ordering. Reusing instead of re-inserting is
+                // what keeps the ordering 1:1 with active files.
+                if let Some(pb) = self.pb_map.get(&(index + 1)) {
                     pb.finish_and_clear();
-                    self.mb.remove(&pb);
                 }
                 if sub != 0
                     && let Some(gpb) = self.pb_map.get(&0)
@@ -236,21 +235,25 @@ impl OmaMultiProgressBar {
                 }
             }
             Event::Indeterminate { index, total, msg } => {
-                // A previous attempt may have left a bar at this slot without
-                // a Cleared (e.g. an early request-phase failure): drop it
-                // before inserting so the ordering stays 1:1 with files.
-                if let Some(old) = self.pb_map.remove(&(index + 1)) {
-                    old.finish_and_clear();
-                    self.mb.remove(&old);
-                }
                 let (sty, inv) = spinner_style();
-                let pb = self
-                    .mb
-                    .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
                 let total_width = total_width(total);
-                pb.set_message(format!("({:>total_width$}/{total}) {msg}", index + 1));
-                pb.enable_steady_tick(inv);
-                self.pb_map.insert(index + 1, pb);
+                let msg = format!("({:>total_width$}/{total}) {msg}", index + 1);
+                if let Some(pb) = self.pb_map.get(&(index + 1)) {
+                    // Reuse the bar from a previous attempt: reset it back to
+                    // a spinner instead of inserting a new member, so retries
+                    // never pile up bars in the MultiProgress ordering.
+                    pb.reset();
+                    pb.set_style(sty);
+                    pb.set_message(msg);
+                    pb.enable_steady_tick(inv);
+                } else {
+                    let pb = self
+                        .mb
+                        .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
+                    pb.set_message(msg);
+                    pb.enable_steady_tick(inv);
+                    self.pb_map.insert(index + 1, pb);
+                }
             }
             Event::Determinate {
                 index,
@@ -258,19 +261,23 @@ impl OmaMultiProgressBar {
                 msg,
                 size,
             } => {
-                // See NewProgressSpinner: clear any leftover bar at this slot
-                // before inserting so retries do not accumulate dead bars.
-                if let Some(old) = self.pb_map.remove(&(index + 1)) {
-                    old.finish_and_clear();
-                    self.mb.remove(&old);
-                }
                 let sty = progress_bar_style(WRITER.get_length());
-                let pb = self
-                    .mb
-                    .insert(index + 1, ProgressBar::new(size).with_style(sty));
                 let total_width = total_width(total);
-                pb.set_message(format!("({:>total_width$}/{total}) {msg}", index + 1));
-                self.pb_map.insert(index + 1, pb);
+                let msg = format!("({:>total_width$}/{total}) {msg}", index + 1);
+                if let Some(pb) = self.pb_map.get(&(index + 1)) {
+                    // Morph the existing bar (spinner -> determinate) in place
+                    // rather than inserting a fresh member.
+                    pb.disable_steady_tick();
+                    pb.set_style(sty);
+                    pb.set_length(size);
+                    pb.set_message(msg);
+                } else {
+                    let pb = self
+                        .mb
+                        .insert(index + 1, ProgressBar::new(size).with_style(sty));
+                    pb.set_message(msg);
+                    self.pb_map.insert(index + 1, pb);
+                }
             }
             Event::Advance { index, size } => {
                 if let Some(pb) = self.pb_map.get(&(index + 1)) {
@@ -290,8 +297,12 @@ impl OmaMultiProgressBar {
                 spdlog::debug!("Downloaded {msg}");
             }
             Event::AllDone => {
-                if let Some(gpb) = &self.pb_map.get(&0) {
-                    gpb.finish_and_clear();
+                // Every bar is done: unhide and remove them all. Per-file bars
+                // are kept mounted by Cleared for slot reuse, so clean them up
+                // here alongside the global bar.
+                for (_, pb) in std::mem::take(&mut self.pb_map) {
+                    pb.finish_and_clear();
+                    self.mb.remove(&pb);
                 }
                 if download_only {
                     osc94_progress(100.0, true);
@@ -558,6 +569,135 @@ fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError, is
                 filename = file_name,
                 reason = first_cause
             )
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use oma_console::indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget};
+
+    fn renderer() -> (OmaMultiProgressBar, InMemoryTerm) {
+        let term = InMemoryTerm::new(40, 120);
+        let mb =
+            MultiProgress::with_draw_target(ProgressDrawTarget::term_like(Box::new(term.clone())));
+        (
+            OmaMultiProgressBar {
+                mb,
+                pb_map: HashMap::with_hasher(RandomState::new()),
+            },
+            term,
+        )
+    }
+
+    fn visible_lines(term: &InMemoryTerm) -> usize {
+        term.contents()
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .count()
+    }
+
+    /// One download attempt for `file`: spinner -> determinate -> cleared.
+    fn attempt(r: &mut OmaMultiProgressBar, file: usize, total: usize) {
+        r.download_event(
+            Event::Indeterminate {
+                index: file,
+                total,
+                msg: format!("pkg{file}"),
+            },
+            false,
+            true,
+        );
+        r.download_event(
+            Event::Cleared {
+                index: file,
+                sub: 0,
+            },
+            false,
+            true,
+        );
+        r.download_event(
+            Event::Determinate {
+                index: file,
+                total,
+                msg: format!("pkg{file}"),
+                size: 1024,
+            },
+            false,
+            true,
+        );
+        r.download_event(
+            Event::Cleared {
+                index: file,
+                sub: 0,
+            },
+            false,
+            true,
+        );
+    }
+
+    /// Retrying must not leave ghost bars on screen: the renderer reuses the
+    /// bar mounted for a slot (reset/morph in place) instead of inserting a
+    /// new member, and `Cleared` only hides the line. After a burst of
+    /// retries everything is cleared, so the screen must be back to empty.
+    #[test]
+    fn retries_do_not_leak_bars_on_screen() {
+        let (mut r, term) = renderer();
+
+        for _ in 0..5 {
+            attempt(&mut r, 0, 2);
+            attempt(&mut r, 1, 2);
+        }
+
+        // Give any asynchronous draw a moment to settle before asserting.
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let lines = visible_lines(&term);
+        assert_eq!(
+            lines,
+            0,
+            "ghost bars leaked onto the screen: {:?}",
+            term.contents()
+        );
+    }
+
+    /// While files are actively downloading, at most one bar per file slot is
+    /// visible, no matter how many times they retried before.
+    #[test]
+    fn active_bars_stay_bounded_by_slots() {
+        let (mut r, term) = renderer();
+
+        // two files retried three times each, then left active
+        for _ in 0..3 {
+            attempt(&mut r, 0, 2);
+            attempt(&mut r, 1, 2);
+        }
+        r.download_event(
+            Event::Indeterminate {
+                index: 0,
+                total: 2,
+                msg: "pkg0".to_string(),
+            },
+            false,
+            true,
+        );
+        r.download_event(
+            Event::Indeterminate {
+                index: 1,
+                total: 2,
+                msg: "pkg1".to_string(),
+            },
+            false,
+            true,
+        );
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let lines = visible_lines(&term);
+        assert_eq!(
+            lines,
+            2,
+            "expected exactly 2 active bars, got {lines}: {:?}",
+            term.contents()
         );
     }
 }
