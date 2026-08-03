@@ -1,8 +1,6 @@
 use std::{path::PathBuf, time::Duration};
 
-use oma_fetch::{
-    DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event,
-};
+use oma_fetch::{DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event};
 use reqwest::ClientBuilder;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
