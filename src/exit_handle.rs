@@ -7,7 +7,7 @@ use std::{
 use oma_console::pager::PagerExit;
 use spdlog::info;
 
-use crate::{NOT_ALLOW_CTRLC, NOT_DISPLAY_ABORT, WRITER, fl, install_progress::osc94_progress};
+use crate::{NOT_ALLOW_CTRLC, NOT_DISPLAY_ABORT, WRITER, fl, install_progress::OSC94};
 
 pub struct ExitHandle {
     ring: bool,
@@ -82,7 +82,7 @@ pub fn signal_handler() {
     }
 
     // Force drop osc94 progress
-    osc94_progress(0.0, true);
+    OSC94.finish();
 
     let not_display_abort = NOT_DISPLAY_ABORT.load(Ordering::Relaxed);
 
