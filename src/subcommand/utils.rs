@@ -11,14 +11,12 @@ use crate::error::OutputError;
 use crate::fl;
 use crate::get_lock;
 use crate::msg;
-use crate::pb::OmaProgressBar;
+use crate::pb::ProgressBar;
 use crate::utils::get_lists_dir;
 use anyhow::Context;
 use dialoguer::console;
-use dialoguer::console::style;
 use indexmap::IndexSet;
 use oma_console::print::Action;
-use oma_console::writer::Writeln;
 use oma_contents::searcher::Mode;
 use oma_contents::searcher::search;
 use oma_pm::CustomDownloadMessage;
@@ -33,29 +31,13 @@ pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Resul
 
     let mut bin = IndexSet::with_hasher(ahash::RandomState::new());
 
-    let pb = create_progress_spinner(no_progress, fl!("searching"));
+    let pb = ProgressBar::new_spinner(fl!("searching"), !no_progress);
 
     for word in no_result {
         if word == "266" {
-            if let Some(ref pb) = pb {
-                pb.writeln(
-                    &style("ERROR").red().bold().to_string(),
-                    "无法找到匹配关键字为艾露露的软件包",
-                )
-                .ok();
-            } else {
-                error!("无法找到匹配关键字为艾露露的软件包");
-            }
+            error!("无法找到匹配关键字为艾露露的软件包");
         } else {
-            if let Some(ref pb) = pb {
-                pb.writeln(
-                    &style("ERROR").red().bold().to_string(),
-                    &fl!("could-not-find-pkg-from-keyword", c = word),
-                )
-                .ok();
-            } else {
-                error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
-            }
+            error!("{}", fl!("could-not-find-pkg-from-keyword", c = word));
 
             search(get_lists_dir(), Mode::BinProvides, word, |(pkg, file)| {
                 if file == format!("/usr/bin/{word}") {
@@ -66,9 +48,7 @@ pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Resul
         }
     }
 
-    if let Some(ref pb) = pb {
-        pb.inner.finish_and_clear();
-    }
+    pb.finish_and_clear();
 
     if !bin.is_empty() {
         info!("{}", fl!("no-result-bincontents-tips"));
@@ -129,14 +109,6 @@ pub fn download_message() -> Option<CustomDownloadMessage> {
 
         format!("{} ({})", name_and_version, entry.arch()).into()
     }))
-}
-
-pub fn create_progress_spinner(no_progress: bool, msg: String) -> Option<OmaProgressBar> {
-    if !no_progress {
-        OmaProgressBar::new_spinner(Some(msg)).into()
-    } else {
-        None
-    }
 }
 
 pub fn is_terminal() -> bool {

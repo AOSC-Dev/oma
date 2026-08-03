@@ -13,9 +13,10 @@ use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
+use crate::pb::ProgressBar;
 use crate::{dbus::dbus_check, error::OutputError, root::root};
 
-use super::utils::{create_progress_spinner, handle_no_result, lock_oma};
+use super::utils::{handle_no_result, lock_oma};
 use crate::args::CliExecuter;
 
 #[derive(Debug, Args)]
@@ -183,16 +184,14 @@ impl CliExecuter for Remove {
             }
         }
 
-        let pb = create_progress_spinner(config.no_progress(), fl!("resolving-dependencies"));
+        let pb = ProgressBar::new_spinner(fl!("resolving-dependencies"), !config.no_progress());
 
         #[cfg(feature = "aosc")]
         check_is_current_kernel_deleting(&config, &pkgs, &pb)?;
 
         let context = apt.remove(pkgs, remove_config, no_autoremove)?;
 
-        if let Some(pb) = pb {
-            pb.inner.finish_and_clear()
-        }
+        pb.finish_and_clear();
 
         if !context.is_empty() {
             for c in context {
@@ -220,14 +219,12 @@ impl CliExecuter for Remove {
 fn check_is_current_kernel_deleting(
     config: &OmaConfig,
     pkgs: &[oma_pm::pkginfo::OmaPackageWithoutVersion],
-    pb: &Option<crate::pb::OmaProgressBar>,
+    pb: &crate::pb::ProgressBar,
 ) -> Result<(), OutputError> {
     use anyhow::Context;
     use once_cell::sync::OnceCell;
 
-    if let Some(pb) = pb {
-        pb.inner.finish_and_clear();
-    }
+    pb.finish_and_clear();
 
     let image_name = OnceCell::new();
     let current_kernel_ver = OnceCell::new();

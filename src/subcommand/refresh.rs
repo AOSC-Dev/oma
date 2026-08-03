@@ -2,15 +2,14 @@ use clap::Args;
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 use spdlog::info;
 
+use crate::args::CliExecuter;
 use crate::config::OmaConfig;
+use crate::core::refresh::Refresh as RefreshInner;
 use crate::core::space_tips;
 use crate::exit_handle::ExitHandle;
+use crate::pb::ProgressBar;
 use crate::{error::OutputError, root::root};
 use crate::{fl, success};
-
-use super::utils::create_progress_spinner;
-use crate::args::CliExecuter;
-use crate::core::refresh::Refresh as RefreshInner;
 
 #[derive(Debug, Args)]
 pub struct Refresh;
@@ -32,14 +31,12 @@ impl CliExecuter for Refresh {
 
         let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-        let pb = create_progress_spinner(config.no_progress(), fl!("reading-database"));
+        let pb = ProgressBar::new_spinner(fl!("reading-database"), !config.no_progress());
 
         let (upgradable, upgradable_but_held) = apt.count_pending_upgradable_pkgs();
         let autoremovable = apt.count_pending_autoremovable_pkgs();
 
-        if let Some(pb) = pb {
-            pb.inner.finish_and_clear();
-        }
+        pb.finish_and_clear();
 
         let mut s = vec![];
 

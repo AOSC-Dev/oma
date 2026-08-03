@@ -24,14 +24,12 @@ use crate::{
     error::OutputError,
     exit_handle::{ExitHandle, ExitStatus},
     fl,
-    install_progress::{NoInstallProgressManager, OmaInstallProgressManager, osc94_progress},
+    install_progress::{NoInstallProgressManager, OSC94, OmaInstallProgressManager},
     lang::{DEFAULT_LANGUAGE, SYSTEM_LANG},
     msg,
-    pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress},
+    pb::{ProgressBar, ProgressRenderer},
     subcommand::{
-        clean::clean_download_packages_cache,
-        remove::ask_user_do_as_i_say,
-        utils::{create_progress_spinner, download_message},
+        clean::clean_download_packages_cache, remove::ask_user_do_as_i_say, utils::download_message,
     },
     success,
     table::table_for_install_pending,
@@ -196,12 +194,8 @@ impl CommitChanges<'_> {
 
         let no_progress = config.no_progress();
 
-        thread::spawn(move || {
-            let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
-                Box::new(NoProgressBar::default())
-            } else {
-                Box::new(OmaMultiProgressBar::default())
-            };
+        let handle = thread::spawn(move || {
+            let mut pb = ProgressRenderer::new(no_progress);
             pb.render_progress(&rx, false);
         });
 
@@ -225,7 +219,11 @@ impl CommitChanges<'_> {
             },
         );
 
-        osc94_progress(100.0, true);
+        // Wait for the renderer thread to process the remaining events so no
+        // progress bar is left on screen when we continue.
+        handle.join().ok();
+
+        OSC94.finish();
 
         match res {
             Ok(_) => {
@@ -310,7 +308,7 @@ fn fix_broken(
     autoremove: bool,
     is_upgrade: bool,
 ) -> Result<(), OutputError> {
-    let pb = create_progress_spinner(no_progress, fl!("resolving-dependencies"));
+    let pb = ProgressBar::new_spinner(fl!("resolving-dependencies"), !no_progress);
 
     let res = Ok(()).and_then(|_| -> Result<(), OmaAptError> {
         let solver = oma_apt::raw::config::find("APT::Solver".to_string(), "internal".to_string());
@@ -326,9 +324,7 @@ fn fix_broken(
         if fix_dpkg_status {
             let (needs_reconfigure, needs_retrigger) = apt.is_needs_fix_dpkg_status()?;
             if needs_retrigger || needs_reconfigure {
-                if let Some(ref pb) = pb {
-                    pb.inner.finish_and_clear()
-                }
+                pb.finish_and_clear();
                 info!("{}", fl!("fixing-status"));
                 apt.fix_dpkg_status(needs_reconfigure, needs_retrigger)?;
             }
@@ -343,9 +339,7 @@ fn fix_broken(
         Ok(())
     });
 
-    if let Some(pb) = pb {
-        pb.inner.finish_and_clear();
-    }
+    pb.finish_and_clear();
 
     res?;
 

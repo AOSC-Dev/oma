@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use crate::args::CliExecuter;
 
-use super::utils::create_progress_spinner;
+use crate::pb::ProgressBar;
 
 enum CliMode {
     Provides,
@@ -133,7 +133,7 @@ fn execute(
         _ => {}
     }
 
-    let pb = create_progress_spinner(no_progress || no_pager, fl!("searching"));
+    let pb = ProgressBar::new_spinner(fl!("searching"), !(no_progress || no_pager));
 
     let mut res = IndexSet::with_hasher(ahash::RandomState::new());
     let mut count = 0;
@@ -144,10 +144,7 @@ fn execute(
         } else if !res.contains(&line) {
             res.insert(line);
             count += 1;
-            if let Some(pb) = &pb {
-                pb.inner
-                    .set_message(fl!("search-with-result-count", count = count));
-            }
+            pb.set_message(fl!("search-with-result-count", count = count));
         }
     };
 
@@ -158,9 +155,7 @@ fn execute(
         cb,
     )?;
 
-    if let Some(pb) = &pb {
-        pb.inner.finish_and_clear();
-    }
+    pb.finish_and_clear();
 
     if no_pager {
         return Ok(ExitHandle::default());
