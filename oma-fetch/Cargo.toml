@@ -46,7 +46,14 @@ anyhow = { workspace = true }
 ahash = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = [
+    "macros",
+    "rt-multi-thread",
+    "net",
+    "io-util",
+    "fs",
+    "time",
+] }
 flume = { workspace = true }
 
 [features]
