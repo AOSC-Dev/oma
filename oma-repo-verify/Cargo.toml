@@ -12,7 +12,7 @@ sequoia-openpgp = { workspace = true }
 spdlog-rs = { workspace = true }
 oma-apt-sources-lists = { workspace = true }
 sequoia-policy-config = { workspace = true }
-chrono = { workspace = true }
+jiff = { workspace = true }
 
 [features]
 sequoia-openssl-backend = ["sequoia-openpgp/crypto-openssl"]

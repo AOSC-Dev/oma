@@ -16,4 +16,4 @@ spdlog-rs = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-chrono = { workspace = true }
+jiff = { workspace = true }

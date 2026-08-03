@@ -2,8 +2,8 @@ use std::fmt::{self, Write};
 use std::sync::LazyLock;
 use std::time::Duration;
 
-use chrono::{DateTime, SecondsFormat, Utc};
 use console::{Color, StyledObject, style};
+use jiff::Timestamp;
 use spdlog::{Level, debug, formatter::Formatter};
 use termbg::Theme;
 
@@ -288,8 +288,10 @@ impl OmaFormatter {
 
         if self.with_time {
             let time = {
-                let time = DateTime::<Utc>::from(record.time())
-                    .to_rfc3339_opts(SecondsFormat::Millis, true);
+                let time = format!(
+                    "{:.3}",
+                    Timestamp::try_from(record.time()).unwrap_or_default()
+                );
 
                 if self.with_ansi {
                     console::style(time).dim().to_string()

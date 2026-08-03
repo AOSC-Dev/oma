@@ -12,8 +12,6 @@ use ahash::HashMap;
 use anyhow::Context;
 use anyhow::anyhow;
 use anyhow::bail;
-use chrono::DateTime;
-use chrono::TimeDelta;
 use clap::Args;
 use clap::Subcommand;
 use dialoguer::Sort;
@@ -402,8 +400,9 @@ fn get_latency(
         timeout,
     )?;
 
-    let origin_date =
-        DateTime::parse_from_rfc2822(&origin_date).context("Failed parse origin date")?;
+    let origin_date = jiff::fmt::rfc2822::parse(&origin_date)
+        .context("Failed parse origin date")?
+        .timestamp();
 
     let result = Mutex::new(vec![]);
 
@@ -429,20 +428,24 @@ fn get_latency(
         .map(|res| {
             (
                 res.0,
-                chrono::DateTime::parse_from_rfc2822(&res.1).expect("{} is not a rfc2822 fmt"),
+                jiff::fmt::rfc2822::parse(&res.1)
+                    .expect("{} is not a rfc2822 fmt")
+                    .timestamp(),
             )
         })
         .for_each(|res| {
-            let delta = origin_date - res.1;
+            let dur = origin_date.duration_since(res.1);
+            if dur.is_negative() {
+                panic!("Latency delta should not be < 0");
+            }
+            let delta_duration = dur.unsigned_abs();
 
-            result.lock().unwrap().push((res.0, Ok(delta)));
-
-            let delta_duration = delta.to_std().expect("Latency delta should not be < 0");
+            result.lock().unwrap().push((res.0, Ok(delta_duration)));
 
             if let Some(pb) = &pb {
-                pb.info(&format_latency(res.0, delta, delta_duration));
+                pb.info(&format_latency(res.0, delta_duration));
             } else {
-                info!("{}", format_latency(res.0, delta, delta_duration));
+                info!("{}", format_latency(res.0, delta_duration));
             }
         });
 
@@ -460,7 +463,7 @@ fn get_latency(
                 match time {
                     Ok(t) => serde_json::json!({
                         "status": "ok",
-                        "latency": t.num_seconds(),
+                        "latency": t.as_secs(),
                     }),
                     Err(e) => serde_json::json!({
                         "status": "fail",
@@ -480,13 +483,9 @@ fn get_latency(
             .iter()
             .filter_map(|x| {
                 if let Ok(time_delta) = x.1 {
-                    let hours = time_delta.num_hours();
-                    let secs = time_delta.num_seconds();
-                    let latency = format_duration(
-                        time_delta
-                            .to_std()
-                            .expect("Latency delta should not be < 0"),
-                    );
+                    let hours = time_delta.as_secs() / 3600;
+                    let secs = time_delta.as_secs() as i64;
+                    let latency = format_duration(time_delta);
 
                     let color_mirror_status = if hours <= 12 {
                         style(latency).green().to_string()
@@ -526,8 +525,8 @@ fn get_latency(
     Ok(ExitHandle::default().ring(true))
 }
 
-fn format_latency(mirror_name: &str, delta: TimeDelta, delta_duration: Duration) -> String {
-    if delta.is_zero() {
+fn format_latency(mirror_name: &str, delta_duration: Duration) -> String {
+    if delta_duration.is_zero() {
         fl!("oma-mirror-up-to-date", mirror = mirror_name)
     } else {
         let dur = format_duration(delta_duration).to_string();

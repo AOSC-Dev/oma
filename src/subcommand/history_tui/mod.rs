@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use chrono::{Local, LocalResult, TimeZone};
+use jiff::Timestamp;
 use oma_history::HistoryEntry;
 use ratatui::{
     Frame, Terminal,
@@ -198,12 +198,13 @@ impl<'a> HistorySelectTui<'a> {
                     Cell::from(line)
                 },
                 {
-                    let dt = match Local.timestamp_opt(item.time, 0) {
-                        LocalResult::None => Local.timestamp_opt(0, 0).unwrap(),
-                        x => x.unwrap(),
-                    };
+                    let dt = Timestamp::from_second(item.time)
+                        .unwrap_or_default()
+                        .to_zoned(jiff::tz::TimeZone::system())
+                        .strftime("%H:%M:%S on %Y-%m-%d")
+                        .to_string();
 
-                    Cell::new(dt.format("%H:%M:%S on %Y-%m-%d").to_string())
+                    Cell::new(dt)
                 },
             ])
         });
