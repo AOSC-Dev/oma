@@ -11,10 +11,11 @@ use spdlog::{
     Level, LevelFilter, Logger, debug,
     error::SendToChannelError,
     init_log_crate_proxy, log_crate_proxy, set_default_logger,
-    sink::{AsyncPoolSink, FileSink, StdStreamSink},
+    sink::{AsyncPoolSink, FileSink, WriteSink},
     warn,
 };
 
+use crate::pb::ProgressAwareWriter;
 use crate::{args::OhManagerAilurus, config::OmaConfig, root::is_root};
 
 pub fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
@@ -85,10 +86,10 @@ pub fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
         }
     };
 
-    let stream_sink = StdStreamSink::builder()
+    let stream_sink = WriteSink::builder()
         .formatter(formatter)
         .level_filter(level_filter)
-        .stderr()
+        .target(ProgressAwareWriter)
         .build()
         .unwrap();
 
