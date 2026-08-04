@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -6,6 +5,8 @@ use aho_corasick::{AhoCorasick, BuildError};
 use oma_apt_sources_lists::{SourceEntry, SourceLine, SourceListType, SourcesList};
 
 use crate::AptConfig;
+use crate::apt_lists::IndexSource;
+use crate::filename::AptListFilename;
 
 /// Scan the filesystem for sources list files, returning their paths.
 ///
@@ -38,10 +39,11 @@ pub fn scan_sources_list_paths(
     paths
 }
 
-/// Lookup from (host+path) → source entries, built from sources.list.
+/// The configured sources parsed from `sources.list`, the driver of the
+/// package database: it generates the lists files to read (forward), so
+/// nothing ever looks a filename up again.
 pub struct SourceLookup {
     entries: Vec<SourceEntry>,
-    lookup: HashMap<String, Vec<usize>>,
 }
 
 impl SourceLookup {
@@ -68,7 +70,6 @@ impl SourceLookup {
         G: FnMut(&Path),
     {
         let mut entries = Vec::new();
-        let mut lookup: HashMap<String, Vec<usize>> = HashMap::new();
 
         for path in paths {
             let Ok(s) = SourcesList::new(path) else {
@@ -89,20 +90,10 @@ impl SourceLookup {
                 SourceListType::Deb822(deb822) => Box::new(deb822.entries.into_iter()),
             };
 
-            for (idx, entry) in parsed.filter(|e| e.enabled).enumerate() {
-                let key = entry
-                    .url()
-                    .split_once("://")
-                    .map_or(entry.url(), |(_, rest)| rest)
-                    .trim_end_matches('/')
-                    .to_string();
-
-                lookup.entry(key).or_default().push(idx);
-                entries.push(entry);
-            }
+            entries.extend(parsed.filter(|e| e.enabled));
         }
 
-        Self { entries, lookup }
+        Self { entries }
     }
 
     /// All parsed entries (enabled only).
@@ -110,82 +101,63 @@ impl SourceLookup {
         &self.entries
     }
 
-    /// Find which source entry a decoded URI belongs to, by checking if the
-    /// URI (without scheme) starts with a known key.
+    /// The (lists filename, [`IndexSource`]) pairs this source list
+    /// produces, mirroring apt's cache generation which iterates the source
+    /// list and reads exactly the index targets of each configured source:
+    /// for every component, the `binary-<arch>` index for each configured
+    /// architecture plus `binary-all`, and the flat `Packages` for flat
+    /// repositories.
     ///
-    /// This approximates APT's `FindIndex` (sourcelist.cc) via URL prefix
-    /// matching.
-    pub fn resolve<'a>(&'a self, decoded: &'a str) -> Option<SourceMatch<'a>> {
-        let host_path = decoded.split_once("://").map_or(decoded, |(_, rest)| rest);
-        let base_key = self
-            .lookup
-            .keys()
-            .filter(|k| host_path.starts_with(*k))
-            .max_by_key(|k| k.len())?;
-
-        let &idx = self.lookup[base_key]
-            .iter()
-            .find(|&&idx| {
-                let entry = &self.entries[idx];
-                host_path.contains(&format!("/dists/{}/", entry.suite.trim_end_matches('/')))
-            })
-            .or_else(|| self.lookup[base_key].first())?;
-
-        let entry = &self.entries[idx];
-
-        let rest = &host_path[base_key.len()..];
-        let is_flat = entry.suite.ends_with('/');
-
-        // The index path relative to the repository root, matching an
-        // IndexTarget `MetaKey`: `dists/{suite}/...` → the part after the
-        // dists dir (`main/binary-amd64/Packages`); for flat repos the bare
-        // filename (`Packages`).
-        let filename = if is_flat {
-            rest.rsplit('/').next().unwrap_or("")
-        } else {
+    /// `archs` come from [`AptConfig::architectures`](crate::AptConfig::architectures);
+    /// `binary-all` is always included, like apt. The lists filename is the
+    /// `URItoFileName` encoding of the index URI, so a parser reads exactly
+    /// the files in this list that exist under `Dir::State::lists` — lists
+    /// files that no configured source produces are never read.
+    pub fn index_files(&self, archs: &[String]) -> Vec<(String, IndexSource)> {
+        let cvt = AptListFilename::new();
+        let mut out = Vec::new();
+        for entry in &self.entries {
+            let base = entry.url().trim_end_matches('/');
             let suite = entry.suite.trim_end_matches('/');
-            rest.strip_prefix(&format!("/dists/{suite}/"))
-                .unwrap_or(rest)
-                .trim_start_matches('/')
-        };
-        let filename = strip_compression_ext(filename);
-
-        let component = if is_flat {
-            None
-        } else {
-            // Compare against host+path (without scheme), since decoded has no
-            // scheme but dist_components() returns full URLs with scheme.
-            entry
-                .components
-                .iter()
-                .zip(entry.dist_components())
-                .find(|(_, url)| {
-                    let comp_host_path =
-                        url.split_once("://").map_or(url.as_str(), |(_, rest)| rest);
-                    host_path.starts_with(comp_host_path)
-                })
-                .map(|(name, _)| name.as_str())
-        };
-
-        Some(SourceMatch {
-            entry,
-            component,
-            filename,
-        })
+            if entry.components.is_empty() {
+                // Flat repository: the index lives at the repository root.
+                let uri = format!("{base}/Packages");
+                if let Ok(filename) = cvt.encode(&uri) {
+                    out.push((
+                        filename,
+                        IndexSource {
+                            base_url: base.to_string(),
+                            suite: suite.to_string(),
+                            component: None,
+                            arch: None,
+                        },
+                    ));
+                }
+                continue;
+            }
+            for component in &entry.components {
+                for arch in archs
+                    .iter()
+                    .map(|a| a.as_str())
+                    .chain(std::iter::once("all"))
+                {
+                    let uri = format!("{base}/dists/{suite}/{component}/binary-{arch}/Packages");
+                    if let Ok(filename) = cvt.encode(&uri) {
+                        out.push((
+                            filename,
+                            IndexSource {
+                                base_url: base.to_string(),
+                                suite: suite.to_string(),
+                                component: Some(component.clone()),
+                                arch: Some(arch.to_string()),
+                            },
+                        ));
+                    }
+                }
+            }
+        }
+        out
     }
-}
-
-/// The result of matching a decoded URI against a [`SourceLookup`].
-#[derive(Debug)]
-pub struct SourceMatch<'a> {
-    /// The matched source entry.
-    pub entry: &'a SourceEntry,
-    /// The component name, or `None` for flat repos.
-    pub component: Option<&'a str>,
-    /// The index path relative to the repository root
-    /// (`main/binary-amd64/Packages`), or the bare filename for flat repos
-    /// (`Packages`) — the form IndexTarget `MetaKey`s are matched against.
-    pub filename: &'a str,
 }
 
 /// A resolved IndexTarget match: the target key, its Description template,
@@ -391,4 +363,73 @@ pub fn strip_compression_ext(name: &str) -> &str {
     }
 
     name
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Build a `SourceLookup` from a single `.sources` (deb822) file.
+    fn lookup_from(text: &str) -> SourceLookup {
+        let dir = tempfile::tempdir().unwrap();
+        let list = dir.path().join("test.sources");
+        std::fs::write(&list, text).unwrap();
+        SourceLookup::from_paths(&[list], |_| {})
+    }
+
+    #[test]
+    fn test_index_files_generates_per_suite() {
+        // Two entries sharing one URL but different suites. Regression for
+        // a bug where matching could never reach the second entry and fell
+        // back to the first — index generation must cover every configured
+        // source, including ones sharing a base URL.
+        let lookup = lookup_from(
+            "Types: deb\n\
+             URIs: https://example.com/debs\n\
+             Suites: stable\n\
+             Components: main\n\
+             Signed-By: /dev/null\n\
+             \n\
+             Types: deb\n\
+             URIs: https://example.com/debs\n\
+             Suites: kde-6\n\
+             Components: main\n\
+             Signed-By: /dev/null\n",
+        );
+
+        assert_eq!(lookup.entries().len(), 2);
+
+        let archs = vec!["amd64".to_string()];
+        let files = lookup.index_files(&archs);
+
+        // Every suite × (amd64, all) produces one lists filename, all
+        // sharing the base URL but carrying their own suite/arch.
+        let find = |suite: &str, arch: &str| {
+            files
+                .iter()
+                .find(|(_, s)| s.suite == suite && s.arch.as_deref() == Some(arch))
+                .map(|(f, s)| (f.as_str(), s.base_url.as_str()))
+        };
+
+        let (f, base) = find("stable", "amd64").expect("stable amd64");
+        assert_eq!(
+            f,
+            "example.com_debs_dists_stable_main_binary-amd64_Packages"
+        );
+        assert_eq!(base, "https://example.com/debs");
+        assert_eq!(files.len(), 4);
+
+        // The second entry must be generated too, not skipped.
+        let (f, base) = find("kde-6", "amd64").expect("kde-6 amd64");
+        assert_eq!(f, "example.com_debs_dists_kde-6_main_binary-amd64_Packages");
+        assert_eq!(base, "https://example.com/debs");
+
+        // `binary-all` is always included, like apt.
+        let (f, _) = find("stable", "all").expect("stable all");
+        assert_eq!(f, "example.com_debs_dists_stable_main_binary-all_Packages");
+
+        // No orphan suite is ever generated: files come only from the
+        // configured sources, so removed/disabled suites leave no traces.
+        assert!(files.iter().all(|(_, s)| s.suite != "removed-suite"));
+    }
 }

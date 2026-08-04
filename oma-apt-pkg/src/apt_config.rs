@@ -284,6 +284,27 @@ impl AptConfig {
             .unwrap_or_default()
     }
 
+    /// The architectures to read package indexes for — `APT::Architectures`
+    /// when configured, otherwise the host architecture
+    /// (`APT::Architecture`). `binary-all` is added by the index generator,
+    /// like apt.
+    ///
+    /// No architecture is assumed: if neither is configured, an empty list
+    /// is returned (the caller then reads no per-architecture indexes).
+    pub fn architectures(&self) -> Vec<String> {
+        let archs = self.keys_under("APT::Architectures");
+        if archs.is_empty() {
+            let native = self.get("APT::Architecture", "");
+            if native.is_empty() {
+                Vec::new()
+            } else {
+                vec![native]
+            }
+        } else {
+            archs
+        }
+    }
+
     /// For each tree, get full path
     ///
     /// e.g:

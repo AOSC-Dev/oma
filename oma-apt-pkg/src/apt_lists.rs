@@ -6,6 +6,7 @@ use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
 use rayon::prelude::*;
 use serde::Serialize;
 
+use crate::apt_sources::SourceLookup;
 use crate::{DpkgState, extended_states::AptExtendedStates};
 #[cfg(feature = "apt-lists")]
 use wincode::{SchemaRead, SchemaWrite};
@@ -103,6 +104,47 @@ pub struct PackagesFile {
     pub entries: Vec<PackageEntry>,
 }
 
+/// The source an index entry came from, resolved against `sources.list`
+/// once at database build time.
+///
+/// Consumers — download URLs, the `APT-Sources` display, branch matching —
+/// read these fields directly; no `sources.list` re-resolution is needed
+/// after the database is built.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "apt-lists", derive(SchemaWrite, SchemaRead))]
+pub struct IndexSource {
+    /// Canonical base URL from `sources.list` (e.g.
+    /// `https://mirrors.example.com/debian`). For a local `.deb` this is
+    /// its `file:` URI.
+    pub base_url: String,
+    /// The suite (e.g. `stable`), or `local-deb` for local `.deb`s.
+    pub suite: String,
+    /// The component (e.g. `main`), or `local-deb` for local `.deb`s;
+    /// `None` for flat repositories.
+    pub component: Option<String>,
+    /// The architecture from `binary-<arch>`; `None` for flat repositories.
+    pub arch: Option<String>,
+}
+
+impl IndexSource {
+    /// A "no source" marker, used for entries that carry no source (e.g.
+    /// entries inserted without source tracking, or read by the lazy
+    /// [`AptListsReader`](crate::AptListsReader) without a lookup).
+    pub(crate) fn none() -> Self {
+        Self {
+            base_url: String::new(),
+            suite: String::new(),
+            component: None,
+            arch: None,
+        }
+    }
+
+    /// Whether this is the "no source" marker.
+    pub(crate) fn is_none(&self) -> bool {
+        self.base_url.is_empty()
+    }
+}
+
 /// Scan `/var/lib/apt/lists/` and parse all `*_Packages` files.
 ///
 /// Returns a flat list of all package entries across all repos/components/archs.
@@ -133,32 +175,39 @@ pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, 
         })
 }
 
-/// Parse `/var/lib/apt/lists/` and return entries alongside their source
-/// filename (the APT list filename stem, e.g.
-/// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`).
+/// Parse `/var/lib/apt/lists/` and return all package entries paired with
+/// the [`IndexSource`] each came from.
+///
+/// Forward data flow, like apt's cache generation: `lookup` (parsed from
+/// `sources.list`) generates the lists filenames of each source's index
+/// targets — every component × architecture plus `binary-all`, and the flat
+/// `Packages` — and exactly those files are read. Lists files that no
+/// configured source produces (e.g. orphans from removed/disabled sources)
+/// are never touched.
+///
+/// `archs` are the architectures to read (see
+/// [`AptConfig::architectures`](crate::AptConfig::architectures)).
 ///
 /// The two `Vec`s have the same length and are indexed in parallel.
 pub fn parse_apt_lists_dir_with_sources(
     path: impl AsRef<Path>,
-) -> Result<(Vec<PackageEntry>, Vec<String>), AptListsError> {
+    lookup: &SourceLookup,
+    archs: &[String],
+) -> Result<(Vec<PackageEntry>, Vec<IndexSource>), AptListsError> {
     let dir = path.as_ref();
-    let mut files = Vec::new();
 
-    for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
-        let entry = entry.map_err(AptListsError::Io)?;
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if name.ends_with("_Packages") {
-            files.push((entry.path(), name.into_owned()));
-        }
-    }
-
-    // Parse each `*_Packages` file in parallel, pairing each entry with its
-    // source and folding into flat parallel vecs.
-    files
+    // Generate the lists filenames from the source list, then parse each
+    // file that exists, pairing every entry with its source and folding
+    // into flat parallel vecs.
+    lookup
+        .index_files(archs)
         .par_iter()
-        .map(|(path, source)| {
-            parse_single_packages_file(path).map(|entries| {
+        .map(|(filename, source)| {
+            let file = dir.join(filename);
+            if !file.is_file() {
+                return Ok((Vec::new(), Vec::new()));
+            }
+            parse_single_packages_file(&file).map(|entries| {
                 let sources = vec![source.clone(); entries.len()];
                 (entries, sources)
             })
@@ -223,9 +272,9 @@ pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String
     map
 }
 
-/// Lazy iterator over a package's entries paired with their APT list source
-/// filenames.
-pub type EntriesWithSource<'a> = Box<dyn Iterator<Item = (Cow<'a, PackageEntry>, String)> + 'a>;
+/// Lazy iterator over a package's entries paired with their [`IndexSource`].
+pub type EntriesWithSource<'a> =
+    Box<dyn Iterator<Item = (Cow<'a, PackageEntry>, IndexSource)> + 'a>;
 
 /// Common interface for package data sources.
 ///
@@ -246,8 +295,8 @@ pub trait PackageIndex {
     /// Return all entries for a package name.
     fn get_all(&self, name: &str) -> Cow<'_, [PackageEntry]>;
 
-    /// Return all entries for a package name, together with the APT list
-    /// source filename for each entry, as a lazy iterator.
+    /// Return all entries for a package name, together with their
+    /// [`IndexSource`], as a lazy iterator.
     fn get_with_source(&self, name: &str) -> EntriesWithSource<'_>;
 
     /// Return the entry with the highest version, or `None` if the package

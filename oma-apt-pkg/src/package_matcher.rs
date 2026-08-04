@@ -5,8 +5,7 @@ use std::borrow::Cow;
 
 use glob_match::glob_match;
 
-use crate::apt_lists::{AptListsError, PackageEntry, PackageIndex};
-use crate::filename::AptListFilename;
+use crate::apt_lists::{AptListsError, IndexSource, PackageEntry, PackageIndex};
 
 /// Errors produced by [`PackageMatcher`].
 #[derive(Debug, thiserror::Error)]
@@ -30,8 +29,8 @@ pub struct MatchedPackage<'a> {
     /// The package name.
     pub name: Cow<'a, str>,
     /// The entries for this package (all, or filtered by version/branch),
-    /// each paired with its source string.
-    pub entries: Vec<(Cow<'a, PackageEntry>, String)>,
+    /// each paired with its [`IndexSource`].
+    pub entries: Vec<(Cow<'a, PackageEntry>, IndexSource)>,
 }
 
 /// Resolves user-supplied keywords into matched packages.
@@ -110,7 +109,7 @@ impl<'a> PackageMatcher<'a> {
 
     /// Entries for `name` — possibly an architecture-qualified name like
     /// `apt:amd64` — together with their sources.
-    fn entries_of(&self, name: &str) -> Vec<(Cow<'a, PackageEntry>, String)> {
+    fn entries_of(&self, name: &str) -> Vec<(Cow<'a, PackageEntry>, IndexSource)> {
         match name.split_once(':') {
             Some((pkg, arch)) => self
                 .index
@@ -157,7 +156,7 @@ impl<'a> PackageMatcher<'a> {
             return Err(MatcherError::NoPackage(pat.to_string()));
         }
 
-        let entries: Vec<(Cow<'a, PackageEntry>, String)> = self
+        let entries: Vec<(Cow<'a, PackageEntry>, IndexSource)> = self
             .entries_of(pkgname)
             .into_iter()
             .filter(|(entry, _)| entry.version.as_deref() == Some(version_str))
@@ -179,8 +178,8 @@ impl<'a> PackageMatcher<'a> {
     /// Match package from a branch pattern (like `apt/stable` or
     /// `apt:amd64/stable`).
     ///
-    /// A package is matched by the suite of the APT list source it came
-    /// from, i.e. the decoded source path contains `/dists/{branch}/`.
+    /// A package is matched by the suite of the source it came from, i.e.
+    /// its recorded [`IndexSource::suite`] equals the branch.
     pub fn match_from_branch<'k>(&self, pat: &'k str) -> MatcherResult<Vec<MatchedPackage<'a>>> {
         let (pkgname, branch) = pat
             .split_once('/')
@@ -190,10 +189,10 @@ impl<'a> PackageMatcher<'a> {
             return Err(MatcherError::NoPackage(pat.to_string()));
         }
 
-        let entries: Vec<(Cow<'a, PackageEntry>, String)> = self
+        let entries: Vec<(Cow<'a, PackageEntry>, IndexSource)> = self
             .entries_of(pkgname)
             .into_iter()
-            .filter(|(_, source)| branch_matches(source, branch))
+            .filter(|(_, source)| source.suite == branch)
             .collect();
 
         if entries.is_empty() {
@@ -205,15 +204,6 @@ impl<'a> PackageMatcher<'a> {
             entries,
         }])
     }
-}
-
-/// Whether an APT list source belongs to the `dists/{branch}/` suite.
-fn branch_matches(source: &str, branch: &str) -> bool {
-    let cvt = AptListFilename::new();
-    let dists_prefix = format!("/dists/{branch}/");
-    cvt.decode(source)
-        .ok()
-        .is_some_and(|path| path.contains(&dists_prefix))
 }
 
 /// Whether an entry's `Architecture` satisfies an `:arch` qualifier.
@@ -229,57 +219,75 @@ fn arch_matches(entry_arch: &Option<String>, arch: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::apt_lists_reader::AptListsReader;
-    use std::fs;
-    use std::path::Path;
 
-    fn write_packages(dir: &Path, filename: &str, content: &str) {
-        fs::write(dir.join(filename), content).unwrap();
+    use crate::apt_db::AptDb;
+    use crate::apt_lists::IndexSource;
+
+    fn entry(name: &str, version: &str, arch: Option<&str>) -> crate::PackageEntry {
+        crate::PackageEntry {
+            package: name.to_string(),
+            version: Some(version.to_string()),
+            architecture: arch.map(str::to_string),
+            ..crate::PackageEntry {
+                package: String::new(),
+                version: None,
+                architecture: None,
+                description: None,
+                description_md5: None,
+                maintainer: None,
+                installed_size: None,
+                depends: None,
+                pre_depends: None,
+                recommends: None,
+                suggests: None,
+                breaks: None,
+                conflicts: None,
+                replaces: None,
+                provides: None,
+                section: None,
+                priority: None,
+                homepage: None,
+                multi_arch: None,
+                filename: None,
+                size: None,
+                sha256: None,
+            }
+        }
     }
 
-    fn matcher() -> (tempfile::TempDir, PackageMatcher<'static>) {
-        let dir = tempfile::tempdir().unwrap();
-        write_packages(
-            dir.path(),
-            "repo_dists_stable_main_binary-amd64_Packages",
-            r#"Package: fish
-Version: 4.5.0
-Architecture: amd64
-Filename: pool/stable/main/f/fish/fish_4.5.0_amd64.deb
+    fn source(base: &str, suite: &str, component: &str, arch: &str) -> IndexSource {
+        IndexSource {
+            base_url: base.to_string(),
+            suite: suite.to_string(),
+            component: Some(component.to_string()),
+            arch: Some(arch.to_string()),
+        }
+    }
 
-Package: apt
-Version: 2.5.4
-Architecture: amd64
-Filename: pool/stable/main/a/apt/apt_2.5.4_amd64.deb
-
-Package: bash
-Version: 5.2.3
-Architecture: amd64
-Filename: pool/stable/main/b/bash/bash_5.2.3_amd64.deb
-
-"#,
+    fn matcher() -> ((), PackageMatcher<'static>) {
+        let stable = source("http://repo", "stable", "main", "amd64");
+        let preview = source("http://repo", "preview", "main", "amd64");
+        let db = AptDb::from_entries_with_sources(
+            "",
+            vec![
+                entry("fish", "4.5.0", Some("amd64")),
+                entry("apt", "2.5.4", Some("amd64")),
+                entry("bash", "5.2.3", Some("amd64")),
+                entry("fish", "4.8.1", Some("amd64")),
+                entry("firefox", "130.0", Some("amd64")),
+            ],
+            vec![
+                stable.clone(),
+                stable.clone(),
+                stable.clone(),
+                preview.clone(),
+                preview.clone(),
+            ],
         );
-        write_packages(
-            dir.path(),
-            "repo_dists_preview_main_binary-amd64_Packages",
-            r#"Package: fish
-Version: 4.8.1
-Architecture: amd64
-Filename: pool/preview/main/f/fish/fish_4.8.1_amd64.deb
-
-Package: firefox
-Version: 130.0
-Architecture: amd64
-Filename: pool/preview/main/f/firefox/firefox_130.0_amd64.deb
-
-"#,
-        );
-
-        let reader = AptListsReader::build(dir.path()).unwrap();
-        // Leak the reader to get a 'static reference for testing.
-        let reader: &'static AptListsReader = Box::leak(Box::new(reader));
-        let matcher = PackageMatcher::new(reader);
-        (dir, matcher)
+        // Leak the database to get a 'static reference for testing.
+        let db: &'static AptDb = Box::leak(Box::new(db));
+        let matcher = PackageMatcher::new(db);
+        ((), matcher)
     }
 
     fn names<'a>(pkgs: &'a [MatchedPackage<'a>]) -> Vec<Cow<'a, str>> {

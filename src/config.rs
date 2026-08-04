@@ -232,10 +232,24 @@ impl OmaConfig {
             cfg.set(k, v);
         }
 
+        // `AptDb` cache location: root uses the default
+        // `/var/cache/apt/oma-aptdb.bincode`; unprivileged users get
+        // `~/.cache/oma/`.
+        if !crate::root::is_root() {
+            let cache_dir = dirs::cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+            cfg.set(
+                "Dir::Cache::oma-aptdb",
+                &cache_dir
+                    .join("oma")
+                    .join("oma-aptdb.bincode")
+                    .to_string_lossy(),
+            );
+        }
+
         self.apt_config.set(Arc::new(cfg)).ok();
     }
 
-    pub fn apt_config(&self) -> &Arc<AptConfig> {
+    pub fn apt_config(&self) -> &AptConfig {
         self.apt_config
             .get()
             .expect("AptConfig not initialized — call init_apt_config first")
