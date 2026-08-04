@@ -8,6 +8,7 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use debversion::Version;
 use dialoguer::console::{StyledObject, style};
+use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
     AptConfig, AptDb, AptExtendedStates, DpkgState, EntryWithSource, IndexSource, PackageEntry,
 };
@@ -80,7 +81,7 @@ impl CliExecuter for Show {
         let mut stdout = stdout();
 
         for (i, entries) in resolution.groups.iter().enumerate() {
-            display_group(&mut stdout, entries, &dpkg, &ext_states, all, json)?;
+            display_group(&mut stdout, entries, &dpkg, &ext_states, all, json, apt_cfg)?;
 
             if i != resolution.groups.len() - 1 {
                 writeln!(stdout).ok();
@@ -109,11 +110,12 @@ fn display_group(
     ext_states: &AptExtendedStates,
     all: bool,
     json: bool,
+    apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
     if json {
-        display_entries_to_json(stdout, entries, dpkg)?;
+        display_entries_to_json(stdout, entries, dpkg, apt_cfg)?;
     } else {
-        display_entries(stdout, entries, dpkg, ext_states, all);
+        display_entries(stdout, entries, dpkg, ext_states, all, apt_cfg);
     }
     Ok(())
 }
@@ -124,6 +126,7 @@ fn display_entries(
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     show_all: bool,
+    apt_cfg: &AptConfig,
 ) {
     // Group entries by version so the same version coming from multiple
     // sources (e.g. a repo package and a local `.deb`) renders as one block
@@ -156,7 +159,7 @@ fn display_entries(
             writeln!(stdout).ok();
         }
 
-        display_version_group(stdout, group, dpkg, ext_states);
+        display_version_group(stdout, group, dpkg, ext_states, apt_cfg);
     }
 }
 
@@ -193,6 +196,7 @@ fn display_version_group(
     group: &[&EntryWithSource<'_>],
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
+    apt_cfg: &AptConfig,
 ) {
     for (label, field) in DISPLAY_FIELDS {
         let Some(value) = group
@@ -216,11 +220,11 @@ fn display_version_group(
     if !sources.is_empty() {
         write!(stdout, "{}", key_style(Cow::Borrowed("APT-Sources:"))).ok();
         if sources.len() == 1 {
-            writeln!(stdout, " {}", format_apt_source(sources[0])).ok();
+            writeln!(stdout, " {}", format_apt_source(sources[0], apt_cfg)).ok();
         } else {
             writeln!(stdout).ok();
             for src in &sources {
-                writeln!(stdout, "  {}", format_apt_source(src)).ok();
+                writeln!(stdout, "  {}", format_apt_source(src, apt_cfg)).ok();
             }
         }
     }
@@ -255,12 +259,13 @@ fn display_entries_to_json(
     stdout: &mut impl Write,
     entries: &[EntryWithSource<'_>],
     dpkg: &DpkgState,
+    apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
     let json_entries: Vec<PackageJson<'_>> = entries
         .iter()
         .map(|ews| PackageJson {
             entry: ews.entry.as_ref(),
-            apt_sources: ews.source.as_deref().map(format_apt_source),
+            apt_sources: ews.source.as_deref().map(|s| format_apt_source(s, apt_cfg)),
             installed: ews.entry.is_installed(dpkg),
         })
         .collect();
@@ -301,10 +306,11 @@ fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
 
 /// Format a package's source as an `APT-Sources:` entry, producing
 /// `{uri} {description}` like `https://mirror/anthon/debs/ stable/main amd64
-/// Packages`. The source was resolved from `sources.list` when the database
-/// was built, so this only reads the stored fields — no `sources.list`
-/// lookup happens at display time.
-fn format_apt_source(source: &IndexSource) -> String {
+/// Packages`. The description comes from the `Acquire::IndexTargets`
+/// `Description` template for the Packages index this entry came from (so
+/// the rendered shape is configuration, not a hardcoded string); the source
+/// itself was resolved from `sources.list` when the database was built.
+fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
     // A `file:` source is a local `.deb` — render it with APT's
     // conventional `local-deb/local-deb` suite/component.
     if let Some(uri) = source.base_url.strip_prefix("file:") {
@@ -313,13 +319,49 @@ fn format_apt_source(source: &IndexSource) -> String {
 
     // `archive_uri` keeps a trailing slash, like libapt's URI handling.
     let base_url = format!("{}/", source.base_url.trim_end_matches('/'));
+    let suite = &source.suite;
+    let is_flat = source.component.is_none();
+
+    // Match the `Acquire::IndexTargets` `Description` template against the
+    // index path this entry came from (`{component}/binary-{arch}/Packages`,
+    // or the bare `Packages` for flat repositories).
+    let templates = IndexTargetTemplates::new(apt_cfg);
+    let matched_template = if is_flat {
+        // Flat repositories have no architecture dimension — pass an empty
+        // arch so `flatMetaKey` matches without resolving `APT::Architecture`.
+        templates
+            .resolve_targets("Packages", suite, &[""], "", "", "", true)
+            .ok()
+            .and_then(|v| v.into_iter().next())
+            .map(|r| (r.description, r.arch))
+    } else if let (Some(component), Some(arch)) = (&source.component, &source.arch) {
+        let filename = format!("{component}/binary-{arch}/Packages");
+        templates
+            .resolve_targets(&filename, suite, &[arch], component, "", "", false)
+            .ok()
+            .and_then(|v| v.into_iter().next())
+            .map(|r| (r.description, r.arch))
+    } else {
+        None
+    };
+
+    if let Some((template, arch)) = matched_template {
+        let formatted = substitute(
+            &template,
+            suite,
+            source.component.as_deref().unwrap_or(""),
+            &arch,
+            "",
+            "",
+        );
+        return format!("{base_url} {formatted}");
+    }
+
+    // Fallback: no matching IndexTarget (e.g. a file type without a
+    // configured target) — degrade to `{uri} {suite}/{component}`.
     match (&source.component, &source.arch) {
-        // Repository index: `{suite}/{component} {arch} Packages`.
-        (Some(component), Some(arch)) => {
-            format!("{base_url} {}/{component} {arch} Packages", source.suite)
-        }
-        (Some(component), None) => format!("{base_url} {} {component}", source.suite),
-        // Flat repository (no component/arch dimension): just the suite.
-        (None, _) => format!("{base_url} {}", source.suite),
+        (Some(component), Some(_)) => format!("{base_url} {suite}/{component} Packages"),
+        (Some(component), None) => format!("{base_url} {suite}/{component}"),
+        (None, _) => format!("{base_url} {suite}"),
     }
 }
