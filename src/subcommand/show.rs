@@ -314,8 +314,11 @@ fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
 /// `local-deb/local-deb` suite/component, so it renders through the same
 /// path.
 fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
-    // `archive_uri` keeps a trailing slash, like libapt's URI handling.
-    let base_url = format!("{}/", source.base_url.trim_end_matches('/'));
+    // libapt renders the archive URI without a trailing slash in
+    // APT-Sources: its sources.list parser appends one internally
+    // (`FixupURI`), but the displayed URI is trimmed, e.g.
+    // `http://archive.ubuntu.com/ubuntu unstable/main amd64 Packages`.
+    let base_url = source.base_url.trim_end_matches('/').to_string();
     let suite = &source.suite;
     let is_flat = source.component.is_none();
 
