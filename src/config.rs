@@ -249,7 +249,7 @@ impl OmaConfig {
         self.apt_config.set(Arc::new(cfg)).ok();
     }
 
-    pub fn apt_config(&self) -> &Arc<AptConfig> {
+    pub fn apt_config(&self) -> &AptConfig {
         self.apt_config
             .get()
             .expect("AptConfig not initialized — call init_apt_config first")

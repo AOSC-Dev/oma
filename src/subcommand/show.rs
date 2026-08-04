@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::{borrow::Cow, io::stdout};
 
 use anyhow::Context;
@@ -280,7 +279,7 @@ fn display_entries_to_json(
 }
 
 fn load_apt_db_and_dpkg(
-    cfg: &Arc<AptConfig>,
+    cfg: &AptConfig,
 ) -> Result<(AptDb, DpkgState, AptExtendedStates), OutputError> {
     let dpkg_path = cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
     let ext_path = cfg.get_file("Dir::State::extended_states", "var/lib/apt/extended_states");
