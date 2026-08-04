@@ -49,6 +49,13 @@ pub struct QueryResolution<'a> {
     /// filtered) entries for one query — all versions of a package, a single
     /// version (`pkg=1.2.3`), one branch (`pkg/suite`) or a local `.deb`.
     pub groups: Vec<Vec<EntryWithSource<'a>>>,
+    /// Number of distinct versions each group's package has across the whole
+    /// database (a version shared by several sources counts once). Parallel
+    /// to [`groups`](Self::groups), computed while the database is still
+    /// accessible; the display layer uses it to report "N additional
+    /// versions" even when the group itself is version-filtered (e.g. a
+    /// local `.deb` query resolves to `pkg=<version>`).
+    pub version_counts: Vec<usize>,
     /// Queries that matched no package.
     pub no_match: Vec<String>,
 }
@@ -204,6 +211,7 @@ impl AptDb {
 
         let mut no_match = Vec::new();
         let mut groups = Vec::new();
+        let mut version_counts = Vec::new();
 
         if !keywords.is_empty() {
             let matcher = PackageMatcher::new(self);
@@ -211,6 +219,7 @@ impl AptDb {
                 matcher.match_pkgs_and_versions(keywords.iter().map(String::as_str))?;
 
             groups.extend(matched.into_iter().map(|pkg| {
+                version_counts.push(self.distinct_version_count(&pkg.name));
                 pkg.entries
                     .into_iter()
                     .map(|(entry, source)| EntryWithSource {
@@ -222,7 +231,11 @@ impl AptDb {
             no_match = no_result.into_iter().map(str::to_owned).collect();
         }
 
-        Ok(QueryResolution { groups, no_match })
+        Ok(QueryResolution {
+            groups,
+            version_counts,
+            no_match,
+        })
     }
 
     /// Build from entries with parallel source tracking.
@@ -430,6 +443,22 @@ impl AptDb {
             })
             .collect()
     }
+
+    /// Number of distinct versions of a package across the whole database,
+    /// regardless of source — a version shared by a repo entry and a local
+    /// `.deb` counts once. Used to report "N additional versions" for
+    /// `oma show`: a query may be version-filtered (a local `.deb` resolves
+    /// to `pkg=<version>`), yet the hint should count every other available
+    /// version of the package.
+    pub(crate) fn distinct_version_count(&self, name: &str) -> usize {
+        self.entries
+            .get(name)
+            .into_iter()
+            .flatten()
+            .filter_map(|e| e.version.as_deref())
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    }
 }
 
 impl PackageIndex for AptDb {
@@ -560,6 +589,8 @@ mod tests {
         let entries = &resolution.groups[0];
         assert_eq!(entries.len(), 2);
         assert!(entries.iter().all(|e| e.entry.package == "fish"));
+        // two distinct versions (3.6, 3.7)
+        assert_eq!(resolution.version_counts, vec![2]);
         assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
     }
 
@@ -582,6 +613,8 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].entry.package, "hello");
         assert_eq!(entries[0].entry.version.as_deref(), Some("2.10-2"));
+        // only the local `.deb` version exists in the database
+        assert_eq!(resolution.version_counts, vec![1]);
 
         // The local `.deb` carries a `file:` URI source.
         let source = entries[0].source.as_deref().unwrap();
@@ -614,5 +647,24 @@ mod tests {
                 .base_url
                 .starts_with("file:")
         );
+        // repo 2.10-2 + local 2.10-2 dedupe to one distinct version
+        assert_eq!(resolution.version_counts, vec![1]);
+    }
+
+    #[test]
+    fn test_distinct_version_count() {
+        let db = AptDb::from_entries(
+            "",
+            vec![
+                entry("fish", "3.6"),
+                entry("fish", "3.7"),
+                entry("fish", "3.7"), // same version from another source
+                entry("apt", "2.5"),
+            ],
+        );
+
+        assert_eq!(db.distinct_version_count("fish"), 2);
+        assert_eq!(db.distinct_version_count("apt"), 1);
+        assert_eq!(db.distinct_version_count("nosuchpkg"), 0);
     }
 }

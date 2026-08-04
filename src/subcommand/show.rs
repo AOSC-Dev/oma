@@ -87,13 +87,24 @@ impl CliExecuter for Show {
                 writeln!(stdout).ok();
             }
 
-            // Show additional version hint for single package without --all
-            let entry_count = entries.len();
-            if !all && !json && resolution.groups.len() == 1 && entry_count > 1 {
-                info!(
-                    "{}",
-                    fl!("additional-version", len = entry_count.saturating_sub(1))
-                );
+            // Show "N additional versions" hint for a single package without
+            // --all. Use the distinct version count resolved from the whole
+            // database (not entries of the displayed group): a query may be
+            // version-filtered (a local `.deb` resolves to `pkg=<version>`),
+            // yet the hint reports every other available version, matching
+            // `apt` and old oma (`pkg.versions().count() - 1`).
+            let additional = if !all && !json && resolution.groups.len() == 1 {
+                resolution
+                    .version_counts
+                    .first()
+                    .copied()
+                    .unwrap_or(0)
+                    .saturating_sub(1)
+            } else {
+                0
+            };
+            if additional > 0 {
+                info!("{}", fl!("additional-version", len = additional));
             }
         }
 
