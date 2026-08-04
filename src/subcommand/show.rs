@@ -309,14 +309,11 @@ fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
 /// Packages`. The description comes from the `Acquire::IndexTargets`
 /// `Description` template for the Packages index this entry came from (so
 /// the rendered shape is configuration, not a hardcoded string); the source
-/// itself was resolved from `sources.list` when the database was built.
+/// itself was resolved from `sources.list` when the database was built. A
+/// local `.deb` carries a `file:` base URL and the conventional
+/// `local-deb/local-deb` suite/component, so it renders through the same
+/// path.
 fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
-    // A `file:` source is a local `.deb` — render it with APT's
-    // conventional `local-deb/local-deb` suite/component.
-    if let Some(uri) = source.base_url.strip_prefix("file:") {
-        return format!("file:{uri} local-deb/local-deb");
-    }
-
     // `archive_uri` keeps a trailing slash, like libapt's URI handling.
     let base_url = format!("{}/", source.base_url.trim_end_matches('/'));
     let suite = &source.suite;
