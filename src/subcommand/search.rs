@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::sync::Arc;
 
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
@@ -10,7 +9,6 @@ use oma_apt_pkg::search::{
 use oma_apt_pkg::{AptConfig, AptDb, DpkgState};
 use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
 use oma_pm::matches::SearchEngine;
-use oma_pm::oma_apt::raw::config as apt_config;
 use oma_utils::zbus::proxy;
 use spdlog::debug;
 use zbus::Connection;
@@ -191,10 +189,10 @@ pub fn search(
             if config.amo && !config.no_check_dbus {
                 match RT.block_on(amo_search(&query)) {
                     Ok(r) => Ok(r),
-                    Err(_) => local_indicium_search(f, query, config.apt_config()),
+                    Err(_) => local_indicium_search(config.apt_config(), f, query),
                 }
             } else {
-                local_indicium_search(f, query, config.apt_config())
+                local_indicium_search(config.apt_config(), f, query)
             }
         }
         SearchEngine::Strsim => {
@@ -223,18 +221,10 @@ fn to_output_err(e: impl std::fmt::Display) -> OutputError {
     }
 }
 
-fn load_apt_db_and_dpkg(cfg: &Arc<AptConfig>) -> Result<(AptDb, DpkgState), OutputError> {
-    let lists_dir = apt_config::find_dir(
-        "Dir::State::lists".to_string(),
-        "var/lib/apt/lists".to_string(),
-    );
-    let dpkg_path = apt_config::find_file(
-        "Dir::State::status".to_string(),
-        "var/lib/dpkg/status".to_string(),
-    );
-    let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
+fn load_apt_db_and_dpkg(apt_cfg: &AptConfig) -> Result<(AptDb, DpkgState), OutputError> {
+    let dpkg_path = apt_cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
 
-    let apt_db = AptDb::load_or_build(cfg, &apt_cache, &lists_dir).map_err(|e| OutputError {
+    let apt_db = AptDb::load_or_build(apt_cfg).map_err(|e| OutputError {
         description: e.to_string(),
         source: None,
     })?;
@@ -245,16 +235,13 @@ fn load_apt_db_and_dpkg(cfg: &Arc<AptConfig>) -> Result<(AptDb, DpkgState), Outp
 }
 
 fn local_indicium_search(
+    apt_cfg: &AptConfig,
     f: Box<dyn Fn(usize) + 'static>,
     query: String,
-    cfg: &Arc<AptConfig>,
 ) -> Result<Vec<SearchResult>, OutputError> {
-    let (apt_db, dpkg) = load_apt_db_and_dpkg(cfg)?;
+    let (apt_db, dpkg) = load_apt_db_and_dpkg(apt_cfg)?;
 
-    let lists_dir = apt_config::find_dir(
-        "Dir::State::lists".to_string(),
-        "var/lib/apt/lists".to_string(),
-    );
+    let lists_dir = apt_cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
 
     let search_cache =
         crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");

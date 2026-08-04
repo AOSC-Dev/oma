@@ -14,15 +14,20 @@ use std::path::{Path, PathBuf};
 
 use deb822_fast::{Deb822, FromDeb822Paragraph};
 
-use crate::apt_lists::{AptListsError, EntriesWithSource, PackageEntry, PackageIndex};
+use crate::apt_lists::{AptListsError, EntriesWithSource, IndexSource, PackageEntry, PackageIndex};
+use crate::apt_sources::SourceLookup;
 
-/// A (source filename, byte offset) pair pointing to a single deb822
-/// paragraph in a `*_Packages` file.
+/// A (source, byte offset) pair pointing to a single deb822 paragraph in a
+/// `*_Packages` file.
 #[derive(Debug, Clone)]
 pub struct ListIndexEntry {
     /// APT list filename, e.g.
-    /// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`.
+    /// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`
+    /// — the key into the file map.
     pub source: String,
+    /// The [`IndexSource`] this file was resolved to at build time, or
+    /// [`IndexSource::none`] when no lookup was supplied.
+    pub index_source: IndexSource,
     /// Byte offset in the file where the paragraph starts.
     pub offset: u64,
 }
@@ -51,13 +56,39 @@ pub struct AptListsReader {
 
 impl AptListsReader {
     /// Build a new reader by scanning the given lists directory for
-    /// `*_Packages` files and building the offset index.
+    /// `*_Packages` files and building the offset index, without source
+    /// resolution (every entry reports [`IndexSource::none`]).
     pub fn build(lists_dir: impl AsRef<Path>) -> Result<Self, AptListsError> {
         let mut reader = Self {
             index: HashMap::new(),
             file_map: HashMap::new(),
         };
         reader.build_from_dir(lists_dir.as_ref())?;
+        Ok(reader)
+    }
+
+    /// Build a new reader that scans exactly the lists files the source
+    /// list generates (see [`SourceLookup::index_files`]): every component
+    /// × architecture plus `binary-all` per source, skipping files that are
+    /// not present. Files that no configured source produces are never
+    /// scanned, exactly like [`AptDb`](crate::AptDb).
+    pub fn build_with_sources(
+        lists_dir: impl AsRef<Path>,
+        lookup: &SourceLookup,
+        archs: &[String],
+    ) -> Result<Self, AptListsError> {
+        let mut reader = Self {
+            index: HashMap::new(),
+            file_map: HashMap::new(),
+        };
+        for (filename, index_source) in lookup.index_files(archs) {
+            let path = lists_dir.as_ref().join(&filename);
+            if !path.is_file() {
+                continue;
+            }
+            reader.file_map.insert(filename.clone(), path.clone());
+            reader.scan_file(&path, &filename, index_source)?;
+        }
         Ok(reader)
     }
 
@@ -73,7 +104,7 @@ impl AptListsReader {
 
             let path = entry.path();
             self.file_map.insert(name.clone(), path.clone());
-            self.scan_file(&path, &name)?;
+            self.scan_file(&path, &name, IndexSource::none())?;
         }
 
         Ok(())
@@ -81,7 +112,12 @@ impl AptListsReader {
 
     /// Scan a single `*_Packages` file, recording byte offsets of each
     /// paragraph whose first line is `Package: <name>`.
-    fn scan_file(&mut self, path: &Path, source: &str) -> Result<(), AptListsError> {
+    fn scan_file(
+        &mut self,
+        path: &Path,
+        source: &str,
+        index_source: IndexSource,
+    ) -> Result<(), AptListsError> {
         let content = std::fs::read_to_string(path).map_err(AptListsError::Io)?;
         let bytes = content.as_bytes();
         let total_len = bytes.len() as u64;
@@ -109,6 +145,7 @@ impl AptListsReader {
                         .or_default()
                         .push(ListIndexEntry {
                             source: source.to_string(),
+                            index_source: index_source.clone(),
                             offset: byte_pos,
                         });
                 }
@@ -139,12 +176,12 @@ impl AptListsReader {
         Ok(results)
     }
 
-    /// Like [`get`](Self::get) but also returns the source APT list
-    /// filename for each entry.
+    /// Like [`get`](Self::get) but also returns the resolved
+    /// [`IndexSource`] for each entry.
     pub fn get_with_source(
         &self,
         name: &str,
-    ) -> Result<Vec<(PackageEntry, String)>, AptListsError> {
+    ) -> Result<Vec<(PackageEntry, IndexSource)>, AptListsError> {
         let Some(entries) = self.index.get(name) else {
             return Ok(Vec::new());
         };
@@ -152,7 +189,7 @@ impl AptListsReader {
         let mut results = Vec::with_capacity(entries.len());
         for entry in entries {
             let pkg = self.parse_at(entry)?;
-            results.push((pkg, entry.source.clone()));
+            results.push((pkg, entry.index_source.clone()));
         }
 
         Ok(results)
@@ -241,7 +278,7 @@ impl PackageIndex for AptListsReader {
                 .filter_map(|entry| {
                     self.parse_at(entry)
                         .ok()
-                        .map(|pkg| (Cow::Owned(pkg), entry.source.clone()))
+                        .map(|pkg| (Cow::Owned(pkg), entry.index_source.clone()))
                 }),
         )
     }

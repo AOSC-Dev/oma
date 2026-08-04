@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::io::Write;
 use std::path::Path;
-use std::sync::Arc;
 use std::{fs, io};
 
 use rayon::prelude::*;
@@ -14,8 +13,9 @@ use wincode::{SchemaRead, SchemaWrite};
 
 use crate::AptConfig;
 use crate::apt_lists::{
-    EntriesWithSource, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
+    EntriesWithSource, IndexSource, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
 };
+use crate::apt_sources::SourceLookup;
 use crate::package_matcher::PackageMatcher;
 
 /// A package entry together with its source file information.
@@ -27,10 +27,10 @@ use crate::package_matcher::PackageMatcher;
 pub struct EntryWithSource<'a> {
     /// The parsed package entry data.
     pub entry: Cow<'a, PackageEntry>,
-    /// The APT lists filename, e.g.
-    /// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`,
-    /// or the `file:` source of a local `.deb`.
-    pub source: Option<Cow<'a, str>>,
+    /// The source this entry came from (resolved against `sources.list` at
+    /// database build time), or the `file:` source of a local `.deb`.
+    /// `None` for entries without a recorded source.
+    pub source: Option<Cow<'a, IndexSource>>,
 }
 
 /// Errors that can occur when resolving package queries.
@@ -56,10 +56,8 @@ pub struct QueryResolution<'a> {
 /// Build the `file:` URI source for a local `.deb` path, e.g.
 /// `file:/home/oma/go_1.26.4%2btools0.45.0_amd64.deb`. The path is
 /// percent-encoded with lowercase hex (e.g. `+` → `%2b`) to match APT's URI
-/// form. Like repository sources (which are stored as URIs), the
-/// `local-deb/local-deb` suite/component is added when the source is
-/// rendered.
-fn local_deb_source(path: impl AsRef<Path>) -> String {
+/// form.
+fn file_uri(path: impl AsRef<Path>) -> String {
     let path = path.as_ref();
     let canonical = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     let raw = canonical.to_string_lossy();
@@ -77,37 +75,49 @@ fn local_deb_source(path: impl AsRef<Path>) -> String {
     format!("file:{encoded}")
 }
 
+/// The [`IndexSource`] for a local `.deb` — its `file:` URI with APT's
+/// conventional `local-deb/local-deb` suite/component, so repository
+/// consumers can format it the same way.
+fn local_deb_source(path: impl AsRef<Path>) -> IndexSource {
+    IndexSource {
+        base_url: file_uri(path),
+        suite: "local-deb".to_string(),
+        component: Some("local-deb".to_string()),
+        arch: None,
+    }
+}
+
 /// Parse and cache APT package database.
 #[derive(Debug, Clone, SchemaWrite, SchemaRead)]
 pub struct AptDb {
     /// Map from package name to package version entries
     pub(crate) entries: HashMap<String, Vec<PackageEntry>>,
-    /// Map from package name to apt lists filenames
-    pub(crate) entry_sources: HashMap<String, Vec<String>>,
-    /// APT configuration (used by [`Self::fullname`] to omit the `:arch`
-    /// qualifier for native-arch packages in the pretty form). Shared as an
-    /// immutable `Arc`, set once at load time. Not serialized; restored
-    /// from the caller's config at load time.
-    #[wincode(skip)]
-    pub(crate) apt_config: Arc<AptConfig>,
+    /// Map from package name to the source each of its entries was fetched
+    /// from (resolved from `sources.list` at build time).
+    pub(crate) entry_sources: HashMap<String, Vec<IndexSource>>,
+    /// Native architecture (`APT::Architecture`), used by [`Self::fullname`]
+    /// to omit the `:arch` qualifier in the pretty form. Extracted from the
+    /// config at build time and stored with the cache.
+    pub(crate) native_arch: String,
 }
 
 impl AptDb {
     /// Build from entries without source tracking
     #[allow(dead_code)]
-    pub(crate) fn from_entries(cfg: &Arc<AptConfig>, entries: Vec<PackageEntry>) -> Self {
+    pub(crate) fn from_entries(native_arch: &str, entries: Vec<PackageEntry>) -> Self {
         let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
-        let mut sources: HashMap<String, Vec<String>> = HashMap::new();
+        let mut sources: HashMap<String, Vec<IndexSource>> = HashMap::new();
         for e in entries {
             let name = e.package.clone();
             map.entry(name.clone()).or_default().push(e);
-            // Keep `entry_sources` in lockstep; empty string means "no source".
-            sources.entry(name).or_default().push(String::new());
+            // Keep `entry_sources` in lockstep; `IndexSource::none` means
+            // "no source".
+            sources.entry(name).or_default().push(IndexSource::none());
         }
         Self {
             entry_sources: sources,
             entries: map,
-            apt_config: Arc::clone(cfg),
+            native_arch: native_arch.to_string(),
         }
     }
 
@@ -120,17 +130,18 @@ impl AptDb {
     pub fn insert(&mut self, entry: PackageEntry) {
         let name = entry.package.clone();
         self.entries.entry(name.clone()).or_default().push(entry);
-        // Keep `entry_sources` in lockstep; empty string means "no source".
+        // Keep `entry_sources` in lockstep; `IndexSource::none` means
+        // "no source".
         self.entry_sources
             .entry(name)
             .or_default()
-            .push(String::new());
+            .push(IndexSource::none());
     }
 
     /// Insert a package entry together with its source, keeping `entries`
     /// and `entry_sources` in sync so
     /// [`get_all_with_source`](Self::get_all_with_source) reports the source.
-    pub fn insert_with_source(&mut self, entry: PackageEntry, source: String) {
+    pub fn insert_with_source(&mut self, entry: PackageEntry, source: IndexSource) {
         let name = entry.package.clone();
         self.entries.entry(name.clone()).or_default().push(entry);
         self.entry_sources.entry(name).or_default().push(source);
@@ -204,7 +215,7 @@ impl AptDb {
                     .into_iter()
                     .map(|(entry, source)| EntryWithSource {
                         entry,
-                        source: (!source.is_empty()).then_some(Cow::Owned(source)),
+                        source: (!source.is_none()).then_some(Cow::Owned(source)),
                     })
                     .collect()
             }));
@@ -216,12 +227,12 @@ impl AptDb {
 
     /// Build from entries with parallel source tracking.
     pub(crate) fn from_entries_with_sources(
-        cfg: &Arc<AptConfig>,
+        native_arch: &str,
         entries: Vec<PackageEntry>,
-        entry_sources: Vec<String>,
+        entry_sources: Vec<IndexSource>,
     ) -> Self {
         let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
-        let mut sources: HashMap<String, Vec<String>> = HashMap::new();
+        let mut sources: HashMap<String, Vec<IndexSource>> = HashMap::new();
 
         for (e, src) in entries.into_iter().zip(entry_sources) {
             let pkg = e.package.clone();
@@ -232,28 +243,30 @@ impl AptDb {
         Self {
             entries: map,
             entry_sources: sources,
-            apt_config: Arc::clone(cfg),
+            native_arch: native_arch.to_string(),
         }
     }
 
     /// Load from a binary cache file, or build from scratch if the cache
     /// is missing or stale.
     ///
-    /// The `cfg` is stored on the database (restoring it after a cache hit)
-    /// so [`Self::fullname`] can consult `APT::Architecture` when deciding
-    /// whether to show the `:arch` qualifier.
-    pub fn load_or_build(
-        cfg: &Arc<AptConfig>,
-        cache_path: impl AsRef<Path>,
-        lists_dir: impl AsRef<Path>,
-    ) -> Result<Self, crate::error::Error> {
+    /// `apt_cfg` supplies everything: the lists directory
+    /// (`Dir::State::lists`), the cache path (`Dir::Cache::oma-aptdb`) and
+    /// the `sources.list`-derived [`SourceLookup`] that drives which lists
+    /// files are read. The native architecture (`APT::Architecture`) is
+    /// extracted here for [`Self::fullname`].
+    pub fn load_or_build(apt_cfg: &AptConfig) -> Result<Self, crate::error::Error> {
+        let lists_dir = apt_cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
+        let cache_path =
+            apt_cfg.get_file("Dir::Cache::oma-aptdb", "var/cache/apt/oma-aptdb.bincode");
+        let native_arch = apt_cfg.get("APT::Architecture", "");
+        let lookup = SourceLookup::build(apt_cfg);
         if Self::cache_valid(&cache_path, &lists_dir) {
             match Self::load_cache(&cache_path) {
-                Ok(mut db) => {
-                    db.apt_config = Arc::clone(cfg);
+                Ok(db) => {
                     debug!(
                         "oma packages database cache hit: {}",
-                        cache_path.as_ref().display()
+                        Path::new(&cache_path).display()
                     );
                     return Ok(db);
                 }
@@ -263,18 +276,19 @@ impl AptDb {
 
         debug!(
             "oma packages database cache miss: {}",
-            cache_path.as_ref().display()
+            Path::new(&cache_path).display()
         );
 
-        let (entries, sources) = parse_apt_lists_dir_with_sources(lists_dir)?;
-        let db = Self::from_entries_with_sources(cfg, entries, sources);
+        let archs = apt_cfg.architectures();
+        let (entries, sources) = parse_apt_lists_dir_with_sources(&lists_dir, &lookup, &archs)?;
+        let db = Self::from_entries_with_sources(&native_arch, entries, sources);
 
         if let Err(e) = db.save_cache(&cache_path) {
             debug!("Failed to save oma packages database cache: {e}");
         } else {
             debug!(
                 "oma packages database cache saved: {}",
-                cache_path.as_ref().display()
+                Path::new(&cache_path).display()
             );
         }
 
@@ -286,8 +300,9 @@ impl AptDb {
         let mut buf = Vec::new();
         fs::File::open(path.as_ref()).and_then(|mut f| f.read_to_end(&mut buf))?;
 
-        wincode::deserialize(&buf)
-            .map_err(|e| std::io::Error::other(format!("Failed to decode cache: {e}")))
+        let db: Self = wincode::deserialize(&buf)
+            .map_err(|e| std::io::Error::other(format!("Failed to decode cache: {e}")))?;
+        Ok(db)
     }
 
     /// Save to a binary cache file.
@@ -352,8 +367,7 @@ impl AptDb {
     ///
     /// See [`PackageEntry::fullname`].
     pub fn fullname(&self, entry: &PackageEntry, pretty: bool) -> String {
-        let native_arch = self.apt_config.get("APT::Architecture", "");
-        entry.fullname(pretty, &native_arch)
+        entry.fullname(pretty, &self.native_arch)
     }
 
     /// Get the candidate entry for a package name (highest version).
@@ -411,8 +425,8 @@ impl AptDb {
                 entry: Cow::Borrowed(entry),
                 source: sources
                     .and_then(|s| s.get(i))
-                    .filter(|s| !s.is_empty())
-                    .map(|s| Cow::Borrowed(s.as_str())),
+                    .filter(|s| !s.is_none())
+                    .map(Cow::Borrowed),
             })
             .collect()
     }
@@ -458,7 +472,10 @@ impl PackageIndex for AptDb {
         };
         let sources = self.entry_sources.get(name);
         Box::new(entries.iter().enumerate().map(move |(i, e)| {
-            let src = sources.and_then(|s| s.get(i)).cloned().unwrap_or_default();
+            let src = sources
+                .and_then(|s| s.get(i))
+                .cloned()
+                .unwrap_or_else(IndexSource::none);
             (Cow::Borrowed(e), src)
         }))
     }
@@ -467,10 +484,6 @@ impl PackageIndex for AptDb {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn test_cfg() -> Arc<AptConfig> {
-        Arc::new(AptConfig::new())
-    }
 
     fn entry(name: &str, version: &str) -> PackageEntry {
         PackageEntry {
@@ -505,7 +518,7 @@ mod tests {
 
     #[test]
     fn test_insert_local_package() {
-        let mut db = AptDb::from_entries(&test_cfg(), Vec::new());
+        let mut db = AptDb::from_entries("", Vec::new());
         db.insert(entry("localpkg", "1.0"));
 
         assert!(db.has_package("localpkg"));
@@ -521,7 +534,7 @@ mod tests {
 
     #[test]
     fn test_insert_appends_existing_package() {
-        let mut db = AptDb::from_entries(&test_cfg(), vec![entry("localpkg", "1.0")]);
+        let mut db = AptDb::from_entries("", vec![entry("localpkg", "1.0")]);
         db.insert(entry("localpkg", "2.0"));
 
         let all = db.get_all("localpkg");
@@ -531,7 +544,7 @@ mod tests {
     #[test]
     fn test_resolve_queries_db() {
         let mut db = AptDb::from_entries(
-            &test_cfg(),
+            "",
             vec![
                 entry("fish", "3.6"),
                 entry("fish", "3.7"),
@@ -558,7 +571,7 @@ mod tests {
         let deb_path = dir.path().join("hello_2.10-2_amd64.deb");
         std::fs::write(&deb_path, build_deb(CONTROL)).unwrap();
 
-        let mut db = AptDb::from_entries(&test_cfg(), Vec::new());
+        let mut db = AptDb::from_entries("", Vec::new());
         let resolution = db
             .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
             .unwrap();
@@ -572,7 +585,7 @@ mod tests {
 
         // The local `.deb` carries a `file:` URI source.
         let source = entries[0].source.as_deref().unwrap();
-        assert!(source.starts_with("file:"));
+        assert!(source.base_url.starts_with("file:"));
     }
 
     #[test]
@@ -583,7 +596,7 @@ mod tests {
         let deb_path = dir.path().join("hello_2.10-2_amd64.deb");
         std::fs::write(&deb_path, build_deb(CONTROL)).unwrap();
 
-        let mut db = AptDb::from_entries(&test_cfg(), vec![entry("hello", "2.10-2")]);
+        let mut db = AptDb::from_entries("", vec![entry("hello", "2.10-2")]);
         let resolution = db
             .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
             .unwrap();
@@ -593,6 +606,13 @@ mod tests {
         // repo entry + merged local entry
         assert_eq!(entries.len(), 2);
         assert!(entries[0].source.is_none());
-        assert!(entries[1].source.as_deref().unwrap().starts_with("file:"));
+        assert!(
+            entries[1]
+                .source
+                .as_deref()
+                .unwrap()
+                .base_url
+                .starts_with("file:")
+        );
     }
 }

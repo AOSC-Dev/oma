@@ -9,10 +9,8 @@ use clap::Args;
 use clap_complete::ArgValueCompleter;
 use debversion::Version;
 use dialoguer::console::{StyledObject, style};
-use oma_apt_pkg::apt_sources::SourceLookup;
-use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
-    AptConfig, AptDb, AptExtendedStates, AptListFilename, DpkgState, EntryWithSource, PackageEntry,
+    AptConfig, AptDb, AptExtendedStates, DpkgState, EntryWithSource, IndexSource, PackageEntry,
 };
 use oma_console::indicatif::HumanBytes;
 use serde::Serialize;
@@ -67,7 +65,6 @@ impl CliExecuter for Show {
         } = self;
 
         let apt_cfg = config.apt_config();
-        let source_lookup = SourceLookup::build(apt_cfg);
         let (mut apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
 
         // Resolve each query: local `.deb` files are parsed directly,
@@ -84,16 +81,7 @@ impl CliExecuter for Show {
         let mut stdout = stdout();
 
         for (i, entries) in resolution.groups.iter().enumerate() {
-            display_group(
-                &mut stdout,
-                entries,
-                &dpkg,
-                &ext_states,
-                all,
-                json,
-                &source_lookup,
-                apt_cfg,
-            )?;
+            display_group(&mut stdout, entries, &dpkg, &ext_states, all, json)?;
 
             if i != resolution.groups.len() - 1 {
                 writeln!(stdout).ok();
@@ -122,21 +110,11 @@ fn display_group(
     ext_states: &AptExtendedStates,
     all: bool,
     json: bool,
-    source_lookup: &SourceLookup,
-    apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
     if json {
         display_entries_to_json(stdout, entries, dpkg)?;
     } else {
-        display_entries(
-            stdout,
-            entries,
-            dpkg,
-            ext_states,
-            all,
-            source_lookup,
-            apt_cfg,
-        );
+        display_entries(stdout, entries, dpkg, ext_states, all);
     }
     Ok(())
 }
@@ -147,8 +125,6 @@ fn display_entries(
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     show_all: bool,
-    source_lookup: &SourceLookup,
-    apt_cfg: &AptConfig,
 ) {
     // Group entries by version so the same version coming from multiple
     // sources (e.g. a repo package and a local `.deb`) renders as one block
@@ -181,7 +157,7 @@ fn display_entries(
             writeln!(stdout).ok();
         }
 
-        display_version_group(stdout, group, dpkg, ext_states, source_lookup, apt_cfg);
+        display_version_group(stdout, group, dpkg, ext_states);
     }
 }
 
@@ -218,8 +194,6 @@ fn display_version_group(
     group: &[&EntryWithSource<'_>],
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
-    source_lookup: &SourceLookup,
-    apt_cfg: &AptConfig,
 ) {
     for (label, field) in DISPLAY_FIELDS {
         let Some(value) = group
@@ -232,7 +206,7 @@ fn display_version_group(
     }
 
     // APT-Sources: every source of this version, deduplicated.
-    let mut sources: Vec<&str> = Vec::new();
+    let mut sources: Vec<&IndexSource> = Vec::new();
     for e in group {
         if let Some(src) = e.source.as_deref()
             && !sources.contains(&src)
@@ -243,21 +217,11 @@ fn display_version_group(
     if !sources.is_empty() {
         write!(stdout, "{}", key_style(Cow::Borrowed("APT-Sources:"))).ok();
         if sources.len() == 1 {
-            writeln!(
-                stdout,
-                " {}",
-                format_apt_source(sources[0], source_lookup, apt_cfg)
-            )
-            .ok();
+            writeln!(stdout, " {}", format_apt_source(sources[0])).ok();
         } else {
             writeln!(stdout).ok();
             for src in &sources {
-                writeln!(
-                    stdout,
-                    "  {}",
-                    format_apt_source(src, source_lookup, apt_cfg)
-                )
-                .ok();
+                writeln!(stdout, "  {}", format_apt_source(src)).ok();
             }
         }
     }
@@ -284,7 +248,7 @@ struct PackageJson<'a> {
     #[serde(flatten)]
     entry: &'a PackageEntry,
     #[serde(rename = "APT-Sources")]
-    apt_sources: Option<&'a str>,
+    apt_sources: Option<String>,
     installed: bool,
 }
 
@@ -297,7 +261,7 @@ fn display_entries_to_json(
         .iter()
         .map(|ews| PackageJson {
             entry: ews.entry.as_ref(),
-            apt_sources: ews.source.as_deref(),
+            apt_sources: ews.source.as_deref().map(format_apt_source),
             installed: ews.entry.is_installed(dpkg),
         })
         .collect();
@@ -318,13 +282,10 @@ fn display_entries_to_json(
 fn load_apt_db_and_dpkg(
     cfg: &Arc<AptConfig>,
 ) -> Result<(AptDb, DpkgState, AptExtendedStates), OutputError> {
-    let lists_dir = cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
     let dpkg_path = cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
     let ext_path = cfg.get_file("Dir::State::extended_states", "var/lib/apt/extended_states");
-    let apt_cache = crate::utils::get_apt_cache_path("Dir::Cache::oma-aptdb", "oma-aptdb.bincode");
 
-    let apt_db =
-        AptDb::load_or_build(cfg, &apt_cache, &lists_dir).context("Failed to load apt database")?;
+    let apt_db = AptDb::load_or_build(cfg).context("Failed to load apt database")?;
 
     let dpkg = DpkgState::from_file(&dpkg_path).context("Failed to load dpkg status")?;
 
@@ -339,97 +300,27 @@ fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
     style(key).bold()
 }
 
-/// Decode an APT lists filename stem and format as an `APT-Sources:` entry
-/// using the `Acquire::IndexTargets` `Description` template, producing
+/// Format a package's source as an `APT-Sources:` entry, producing
 /// `{uri} {description}` like `https://mirror/anthon/debs/ stable/main amd64
-/// Packages`.
-fn format_apt_source(source: &str, source_lookup: &SourceLookup, apt_cfg: &AptConfig) -> String {
-    // A `file:` source is a local `.deb`, stored as its `file:` URI. Render
-    // it in the same `{uri} {suite}/{component}` shape the template produces
-    // for repository sources, with APT's conventional `local-deb/local-deb`
-    // suite/component for local debs.
-    if let Some(uri) = source.strip_prefix("file:") {
+/// Packages`. The source was resolved from `sources.list` when the database
+/// was built, so this only reads the stored fields — no `sources.list`
+/// lookup happens at display time.
+fn format_apt_source(source: &IndexSource) -> String {
+    // A `file:` source is a local `.deb` — render it with APT's
+    // conventional `local-deb/local-deb` suite/component.
+    if let Some(uri) = source.base_url.strip_prefix("file:") {
         return format!("file:{uri} local-deb/local-deb");
     }
 
-    let cvt = AptListFilename::new();
-    let Ok(decoded) = cvt.decode(source) else {
-        return source.to_string();
-    };
-
-    let Some(matched) = source_lookup.resolve(&decoded) else {
-        return decoded;
-    };
-
     // `archive_uri` keeps a trailing slash, like libapt's URI handling.
-    let base_url = format!("{}/", matched.entry.url());
-    let suite = matched.entry.suite.trim_end_matches('/');
-    let is_flat = matched.component.is_none();
-
-    let templates = IndexTargetTemplates::new(apt_cfg);
-
-    let matched_template = if is_flat {
-        // Flat repositories have no architecture dimension — pass an empty
-        // arch so `flatMetaKey` matches without resolving `APT::Architecture`.
-        templates
-            .resolve_targets(matched.filename, suite, &[""], "", "", "", true)
-            .ok()
-            .and_then(|v| v.into_iter().next())
-            .map(|r| (r.description, r.arch))
-    } else if let Some(component) = matched.component {
-        // Architectures to try: the source's declared ones, falling back to
-        // the one in the index path (`binary-<arch>`).
-        let archs: Vec<&str> = matched
-            .entry
-            .archs
-            .as_ref()
-            .filter(|a| !a.is_empty())
-            .map(|a| a.iter().map(String::as_str).collect())
-            .unwrap_or_else(|| index_arch(&decoded));
-
-        templates
-            .resolve_targets(matched.filename, suite, &archs, component, "", "", false)
-            .ok()
-            .and_then(|v| v.into_iter().next())
-            .map(|r| (r.description, r.arch))
-    } else {
-        None
-    };
-
-    if let Some((template, arch)) = matched_template {
-        let formatted = substitute(
-            &template,
-            suite,
-            matched.component.unwrap_or(""),
-            &arch,
-            "",
-            "",
-        );
-        return format!("{base_url} {formatted}");
-    }
-
-    // Fallback: no matching IndexTarget (e.g. a file type without a
-    // configured target) — degrade to `{uri} {suite}/{component} {type}`.
-    let bare = matched.filename.rsplit('/').next().unwrap_or("");
-    if let Some(component) = matched.component {
-        if bare.is_empty() {
-            format!("{base_url} {suite}/{component}")
-        } else {
-            format!("{base_url} {suite}/{component} {bare}")
+    let base_url = format!("{}/", source.base_url.trim_end_matches('/'));
+    match (&source.component, &source.arch) {
+        // Repository index: `{suite}/{component} {arch} Packages`.
+        (Some(component), Some(arch)) => {
+            format!("{base_url} {}/{component} {arch} Packages", source.suite)
         }
-    } else if is_flat {
-        format!("{base_url} {suite} {bare}")
-    } else {
-        format!("{base_url} {suite}")
+        (Some(component), None) => format!("{base_url} {} {component}", source.suite),
+        // Flat repository (no component/arch dimension): just the suite.
+        (None, _) => format!("{base_url} {}", source.suite),
     }
-}
-
-/// The architecture from an index path segment `binary-<arch>`, if present.
-fn index_arch(decoded: &str) -> Vec<&str> {
-    decoded
-        .rsplit('/')
-        .find(|seg| seg.starts_with("binary-"))
-        .and_then(|seg| seg.strip_prefix("binary-"))
-        .into_iter()
-        .collect()
 }
