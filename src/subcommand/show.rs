@@ -281,15 +281,7 @@ fn display_entries_to_json(
         })
         .collect();
 
-    writeln!(
-        stdout,
-        "{}",
-        serde_json::to_string(&json_entries).map_err(|e| OutputError {
-            description: e.to_string(),
-            source: None,
-        })?
-    )
-    .ok();
+    writeln!(stdout, "{}", serde_json::to_string(&json_entries)?).ok();
 
     Ok(())
 }

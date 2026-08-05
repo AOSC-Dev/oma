@@ -214,20 +214,10 @@ pub fn search(
     }
 }
 
-fn to_output_err(e: impl std::fmt::Display) -> OutputError {
-    OutputError {
-        description: e.to_string(),
-        source: None,
-    }
-}
-
 fn load_apt_db_and_dpkg(apt_cfg: &AptConfig) -> Result<(AptDb, DpkgState), OutputError> {
     let dpkg_path = apt_cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
 
-    let apt_db = AptDb::load_or_build(apt_cfg).map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?;
+    let apt_db = AptDb::load_or_build(apt_cfg)?;
 
     let dpkg = DpkgState::from_file(&dpkg_path)?;
 

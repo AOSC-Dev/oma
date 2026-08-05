@@ -220,21 +220,15 @@ impl CliExecuter for Tui {
 
 fn local_searcher(
     apt_cfg: &AptConfig,
-    pb: &Option<crate::pb::OmaProgressBar>,
+    pb: &crate::pb::ProgressBar,
 ) -> Result<Searcher, OutputError> {
     let lists_dir = apt_cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
     let dpkg_path = apt_cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
     let search_cache =
         crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
-    let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?;
-    let apt_db = oma_apt_pkg::AptDb::load_or_build(apt_cfg).map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?;
+    let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path)?;
+    let apt_db = oma_apt_pkg::AptDb::load_or_build(apt_cfg)?;
 
     let searcher = IndiciumSearch::new_with_cache(
         &apt_db,
