@@ -218,93 +218,98 @@ impl OmaMultiProgressBar {
             } => {
                 self.error(&fl!("checksum-mismatch-retry", c = filename, retry = times));
             }
-            Event::GlobalProgressAdd(num) => {
-                if let Some(gpb) = self.pb_map.get(&0) {
-                    gpb.inc(num);
-                    let pos = gpb.position();
-                    osc94(is_refresh, download_only, pos, gpb);
+            Event::Cleared { index, sub } => {
+                // Keep the bar mounted so a retry can reset/reuse it in the
+                // Indeterminate/Determinate arms below: finish_and_clear only
+                // hides the line, it does not remove the member from the
+                // MultiProgress ordering. Reusing instead of re-inserting is
+                // what keeps the ordering 1:1 with active files.
+                if let Some(pb) = self.pb_map.get(&(index + 1)) {
+                    pb.finish_and_clear();
                 }
-            }
-            Event::GlobalProgressSub(num) => {
-                if let Some(gpb) = self.pb_map.get(&0) {
-                    gpb.set_position(gpb.position().saturating_sub(num));
+                if sub != 0
+                    && let Some(gpb) = self.pb_map.get(&0)
+                {
+                    gpb.set_position(gpb.position().saturating_sub(sub));
                     osc94(is_refresh, download_only, gpb.position(), gpb);
                 }
             }
-            Event::ProgressDone(index) => {
-                // Remove the bar from the MultiProgress as well, not just
-                // finish/clear it: a later NewProgressSpinner/NewProgressBar
-                // re-inserts at the same index, and `insert` shifts any
-                // lingering member down, so every retry would otherwise pile
-                // up one more dead bar on screen.
-                if let Some(pb) = self.pb_map.remove(&(index + 1)) {
-                    pb.finish_and_clear();
-                    self.mb.remove(&pb);
-                }
-            }
-            Event::NewProgressSpinner { index, total, msg } => {
-                // A previous attempt may have left a bar at this slot without
-                // a ProgressDone (e.g. an early request-phase failure): drop
-                // it before inserting so the ordering stays 1:1 with files.
-                if let Some(old) = self.pb_map.remove(&(index + 1)) {
-                    old.finish_and_clear();
-                    self.mb.remove(&old);
-                }
+            Event::Indeterminate { index, total, msg } => {
                 let (sty, inv) = spinner_style();
-                let pb = self
-                    .mb
-                    .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
                 let total_width = total_width(total);
-                pb.set_message(format!("({:>total_width$}/{total}) {msg}", index + 1));
-                pb.enable_steady_tick(inv);
-                self.pb_map.insert(index + 1, pb);
+                let msg = format!("({:>total_width$}/{total}) {msg}", index + 1);
+                if let Some(pb) = self.pb_map.get(&(index + 1)) {
+                    // Reuse the bar from a previous attempt: reset it back to
+                    // a spinner instead of inserting a new member, so retries
+                    // never pile up bars in the MultiProgress ordering.
+                    pb.reset();
+                    pb.set_style(sty);
+                    pb.set_message(msg);
+                    pb.enable_steady_tick(inv);
+                } else {
+                    let pb = self
+                        .mb
+                        .insert(index + 1, ProgressBar::new_spinner().with_style(sty));
+                    pb.set_message(msg);
+                    pb.enable_steady_tick(inv);
+                    self.pb_map.insert(index + 1, pb);
+                }
             }
-            Event::NewProgressBar {
+            Event::Determinate {
                 index,
                 total,
                 msg,
                 size,
             } => {
-                // See NewProgressSpinner: clear any leftover bar at this slot
-                // before inserting so retries do not accumulate dead bars.
-                if let Some(old) = self.pb_map.remove(&(index + 1)) {
-                    old.finish_and_clear();
-                    self.mb.remove(&old);
-                }
                 let sty = progress_bar_style(WRITER.get_length());
-                let pb = self
-                    .mb
-                    .insert(index + 1, ProgressBar::new(size).with_style(sty));
                 let total_width = total_width(total);
-                pb.set_message(format!("({:>total_width$}/{total}) {msg}", index + 1));
-                self.pb_map.insert(index + 1, pb);
+                let msg = format!("({:>total_width$}/{total}) {msg}", index + 1);
+                if let Some(pb) = self.pb_map.get(&(index + 1)) {
+                    // Morph the existing bar (spinner -> determinate) in place
+                    // rather than inserting a fresh member.
+                    pb.disable_steady_tick();
+                    pb.set_style(sty);
+                    pb.set_length(size);
+                    pb.set_message(msg);
+                } else {
+                    let pb = self
+                        .mb
+                        .insert(index + 1, ProgressBar::new(size).with_style(sty));
+                    pb.set_message(msg);
+                    self.pb_map.insert(index + 1, pb);
+                }
             }
-            Event::ProgressInc { index, size } => {
+            Event::Advance { index, size } => {
                 if let Some(pb) = self.pb_map.get(&(index + 1)) {
                     pb.inc(size);
                 }
+                if let Some(gpb) = self.pb_map.get(&0) {
+                    gpb.inc(size);
+                    let pos = gpb.position();
+                    osc94(is_refresh, download_only, pos, gpb);
+                }
             }
-            Event::NextUrl {
-                index: _,
-                file_name,
-                err,
-            } => {
+            Event::NextUrl { file_name, err } => {
                 self.handle_download_err(file_name, is_refresh, err);
                 self.info(&fl!("can-not-get-source-next-url"));
             }
-            Event::DownloadDone { index: _, msg } => {
+            Event::FileDone { msg } => {
                 spdlog::debug!("Downloaded {msg}");
             }
             Event::AllDone => {
-                if let Some(gpb) = &self.pb_map.get(&0) {
-                    gpb.finish_and_clear();
+                // Every bar is done: unhide and remove them all. Per-file bars
+                // are kept mounted by Cleared for slot reuse, so clean them up
+                // here alongside the global bar.
+                for (_, pb) in std::mem::take(&mut self.pb_map) {
+                    pb.finish_and_clear();
+                    self.mb.remove(&pb);
                 }
                 if download_only {
                     osc94_progress(100.0, true);
                 }
                 return true;
             }
-            Event::NewGlobalProgressBar(total_size) => {
+            Event::GlobalDeterminate(total_size) => {
                 let sty = global_progress_bar_style(WRITER.get_length());
                 let pb = self
                     .mb
@@ -328,7 +333,7 @@ impl OmaMultiProgressBar {
         is_refresh: bool,
         error: SingleDownloadError,
     ) {
-        if let SingleDownloadError::ReqwestMiddlewareError { ref source } = error
+        if let SingleDownloadError::ReqwestMiddlewareError(ref source) = error
             && source
                 .status()
                 .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
@@ -458,28 +463,24 @@ impl NoProgressBar {
                     fl!("checksum-mismatch-retry", c = filename, retry = times)
                 );
             }
-            Event::GlobalProgressAdd(inc) => {
-                self.progress += inc;
+            Event::Cleared { sub, .. } => {
+                self.progress = self.progress.saturating_sub(sub);
+                self.old_downloaded = self.old_downloaded.saturating_sub(sub);
                 self.print_progress();
             }
-            Event::GlobalProgressSub(num) => {
-                self.progress = self.progress.saturating_sub(num);
-                self.old_downloaded = self.old_downloaded.saturating_sub(num);
+            Event::Advance { size, .. } => {
+                self.progress += size;
                 self.print_progress();
             }
-            Event::NextUrl {
-                index: _,
-                file_name,
-                err,
-            } => {
+            Event::NextUrl { file_name, err } => {
                 handle_no_pb_download_error(file_name, err, is_refresh);
                 info!("{}", fl!("can-not-get-source-next-url"));
             }
-            Event::DownloadDone { index: _, msg } => {
+            Event::FileDone { msg } => {
                 WRITER.writeln("DONE", &msg).ok();
             }
             Event::AllDone => return true,
-            Event::NewGlobalProgressBar(total_size) => {
+            Event::GlobalDeterminate(total_size) => {
                 self.total_size.get_or_init(|| total_size);
             }
             Event::Failed { file_name, error } => {
@@ -511,7 +512,7 @@ impl NoProgressBar {
 }
 
 fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError, is_refresh: bool) {
-    if let SingleDownloadError::ReqwestMiddlewareError { ref source } = error
+    if let SingleDownloadError::ReqwestMiddlewareError(ref source) = error
         && source
             .status()
             .is_some_and(|x| x == StatusCode::UNAUTHORIZED)
@@ -568,6 +569,135 @@ fn handle_no_pb_download_error(file_name: String, error: SingleDownloadError, is
                 filename = file_name,
                 reason = first_cause
             )
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use oma_console::indicatif::{InMemoryTerm, MultiProgress, ProgressDrawTarget};
+
+    fn renderer() -> (OmaMultiProgressBar, InMemoryTerm) {
+        let term = InMemoryTerm::new(40, 120);
+        let mb =
+            MultiProgress::with_draw_target(ProgressDrawTarget::term_like(Box::new(term.clone())));
+        (
+            OmaMultiProgressBar {
+                mb,
+                pb_map: HashMap::with_hasher(RandomState::new()),
+            },
+            term,
+        )
+    }
+
+    fn visible_lines(term: &InMemoryTerm) -> usize {
+        term.contents()
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .count()
+    }
+
+    /// One download attempt for `file`: spinner -> determinate -> cleared.
+    fn attempt(r: &mut OmaMultiProgressBar, file: usize, total: usize) {
+        r.download_event(
+            Event::Indeterminate {
+                index: file,
+                total,
+                msg: format!("pkg{file}"),
+            },
+            false,
+            true,
+        );
+        r.download_event(
+            Event::Cleared {
+                index: file,
+                sub: 0,
+            },
+            false,
+            true,
+        );
+        r.download_event(
+            Event::Determinate {
+                index: file,
+                total,
+                msg: format!("pkg{file}"),
+                size: 1024,
+            },
+            false,
+            true,
+        );
+        r.download_event(
+            Event::Cleared {
+                index: file,
+                sub: 0,
+            },
+            false,
+            true,
+        );
+    }
+
+    /// Retrying must not leave ghost bars on screen: the renderer reuses the
+    /// bar mounted for a slot (reset/morph in place) instead of inserting a
+    /// new member, and `Cleared` only hides the line. After a burst of
+    /// retries everything is cleared, so the screen must be back to empty.
+    #[test]
+    fn retries_do_not_leak_bars_on_screen() {
+        let (mut r, term) = renderer();
+
+        for _ in 0..5 {
+            attempt(&mut r, 0, 2);
+            attempt(&mut r, 1, 2);
+        }
+
+        // Give any asynchronous draw a moment to settle before asserting.
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let lines = visible_lines(&term);
+        assert_eq!(
+            lines,
+            0,
+            "ghost bars leaked onto the screen: {:?}",
+            term.contents()
+        );
+    }
+
+    /// While files are actively downloading, at most one bar per file slot is
+    /// visible, no matter how many times they retried before.
+    #[test]
+    fn active_bars_stay_bounded_by_slots() {
+        let (mut r, term) = renderer();
+
+        // two files retried three times each, then left active
+        for _ in 0..3 {
+            attempt(&mut r, 0, 2);
+            attempt(&mut r, 1, 2);
+        }
+        r.download_event(
+            Event::Indeterminate {
+                index: 0,
+                total: 2,
+                msg: "pkg0".to_string(),
+            },
+            false,
+            true,
+        );
+        r.download_event(
+            Event::Indeterminate {
+                index: 1,
+                total: 2,
+                msg: "pkg1".to_string(),
+            },
+            false,
+            true,
+        );
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let lines = visible_lines(&term);
+        assert_eq!(
+            lines,
+            2,
+            "expected exactly 2 active bars, got {lines}: {:?}",
+            term.contents()
         );
     }
 }

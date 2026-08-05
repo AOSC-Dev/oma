@@ -112,31 +112,31 @@ pub enum Event {
         filename: String,
         times: usize,
     },
-    GlobalProgressAdd(u64),
-    GlobalProgressSub(u64),
-    ProgressDone(usize),
-    NewProgressSpinner {
+    Cleared {
+        index: usize,
+        /// Bytes to remove from the global progress bar (0 on success).
+        sub: u64,
+    },
+    Indeterminate {
         index: usize,
         total: usize,
         msg: String,
     },
-    NewProgressBar {
+    Determinate {
         index: usize,
         total: usize,
         msg: String,
         size: u64,
     },
-    ProgressInc {
+    Advance {
         index: usize,
         size: u64,
     },
     NextUrl {
-        index: usize,
         file_name: String,
         err: SingleDownloadError,
     },
-    DownloadDone {
-        index: usize,
+    FileDone {
         msg: Box<str>,
     },
     Failed {
@@ -144,13 +144,11 @@ pub enum Event {
         error: SingleDownloadError,
     },
     AllDone,
-    NewGlobalProgressBar(u64),
+    GlobalDeterminate(u64),
 }
 
 #[derive(Serialize, Deserialize)]
 pub(crate) enum SingleDownloadErrorHelper {
-    SetPermission { source: String },
-    OpenAsWriteMode { source: String },
     Open { source: String },
     Create { source: String },
     Seek { source: String },
@@ -159,7 +157,7 @@ pub(crate) enum SingleDownloadErrorHelper {
     Remove { source: String },
     CreateSymlink { source: String },
     ReqwestMiddlewareError { source: String },
-    BrokenPipe { source: String },
+    Read { source: String },
     SendRequestTimeout,
     DownloadTimeout,
     ChecksumMismatch,
@@ -239,25 +237,34 @@ impl DownloadManager {
             list.push((single, source_sem));
         }
 
+        // Downloaders produce events synchronously onto this channel; a
+        // forwarding task delivers them in order to the async callback. This
+        // lets the internal progress code run without awaiting (and enables
+        // automatic cleanup via `Drop`).
+        let (tx, rx) = flume::unbounded::<Event>();
+        let forwarder = tokio::spawn(async move {
+            while let Ok(event) = rx.recv_async().await {
+                callback(event).await;
+            }
+        });
+
         if self.total_size != 0 {
-            callback(Event::NewGlobalProgressBar(self.total_size)).await;
+            let _ = tx.send(Event::GlobalDeterminate(self.total_size));
         }
 
         let mut set = JoinSet::new();
-        let callback_arc = Arc::new(callback);
 
         for (single, source_sem) in list {
-            let cb = callback_arc.clone();
+            let tx = tx.clone();
 
             set.spawn(async move {
                 let _permit = match source_sem.acquire_owned().await {
                     Ok(p) => Some(p),
                     Err(_) => {
-                        cb(Event::Failed {
+                        let _ = tx.send(Event::Failed {
                             file_name: single.entry.filename.to_string(),
                             error: SingleDownloadError::AcquireError,
-                        })
-                        .await;
+                        });
 
                         return download::DownloadResult::Failed {
                             file_name: single.entry.filename,
@@ -265,7 +272,7 @@ impl DownloadManager {
                     }
                 };
 
-                single.try_download(&*cb).await
+                single.try_download(&tx).await
             });
         }
 
@@ -286,7 +293,9 @@ impl DownloadManager {
             }
         }
 
-        callback_arc(Event::AllDone).await;
+        let _ = tx.send(Event::AllDone);
+        drop(tx);
+        let _ = forwarder.await;
 
         Ok(Summary { success, failed })
     }
@@ -323,4 +332,144 @@ pub async fn send_request(request: RequestBuilder) -> Result<Response, reqwest_m
     let resp = resp.error_for_status()?;
 
     Ok(resp)
+}
+
+/// Test-only helpers shared across the crate's `#[cfg(test)]` modules.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::path::{Path, PathBuf};
+
+    /// A unique temporary directory that is removed when dropped.
+    pub(crate) struct TempDir(PathBuf);
+
+    impl TempDir {
+        pub(crate) fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "oma-fetch-{label}-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("system clock before epoch")
+                    .as_nanos()
+            ));
+            std::fs::create_dir_all(&path).expect("create temp dir");
+            Self(path)
+        }
+
+        pub(crate) fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compress_type_from_str() {
+        assert_eq!(CompressType::from("xz"), CompressType::Xz);
+        assert_eq!(CompressType::from("gz"), CompressType::Gzip);
+        assert_eq!(CompressType::from("bz2"), CompressType::Bz2);
+        assert_eq!(CompressType::from("zst"), CompressType::Zstd);
+        assert_eq!(CompressType::from("unknown"), CompressType::None);
+    }
+
+    #[test]
+    fn local_sources_rank_above_http() {
+        let http = DownloadSource {
+            url: "http://example.com/a".into(),
+            source_type: DownloadSourceType::Http,
+        };
+        let local = DownloadSource {
+            url: "file:///a".into(),
+            source_type: DownloadSourceType::Local(false),
+        };
+        assert!(local.source_type > http.source_type);
+
+        let mut sources = [http.clone(), local.clone()];
+        sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
+        assert_eq!(sources[0].source_type, local.source_type);
+        assert_eq!(sources[1].source_type, http.source_type);
+    }
+
+    #[tokio::test]
+    async fn start_download_collects_success_and_failure() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let dir = test_support::TempDir::new("manager");
+        let src_a = dir.path().join("a.bin");
+        let src_b = dir.path().join("b.bin");
+        tokio::fs::write(&src_a, b"alpha").await.unwrap();
+        tokio::fs::write(&src_b, b"beta").await.unwrap();
+
+        let entry = |src: &std::path::Path, out: std::path::PathBuf, name: &str| DownloadEntry {
+            source: vec![DownloadSource {
+                url: format!("file://{}", src.display()),
+                source_type: DownloadSourceType::Local(false),
+            }],
+            filename: name.to_string(),
+            dir: out,
+            final_dir: None,
+            hash: None,
+            allow_resume: true,
+            msg: None,
+            file_type: CompressType::None,
+        };
+
+        let manager = DownloadManager::builder()
+            .client(download::test_support::client())
+            .download_list(
+                vec![
+                    entry(&src_a, dir.path().join("out-a"), "a.bin"),
+                    entry(&src_b, dir.path().join("out-b"), "b.bin"),
+                    // a missing local source must land in `failed`
+                    entry(
+                        &dir.path().join("missing.bin"),
+                        dir.path().join("out-c"),
+                        "c.bin",
+                    ),
+                ]
+                .into_boxed_slice(),
+            )
+            .threads(2)
+            .build();
+
+        let seen_all_done = Arc::new(AtomicBool::new(false));
+        let seen = seen_all_done.clone();
+        let summary = manager
+            .start_download(move |event| {
+                let seen = seen.clone();
+                async move {
+                    if matches!(event, Event::AllDone) {
+                        seen.store(true, Ordering::SeqCst);
+                    }
+                }
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(summary.success.len(), 2);
+        assert_eq!(summary.failed, vec!["c.bin"]);
+        assert!(seen_all_done.load(Ordering::SeqCst));
+        assert_eq!(
+            tokio::fs::read(dir.path().join("out-a/a.bin"))
+                .await
+                .unwrap(),
+            b"alpha"
+        );
+        assert_eq!(
+            tokio::fs::read(dir.path().join("out-b/b.bin"))
+                .await
+                .unwrap(),
+            b"beta"
+        );
+    }
 }

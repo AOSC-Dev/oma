@@ -422,7 +422,7 @@ impl OmaRefresh {
             if let Err(e) = result {
                 match e {
                     RefreshError::DownloadFailed(Some(
-                        SingleDownloadError::ReqwestMiddlewareError { source },
+                        SingleDownloadError::ReqwestMiddlewareError(source),
                     )) if source
                         .status()
                         .map(|x| x == StatusCode::NOT_FOUND)
@@ -495,7 +495,10 @@ impl OmaRefresh {
             cb(Event::TopicNotInMirror { topic, mirror });
         })?;
 
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
+        callback(Event::DownloadEvent(oma_fetch::Event::Cleared {
+            index: 1,
+            sub: 0,
+        }));
 
         Ok(())
     }
