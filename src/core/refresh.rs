@@ -7,11 +7,7 @@ use oma_utils::dpkg::dpkg_arch;
 use spdlog::{debug, info};
 
 use crate::{
-    config::OmaConfig,
-    error::OutputError,
-    fl,
-    pb::{NoProgressBar, OmaMultiProgressBar, RenderRefreshProgress},
-    utils::get_lists_dir,
+    config::OmaConfig, error::OutputError, fl, pb::ProgressRenderer, utils::get_lists_dir,
 };
 
 #[derive(Debug, Builder)]
@@ -55,20 +51,22 @@ impl Refresh<'_> {
 
         let no_progress = config.no_progress();
 
-        thread::spawn(move || {
-            let mut pb: Box<dyn RenderRefreshProgress> = if no_progress {
-                Box::new(NoProgressBar::default())
-            } else {
-                Box::new(OmaMultiProgressBar::default())
-            };
+        let handle = thread::spawn(move || {
+            let mut pb = ProgressRenderer::new(no_progress);
             pb.render_refresh_progress(&rx);
         });
 
-        refresh.start(move |event| {
+        let res = refresh.start(move |event| {
             if let Err(e) = tx.send(event) {
                 debug!("{}", e);
             }
-        })?;
+        });
+
+        // Wait for the renderer thread to process the remaining events so no
+        // progress bar is left on screen when we continue.
+        handle.join().ok();
+
+        res?;
 
         Ok(())
     }

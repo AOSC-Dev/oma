@@ -26,7 +26,6 @@ use inquire::ui::RenderConfig;
 use inquire::ui::StyleSheet;
 use inquire::ui::Styled;
 use oma_console::indicatif::HumanBytes;
-use oma_console::indicatif::ProgressBar;
 use oma_console::indicatif::ProgressStyle;
 use oma_mirror::MirrorManager;
 use oma_mirror::parser::MirrorConfig;
@@ -56,14 +55,12 @@ use crate::lang::SYSTEM_LANG;
 use crate::menu::multiselect;
 use crate::menu::select_tui_display_msg;
 use crate::menu::tui_select_list_size;
-use crate::pb::OmaProgressBar;
-use crate::pb::Print;
+use crate::pb::ProgressBar;
 use crate::root::is_root;
 use crate::root::root;
 use crate::success;
 use crate::table::PagerPrinter;
 
-use super::utils::create_progress_spinner;
 use crate::args::CliExecuter;
 
 const REPO_TEST_SHA256: &str = "1e2a82e7babb443b2b26b61ce5dd2bd25b06b30422b42ee709fddd2cc3ffe231";
@@ -385,11 +382,7 @@ fn get_latency(
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
-    let pb = if !no_progress && !json {
-        Some(progress_bar(mirrors.len() as u64 - 5))
-    } else {
-        None
-    };
+    let pb = progress_bar(mirrors.len() as u64 - 5, !no_progress && !json);
 
     let origin_date = get_mirror_date(
         "https://repo-hk.aosc.io/debs/dists/stable/InRelease",
@@ -414,11 +407,7 @@ fn get_latency(
         .map(|(m, url)| (m, get_mirror_date(&url, client, m, &pb, true, timeout)))
         .filter_map(|(m, res)| {
             res.map_err(|e| {
-                if let Some(pb) = &pb {
-                    pb.error(&format!("{}: {}", m, e));
-                } else {
-                    error!("{}: {}", m, e);
-                }
+                error!("{}: {}", m, e);
                 result.lock().unwrap().push((m, Err(anyhow!("{e}"))));
                 e
             })
@@ -442,16 +431,10 @@ fn get_latency(
 
             result.lock().unwrap().push((res.0, Ok(delta_duration)));
 
-            if let Some(pb) = &pb {
-                pb.info(&format_latency(res.0, delta_duration));
-            } else {
-                info!("{}", format_latency(res.0, delta_duration));
-            }
+            info!("{}", format_latency(res.0, delta_duration));
         });
 
-    if let Some(pb) = &pb {
-        pb.inner.finish_and_clear();
-    }
+    pb.finish_and_clear();
 
     let result = result.into_inner().unwrap();
 
@@ -538,7 +521,7 @@ fn get_mirror_date(
     url: &str,
     client: &blocking::Client,
     m: &str,
-    p: &Option<OmaProgressBar>,
+    p: &ProgressBar,
     error_without_url: bool,
     timeout: f64,
 ) -> anyhow::Result<String> {
@@ -570,9 +553,7 @@ fn get_mirror_date(
         .date
         .with_context(|| format!("mirror {} no date field found", m))?;
 
-    if let Some(p) = p {
-        p.inner.inc(1);
-    }
+    p.inc(1);
 
     Ok(date)
 }
@@ -601,17 +582,11 @@ fn speedtest(
 
     let mirrors = mm.mirrors_iter()?.collect::<Vec<_>>();
 
-    let pb = if !config.no_progress() {
-        Some(progress_bar(mirrors.len() as u64))
-    } else {
-        None
-    };
+    let pb = progress_bar(mirrors.len() as u64, !config.no_progress());
 
     let mut score_map = HashMap::with_hasher(ahash::RandomState::new());
 
-    if let Some(ref pb) = pb {
-        pb.info(&fl!("mirror-speedtest-start"));
-    }
+    info!("{}", fl!("mirror-speedtest-start"));
 
     for (name, mirror) in mirrors {
         let mut sha256 = IoWrapper(Sha256::new());
@@ -635,38 +610,22 @@ fn speedtest(
                         name,
                         HumanBytes((10.0 * 1024.0 * 1024.0 / dur.as_secs_f64()) as u64)
                     );
-                    if let Some(ref pb) = pb {
-                        pb.info(&msg);
-                    } else {
-                        info!("{msg}");
-                    }
+                    info!("{msg}");
                 } else {
                     let msg = format!("{name}: Checksum verification failed.");
-                    if let Some(ref pb) = pb {
-                        pb.error(&msg);
-                    } else {
-                        error!("{msg}");
-                    }
+                    error!("{msg}");
                 }
             }
             Err(e) => {
                 let msg = format!("{}: {}", name, e.without_url());
-                if let Some(ref pb) = pb {
-                    pb.error(&msg);
-                } else {
-                    error!("{}", msg);
-                }
+                error!("{msg}");
             }
         }
 
-        if let Some(ref pb) = pb {
-            pb.inner.inc(1);
-        }
+        pb.inc(1);
     }
 
-    if let Some(ref pb) = pb {
-        pb.inner.finish_and_clear();
-    }
+    pb.finish_and_clear();
 
     let mut printer = PagerPrinter::new(stdout());
 
@@ -742,13 +701,13 @@ fn speedtest(
 }
 
 #[inline]
-fn progress_bar(mirrors_len: u64) -> OmaProgressBar {
-    OmaProgressBar::new(
-        ProgressBar::new(mirrors_len).with_style(
-            ProgressStyle::with_template("{spinner:.green} ({pos}/{len}) [{wide_bar:.cyan/blue}]")
-                .unwrap()
-                .progress_chars("=>-"),
-        ),
+fn progress_bar(mirrors_len: u64, enabled: bool) -> ProgressBar {
+    ProgressBar::new(
+        mirrors_len,
+        ProgressStyle::with_template("{spinner:.green} ({pos}/{len}) [{wide_bar:.cyan/blue}]")
+            .unwrap()
+            .progress_chars("=>-"),
+        enabled,
     )
 }
 
@@ -779,7 +738,7 @@ fn refresh_enabled_topics_sources_list(
     client: &ClientWithMiddleware,
     no_progress: bool,
 ) -> Result<(), OutputError> {
-    let pb = create_progress_spinner(no_progress, fl!("refreshing-topic-metadata"));
+    let pb = ProgressBar::new_spinner(fl!("refreshing-topic-metadata"), !no_progress);
 
     let try_refresh = Ok(()).and_then(|_| -> Result<(), OutputError> {
         let arch = dpkg_arch("/")?;
@@ -800,9 +759,7 @@ fn refresh_enabled_topics_sources_list(
         Ok(())
     });
 
-    if let Some(pb) = pb {
-        pb.inner.finish_and_clear();
-    }
+    pb.finish_and_clear();
 
     try_refresh?;
 

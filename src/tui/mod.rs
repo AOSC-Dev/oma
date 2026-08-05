@@ -10,12 +10,8 @@ use spdlog::{debug, info};
 use zbus::Connection;
 
 use crate::{
-    RT,
-    args::CliExecuter,
-    config::OmaConfig,
-    exit_handle::ExitHandle,
-    subcommand::{search::AmoProxy, utils::create_progress_spinner},
-    tui::render::PackageStatus,
+    RT, args::CliExecuter, config::OmaConfig, exit_handle::ExitHandle, pb::ProgressBar,
+    subcommand::search::AmoProxy, tui::render::PackageStatus,
 };
 use crate::{
     core::{commit_changes::CommitChanges, refresh::Refresh},
@@ -145,7 +141,7 @@ impl CliExecuter for Tui {
 
         let mut apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-        let pb = create_progress_spinner(config.no_progress(), fl!("reading-database"));
+        let pb = ProgressBar::new_spinner(fl!("reading-database"), !config.no_progress());
 
         let (upgradable, upgradable_but_held) = apt.count_pending_upgradable_pkgs();
         let autoremove = apt.count_pending_autoremovable_pkgs();
@@ -160,9 +156,7 @@ impl CliExecuter for Tui {
             local_searcher(&pb)?
         };
 
-        if let Some(pb) = pb {
-            pb.inner.finish_and_clear();
-        }
+        pb.finish_and_clear();
 
         let mut terminal = prepare_create_tui()
             .map_err(|e| OutputError::with_source("BUG: Failed to create crossterm instance", e))?;
@@ -224,7 +218,7 @@ impl CliExecuter for Tui {
     }
 }
 
-fn local_searcher(pb: &Option<crate::pb::OmaProgressBar>) -> Result<Searcher, OutputError> {
+fn local_searcher(pb: &ProgressBar) -> Result<Searcher, OutputError> {
     let lists_dir = apt_config::find_dir(
         "Dir::State::lists".to_string(),
         "var/lib/apt/lists".to_string(),
@@ -247,10 +241,7 @@ fn local_searcher(pb: &Option<crate::pb::OmaProgressBar>) -> Result<Searcher, Ou
         &search_cache,
         SearchType::Live,
         |n| {
-            if let Some(ref pb) = *pb {
-                pb.inner
-                    .set_message(fl!("reading-database-with-count", count = n));
-            }
+            pb.set_message(fl!("reading-database-with-count", count = n));
         },
     )?;
     Ok(Searcher::Local(Box::new(searcher)))

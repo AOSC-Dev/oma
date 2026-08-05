@@ -3,7 +3,7 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use crate::config::OmaConfig;
-use crate::subcommand::utils::create_progress_spinner;
+use crate::pb::ProgressBar;
 
 use crate::exit_handle::ExitHandle;
 use crate::fl;
@@ -93,7 +93,7 @@ pub fn clean_download_packages_cache(
 ) -> Result<u64, OutputError> {
     let mut total_clean_size = 0;
 
-    let pb = create_progress_spinner(no_progress, fl!("cleaning"));
+    let pb = ProgressBar::new_spinner(fl!("cleaning"), !no_progress);
 
     remove(&download_dir.join("partial"), &mut total_clean_size);
 
@@ -149,9 +149,7 @@ pub fn clean_download_packages_cache(
         }
     }
 
-    if let Some(pb) = pb {
-        pb.inner.finish_and_clear();
-    }
+    pb.finish_and_clear();
 
     Ok(total_clean_size)
 }

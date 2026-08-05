@@ -30,9 +30,10 @@ use crate::{
     root::root,
 };
 
-use super::utils::{create_progress_spinner, lock_oma};
+use super::utils::lock_oma;
 
 use crate::args::CliExecuter;
+use crate::pb::ProgressBar;
 
 use crate::fl;
 use anyhow::Context;
@@ -501,15 +502,13 @@ fn select_prompt(
 }
 
 fn refresh_topics(no_progress: bool, tm: &mut TopicManager) -> Result<(), OutputError> {
-    let pb = create_progress_spinner(no_progress, fl!("refreshing-topic-metadata"));
+    let pb = ProgressBar::new_spinner(fl!("refreshing-topic-metadata"), !no_progress);
 
     tm.refresh()?;
     tm.remove_closed_topics()?;
     tm.write_enabled(false)?;
 
-    if let Some(pb) = pb {
-        pb.inner.finish_and_clear();
-    }
+    pb.finish_and_clear();
 
     Ok(())
 }

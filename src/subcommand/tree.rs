@@ -22,7 +22,8 @@ use crate::{
     exit_handle::ExitHandle, fl, table::oma_display_with_normal_output,
 };
 
-use super::utils::{create_progress_spinner, handle_no_result};
+use super::utils::handle_no_result;
+use crate::pb::ProgressBar;
 
 use termtree::Tree as TermTree;
 
@@ -140,7 +141,7 @@ impl CliExecuter for Tree {
 
         let mut res = vec![];
 
-        let pb = create_progress_spinner(config.no_progress() || no_pager, fl!("loading-tree"));
+        let pb = ProgressBar::new_spinner(fl!("loading-tree"), !(config.no_progress() || no_pager));
 
         for p in pkgs {
             let depth = 1;
@@ -178,9 +179,7 @@ impl CliExecuter for Tree {
             }
         }
 
-        if let Some(pb) = pb {
-            pb.inner.finish_and_clear();
-        }
+        pb.finish_and_clear();
 
         if no_pager {
             return Ok(ExitHandle::default());

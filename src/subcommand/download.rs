@@ -12,7 +12,7 @@ use spdlog::error;
 use crate::completions::pkgnames_completions;
 use crate::config::OmaConfig;
 use crate::exit_handle::ExitHandle;
-use crate::pb::{NoProgressBar, OmaMultiProgressBar, RenderPackagesDownloadProgress};
+use crate::pb::ProgressRenderer;
 use crate::{error::OutputError, subcommand::utils::handle_no_result};
 use crate::{fl, success};
 
@@ -62,12 +62,8 @@ impl CliExecuter for Download {
 
         let no_progress = config.no_progress();
 
-        thread::spawn(move || {
-            let mut pb: Box<dyn RenderPackagesDownloadProgress> = if no_progress {
-                Box::new(NoProgressBar::default())
-            } else {
-                Box::new(OmaMultiProgressBar::default())
-            };
+        let handle = thread::spawn(move || {
+            let mut pb = ProgressRenderer::new(no_progress);
             pb.render_progress(&rx, true);
         });
 
@@ -84,7 +80,13 @@ impl CliExecuter for Download {
                     error!("{}", e);
                 }
             },
-        )?;
+        );
+
+        // Wait for the renderer thread to process the remaining events so no
+        // progress bar is left on screen when we continue.
+        handle.join().ok();
+
+        let summary = summary?;
 
         if !summary.success.is_empty() {
             success!(

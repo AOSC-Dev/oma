@@ -21,8 +21,7 @@ use crate::{
 use crate::{error::OutputError, table::oma_display_with_normal_output};
 
 use crate::args::CliExecuter;
-
-use super::utils::create_progress_spinner;
+use crate::pb::ProgressBar;
 
 #[proxy(
     interface = "io.aosc.Amo1",
@@ -139,7 +138,7 @@ impl CliExecuter for Search {
 
         let no_pager = no_pager || config.search_contents_println;
 
-        let pb = create_progress_spinner(config.no_progress() || json, fl!("searching"));
+        let pb = ProgressBar::new_spinner(fl!("searching"), !(config.no_progress() || json));
         let res = search(
             &pattern,
             match config.search_engine {
@@ -150,9 +149,7 @@ impl CliExecuter for Search {
             &config,
         )?;
 
-        if let Some(pb) = pb {
-            pb.inner.finish_and_clear();
-        }
+        pb.finish_and_clear();
 
         let mut pager = if !no_pager && !json {
             oma_display_with_normal_output(false, res.len() * 2)?
