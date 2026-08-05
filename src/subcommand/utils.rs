@@ -88,10 +88,7 @@ pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Resul
         }
     }
 
-    Err(OutputError {
-        description: fl!("has-error-on-top"),
-        source: None,
-    })
+    Err(OutputError::msg(fl!("has-error-on-top")))
 }
 
 pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<OwnedFd, OutputError> {
@@ -103,20 +100,14 @@ pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<OwnedFd, OutputError
     .context("Failed to create lock dir")?;
 
     let lock = get_file_lock(lock).map_err(|e| match e {
-        GetLockError::SetLock(errno) => OutputError {
-            description: fl!("failed-to-lock-oma"),
-            source: Some(Box::new(errno)),
-        },
+        GetLockError::SetLock(errno) => OutputError::with_source(fl!("failed-to-lock-oma"), errno),
         GetLockError::SetLockWithProcess(_, pid) => {
             let error_str = match find_another_oma() {
                 Ok(status) => fl!("another-oma-is-running", s = status, pid = pid),
                 Err(_) => fl!("another-oma-is-running-without-status", pid = pid),
             };
 
-            OutputError {
-                description: error_str,
-                source: None,
-            }
+            OutputError::msg(error_str)
         }
     })?;
 

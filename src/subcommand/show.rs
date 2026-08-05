@@ -138,12 +138,7 @@ fn display_to_json(
     writeln!(
         stdout,
         "{}",
-        serde_json::to_string(&pkg.pkg_info(&apt.cache)?).map_err(|e| {
-            OutputError {
-                description: e.to_string(),
-                source: None,
-            }
-        })?
+        serde_json::to_string(&pkg.pkg_info(&apt.cache)?)?
     )
     .ok();
 

@@ -52,12 +52,12 @@ use oma_console::console;
 
 use crate::config::OmaConfig;
 use crate::config_file::ConfigFile;
-use crate::error::Chain;
 use crate::exit_handle::ExitHandle;
 #[cfg(not(feature = "tokio-console"))]
 use crate::logger::init_logger;
 use crate::logger::remove_old_log_file_impl;
 use crate::subcommand::*;
+use anyhow::Chain;
 
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static NOT_ALLOW_CTRLC: AtomicBool = AtomicBool::new(false);
@@ -391,42 +391,44 @@ fn color_formatter() -> &'static OmaColorFormat {
 }
 
 fn display_error(e: OutputError) -> io::Result<()> {
-    if !e.description.is_empty() {
-        log_error!("{e}");
+    if e.is_already_reported() {
+        return Ok(());
+    }
 
-        let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
-        let last_cause = cause.last();
+    let message = e.to_string();
+    log_error!("{message}");
 
-        if let Some(ref last) = last_cause {
-            due_to!("{last}");
-            let cause_writer = Writer::new(3);
-            if cause.len() > 1 {
-                for (i, c) in cause.iter().enumerate() {
-                    if i == 0 {
-                        WRITER.write_prefix(&console::style("TRACE").magenta().to_string())?;
+    let cause = Chain::new(&e).skip(1).collect::<Vec<_>>();
+    let last_cause = cause.last();
+
+    if let Some(ref last) = last_cause {
+        due_to!("{last}");
+        let cause_writer = Writer::new(3);
+        if cause.len() > 1 {
+            for (i, c) in cause.iter().enumerate() {
+                if i == 0 {
+                    WRITER.write_prefix(&console::style("TRACE").magenta().to_string())?;
+                } else {
+                    WRITER.write_prefix("")?;
+                }
+
+                let res = wrap_content(
+                    "",
+                    &c.to_string(),
+                    cause_writer.get_max_len(),
+                    cause_writer.get_prefix_len() + WRITER.get_prefix_len(),
+                )
+                .into_iter()
+                .map(|(_, s)| s);
+
+                for (k, j) in res.enumerate() {
+                    if k == 0 {
+                        cause_writer.write_prefix(&format!("{i}."))?;
                     } else {
                         WRITER.write_prefix("")?;
+                        cause_writer.write_prefix("")?;
                     }
-
-                    let res = wrap_content(
-                        "",
-                        &c.to_string(),
-                        cause_writer.get_max_len(),
-                        cause_writer.get_prefix_len() + WRITER.get_prefix_len(),
-                    )
-                    .into_iter()
-                    .map(|(_, s)| s)
-                    .collect::<Vec<_>>();
-
-                    for (k, j) in res.iter().enumerate() {
-                        if k == 0 {
-                            cause_writer.write_prefix(&format!("{i}."))?;
-                        } else {
-                            WRITER.write_prefix("")?;
-                            cause_writer.write_prefix("")?;
-                        }
-                        print!("{j}");
-                    }
+                    print!("{j}");
                 }
             }
         }

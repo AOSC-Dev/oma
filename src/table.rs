@@ -226,10 +226,7 @@ pub fn oma_display_with_normal_output(
             color_formatter(),
             false,
         )
-        .map_err(|e| OutputError {
-            description: "Failed to get pager".to_string(),
-            source: Some(Box::new(e)),
-        })?
+        .map_err(|e| OutputError::with_source("Failed to get pager", e))?
     };
 
     Ok(pager)
@@ -410,10 +407,7 @@ pub fn table_for_install_pending(
 
     let mut pager = if is_pager {
         if !is_terminal() {
-            return Err(OutputError {
-                description: fl!("not-allow-oma-pending-piped"),
-                source: None,
-            });
+            return Err(OutputError::msg(fl!("not-allow-oma-pending-piped")));
         }
 
         Pager::external(
@@ -425,18 +419,14 @@ pub fn table_for_install_pending(
             color_formatter(),
             yn_mode,
         )
-        .map_err(|e| OutputError {
-            description: "Failed to get pager".to_string(),
-            source: Some(Box::new(e)),
-        })?
+        .map_err(|e| OutputError::with_source("Failed to get pager", e))?
     } else {
         Pager::plain()
     };
 
-    let out = pager.get_writer().map_err(|e| OutputError {
-        description: "Failed to get writer".to_string(),
-        source: Some(Box::new(e)),
-    })?;
+    let out = pager
+        .get_writer()
+        .map_err(|e| OutputError::with_source("Failed to get writer", e))?;
     let mut printer = PagerPrinter::new(out);
 
     if is_pager {
@@ -458,18 +448,16 @@ pub fn table_for_install_pending(
         &tum,
     );
 
-    let exit = pager.wait_for_exit().map_err(|e| OutputError {
-        description: "Failed to wait exit".to_string(),
-        source: Some(Box::new(e)),
-    })?;
+    let exit = pager
+        .wait_for_exit()
+        .map_err(|e| OutputError::with_source("Failed to wait exit", e))?;
 
     match exit {
         PagerExit::NormalExit if is_pager => {
             let mut pager = Pager::plain();
-            let out = pager.get_writer().map_err(|e| OutputError {
-                description: "Failed to wait exit".to_string(),
-                source: Some(Box::new(e)),
-            })?;
+            let out = pager
+                .get_writer()
+                .map_err(|e| OutputError::with_source("Failed to wait exit", e))?;
             let mut printer = PagerPrinter::new(out);
             printer.println("").ok();
             print_pending_inner(
@@ -507,15 +495,11 @@ pub fn table_for_history_pending(
         color_formatter(),
         false,
     )
-    .map_err(|e| OutputError {
-        description: "Failed to get pager".to_string(),
-        source: Some(Box::new(e)),
-    })?;
+    .map_err(|e| OutputError::with_source("Failed to get pager", e))?;
 
-    let out = pager.get_writer().map_err(|e| OutputError {
-        description: "Failed to get writer".to_string(),
-        source: Some(Box::new(e)),
-    })?;
+    let out = pager
+        .get_writer()
+        .map_err(|e| OutputError::with_source("Failed to get writer", e))?;
     let mut printer = PagerPrinter::new(out);
 
     printer.println("\n\n").ok();
@@ -528,10 +512,9 @@ pub fn table_for_history_pending(
         None, // disk_size and total_download_size are already displayed in the floating window in the pager, so it would not need to be displayed again in the pager content
         &None,
     );
-    pager.wait_for_exit().map_err(|e| OutputError {
-        description: "Failed to wait exit".to_string(),
-        source: Some(Box::new(e)),
-    })?;
+    pager
+        .wait_for_exit()
+        .map_err(|e| OutputError::with_source("Failed to wait exit", e))?;
 
     Ok(())
 }

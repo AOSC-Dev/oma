@@ -16,9 +16,11 @@ use oma_console::{
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
-use crate::{WRITER, error::Chain, fl, install_progress::osc94_progress, msg, root::is_root};
-use crate::{color_formatter, error::OutputError};
+use anyhow::Chain;
 use oma_refresh::db::Event as RefreshEvent;
+
+use crate::{WRITER, fl, install_progress::osc94_progress, msg, root::is_root};
+use crate::{color_formatter, error::OutputError};
 use oma_utils::human_bytes::HumanBytes;
 use spdlog::{debug, error, info, warn};
 

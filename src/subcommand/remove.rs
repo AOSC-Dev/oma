@@ -249,10 +249,10 @@ fn check_is_current_kernel_deleting(
         ) && (config.protect_essentials
             || !ask_user_delete_current_kernel(pkg.raw_pkg.name()).unwrap_or(false))
         {
-            return Err(OutputError {
-                description: fl!("not-allow-delete-using-kernel", ver = current_kernel_ver),
-                source: None,
-            });
+            return Err(OutputError::msg(fl!(
+                "not-allow-delete-using-kernel",
+                ver = current_kernel_ver
+            )));
         }
     }
 

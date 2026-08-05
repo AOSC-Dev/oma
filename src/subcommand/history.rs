@@ -217,11 +217,7 @@ impl CliExecuter for Undo {
                 }
             })
             .map(|(x, y)| OmaPackage::new(&y, x))
-            .collect::<Result<Vec<OmaPackage>, PtrIsNone>>()
-            .map_err(|e| OutputError {
-                description: e.to_string(),
-                source: None,
-            })?;
+            .collect::<Result<Vec<OmaPackage>, PtrIsNone>>()?;
 
         apt.install(&install, false)?;
 

@@ -97,9 +97,8 @@ pub fn clean_download_packages_cache(
 
     remove(&download_dir.join("partial"), &mut total_clean_size);
 
-    let dir = fs::read_dir(download_dir).map_err(|e| OutputError {
-        description: format!("Failed to read dir: {}", download_dir.display()),
-        source: Some(Box::new(e)),
+    let dir = fs::read_dir(download_dir).map_err(|e| {
+        OutputError::with_source(format!("Failed to read dir: {}", download_dir.display()), e)
     })?;
 
     for i in dir

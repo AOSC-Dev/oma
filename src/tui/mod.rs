@@ -164,10 +164,8 @@ impl CliExecuter for Tui {
             pb.inner.finish_and_clear();
         }
 
-        let mut terminal = prepare_create_tui().map_err(|e| OutputError {
-            description: "BUG: Failed to create crossterm instance".to_string(),
-            source: Some(Box::new(e)),
-        })?;
+        let mut terminal = prepare_create_tui()
+            .map_err(|e| OutputError::with_source("BUG: Failed to create crossterm instance", e))?;
 
         let tui = TuiInner::new(
             &apt,
@@ -188,10 +186,8 @@ impl CliExecuter for Tui {
             autoremove,
         } = tui.run(&mut terminal, Duration::from_millis(250)).unwrap();
 
-        exit_tui(&mut terminal).map_err(|e| OutputError {
-            description: "BUG: Failed to exit tui".to_string(),
-            source: Some(Box::new(e)),
-        })?;
+        exit_tui(&mut terminal)
+            .map_err(|e| OutputError::with_source("BUG: Failed to exit tui", e))?;
 
         let mut exit = ExitHandle::default();
 
@@ -241,15 +237,8 @@ fn local_searcher(pb: &Option<crate::pb::OmaProgressBar>) -> Result<Searcher, Ou
     let search_cache =
         crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
-    let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path).map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?;
-    let apt_db =
-        oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir).map_err(|e| OutputError {
-            description: e.to_string(),
-            source: None,
-        })?;
+    let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path)?;
+    let apt_db = oma_apt_pkg::AptDb::load_or_build(&apt_cache, &lists_dir)?;
 
     let searcher = IndiciumSearch::new_with_cache(
         &apt_db,
@@ -263,10 +252,6 @@ fn local_searcher(pb: &Option<crate::pb::OmaProgressBar>) -> Result<Searcher, Ou
                     .set_message(fl!("reading-database-with-count", count = n));
             }
         },
-    )
-    .map_err(|e| OutputError {
-        description: e.to_string(),
-        source: None,
-    })?;
+    )?;
     Ok(Searcher::Local(Box::new(searcher)))
 }

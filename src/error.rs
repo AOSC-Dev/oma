@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::Display;
 use std::io::{self};
@@ -16,6 +17,7 @@ use oma_mirror::MirrorError;
 
 use oma_apt_pkg::search::OmaSearchError;
 use oma_pm::oma_apt::error::AptErrors;
+use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{apt::OmaAptError, matches::MatcherError};
 use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseError;
@@ -34,138 +36,81 @@ use spdlog::{debug, error, info};
 
 use crate::{due_to, fl, msg};
 
-use self::ChainState::*;
-
-use std::vec;
-
-#[derive(Clone)]
-pub(crate) enum ChainState<'a> {
-    Linked {
-        next: Option<&'a (dyn Error + 'static)>,
-    },
-    Buffered {
-        rest: vec::IntoIter<&'a (dyn Error + 'static)>,
-    },
-}
-
-pub struct Chain<'a> {
-    state: ChainState<'a>,
-}
-
-impl<'a> Chain<'a> {
-    /// Construct an iterator over a chain of errors via the `source` method
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::error::Error;
-    /// use std::fmt::{self, Write};
-    /// use eyre::Chain;
-    /// use indenter::indented;
-    ///
-    /// fn report(error: &(dyn Error + 'static), f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    ///     let mut errors = Chain::new(error).enumerate();
-    ///     for (i, error) in errors {
-    ///         writeln!(f)?;
-    ///         write!(indented(f).ind(i), "{}", error)?;
-    ///     }
-    ///
-    ///     Ok(())
-    /// }
-    /// ```
-    pub fn new(head: &'a (dyn Error + 'static)) -> Self {
-        Chain {
-            state: ChainState::Linked { next: Some(head) },
-        }
-    }
-}
-
-impl<'a> Iterator for Chain<'a> {
-    type Item = &'a (dyn Error + 'static);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match &mut self.state {
-            Linked { next } => {
-                let error = (*next)?;
-                *next = error.source();
-                Some(error)
-            }
-            Buffered { rest } => rest.next(),
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.len();
-        (len, Some(len))
-    }
-}
-
-impl DoubleEndedIterator for Chain<'_> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        match &mut self.state {
-            Linked { next } => {
-                let mut next = next.to_owned();
-                let mut rest = Vec::new();
-                while let Some(cause) = next {
-                    next = cause.source();
-                    rest.push(cause);
-                }
-                let mut rest = rest.into_iter();
-                let last = rest.next_back();
-                self.state = Buffered { rest };
-                last
-            }
-            Buffered { rest } => rest.next_back(),
-        }
-    }
-}
-
-impl ExactSizeIterator for Chain<'_> {
-    fn len(&self) -> usize {
-        match &self.state {
-            Linked { next } => {
-                let mut len = 0;
-                let mut next = next.to_owned();
-                while let Some(cause) = next {
-                    next = cause.source();
-                    len += 1;
-                }
-                len
-            }
-            Buffered { rest } => rest.len(),
-        }
-    }
-}
-
-impl Default for Chain<'_> {
-    fn default() -> Self {
-        Chain {
-            state: ChainState::Buffered {
-                rest: Vec::new().into_iter(),
-            },
-        }
-    }
-}
-
+/// Top-level error type for all oma operations.
+///
+/// A thin wrapper around [`anyhow::Error`]: the displayed message is the
+/// localized user-facing text, and [`Error::source`] walks the underlying
+/// cause chain ("due to") shown on failure.
 #[derive(Debug)]
-pub struct OutputError {
-    pub description: String,
-    pub source: Option<Box<dyn Error>>,
+pub struct OutputError(anyhow::Error);
+
+impl From<anyhow::Error> for OutputError {
+    fn from(error: anyhow::Error) -> Self {
+        OutputError(error)
+    }
 }
 
 impl Display for OutputError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.description)
+        Display::fmt(&self.0, f)
     }
 }
 
 impl Error for OutputError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        self.source.as_deref()
+        self.0.source()
+    }
+}
+
+/// Marker error for [`OutputError::already_reported`]: the full details were
+/// already printed (e.g. dependency issues that logged each message
+/// individually), so nothing more should be displayed.
+#[derive(Debug)]
+struct AlreadyReported;
+
+impl Display for AlreadyReported {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
+impl Error for AlreadyReported {}
+
+impl OutputError {
+    /// Wrap a localized message with no underlying cause.
+    pub fn msg(message: impl Into<Cow<'static, str>>) -> Self {
+        OutputError(anyhow::Error::msg(message.into()))
     }
 
-    fn cause(&self) -> Option<&dyn Error> {
-        self.source()
+    /// An error whose details were already printed (e.g. dependency issues
+    /// that logged each message individually); the display logic skips it.
+    pub fn already_reported() -> Self {
+        OutputError(anyhow::Error::new(AlreadyReported))
+    }
+
+    /// Whether the full details of this error were already printed elsewhere.
+    pub fn is_already_reported(&self) -> bool {
+        self.0.is::<AlreadyReported>()
+    }
+
+    /// Wrap a localized message over an underlying cause.
+    pub fn with_source(
+        message: impl Into<Cow<'static, str>>,
+        source: impl Into<anyhow::Error>,
+    ) -> Self {
+        OutputError(source.into().context(message.into()))
+    }
+}
+
+impl From<String> for OutputError {
+    fn from(message: String) -> Self {
+        OutputError::msg(message)
+    }
+}
+
+impl From<&'static str> for OutputError {
+    fn from(message: &'static str) -> Self {
+        OutputError::msg(message)
     }
 }
 
@@ -175,42 +120,54 @@ impl From<OmaAptError> for OutputError {
     }
 }
 
+impl From<PtrIsNone> for OutputError {
+    fn from(value: PtrIsNone) -> Self {
+        Self::msg(value.to_string())
+    }
+}
+
+impl From<serde_json::Error> for OutputError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::with_source("Failed to serialize to JSON", value)
+    }
+}
+
+impl From<oma_apt_pkg::Error> for OutputError {
+    fn from(value: oma_apt_pkg::Error) -> Self {
+        Self::with_source("Failed to load apt data", value)
+    }
+}
+
 #[cfg(feature = "aosc")]
 impl From<MirrorError> for OutputError {
     fn from(value: MirrorError) -> Self {
         match value {
-            MirrorError::ReadFile { path, source } => Self {
-                description: fl!("failed-to-operate-path", p = path.display().to_string()),
-                source: Some(Box::new(source)),
-            },
-            MirrorError::ParseJson { path, source } => Self {
-                description: fl!("failed-to-parse-file", p = path.display().to_string()),
-                source: Some(Box::new(source)),
-            },
-            MirrorError::MirrorNotExist { mirror_name } => Self {
-                description: fl!("mirror-not-found", mirror = mirror_name.as_ref()),
-                source: None,
-            },
-            MirrorError::SerializeJson { source } => Self {
-                description: fl!("failed-to-serialize-struct"),
-                source: Some(Box::new(source)),
-            },
-            MirrorError::WriteFile { path, source } => Self {
-                description: fl!("failed-to-write-file", p = path.display().to_string()),
-                source: Some(Box::new(source)),
-            },
-            MirrorError::CreateFile { path, source } => Self {
-                description: fl!("failed-to-create-file", p = path.display().to_string()),
-                source: Some(Box::new(source)),
-            },
-            MirrorError::ApplyEmptySettings => Self {
-                description: fl!("mirrors-setting-empty"),
-                source: None,
-            },
-            MirrorError::ParseConfig { source } => Self {
-                description: "Failed to parse file".to_string(),
-                source: Some(Box::new(source)),
-            },
+            MirrorError::ReadFile { path, source } => Self::with_source(
+                fl!("failed-to-operate-path", p = path.display().to_string()),
+                source,
+            ),
+            MirrorError::ParseJson { path, source } => Self::with_source(
+                fl!("failed-to-parse-file", p = path.display().to_string()),
+                source,
+            ),
+            MirrorError::MirrorNotExist { mirror_name } => {
+                fl!("mirror-not-found", mirror = mirror_name.as_ref()).into()
+            }
+            MirrorError::SerializeJson { source } => {
+                Self::with_source(fl!("failed-to-serialize-struct"), source)
+            }
+            MirrorError::WriteFile { path, source } => Self::with_source(
+                fl!("failed-to-write-file", p = path.display().to_string()),
+                source,
+            ),
+            MirrorError::CreateFile { path, source } => Self::with_source(
+                fl!("failed-to-create-file", p = path.display().to_string()),
+                source,
+            ),
+            MirrorError::ApplyEmptySettings => fl!("mirrors-setting-empty").into(),
+            MirrorError::ParseConfig { source } => {
+                Self::with_source("Failed to parse file", source)
+            }
         }
     }
 }
@@ -219,33 +176,19 @@ impl From<OmaDbusError> for OutputError {
     fn from(value: OmaDbusError) -> Self {
         debug!("{:?}", value);
         match value {
-            OmaDbusError::FailedConnectDbus(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
-            OmaDbusError::FailedTakeWakeLock(e) => Self {
-                description: fl!("failed-to-set-lockscreen"),
-                source: Some(Box::new(e)),
-            },
+            OmaDbusError::FailedConnectDbus(e) => e.to_string().into(),
+            OmaDbusError::FailedTakeWakeLock(e) => {
+                Self::with_source(fl!("failed-to-set-lockscreen"), e)
+            }
             OmaDbusError::FailedCreateProxy(proxy, e) => {
                 let proxy = proxy.to_string();
-                Self {
-                    description: fl!("failed-to-create-proxy", proxy = proxy),
-                    source: Some(Box::new(e)),
-                }
+                Self::with_source(fl!("failed-to-create-proxy", proxy = proxy), e)
             }
-            OmaDbusError::FailedGetBatteryStatus(e) => Self {
-                description: fl!("failed-to-set-lockscreen"),
-                source: Some(Box::new(e)),
-            },
-            OmaDbusError::FailedGetOmaStatus(e) => Self {
-                description: "Failed to get oma status".to_string(),
-                source: Some(Box::new(e)),
-            },
-            OmaDbusError::SessionState(_) => Self {
-                description: value.to_string(),
-                source: None,
-            },
+            OmaDbusError::FailedGetBatteryStatus(e) => {
+                Self::with_source(fl!("failed-to-set-lockscreen"), e)
+            }
+            OmaDbusError::FailedGetOmaStatus(e) => Self::with_source("Failed to get oma status", e),
+            OmaDbusError::SessionState(_) => value.to_string().into(),
         }
     }
 }
@@ -258,20 +201,15 @@ impl From<TumError> for OutputError {
         let p1 = get_lists_dir().to_string_lossy().to_string();
 
         match value {
-            TumError::ReadAptListDir { source } => Self {
-                description: fl!("failed-to-operate-path", p = p1),
-                source: Some(Box::new(source)),
-            },
-            TumError::ReadDirEntry { source } => Self {
-                description: "Failed to read dir entry".to_string(),
-                source: Some(Box::new(source)),
-            },
+            TumError::ReadAptListDir { source } => {
+                Self::with_source(fl!("failed-to-operate-path", p = p1), source)
+            }
+            TumError::ReadDirEntry { source } => {
+                Self::with_source("Failed to read dir entry", source)
+            }
             TumError::ReadFile { path, source } => {
                 let path = path.to_string_lossy().to_string();
-                Self {
-                    description: fl!("failed-to-operate-path", p = path),
-                    source: Some(Box::new(source)),
-                }
+                Self::with_source(fl!("failed-to-operate-path", p = path), source)
             }
         }
     }
@@ -280,18 +218,9 @@ impl From<TumError> for OutputError {
 impl From<OmaSearchError> for OutputError {
     fn from(value: OmaSearchError) -> Self {
         match value {
-            OmaSearchError::NoResult(e) => OutputError {
-                description: fl!("could-not-find-pkg-from-keyword", c = e),
-                source: None,
-            },
-            OmaSearchError::FailedGetCandidate(s) => OutputError {
-                description: fl!("no-candidate-ver", pkg = s),
-                source: None,
-            },
-            OmaSearchError::PtrIsNone => OutputError {
-                description: value.to_string(),
-                source: None,
-            },
+            OmaSearchError::NoResult(e) => fl!("could-not-find-pkg-from-keyword", c = e).into(),
+            OmaSearchError::FailedGetCandidate(s) => fl!("no-candidate-ver", pkg = s).into(),
+            OmaSearchError::PtrIsNone => value.to_string().into(),
         }
     }
 }
@@ -307,10 +236,7 @@ impl From<AptErrors> for OutputError {
             info!("{}", c.msg);
         }
 
-        OutputError {
-            description: fl!("apt-error"),
-            source: None,
-        }
+        fl!("apt-error").into()
     }
 }
 
@@ -324,170 +250,100 @@ impl From<RefreshError> for OutputError {
     fn from(value: RefreshError) -> Self {
         debug!("{:?}", value);
         match value {
-            RefreshError::InvalidUrl(url) => Self {
-                description: fl!("invalid-url", url = url),
-                source: None,
-            },
-            RefreshError::ScanSourceError(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
-            RefreshError::UnsupportedProtocol(s) => Self {
-                description: fl!("unsupported-protocol", url = s),
-                source: None,
-            },
+            RefreshError::InvalidUrl(url) => fl!("invalid-url", url = url).into(),
+            RefreshError::ScanSourceError(e) => e.to_string().into(),
+            RefreshError::UnsupportedProtocol(s) => fl!("unsupported-protocol", url = s).into(),
             #[cfg(feature = "aosc")]
             RefreshError::TopicsError(e) => oma_topics_error(e),
-            RefreshError::NoInReleaseFile(s) => Self {
-                description: fl!("not-found", url = s),
-                source: None,
-            },
+            RefreshError::NoInReleaseFile(s) => fl!("not-found", url = s).into(),
             RefreshError::InReleaseParseError(path, e) => match e {
                 InReleaseError::VerifyError(e) => match e {
-                    VerifyError::CertParseFileError(p, e) => Self {
-                        description: fl!("fail-load-certs-from-file", path = p),
-                        source: Some(Box::new(io::Error::other(e))),
-                    },
-                    VerifyError::BadCertFile(p, e) => Self {
-                        description: fl!("cert-file-is-bad", path = p),
-                        source: Some(Box::new(io::Error::other(e))),
-                    },
-                    VerifyError::TrustedDirNotExist => Self {
-                        description: e.to_string(),
-                        source: None,
-                    },
-                    VerifyError::Anyhow(e) => Self {
-                        description: fl!("verify-error", p = file_name(&path)),
-                        source: Some(Box::new(io::Error::other(e))),
-                    },
-                    VerifyError::FailedToReadInRelease(e) => Self {
-                        description: fl!("failed-to-read-decode-inrelease"),
-                        source: Some(Box::new(e)),
-                    },
+                    VerifyError::CertParseFileError(p, e) => Self::with_source(
+                        fl!("fail-load-certs-from-file", path = p),
+                        io::Error::other(e),
+                    ),
+                    VerifyError::BadCertFile(p, e) => {
+                        Self::with_source(fl!("cert-file-is-bad", path = p), io::Error::other(e))
+                    }
+                    VerifyError::TrustedDirNotExist => e.to_string().into(),
+                    VerifyError::Anyhow(e) => Self::with_source(
+                        fl!("verify-error", p = file_name(&path)),
+                        io::Error::other(e),
+                    ),
+                    VerifyError::FailedToReadInRelease(e) => {
+                        Self::with_source(fl!("failed-to-read-decode-inrelease"), e)
+                    }
                 },
-                InReleaseError::BadInReleaseData => Self {
-                    description: fl!("can-not-parse-date"),
-                    source: None,
-                },
-                InReleaseError::BadInReleaseValidUntil => Self {
-                    description: fl!("can-not-parse-valid-until"),
-                    source: None,
-                },
-                InReleaseError::EarlierSignature => Self {
-                    description: fl!("earlier-signature", filename = file_name(&path)),
-                    source: None,
-                },
-                InReleaseError::ExpiredSignature => Self {
-                    description: fl!("expired-signature", filename = file_name(&path)),
-                    source: None,
-                },
-                InReleaseError::InReleaseSyntaxError => Self {
-                    description: fl!("inrelease-syntax-error", path = file_name(&path)),
-                    source: None,
-                },
-                InReleaseError::UnsupportedFileType => Self {
-                    description: fl!("inrelease-parse-unsupported-file-type"),
-                    source: None,
-                },
-                InReleaseError::ParseIntError(e) => Self {
-                    description: e.to_string(),
-                    source: None,
-                },
-                InReleaseError::NotTrusted => Self {
-                    description: fl!("mirror-is-not-trusted", mirror = file_name(&path)),
-                    source: None,
-                },
-                InReleaseError::BrokenInRelease => Self {
-                    description: fl!("inrelease-checksum-can-not-parse", p = file_name(&path)),
-                    source: None,
-                },
-                InReleaseError::ReadGPGFileName(error, file_name) => Self {
-                    description: fl!("failed-to-parse-file", p = file_name),
-                    source: Some(Box::new(error)),
-                },
+                InReleaseError::BadInReleaseData => fl!("can-not-parse-date").into(),
+                InReleaseError::BadInReleaseValidUntil => fl!("can-not-parse-valid-until").into(),
+                InReleaseError::EarlierSignature => {
+                    fl!("earlier-signature", filename = file_name(&path)).into()
+                }
+                InReleaseError::ExpiredSignature => {
+                    fl!("expired-signature", filename = file_name(&path)).into()
+                }
+                InReleaseError::InReleaseSyntaxError => {
+                    fl!("inrelease-syntax-error", path = file_name(&path)).into()
+                }
+                InReleaseError::UnsupportedFileType => {
+                    fl!("inrelease-parse-unsupported-file-type").into()
+                }
+                InReleaseError::ParseIntError(e) => e.to_string().into(),
+                InReleaseError::NotTrusted => {
+                    fl!("mirror-is-not-trusted", mirror = file_name(&path)).into()
+                }
+                InReleaseError::BrokenInRelease => {
+                    fl!("inrelease-checksum-can-not-parse", p = file_name(&path)).into()
+                }
+                InReleaseError::ReadGPGFileName(error, file_name) => {
+                    Self::with_source(fl!("failed-to-parse-file", p = file_name), error)
+                }
             },
-            RefreshError::JoinError(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
-            RefreshError::ChecksumError(e) => oma_checksum_error(e),
-            RefreshError::FailedToOperateDirOrFile(path, e) => Self {
-                description: fl!("failed-to-operate-path", p = path),
-                source: Some(Box::new(e)),
-            },
-            RefreshError::ReadDownloadDir(_, e) => Self {
-                description: e.to_string(),
-                source: Some(Box::new(e)),
-            },
-            RefreshError::AhoCorasickBuilder(e) => Self {
-                description: e.to_string(),
-                source: None,
-            },
-            RefreshError::ReplaceAll(e) => Self {
-                description: e.to_string(),
-                source: Some(Box::new(e)),
-            },
+            RefreshError::JoinError(e) => e.to_string().into(),
+            RefreshError::ChecksumError(e) => e.into(),
+            RefreshError::FailedToOperateDirOrFile(path, e) => {
+                Self::with_source(fl!("failed-to-operate-path", p = path), e)
+            }
+            RefreshError::ReadDownloadDir(path, e) => {
+                Self::with_source(fl!("failed-to-operate-path", p = path), e)
+            }
+            RefreshError::AhoCorasickBuilder(e) => e.to_string().into(),
+            RefreshError::ReplaceAll(e) => Self::with_source("stream_replace_all failed", e),
             RefreshError::SetLock(e) => match e {
-                GetLockError::SetLock(errno) => Self {
-                    description: fl!("oma-refresh-lock"),
-                    source: Some(Box::new(errno)),
-                },
-                GetLockError::SetLockWithProcess(cmd, pid) => Self {
-                    description: fl!("oma-refresh-lock"),
-                    source: Some(Box::new(io::Error::other(fl!(
-                        "oma-refresh-lock-dueto",
-                        exec = cmd,
-                        pid = pid
-                    )))),
-                },
+                GetLockError::SetLock(errno) => Self::with_source(fl!("oma-refresh-lock"), errno),
+                GetLockError::SetLockWithProcess(cmd, pid) => Self::with_source(
+                    fl!("oma-refresh-lock"),
+                    io::Error::other(fl!("oma-refresh-lock-dueto", exec = cmd, pid = pid)),
+                ),
             },
-            RefreshError::DuplicateComponents(url, component) => Self {
-                description: fl!("doplicate-component", url = url.to_string(), c = component),
-                source: None,
-            },
-            RefreshError::SourceListsEmpty => Self {
-                description: fl!("sources-list-empty"),
-                source: None,
-            },
+            RefreshError::DuplicateComponents(url, component) => {
+                fl!("doplicate-component", url = url.to_string(), c = component).into()
+            }
+            RefreshError::SourceListsEmpty => fl!("sources-list-empty").into(),
             RefreshError::DownloadFailed(err) => {
                 if let Some(err) = err {
-                    Self {
-                        description: fl!("failed-refresh"),
-                        source: Some(Box::new(OutputError::from(err))),
-                    }
+                    Self::with_source(fl!("failed-refresh"), err)
                 } else {
-                    Self {
-                        description: fl!("failed-refresh"),
-                        source: None,
-                    }
+                    fl!("failed-refresh").into()
                 }
             }
-            RefreshError::OperateFile(path, error) => Self {
-                description: fl!("failed-to-operate-path", p = path.display().to_string()),
-                source: Some(Box::new(error)),
-            },
-            RefreshError::WrongThreadCount(count) => Self {
-                description: fl!("wrong-thread-count", count = count),
-                source: None,
-            },
+            RefreshError::OperateFile(path, error) => Self::with_source(
+                fl!("failed-to-operate-path", p = path.display().to_string()),
+                error,
+            ),
+            RefreshError::WrongThreadCount(count) => {
+                fl!("wrong-thread-count", count = count).into()
+            }
             RefreshError::DownloadManagerBuilderError(builder_error) => match builder_error {
-                BuilderError::EmptySource { file_name } => Self {
-                    description: format!("BUG: task {file_name} should is not empty"),
-                    source: None,
-                },
-                BuilderError::IllegalDownloadThread { count } => Self {
-                    description: fl!("wrong-thread-count", count = count),
-                    source: None,
-                },
+                BuilderError::EmptySource { file_name } => {
+                    format!("BUG: task {file_name} should is not empty").into()
+                }
+                BuilderError::IllegalDownloadThread { count } => {
+                    fl!("wrong-thread-count", count = count).into()
+                }
             },
-            RefreshError::NoMetadataToDownload => Self {
-                description: fl!("oma-refresh-no-metadata-to-download"),
-                source: None,
-            },
-            RefreshError::CreateTokioRuntime(error) => Self {
-                description: error.to_string(),
-                source: None,
-            },
+            RefreshError::NoMetadataToDownload => fl!("oma-refresh-no-metadata-to-download").into(),
+            RefreshError::CreateTokioRuntime(error) => error.to_string().into(),
         }
     }
 }
@@ -495,22 +351,18 @@ impl From<RefreshError> for OutputError {
 impl From<AuthConfigError> for OutputError {
     fn from(value: AuthConfigError) -> Self {
         match value {
-            AuthConfigError::ReadDir { path, err } => Self {
-                description: format!("Failed to read dir {}", path.display()),
-                source: Some(Box::new(err)),
-            },
-            AuthConfigError::DirEntry(error) => Self {
-                description: "Failed to read dir entry".to_string(),
-                source: Some(Box::new(error)),
-            },
-            AuthConfigError::OpenFile { path, err } => Self {
-                description: format!("Failed to open file: {}", path.display()),
-                source: Some(Box::new(err)),
-            },
-            AuthConfigError::ParseError(error) => Self {
-                description: "Parse auth file got error".to_string(),
-                source: Some(Box::new(error)),
-            },
+            AuthConfigError::ReadDir { path, err } => {
+                Self::with_source(format!("Failed to read dir {}", path.display()), err)
+            }
+            AuthConfigError::DirEntry(error) => {
+                Self::with_source("Failed to read dir entry", error)
+            }
+            AuthConfigError::OpenFile { path, err } => {
+                Self::with_source(format!("Failed to open file: {}", path.display()), err)
+            }
+            AuthConfigError::ParseError(error) => {
+                Self::with_source("Parse auth file got error", error)
+            }
         }
     }
 }
@@ -526,143 +378,82 @@ impl From<OmaTopicsError> for OutputError {
 fn oma_topics_error(e: OmaTopicsError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        OmaTopicsError::FailedToOperateDirOrFile(path, e) => OutputError {
-            description: fl!("failed-to-operate-path", p = path),
-            source: Some(Box::new(e)),
-        },
-        OmaTopicsError::CanNotFindTopic(topic) => OutputError {
-            description: fl!("can-not-find-specified-topic", topic = topic),
-            source: None,
-        },
-        OmaTopicsError::FailedToDisableTopic(topic) => OutputError {
-            description: fl!("can-not-find-specified-topic", topic = topic),
-            source: None,
-        },
+        OmaTopicsError::FailedToOperateDirOrFile(path, e) => {
+            OutputError::with_source(fl!("failed-to-operate-path", p = path), e)
+        }
+        OmaTopicsError::CanNotFindTopic(topic) => {
+            fl!("can-not-find-specified-topic", topic = topic).into()
+        }
+        OmaTopicsError::FailedToDisableTopic(topic) => {
+            fl!("can-not-find-specified-topic", topic = topic).into()
+        }
         OmaTopicsError::ReqwestError(e) => OutputError::from(e),
-        OmaTopicsError::FailedSer => OutputError {
-            description: e.to_string(),
-            source: None,
-        },
-        OmaTopicsError::FailedGetParentPath(p) => OutputError {
-            description: fl!("failed-to-get-parent-path", p = p.display().to_string()),
-            source: None,
-        },
-        OmaTopicsError::BrokenFile(p) => OutputError {
-            description: fl!("failed-to-read", p = p),
-            source: None,
-        },
-        OmaTopicsError::ParseUrl(e, url) => OutputError {
-            description: fl!("invalid-url", url = url),
-            source: Some(Box::new(e)),
-        },
-        OmaTopicsError::UnsupportedProtocol(s) => OutputError {
-            description: fl!("unsupported-protocol", url = s),
-            source: None,
-        },
-        OmaTopicsError::OpenFile(s, e) => OutputError {
-            description: fl!("failed-to-operate-path", p = s),
-            source: Some(Box::new(e)),
-        },
-        OmaTopicsError::ReadFile(s, e) => OutputError {
-            description: fl!("failed-to-read-file-metadata", p = s),
-            source: Some(Box::new(e)),
-        },
+        OmaTopicsError::FailedSer => e.to_string().into(),
+        OmaTopicsError::FailedGetParentPath(p) => {
+            fl!("failed-to-get-parent-path", p = p.display().to_string()).into()
+        }
+        OmaTopicsError::BrokenFile(p) => fl!("failed-to-read", p = p).into(),
+        OmaTopicsError::ParseUrl(e, url) => {
+            OutputError::with_source(fl!("invalid-url", url = url), e)
+        }
+        OmaTopicsError::UnsupportedProtocol(s) => fl!("unsupported-protocol", url = s).into(),
+        OmaTopicsError::OpenFile(s, e) => {
+            OutputError::with_source(fl!("failed-to-operate-path", p = s), e)
+        }
+        OmaTopicsError::ReadFile(s, e) => {
+            OutputError::with_source(fl!("failed-to-read-file-metadata", p = s), e)
+        }
         OmaTopicsError::MirrorError(mirror_error) => OutputError::from(mirror_error),
 
-        OmaTopicsError::IllegalTopicEntry(name) => OutputError {
-            description: fl!(
-                "illegal-topic-entry",
-                name = name.escape_default().to_string()
-            ),
-            source: None,
-        },
-        OmaTopicsError::FailedToCreateTokioRuntime(error) => OutputError {
-            description: error.to_string(),
-            source: None,
-        },
+        OmaTopicsError::IllegalTopicEntry(name) => fl!(
+            "illegal-topic-entry",
+            name = name.escape_default().to_string()
+        )
+        .into(),
+        OmaTopicsError::FailedToCreateTokioRuntime(error) => error.to_string().into(),
         OmaTopicsError::NotSupportCurrentThread => unreachable!(),
-        OmaTopicsError::CreateTokioRuntime(error) => OutputError {
-            description: "Failed to create tokio runtime".to_string(),
-            source: Some(Box::new(error)),
-        },
-        OmaTopicsError::RecvError => OutputError {
-            description: e.to_string(),
-            source: None,
-        },
+        OmaTopicsError::CreateTokioRuntime(error) => {
+            OutputError::with_source("Failed to create tokio runtime", error)
+        }
+        OmaTopicsError::RecvError => e.to_string().into(),
     }
 }
 
 impl From<DpkgError> for OutputError {
     fn from(value: DpkgError) -> Self {
         debug!("{:?}", value);
-        Self {
-            description: fl!("can-not-run-dpkg-print-arch"),
-            source: Some(Box::new(value)),
-        }
+        Self::with_source(fl!("can-not-run-dpkg-print-arch"), value)
     }
 }
 
 impl From<OmaContentsError> for OutputError {
     fn from(value: OmaContentsError) -> Self {
         match value {
-            OmaContentsError::ContentsNotExist => Self {
-                description: fl!("contents-does-not-exist"),
-                source: None,
-            },
-            OmaContentsError::ExecuteRgFailed(e) => Self {
-                description: fl!("execute-ripgrep-failed"),
-                source: Some(Box::new(e)),
-            },
-            OmaContentsError::ContentsEntryMissingPathList(s) => Self {
-                description: fl!("contents-entry-missing-path-list", entry = s),
-                source: None,
-            },
-            OmaContentsError::CnfWrongArgument => Self {
-                description: value.to_string(),
-                source: None,
-            },
-            OmaContentsError::RgWithError => Self {
-                description: fl!("rg-non-zero"),
-                source: None,
-            },
-            OmaContentsError::FailedToOperateDirOrFile(path, e) => Self {
-                description: fl!("failed-to-operate-path", p = path),
-                source: Some(Box::new(e)),
-            },
-            OmaContentsError::FailedToGetFileMetadata(path, e) => Self {
-                description: fl!("failed-to-read-file-metadata", p = path),
-                source: Some(Box::new(e)),
-            },
-            OmaContentsError::FailedToWaitExit(e) => Self {
-                description: fl!("failed-to-get-rg-process-info"),
-                source: Some(Box::new(e)),
-            },
-            OmaContentsError::LzzzErr(e) => Self {
-                description: fl!("failed-to-decompress-contents"),
-                source: Some(Box::new(e)),
-            },
-            OmaContentsError::NoResult => Self {
-                description: "".to_string(),
-                source: None,
-            },
-            OmaContentsError::IllegalFile(path) => Self {
-                description: format!("Illegal file: {path}"),
-                source: None,
-            },
-            OmaContentsError::InvalidContents(_) => Self {
-                description: value.to_string(),
-                source: None,
-            },
+            OmaContentsError::ContentsNotExist => fl!("contents-does-not-exist").into(),
+            OmaContentsError::ExecuteRgFailed(e) => {
+                Self::with_source(fl!("execute-ripgrep-failed"), e)
+            }
+            OmaContentsError::ContentsEntryMissingPathList(s) => {
+                fl!("contents-entry-missing-path-list", entry = s).into()
+            }
+            OmaContentsError::CnfWrongArgument => value.to_string().into(),
+            OmaContentsError::RgWithError => fl!("rg-non-zero").into(),
+            OmaContentsError::FailedToOperateDirOrFile(path, e) => {
+                Self::with_source(fl!("failed-to-operate-path", p = path), e)
+            }
+            OmaContentsError::FailedToGetFileMetadata(path, e) => {
+                Self::with_source(fl!("failed-to-read-file-metadata", p = path), e)
+            }
+            OmaContentsError::FailedToWaitExit(e) => {
+                Self::with_source(fl!("failed-to-get-rg-process-info"), e)
+            }
+            OmaContentsError::LzzzErr(e) => {
+                Self::with_source(fl!("failed-to-decompress-contents"), e)
+            }
+            OmaContentsError::NoResult => OutputError::already_reported(),
+            OmaContentsError::IllegalFile(path) => format!("Illegal file: {path}").into(),
+            OmaContentsError::InvalidContents(_) => value.to_string().into(),
             OmaContentsError::InvalidContentsWithLine(_, _) => unreachable!(),
-        }
-    }
-}
-
-impl From<anyhow::Error> for OutputError {
-    fn from(value: anyhow::Error) -> Self {
-        Self {
-            description: value.to_string(),
-            source: None,
         }
     }
 }
@@ -671,10 +462,9 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
     debug!("{:?}", err);
     match err {
         OmaAptError::OmaDatabaseError(e) => oma_database_error(e),
-        OmaAptError::MarkReinstallError(pkg, version) => OutputError {
-            description: fl!("can-not-mark-reinstall", name = pkg, version = version),
-            source: None,
-        },
+        OmaAptError::MarkReinstallError(pkg, version) => {
+            fl!("can-not-mark-reinstall", name = pkg, version = version).into()
+        }
         OmaAptError::DependencyIssue {
             broken_dependencies: broken_deps,
             is_solver3,
@@ -764,91 +554,50 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                 }
             }
 
-            OutputError {
-                description: "".to_string(),
-                source: None,
-            }
+            OutputError::already_reported()
         }
-        OmaAptError::PkgIsEssential(pkg) => OutputError {
-            description: fl!("pkg-is-essential", name = pkg),
-            source: None,
-        },
-        OmaAptError::PkgNoCandidate(s) => OutputError {
-            description: fl!("no-candidate-ver", pkg = s),
-            source: None,
-        },
-        OmaAptError::PkgNoChecksum(s) => OutputError {
-            description: fl!("pkg-no-checksum", name = s),
-            source: None,
-        },
-        OmaAptError::InvalidFileName(s) => OutputError {
-            description: fl!("invalid-filename", name = s),
-            source: None,
-        },
-        OmaAptError::DpkgFailedConfigure(_) => OutputError {
-            description: fl!("dpkg-configure-a-non-zero"),
-            source: Some(Box::new(io::Error::other(fl!(
-                "dpkg-configure-failed-due-to-tips"
-            )))),
-        },
-        OmaAptError::DiskSpaceInsufficient(need, avail) => OutputError {
-            description: fl!(
-                "need-more-size",
-                a = avail.to_string(),
-                n = need.to_string()
-            ),
-            source: None,
-        },
-        OmaAptError::MarkStatus(e) => OutputError {
-            description: "Failed to mark package status".to_string(),
-            source: Some(Box::new(e)),
-        },
-        OmaAptError::MarkPkgNotInstalled(pkg) => OutputError {
-            description: fl!("pkg-is-not-installed", pkg = pkg),
-            source: None,
-        },
+        OmaAptError::PkgIsEssential(pkg) => fl!("pkg-is-essential", name = pkg).into(),
+        OmaAptError::PkgNoCandidate(s) => fl!("no-candidate-ver", pkg = s).into(),
+        OmaAptError::PkgNoChecksum(s) => fl!("pkg-no-checksum", name = s).into(),
+        OmaAptError::InvalidFileName(s) => fl!("invalid-filename", name = s).into(),
+        OmaAptError::DpkgFailedConfigure(_) => OutputError::with_source(
+            fl!("dpkg-configure-a-non-zero"),
+            io::Error::other(fl!("dpkg-configure-failed-due-to-tips")),
+        ),
+        OmaAptError::DiskSpaceInsufficient(need, avail) => fl!(
+            "need-more-size",
+            a = avail.to_string(),
+            n = need.to_string()
+        )
+        .into(),
+        OmaAptError::MarkStatus(e) => OutputError::with_source("Failed to mark package status", e),
+        OmaAptError::MarkPkgNotInstalled(pkg) => fl!("pkg-is-not-installed", pkg = pkg).into(),
         OmaAptError::DpkgError(e) => OutputError::from(e),
-        OmaAptError::PkgUnavailable(pkg, ver) => OutputError {
-            description: fl!("pkg-unavailable", pkg = pkg, ver = ver),
-            source: None,
-        },
-        OmaAptError::FailedCreateAsyncRuntime(e) => OutputError {
-            description: "Failed to create async runtime".to_string(),
-            source: Some(Box::new(e)),
-        },
-        OmaAptError::FailedOperateDirOrFile(path, e) => OutputError {
-            description: fl!("failed-to-operate-path", p = path),
-            source: Some(Box::new(e)),
-        },
-        OmaAptError::FailedGetAvailableSpace(e) => OutputError {
-            description: fl!("failed-to-calculate-available-space"),
-            source: Some(Box::new(e)),
-        },
-        OmaAptError::FailedGetParentPath(p) => OutputError {
-            description: fl!("failed-to-get-parent-path", p = p.display().to_string()),
-            source: None,
-        },
-        OmaAptError::FailedGetCanonicalize(p, e) => OutputError {
-            description: format!("Failed canonicalize path: {p}"),
-            source: Some(Box::new(e)),
-        },
-        OmaAptError::PtrIsNone(_) => OutputError {
-            description: err.to_string(),
-            source: None,
-        },
-        OmaAptError::ChecksumError(e) => oma_checksum_error(e),
-        OmaAptError::Features => OutputError {
-            description: fl!("features-abort"),
-            source: None,
-        },
-        OmaAptError::DpkgTriggers(e) => OutputError {
-            description: fl!("dpkg-triggers-only-a-non-zero"),
-            source: Some(Box::new(e)),
-        },
-        OmaAptError::FailedToDownload(len) => OutputError {
-            description: fl!("download-failed-with-len", len = len),
-            source: None,
-        },
+        OmaAptError::PkgUnavailable(pkg, ver) => {
+            fl!("pkg-unavailable", pkg = pkg, ver = ver).into()
+        }
+        OmaAptError::FailedCreateAsyncRuntime(e) => {
+            OutputError::with_source("Failed to create async runtime", e)
+        }
+        OmaAptError::FailedOperateDirOrFile(path, e) => {
+            OutputError::with_source(fl!("failed-to-operate-path", p = path), e)
+        }
+        OmaAptError::FailedGetAvailableSpace(e) => {
+            OutputError::with_source(fl!("failed-to-calculate-available-space"), e)
+        }
+        OmaAptError::FailedGetParentPath(p) => {
+            fl!("failed-to-get-parent-path", p = p.display().to_string()).into()
+        }
+        OmaAptError::FailedGetCanonicalize(p, e) => {
+            OutputError::with_source(format!("Failed canonicalize path: {p}"), e)
+        }
+        OmaAptError::PtrIsNone(_) => err.to_string().into(),
+        OmaAptError::ChecksumError(e) => e.into(),
+        OmaAptError::Features => fl!("features-abort").into(),
+        OmaAptError::DpkgTriggers(e) => {
+            OutputError::with_source(fl!("dpkg-triggers-only-a-non-zero"), e)
+        }
+        OmaAptError::FailedToDownload(len) => fl!("download-failed-with-len", len = len).into(),
         OmaAptError::CreateCache(apt_errors) => {
             error!("{}", fl!("failed-create-pkg-index-cache"));
 
@@ -859,10 +608,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             #[cfg(feature = "aosc")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
-            OutputError {
-                description: "".to_string(),
-                source: None,
-            }
+            OutputError::already_reported()
         }
         OmaAptError::SetUpgradeMode(apt_errors) => {
             error!("{}", fl!("failed-set-upgrade-mode"));
@@ -874,10 +620,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             #[cfg(feature = "aosc")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
-            OutputError {
-                description: "".to_string(),
-                source: None,
-            }
+            OutputError::already_reported()
         }
         OmaAptError::LockApt(apt_errors) => {
             error!("{}", fl!("failed-lock-apt"));
@@ -889,10 +632,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             #[cfg(feature = "aosc")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
-            OutputError {
-                description: "".to_string(),
-                source: None,
-            }
+            OutputError::already_reported()
         }
         OmaAptError::InstallPackages(apt_errors) => {
             error!("{}", fl!("failed-install-pkgs"));
@@ -904,31 +644,20 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             #[cfg(feature = "aosc")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
-            OutputError {
-                description: "".to_string(),
-                source: None,
-            }
+            OutputError::already_reported()
         }
-        OmaAptError::PathNotExist(path) => OutputError {
-            description: fl!("path-not-exist", path = path),
-            source: None,
-        },
+        OmaAptError::PathNotExist(path) => fl!("path-not-exist", path = path).into(),
         OmaAptError::DpkgStatusGetPkg(_) => anyhow::anyhow!("{err}").into(),
         OmaAptError::WrongDpkgStatus(_) => anyhow::anyhow!("{err}").into(),
         OmaAptError::DpkgStatusBroken(_) => anyhow::anyhow!("{err}").into(),
         OmaAptError::FailedGetArchiveDirLock(get_lock_error) => match get_lock_error {
-            GetLockError::SetLock(errno) => OutputError {
-                description: fl!("oma-archive-lock"),
-                source: Some(Box::new(errno)),
-            },
-            GetLockError::SetLockWithProcess(cmd, pid) => OutputError {
-                description: fl!("oma-archive-lock"),
-                source: Some(Box::new(io::Error::other(fl!(
-                    "oma-archive-lock-dueto",
-                    exec = cmd,
-                    pid = pid
-                )))),
-            },
+            GetLockError::SetLock(errno) => {
+                OutputError::with_source(fl!("oma-archive-lock"), errno)
+            }
+            GetLockError::SetLockWithProcess(cmd, pid) => OutputError::with_source(
+                fl!("oma-archive-lock"),
+                io::Error::other(fl!("oma-archive-lock-dueto", exec = cmd, pid = pid)),
+            ),
         },
         OmaAptError::RecvError => anyhow::anyhow!("{err}").into(),
         OmaAptError::Anyhow(error) => error.into(),
@@ -959,80 +688,52 @@ impl From<reqwest::Error> for OutputError {
             .and_then(|mut x| x.next_back());
 
         if e.is_builder() {
-            return Self {
-                description: fl!("failed-to-create-http-client"),
-                source: Some(Box::new(e)),
-            };
+            return Self::with_source(fl!("failed-to-create-http-client"), e);
         }
 
         if let Some(filename) = filename
             && filename.len() <= 256
         {
-            return Self {
-                description: fl!("download-failed", filename = filename.to_string()),
-                source: Some(Box::new(e)),
-            };
+            return Self::with_source(fl!("download-failed", filename = filename.to_string()), e);
         }
 
-        Self {
-            description: fl!("download-failed-no-name"),
-            source: None,
-        }
+        fl!("download-failed-no-name").into()
     }
 }
 
 fn oma_checksum_error(e: ChecksumError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        ChecksumError::OpenFile { source, path } => OutputError {
-            description: fl!(
+        ChecksumError::OpenFile { source, path } => OutputError::with_source(
+            fl!(
                 "failed-to-open-to-checksum",
                 path = path.display().to_string()
             ),
-            source: Some(Box::new(source)),
-        },
-        ChecksumError::Copy { source } => OutputError {
-            description: fl!("can-not-checksum"),
-            source: Some(Box::new(source)),
-        },
-        ChecksumError::BadLength => OutputError {
-            description: fl!("sha256-bad-length"),
-            source: None,
-        },
-        ChecksumError::Decode { source } => OutputError {
-            description: e.to_string(),
-            source: Some(Box::new(source)),
-        },
+            source,
+        ),
+        ChecksumError::Copy { source } => OutputError::with_source(fl!("can-not-checksum"), source),
+        ChecksumError::BadLength => fl!("sha256-bad-length").into(),
+        ChecksumError::Decode { source } => {
+            OutputError::with_source(fl!("can-not-checksum"), source)
+        }
+    }
+}
+
+impl From<ChecksumError> for OutputError {
+    fn from(value: ChecksumError) -> Self {
+        oma_checksum_error(value)
     }
 }
 
 fn oma_database_error(e: MatcherError) -> OutputError {
     debug!("{:?}", e);
     match e {
-        MatcherError::InvalidPattern(s) => OutputError {
-            description: fl!("invalid-pattern", p = s),
-            source: None,
-        },
-        MatcherError::NoPackage(s) => OutputError {
-            description: fl!("can-not-get-pkg-from-database", name = s),
-            source: None,
-        },
-        MatcherError::NoVersion(pkg, ver) => OutputError {
-            description: fl!("pkg-unavailable", pkg = pkg, ver = ver),
-            source: None,
-        },
-        MatcherError::NoPath(s) => OutputError {
-            description: fl!("invalid-path", p = s),
-            source: None,
-        },
-        MatcherError::NoCandidate(s) => OutputError {
-            description: fl!("no-candidate-ver", pkg = s),
-            source: None,
-        },
-        MatcherError::PtrIsNone(_) => OutputError {
-            description: e.to_string(),
-            source: None,
-        },
+        MatcherError::InvalidPattern(s) => fl!("invalid-pattern", p = s).into(),
+        MatcherError::NoPackage(s) => fl!("can-not-get-pkg-from-database", name = s).into(),
+        MatcherError::NoVersion(pkg, ver) => fl!("pkg-unavailable", pkg = pkg, ver = ver).into(),
+        MatcherError::NoPath(s) => fl!("invalid-path", p = s).into(),
+        MatcherError::NoCandidate(s) => fl!("no-candidate-ver", pkg = s).into(),
+        MatcherError::PtrIsNone(_) => e.to_string().into(),
         MatcherError::DpkgError(dpkg_error) => OutputError::from(dpkg_error),
     }
 }
@@ -1041,38 +742,24 @@ impl From<HistoryError> for OutputError {
     fn from(value: HistoryError) -> Self {
         debug!("{:?}", value);
         match value {
-            HistoryError::FailedOperateDirOrFile(s, e) => Self {
-                description: fl!("failed-to-operate-path", p = s),
-                source: Some(Box::new(e)),
-            },
-            HistoryError::ConnectError(e) => Self {
-                description: fl!("failed-to-connect-history-database"),
-                source: Some(Box::new(e)),
-            },
-            HistoryError::ExecuteError(e) => Self {
-                description: fl!("failed-to-execute-query-stmt"),
-                source: Some(Box::new(e)),
-            },
-            HistoryError::ParseDbError(e) => Self {
-                description: fl!("failed-to-parse-history-object"),
-                source: Some(Box::new(e)),
-            },
-            HistoryError::NoResult(id) => Self {
-                description: format!("No result by id: {id}"),
-                source: None,
-            },
-            HistoryError::HistoryEmpty => Self {
-                description: fl!("oma-history-is-empty"),
-                source: None,
-            },
-            HistoryError::FailedParentPath(p) => Self {
-                description: fl!("failed-to-get-parent-path", p = p),
-                source: None,
-            },
-            HistoryError::CreateTransaction(error) => Self {
-                description: fl!("failed-to-execute-query-stmt"),
-                source: Some(Box::new(error)),
-            },
+            HistoryError::FailedOperateDirOrFile(s, e) => {
+                Self::with_source(fl!("failed-to-operate-path", p = s), e)
+            }
+            HistoryError::ConnectError(e) => {
+                Self::with_source(fl!("failed-to-connect-history-database"), e)
+            }
+            HistoryError::ExecuteError(e) => {
+                Self::with_source(fl!("failed-to-execute-query-stmt"), e)
+            }
+            HistoryError::ParseDbError(e) => {
+                Self::with_source(fl!("failed-to-parse-history-object"), e)
+            }
+            HistoryError::NoResult(id) => format!("No result by id: {id}").into(),
+            HistoryError::HistoryEmpty => fl!("oma-history-is-empty").into(),
+            HistoryError::FailedParentPath(p) => fl!("failed-to-get-parent-path", p = p).into(),
+            HistoryError::CreateTransaction(error) => {
+                Self::with_source(fl!("failed-to-execute-query-stmt"), error)
+            }
             HistoryError::NoUpgradeSystemLog => unreachable!(),
         }
     }
@@ -1081,66 +768,31 @@ impl From<HistoryError> for OutputError {
 impl From<SingleDownloadError> for OutputError {
     fn from(value: SingleDownloadError) -> Self {
         match value {
-            SingleDownloadError::SetPermission { source } => Self {
-                description: fl!("set-permission"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::OpenAsWriteMode { source } => Self {
-                description: fl!("open-file-as-write-mode"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::Open { source } => Self {
-                description: fl!("open-err"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::Create { source } => Self {
-                description: fl!("create-err"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::Seek { source } => Self {
-                description: fl!("seek-err"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::Write { source } => Self {
-                description: fl!("write-err"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::Flush { source } => Self {
-                description: fl!("flush-err"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::Remove { source } => Self {
-                description: fl!("remove-err"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::CreateSymlink { source } => Self {
-                description: fl!("create-symlink-err"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::ReqwestMiddlewareError { source } => Self {
-                description: fl!("reqwest-err"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::BrokenPipe { source } => Self {
-                description: fl!("broken-pipe-err"),
-                source: Some(Box::new(source)),
-            },
-            SingleDownloadError::SendRequestTimeout => Self {
-                description: fl!("send-request-timeout"),
-                source: None,
-            },
-            SingleDownloadError::DownloadTimeout => Self {
-                description: fl!("download-timeout"),
-                source: None,
-            },
-            SingleDownloadError::ChecksumMismatch => Self {
-                description: fl!("checksum-mismatch-download-err"),
-                source: None,
-            },
-            SingleDownloadError::AcquireError => Self {
-                description: value.to_string(),
-                source: None,
-            },
+            SingleDownloadError::SetPermission { source } => {
+                Self::with_source(fl!("set-permission"), source)
+            }
+            SingleDownloadError::OpenAsWriteMode { source } => {
+                Self::with_source(fl!("open-file-as-write-mode"), source)
+            }
+            SingleDownloadError::Open { source } => Self::with_source(fl!("open-err"), source),
+            SingleDownloadError::Create { source } => Self::with_source(fl!("create-err"), source),
+            SingleDownloadError::Seek { source } => Self::with_source(fl!("seek-err"), source),
+            SingleDownloadError::Write { source } => Self::with_source(fl!("write-err"), source),
+            SingleDownloadError::Flush { source } => Self::with_source(fl!("flush-err"), source),
+            SingleDownloadError::Remove { source } => Self::with_source(fl!("remove-err"), source),
+            SingleDownloadError::CreateSymlink { source } => {
+                Self::with_source(fl!("create-symlink-err"), source)
+            }
+            SingleDownloadError::ReqwestMiddlewareError { source } => {
+                Self::with_source(fl!("reqwest-err"), source)
+            }
+            SingleDownloadError::BrokenPipe { source } => {
+                Self::with_source(fl!("broken-pipe-err"), source)
+            }
+            SingleDownloadError::SendRequestTimeout => fl!("send-request-timeout").into(),
+            SingleDownloadError::DownloadTimeout => fl!("download-timeout").into(),
+            SingleDownloadError::ChecksumMismatch => fl!("checksum-mismatch-download-err").into(),
+            SingleDownloadError::AcquireError => value.to_string().into(),
         }
     }
 }
