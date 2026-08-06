@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use glob_match::glob_match;
 
-use crate::apt_lists::{AptListsError, IndexSource, PackageEntry, PackageIndex};
+use crate::apt_lists::{AptListsError, EntryWithSource, PackageIndex};
 
 /// Errors produced by [`PackageMatcher`].
 #[derive(Debug, thiserror::Error)]
@@ -29,8 +29,8 @@ pub struct MatchedPackage<'a> {
     /// The package name.
     pub name: Cow<'a, str>,
     /// The entries for this package (all, or filtered by version/branch),
-    /// each paired with its [`IndexSource`].
-    pub entries: Vec<(Cow<'a, PackageEntry>, IndexSource)>,
+    /// each paired with its source.
+    pub entries: Vec<EntryWithSource<'a>>,
 }
 
 /// Resolves user-supplied keywords into matched packages.
@@ -101,7 +101,7 @@ impl<'a> PackageMatcher<'a> {
                         .index
                         .get_all(pkg)
                         .iter()
-                        .any(|entry| arch_matches(&entry.architecture, arch))
+                        .any(|version| arch_matches(&version.entry.architecture, arch))
             }
             None => self.index.has_package(name),
         }
@@ -109,12 +109,12 @@ impl<'a> PackageMatcher<'a> {
 
     /// Entries for `name` — possibly an architecture-qualified name like
     /// `apt:amd64` — together with their sources.
-    fn entries_of(&self, name: &str) -> Vec<(Cow<'a, PackageEntry>, IndexSource)> {
+    fn entries_of(&self, name: &str) -> Vec<EntryWithSource<'a>> {
         match name.split_once(':') {
             Some((pkg, arch)) => self
                 .index
                 .get_with_source(pkg)
-                .filter(|(entry, _)| arch_matches(&entry.architecture, arch))
+                .filter(|ew| arch_matches(&ew.entry.architecture, arch))
                 .collect(),
             None => self.index.get_with_source(name).collect(),
         }
@@ -156,10 +156,15 @@ impl<'a> PackageMatcher<'a> {
             return Err(MatcherError::NoPackage(pat.to_string()));
         }
 
-        let entries: Vec<(Cow<'a, PackageEntry>, IndexSource)> = self
+        let entries: Vec<EntryWithSource<'a>> = self
             .entries_of(pkgname)
             .into_iter()
-            .filter(|(entry, _)| entry.version.as_deref() == Some(version_str))
+            .filter(|ew| {
+                ew.entry
+                    .version
+                    .as_deref()
+                    .is_some_and(|v| v == version_str)
+            })
             .collect();
 
         if entries.is_empty() {
@@ -189,10 +194,14 @@ impl<'a> PackageMatcher<'a> {
             return Err(MatcherError::NoPackage(pat.to_string()));
         }
 
-        let entries: Vec<(Cow<'a, PackageEntry>, IndexSource)> = self
+        let entries: Vec<EntryWithSource<'a>> = self
             .entries_of(pkgname)
             .into_iter()
-            .filter(|(_, source)| source.suite == branch)
+            .filter(|ew| {
+                ew.source
+                    .as_deref()
+                    .is_some_and(|source| source.suite == branch)
+            })
             .collect();
 
         if entries.is_empty() {
@@ -211,8 +220,10 @@ fn arch_matches(entry_arch: &Option<String>, arch: &str) -> bool {
     match arch {
         // `any`/`native` are satisfied by any build.
         "any" | "native" => true,
-        "all" => entry_arch.as_deref() == Some("all"),
-        specific => entry_arch.as_deref() == Some(specific) || entry_arch.as_deref() == Some("all"),
+        "all" => entry_arch.as_deref().is_some_and(|a| a == "all"),
+        specific => entry_arch
+            .as_deref()
+            .is_some_and(|a| a == specific || a == "all"),
     }
 }
 
@@ -264,7 +275,7 @@ mod tests {
         }
     }
 
-    fn matcher() -> ((), PackageMatcher<'static>) {
+    fn matcher() -> PackageMatcher<'static> {
         let stable = source("http://repo", "stable", "main", "amd64");
         let preview = source("http://repo", "preview", "main", "amd64");
         let db = AptDb::from_entries_with_sources(
@@ -287,7 +298,7 @@ mod tests {
         // Leak the database to get a 'static reference for testing.
         let db: &'static AptDb = Box::leak(Box::new(db));
         let matcher = PackageMatcher::new(db);
-        ((), matcher)
+        matcher
     }
 
     fn names<'a>(pkgs: &'a [MatchedPackage<'a>]) -> Vec<Cow<'a, str>> {
@@ -296,7 +307,7 @@ mod tests {
 
     #[test]
     fn test_exact_name() {
-        let (_d, m) = matcher();
+        let m = matcher();
         let res = m.match_pkgs_and_versions_from_glob("fish").unwrap();
         assert_eq!(names(&res), vec!["fish"]);
         // Both repos' entries for fish
@@ -305,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_glob_match() {
-        let (_d, m) = matcher();
+        let m = matcher();
         let res = m.match_pkgs_and_versions_from_glob("fi*").unwrap();
         let mut n = names(&res);
         n.sort();
@@ -314,23 +325,23 @@ mod tests {
 
     #[test]
     fn test_no_match() {
-        let (_d, m) = matcher();
+        let m = matcher();
         let res = m.match_pkgs_and_versions_from_glob("zzz*").unwrap();
         assert!(res.is_empty());
     }
 
     #[test]
     fn test_match_from_version() {
-        let (_d, m) = matcher();
+        let m = matcher();
         let res = m.match_from_version("apt=2.5.4").unwrap();
         assert_eq!(names(&res), vec!["apt"]);
         assert_eq!(res[0].entries.len(), 1);
-        assert_eq!(res[0].entries[0].0.version.as_deref(), Some("2.5.4"));
+        assert_eq!(res[0].entries[0].entry.version.as_deref(), Some("2.5.4"));
     }
 
     #[test]
     fn test_match_from_version_not_found() {
-        let (_d, m) = matcher();
+        let m = matcher();
         assert!(matches!(
             m.match_from_version("apt=9.9.9"),
             Err(MatcherError::NoVersion(_, _))
@@ -343,19 +354,19 @@ mod tests {
 
     #[test]
     fn test_match_from_branch() {
-        let (_d, m) = matcher();
+        let m = matcher();
         let res = m.match_from_branch("fish/stable").unwrap();
         assert_eq!(names(&res), vec!["fish"]);
         assert_eq!(res[0].entries.len(), 1);
-        assert_eq!(res[0].entries[0].0.version.as_deref(), Some("4.5.0"));
+        assert_eq!(res[0].entries[0].entry.version.as_deref(), Some("4.5.0"));
 
         let res = m.match_from_branch("fish/preview").unwrap();
-        assert_eq!(res[0].entries[0].0.version.as_deref(), Some("4.8.1"));
+        assert_eq!(res[0].entries[0].entry.version.as_deref(), Some("4.8.1"));
     }
 
     #[test]
     fn test_match_pkgs_and_versions_dispatch() {
-        let (_d, m) = matcher();
+        let m = matcher();
         let (pkgs, no_result) = m
             .match_pkgs_and_versions(["fish", "apt=2.5.4", "bash/stable", "missing"].into_iter())
             .unwrap();
@@ -367,24 +378,24 @@ mod tests {
 
     #[test]
     fn test_match_pkgs_and_versions_arch_dispatch() {
-        let (_d, m) = matcher();
+        let m = matcher();
         let (pkgs, no_result) = m
             .match_pkgs_and_versions(["apt:amd64", "missing"].into_iter())
             .unwrap();
         assert_eq!(no_result, vec!["missing"]);
         assert_eq!(names(&pkgs), vec!["apt:amd64"]);
         // Arch-qualified lookup returns only the amd64 build.
-        assert!(
-            pkgs[0]
-                .entries
-                .iter()
-                .all(|(e, _)| e.architecture.as_deref() == Some("amd64"))
-        );
+        assert!(pkgs[0].entries.iter().all(|ew| {
+            ew.entry
+                .architecture
+                .as_deref()
+                .is_some_and(|a| a == "amd64")
+        }));
     }
 
     #[test]
     fn test_match_pkgs_and_versions_combined_qualifiers() {
-        let (_d, m) = matcher();
+        let m = matcher();
         let (pkgs, no_result) = m
             .match_pkgs_and_versions(["apt:amd64=2.5.4", "fish:amd64/stable"].into_iter())
             .unwrap();
@@ -393,12 +404,12 @@ mod tests {
         // arch + version: `apt:amd64=2.5.4`
         let apt = pkgs.iter().find(|p| p.name == "apt:amd64").unwrap();
         assert_eq!(apt.entries.len(), 1);
-        assert_eq!(apt.entries[0].0.version.as_deref(), Some("2.5.4"));
-        assert_eq!(apt.entries[0].0.architecture.as_deref(), Some("amd64"));
+        assert_eq!(apt.entries[0].entry.version.as_deref(), Some("2.5.4"));
+        assert_eq!(apt.entries[0].entry.architecture.as_deref(), Some("amd64"));
 
         // arch + branch: `fish:amd64/stable` → the stable build
         let fish = pkgs.iter().find(|p| p.name == "fish:amd64").unwrap();
         assert_eq!(fish.entries.len(), 1);
-        assert_eq!(fish.entries[0].0.version.as_deref(), Some("4.5.0"));
+        assert_eq!(fish.entries[0].entry.version.as_deref(), Some("4.5.0"));
     }
 }

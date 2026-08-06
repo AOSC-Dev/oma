@@ -1,13 +1,15 @@
 use std::borrow::Cow;
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::path::Path;
 
 use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
+use debversion::Version;
 use rayon::prelude::*;
 use serde::Serialize;
 
 use crate::apt_sources::SourceLookup;
-use crate::{DpkgState, extended_states::AptExtendedStates};
+use crate::{DpkgState, ParsedDeps, extended_states::AptExtendedStates};
 #[cfg(feature = "apt-lists")]
 use wincode::{SchemaRead, SchemaWrite};
 
@@ -81,17 +83,17 @@ impl PackageEntry {
     /// equals `native_arch` or is `all`/`any`/unset — so a native amd64
     /// `apt` shows `apt`, an `Architecture: all` package shows `foo`, and a
     /// foreign `foo:i386` shows `foo:i386`.
-    pub fn fullname(&self, pretty: bool, native_arch: &str) -> String {
+    pub fn fullname(&self, pretty: bool, native_arch: &str) -> Cow<'_, str> {
         match self.architecture.as_deref() {
             Some(arch) if !arch.is_empty() => {
                 let omit = pretty && (arch == "all" || arch == "any" || arch == native_arch);
                 if omit {
-                    self.package.clone()
+                    Cow::Borrowed(&self.package)
                 } else {
-                    format!("{}:{arch}", self.package)
+                    Cow::Owned(format!("{}:{arch}", self.package))
                 }
             }
-            _ => self.package.clone(),
+            _ => Cow::Borrowed(&self.package),
         }
     }
 }
@@ -124,55 +126,6 @@ pub struct IndexSource {
     pub component: Option<String>,
     /// The architecture from `binary-<arch>`; `None` for flat repositories.
     pub arch: Option<String>,
-}
-
-impl IndexSource {
-    /// A "no source" marker, used for entries that carry no source (e.g.
-    /// entries inserted without source tracking, or read by the lazy
-    /// [`AptListsReader`](crate::AptListsReader) without a lookup).
-    pub(crate) fn none() -> Self {
-        Self {
-            base_url: String::new(),
-            suite: String::new(),
-            component: None,
-            arch: None,
-        }
-    }
-
-    /// Whether this is the "no source" marker.
-    pub(crate) fn is_none(&self) -> bool {
-        self.base_url.is_empty()
-    }
-}
-
-/// Scan `/var/lib/apt/lists/` and parse all `*_Packages` files.
-///
-/// Returns a flat list of all package entries across all repos/components/archs.
-/// Parse `/var/lib/apt/lists/` and return all package entries (without source tracking).
-pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, AptListsError> {
-    let dir = path.as_ref();
-    let mut files = Vec::new();
-
-    for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
-        let entry = entry.map_err(AptListsError::Io)?;
-        if entry.file_name().to_string_lossy().ends_with("_Packages") {
-            files.push(entry.path());
-        }
-    }
-
-    // Parse each `*_Packages` file in parallel, folding into a single flat
-    // vec instead of collecting into an intermediate nested vec.
-    files
-        .par_iter()
-        .map(parse_single_packages_file)
-        .try_fold(Vec::new, |mut acc, entries| {
-            acc.extend(entries?);
-            Ok(acc)
-        })
-        .try_reduce(Vec::new, |mut acc, entries| {
-            acc.extend(entries);
-            Ok(acc)
-        })
 }
 
 /// Parse `/var/lib/apt/lists/` and return all package entries paired with
@@ -272,15 +225,73 @@ pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String
     map
 }
 
-/// Lazy iterator over a package's entries paired with their [`IndexSource`].
-pub type EntriesWithSource<'a> =
-    Box<dyn Iterator<Item = (Cow<'a, PackageEntry>, IndexSource)> + 'a>;
+/// A package entry together with the source it came from.
+///
+/// The entry is borrowed from the database when it comes from an APT lists
+/// file, or owned when it is a local `.deb` (whose source is the `file:` URL
+/// recorded at insert time).
+#[derive(Debug, Clone)]
+pub struct EntryWithSource<'a> {
+    /// The parsed package entry data.
+    pub entry: Cow<'a, PackageEntry>,
+    /// The source this entry came from (resolved against `sources.list` at
+    /// database build time), or the `file:` source of a local `.deb`.
+    /// `None` for entries without a recorded source.
+    pub source: Option<Cow<'a, IndexSource>>,
+}
+
+/// Lazy iterator over a package's per-source entries.
+pub type EntriesWithSource<'a> = Box<dyn Iterator<Item = EntryWithSource<'a>> + 'a>;
+
+/// One `PackageVersion` per (package, version): a version seen in several
+/// mirrors/suites/components is stored once, with `sources` listing each
+/// place it appears. This mirrors apt's `pkgCache::Version` + `VerFile`
+/// model — a version carries a list of index files instead of duplicating
+/// the record once per source.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "apt-lists", derive(SchemaWrite, SchemaRead))]
+pub struct PackageVersion {
+    /// The version metadata (name, version, description, dependencies, ...).
+    pub entry: PackageEntry,
+    /// Every source this version is available from, resolved against
+    /// `sources.list` at build time. Empty for entries built without source
+    /// tracking.
+    pub sources: Vec<IndexSource>,
+    /// Lazily pre-parsed dependency fields of `entry`, so each version's
+    /// dependency text is parsed at most once per process. Not serialized —
+    /// rebuilt on cache load.
+    #[cfg_attr(feature = "apt-lists", wincode(skip))]
+    pub(crate) deps: OnceCell<ParsedDeps>,
+    /// The version string parsed once, so candidate selection never
+    /// re-parses it. Not serialized.
+    #[cfg_attr(feature = "apt-lists", wincode(skip))]
+    pub(crate) parsed_version: OnceCell<Option<Version>>,
+}
+
+impl PackageVersion {
+    /// The pre-parsed dependency fields, parsed once on first access.
+    pub(crate) fn deps(&self) -> &ParsedDeps {
+        self.deps
+            .get_or_init(|| ParsedDeps::from_entry(&self.entry))
+    }
+
+    /// The parsed version, parsed once on first access.
+    pub(crate) fn parsed_version(&self) -> Option<&Version> {
+        self.parsed_version
+            .get_or_init(|| self.entry.version.as_deref().and_then(|v| v.parse().ok()))
+            .as_ref()
+    }
+}
 
 /// Common interface for package data sources.
 ///
 /// Both [`AptDb`](crate::AptDb) (eager, cached) and
 /// [`AptListsReader`](crate::AptListsReader) (lazy, offset-based) implement
 /// this, allowing consumers to switch between them transparently.
+///
+/// The unit of data is a [`PackageVersion`] — one record per (package,
+/// version) carrying every source it is available from — rather than a
+/// per-source row, so a version shared by several mirrors is stored once.
 ///
 /// Methods return [`Cow`] so that implementations owning the data can
 /// borrow a slice/value, while implementations that parse on demand can
@@ -292,16 +303,84 @@ pub trait PackageIndex {
     /// Return all package names known to this index.
     fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_>;
 
-    /// Return all entries for a package name.
-    fn get_all(&self, name: &str) -> Cow<'_, [PackageEntry]>;
+    /// Return all versions of a package, each with its sources.
+    fn get_all(&self, name: &str) -> Cow<'_, [PackageVersion]>;
 
-    /// Return all entries for a package name, together with their
-    /// [`IndexSource`], as a lazy iterator.
-    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_>;
+    /// Return all versions of a package expanded into per-source entries:
+    /// one [`EntryWithSource`] per (version, source), or a single entry
+    /// with `source: None` for a version with no recorded source, lazily.
+    /// This is the expanded view of [`Self::get_all`] — merging and
+    /// expanding are inverse operations, so the default derives it from
+    /// `get_all`.
+    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_> {
+        match self.get_all(name) {
+            // Borrowed storage: hand out borrowed entries, zero-copy. A
+            // version with no recorded source still yields one entry, with
+            // `source: None`, so it stays visible to the matcher.
+            Cow::Borrowed(versions) => Box::new(versions.iter().flat_map(|v| {
+                if v.sources.is_empty() {
+                    vec![EntryWithSource {
+                        entry: Cow::Borrowed(&v.entry),
+                        source: None,
+                    }]
+                } else {
+                    v.sources
+                        .iter()
+                        .map(|src| EntryWithSource {
+                            entry: Cow::Borrowed(&v.entry),
+                            source: Some(Cow::Borrowed(src)),
+                        })
+                        .collect()
+                }
+            })),
+            // On-demand storage: the versions are freshly parsed here, so
+            // the expanded entries own their data.
+            Cow::Owned(versions) => Box::new(versions.into_iter().flat_map(|v| {
+                if v.sources.is_empty() {
+                    vec![EntryWithSource {
+                        entry: Cow::Owned(v.entry),
+                        source: None,
+                    }]
+                } else {
+                    let entry: Cow<'_, PackageEntry> = Cow::Owned(v.entry);
+                    v.sources
+                        .into_iter()
+                        .map(move |src| EntryWithSource {
+                            entry: entry.clone(),
+                            source: Some(Cow::Owned(src)),
+                        })
+                        .collect()
+                }
+            })),
+        }
+    }
 
-    /// Return the entry with the highest version, or `None` if the package
-    /// does not exist.
-    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageEntry>>;
+    /// Return the candidate version of a package — the version a bare
+    /// install gets by default.
+    ///
+    /// Like apt's `pkgPolicy::GetCandidateVer`, this is a *policy* choice
+    /// (the highest version) and does not run the resolver.
+    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>>;
+
+    /// Return the version for an exact version string, or `None` if that
+    /// version is not in the index. The default scans [`Self::get_all`];
+    /// implementations with indexed storage may override it.
+    fn get_version(&self, name: &str, version: &str) -> Option<Cow<'_, PackageVersion>> {
+        self.get_all(name)
+            .iter()
+            .find(|v| v.entry.version.as_deref() == Some(version))
+            .cloned()
+            .map(Cow::Owned)
+    }
+
+    /// Pre-parsed dependency fields of one `(name, version)`, if present.
+    /// Implementations with cached storage hand back a borrowed cache entry;
+    /// on-demand implementations fall back to the default, which parses the
+    /// version's entry on the spot.
+    fn deps_of(&self, name: &str, version: &str) -> Option<Cow<'_, ParsedDeps>> {
+        let version = self.get_version(name, version)?;
+        Some(Cow::Owned(ParsedDeps::from_entry(&version.entry)))
+    }
 }
 
 #[cfg(test)]

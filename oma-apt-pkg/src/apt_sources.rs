@@ -185,7 +185,6 @@ impl<'a> IndexTargetTemplates<'a> {
     pub fn get_enabled_keys(&self, key: &str) -> Vec<String> {
         self.cfg
             .keys_under(key)
-            .into_iter()
             .filter(|target| {
                 let target_key = format!("{key}::{target}");
                 let enabled = self.cfg.get(&format!("{target_key}::DefaultEnabled"), "");

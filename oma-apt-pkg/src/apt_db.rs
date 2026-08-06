@@ -1,6 +1,7 @@
 //! oma package database — Parse APT `Packages` files with binary cache support.
 
 use std::borrow::Cow;
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::io::Read;
 use std::io::Write;
@@ -11,27 +12,13 @@ use rayon::prelude::*;
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
-use crate::AptConfig;
 use crate::apt_lists::{
-    EntriesWithSource, IndexSource, PackageEntry, PackageIndex, parse_apt_lists_dir_with_sources,
+    EntryWithSource, IndexSource, PackageEntry, PackageIndex, PackageVersion,
+    parse_apt_lists_dir_with_sources,
 };
 use crate::apt_sources::SourceLookup;
 use crate::package_matcher::PackageMatcher;
-
-/// A package entry together with its source file information.
-///
-/// The entry is borrowed from the database when it comes from an APT lists
-/// file, or owned when it is a local `.deb` (whose source is the `file:` URL
-/// recorded at insert time).
-#[derive(Debug, Clone)]
-pub struct EntryWithSource<'a> {
-    /// The parsed package entry data.
-    pub entry: Cow<'a, PackageEntry>,
-    /// The source this entry came from (resolved against `sources.list` at
-    /// database build time), or the `file:` source of a local `.deb`.
-    /// `None` for entries without a recorded source.
-    pub source: Option<Cow<'a, IndexSource>>,
-}
+use crate::{AptConfig, ParsedDeps};
 
 /// Errors that can occur when resolving package queries.
 #[derive(Debug, thiserror::Error)]
@@ -97,66 +84,84 @@ fn local_deb_source(path: impl AsRef<Path>) -> IndexSource {
 /// Parse and cache APT package database.
 #[derive(Debug, Clone, SchemaWrite, SchemaRead)]
 pub struct AptDb {
-    /// Map from package name to package version entries
-    pub(crate) entries: HashMap<String, Vec<PackageEntry>>,
-    /// Map from package name to the source each of its entries was fetched
-    /// from (resolved from `sources.list` at build time).
-    pub(crate) entry_sources: HashMap<String, Vec<IndexSource>>,
+    /// Map from package name to its versions, each carrying every source it
+    /// is available from — a version seen in several mirrors is stored once.
+    pub(crate) entries: HashMap<String, Vec<PackageVersion>>,
     /// Native architecture (`APT::Architecture`), used by [`Self::fullname`]
     /// to omit the `:arch` qualifier in the pretty form. Extracted from the
     /// config at build time and stored with the cache.
     pub(crate) native_arch: String,
 }
 
+/// Push `entry` into `versions`, merging it into the existing entry of the
+/// same version (adding `source` to its source list) so a version shared by
+/// several sources is stored once.
+fn push_or_merge(
+    versions: &mut Vec<PackageVersion>,
+    entry: PackageEntry,
+    source: Option<IndexSource>,
+) {
+    let version = entry.version.clone();
+    if let Some(existing) = versions.iter_mut().find(|v| v.entry.version == version) {
+        if let Some(source) = source
+            && !existing.sources.contains(&source)
+        {
+            existing.sources.push(source);
+        }
+    } else {
+        versions.push(PackageVersion {
+            entry,
+            sources: source.into_iter().collect(),
+            deps: OnceCell::new(),
+            parsed_version: OnceCell::new(),
+        });
+    }
+}
+
 impl AptDb {
-    /// Build from entries without source tracking
+    /// Build from entries without source tracking: every version is stored
+    /// with no sources, so [`get_with_source`](Self::get_with_source)
+    /// reports `source: None`. Used by tests and in-memory builders.
     #[allow(dead_code)]
     pub(crate) fn from_entries(native_arch: &str, entries: Vec<PackageEntry>) -> Self {
-        let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
-        let mut sources: HashMap<String, Vec<IndexSource>> = HashMap::new();
+        let mut map: HashMap<String, Vec<PackageVersion>> = HashMap::new();
         for e in entries {
             let name = e.package.clone();
-            map.entry(name.clone()).or_default().push(e);
-            // Keep `entry_sources` in lockstep; `IndexSource::none` means
-            // "no source".
-            sources.entry(name).or_default().push(IndexSource::none());
+            let versions = map.entry(name).or_default();
+            push_or_merge(versions, e, None);
         }
         Self {
-            entry_sources: sources,
             entries: map,
             native_arch: native_arch.to_string(),
         }
     }
 
-    /// Insert a local package entry (e.g. parsed from a local `.deb`) into
-    /// the database.
+    /// Insert a package entry without a recorded source.
     ///
-    /// Local packages have no APT list source, so
-    /// [`get_all_with_source`](Self::get_all_with_source) reports
-    /// `source: None` for them.
+    /// Entries inserted this way report `source: None` from
+    /// [`get_with_source`](Self::get_with_source) — for programmatic builds
+    /// where no source is known. Local `.deb`s should instead go through
+    /// [`insert_from_deb`](Self::insert_from_deb), which records their
+    /// `file:` source so the entry renders with an `APT-Sources` entry.
     pub fn insert(&mut self, entry: PackageEntry) {
         let name = entry.package.clone();
-        self.entries.entry(name.clone()).or_default().push(entry);
-        // Keep `entry_sources` in lockstep; `IndexSource::none` means
-        // "no source".
-        self.entry_sources
-            .entry(name)
-            .or_default()
-            .push(IndexSource::none());
+        let versions = self.entries.entry(name).or_default();
+        push_or_merge(versions, entry, None);
     }
 
-    /// Insert a package entry together with its source, keeping `entries`
-    /// and `entry_sources` in sync so
-    /// [`get_all_with_source`](Self::get_all_with_source) reports the source.
+    /// Insert a package entry together with its source, merging into the
+    /// version it matches: the same (package, version) seen from several
+    /// sources stays one version whose source list grows.
     pub fn insert_with_source(&mut self, entry: PackageEntry, source: IndexSource) {
         let name = entry.package.clone();
-        self.entries.entry(name.clone()).or_default().push(entry);
-        self.entry_sources.entry(name).or_default().push(source);
+        let versions = self.entries.entry(name).or_default();
+        push_or_merge(versions, entry, Some(source));
     }
 
     /// Parse a local `.deb` file and insert its control entry into the
-    /// database as a local package, recording its `file:` source. Returns
-    /// the package name.
+    /// database as a local package, recording its `file:` source — the
+    /// canonical way to add a local `.deb` so its source survives into
+    /// `APT-Sources`. Returns the package name.
     pub fn insert_from_deb(
         &mut self,
         path: impl AsRef<Path>,
@@ -221,12 +226,6 @@ impl AptDb {
             groups.extend(matched.into_iter().map(|pkg| {
                 version_counts.push(self.distinct_version_count(&pkg.name));
                 pkg.entries
-                    .into_iter()
-                    .map(|(entry, source)| EntryWithSource {
-                        entry,
-                        source: (!source.is_none()).then_some(Cow::Owned(source)),
-                    })
-                    .collect()
             }));
             no_match = no_result.into_iter().map(str::to_owned).collect();
         }
@@ -244,18 +243,14 @@ impl AptDb {
         entries: Vec<PackageEntry>,
         entry_sources: Vec<IndexSource>,
     ) -> Self {
-        let mut map: HashMap<String, Vec<PackageEntry>> = HashMap::new();
-        let mut sources: HashMap<String, Vec<IndexSource>> = HashMap::new();
-
+        let mut map: HashMap<String, Vec<PackageVersion>> = HashMap::new();
         for (e, src) in entries.into_iter().zip(entry_sources) {
             let pkg = e.package.clone();
-            sources.entry(pkg.clone()).or_default().push(src);
-            map.entry(pkg).or_default().push(e);
+            let versions = map.entry(pkg).or_default();
+            push_or_merge(versions, e, Some(src));
         }
-
         Self {
             entries: map,
-            entry_sources: sources,
             native_arch: native_arch.to_string(),
         }
     }
@@ -379,85 +374,50 @@ impl AptDb {
     /// for the pretty form.
     ///
     /// See [`PackageEntry::fullname`].
-    pub fn fullname(&self, entry: &PackageEntry, pretty: bool) -> String {
+    pub fn fullname<'a>(&self, entry: &'a PackageEntry, pretty: bool) -> Cow<'a, str> {
         entry.fullname(pretty, &self.native_arch)
     }
 
     /// Get the candidate entry for a package name (highest version).
     pub fn get_candidate(&self, name: &str) -> Option<&PackageEntry> {
-        let entries = self.entries.get(name)?;
-        entries.iter().max_by(|a, b| {
-            let a_ver = a
-                .version
-                .as_deref()
-                .and_then(|v| v.parse::<debversion::Version>().ok());
-
-            let b_ver = b
-                .version
-                .as_deref()
-                .and_then(|v| v.parse::<debversion::Version>().ok());
-
-            a_ver.cmp(&b_ver)
-        })
+        self.entries
+            .get(name)?
+            .iter()
+            .max_by_key(|v| v.parsed_version())
+            .map(|v| &v.entry)
     }
 
     /// Get a specific version entry for a package name.
-    /// Get all entries matching a package name and version (one per source).
     pub fn get(&self, name: &str, version: &str) -> Vec<&PackageEntry> {
         self.entries
             .get(name)
             .into_iter()
             .flatten()
-            .filter(|e| e.version.as_deref().is_some_and(|v| v == version))
+            .filter(|v| v.entry.version.as_deref() == Some(version))
+            .map(|v| &v.entry)
             .collect()
     }
 
     /// Iterate over all package entries (across all names).
     pub fn entries(&self) -> impl Iterator<Item = &PackageEntry> {
-        self.entries.values().flatten()
+        self.entries.values().flatten().map(|v| &v.entry)
     }
 
     /// Find all entries matching a package name.
     pub fn get_all(&self, name: &str) -> Vec<&PackageEntry> {
-        self.entries.get(name).into_iter().flatten().collect()
-    }
-
-    /// Find all entries matching a package name, together with their source info.
-    pub fn get_all_with_source(&self, name: &str) -> Vec<EntryWithSource<'_>> {
-        let entries = match self.entries.get(name) {
-            Some(v) => v,
-            None => return vec![],
-        };
-
-        let sources = self.entry_sources.get(name);
-
-        entries
-            .iter()
-            .enumerate()
-            .map(|(i, entry)| EntryWithSource {
-                entry: Cow::Borrowed(entry),
-                source: sources
-                    .and_then(|s| s.get(i))
-                    .filter(|s| !s.is_none())
-                    .map(Cow::Borrowed),
-            })
-            .collect()
-    }
-
-    /// Number of distinct versions of a package across the whole database,
-    /// regardless of source — a version shared by a repo entry and a local
-    /// `.deb` counts once. Used to report "N additional versions" for
-    /// `oma show`: a query may be version-filtered (a local `.deb` resolves
-    /// to `pkg=<version>`), yet the hint should count every other available
-    /// version of the package.
-    pub(crate) fn distinct_version_count(&self, name: &str) -> usize {
         self.entries
             .get(name)
             .into_iter()
             .flatten()
-            .filter_map(|e| e.version.as_deref())
-            .collect::<std::collections::HashSet<_>>()
-            .len()
+            .map(|v| &v.entry)
+            .collect()
+    }
+
+    /// Number of distinct versions of a package across the whole database.
+    /// Versions are already deduplicated (each [`PackageVersion`] is one
+    /// version), so this is simply the entry count.
+    pub(crate) fn distinct_version_count(&self, name: &str) -> usize {
+        self.entries.get(name).map_or(0, Vec::len)
     }
 }
 
@@ -470,43 +430,36 @@ impl PackageIndex for AptDb {
         Box::new(self.entries.keys().map(|s| s.as_str()))
     }
 
-    fn get_all(&self, name: &str) -> Cow<'_, [PackageEntry]> {
+    fn get_all(&self, name: &str) -> Cow<'_, [PackageVersion]> {
         match self.entries.get(name) {
             Some(v) => Cow::Borrowed(v.as_slice()),
             None => Cow::Owned(Vec::new()),
         }
     }
 
-    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageEntry>> {
+    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>> {
         self.entries
             .get(name)?
             .iter()
-            .max_by(|a, b| {
-                let a_ver = a
-                    .version
-                    .as_deref()
-                    .and_then(|v| v.parse::<debversion::Version>().ok());
-                let b_ver = b
-                    .version
-                    .as_deref()
-                    .and_then(|v| v.parse::<debversion::Version>().ok());
-                a_ver.cmp(&b_ver)
-            })
+            .max_by_key(|v| v.parsed_version())
             .map(Cow::Borrowed)
     }
 
-    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_> {
-        let Some(entries) = self.entries.get(name) else {
-            return Box::new(std::iter::empty());
-        };
-        let sources = self.entry_sources.get(name);
-        Box::new(entries.iter().enumerate().map(move |(i, e)| {
-            let src = sources
-                .and_then(|s| s.get(i))
-                .cloned()
-                .unwrap_or_else(IndexSource::none);
-            (Cow::Borrowed(e), src)
-        }))
+    fn get_version(&self, name: &str, version: &str) -> Option<Cow<'_, PackageVersion>> {
+        self.entries
+            .get(name)?
+            .iter()
+            .find(|v| v.entry.version.as_deref() == Some(version))
+            .map(Cow::Borrowed)
+    }
+
+    fn deps_of(&self, name: &str, version: &str) -> Option<Cow<'_, ParsedDeps>> {
+        let v = self
+            .entries
+            .get(name)?
+            .iter()
+            .find(|v| v.entry.version.as_deref() == Some(version))?;
+        Some(Cow::Borrowed(v.deps()))
     }
 }
 
@@ -555,8 +508,8 @@ mod tests {
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].version.as_deref(), Some("1.0"));
 
-        // Local packages have no APT list source.
-        let with_src = db.get_all_with_source("localpkg");
+        // Entries inserted without a source report `source: None`.
+        let with_src: Vec<_> = db.get_with_source("localpkg").collect();
         assert_eq!(with_src.len(), 1);
         assert!(with_src[0].source.is_none());
     }
@@ -629,16 +582,25 @@ mod tests {
         let deb_path = dir.path().join("hello_2.10-2_amd64.deb");
         std::fs::write(&deb_path, build_deb(CONTROL)).unwrap();
 
-        let mut db = AptDb::from_entries("", vec![entry("hello", "2.10-2")]);
+        let mut db = AptDb::from_entries_with_sources(
+            "",
+            vec![entry("hello", "2.10-2")],
+            vec![IndexSource {
+                base_url: "https://example.com/debs".to_string(),
+                suite: "stable".to_string(),
+                component: Some("main".to_string()),
+                arch: Some("amd64".to_string()),
+            }],
+        );
         let resolution = db
             .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
             .unwrap();
 
         assert_eq!(resolution.groups.len(), 1);
         let entries = &resolution.groups[0];
-        // repo entry + merged local entry
+        // repo entry (same version) + local `.deb` entry
         assert_eq!(entries.len(), 2);
-        assert!(entries[0].source.is_none());
+        assert_eq!(entries[0].source.as_deref().unwrap().suite, "stable");
         assert!(
             entries[1]
                 .source

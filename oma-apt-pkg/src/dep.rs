@@ -153,6 +153,46 @@ pub fn parse_dep_list(value: &str) -> Vec<DepEntry> {
     parse_dep_groups(value).into_iter().flatten().collect()
 }
 
+/// Pre-parsed dependency fields of one package version.
+///
+/// Parsing each version's dependency text once — lazily cached on the
+/// [`PackageVersion`](crate::PackageVersion) — avoids re-parsing the deb822
+/// fields on every access.
+#[derive(Debug, Clone, Default)]
+pub struct ParsedDeps {
+    pub depends: Vec<DepGroup>,
+    pub pre_depends: Vec<DepGroup>,
+    pub recommends: Vec<DepGroup>,
+    pub suggests: Vec<DepGroup>,
+    pub breaks: Vec<DepGroup>,
+    pub conflicts: Vec<DepGroup>,
+    pub replaces: Vec<DepGroup>,
+    /// Flat list of provided names — deb822 `Provides` is a comma list, and
+    /// every consumer flattens OR alternatives anyway.
+    pub provides: Vec<DepEntry>,
+}
+
+impl ParsedDeps {
+    /// Parse a [`PackageEntry`]'s dependency fields once.
+    pub(crate) fn from_entry(entry: &crate::PackageEntry) -> Self {
+        let groups = |f: Option<&str>| f.map(parse_dep_groups).unwrap_or_default();
+        Self {
+            depends: groups(entry.depends.as_deref()),
+            pre_depends: groups(entry.pre_depends.as_deref()),
+            recommends: groups(entry.recommends.as_deref()),
+            suggests: groups(entry.suggests.as_deref()),
+            breaks: groups(entry.breaks.as_deref()),
+            conflicts: groups(entry.conflicts.as_deref()),
+            replaces: groups(entry.replaces.as_deref()),
+            provides: entry
+                .provides
+                .as_deref()
+                .map(parse_dep_list)
+                .unwrap_or_default(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

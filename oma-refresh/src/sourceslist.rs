@@ -53,7 +53,6 @@ impl Debug for OmaSourceEntry {
 pub fn ignores(cfg: &AptConfig) -> Vec<Regex> {
     let ignores_lines = cfg
         .keys_under("Dir::Ignore-Files-Silently")
-        .into_iter()
         .map(|k| cfg.get(&format!("Dir::Ignore-Files-Silently::{k}"), ""))
         .filter(|s| !s.is_empty());
 
