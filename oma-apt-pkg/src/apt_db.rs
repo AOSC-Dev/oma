@@ -12,13 +12,13 @@ use rayon::prelude::*;
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
-use crate::{AptConfig, ParsedDeps};
 use crate::apt_lists::{
     EntriesWithSource, IndexSource, PackageEntry, PackageIndex, PackageVersion,
     parse_apt_lists_dir_with_sources,
 };
 use crate::apt_sources::SourceLookup;
 use crate::package_matcher::PackageMatcher;
+use crate::{AptConfig, ParsedDeps};
 
 /// A package entry together with its source file information.
 ///

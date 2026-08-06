@@ -268,10 +268,7 @@ impl PackageIndex for AptListsReader {
             let Ok(pkg) = self.parse_at(entry) else {
                 continue;
             };
-            if let Some(existing) = versions
-                .iter_mut()
-                .find(|v| v.entry.version == pkg.version)
-            {
+            if let Some(existing) = versions.iter_mut().find(|v| v.entry.version == pkg.version) {
                 if !existing.sources.contains(&entry.index_source) {
                     existing.sources.push(entry.index_source.clone());
                 }
