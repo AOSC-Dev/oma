@@ -1008,7 +1008,7 @@ mod tests {
         cfg.set_list("APT::Keep-Fds", "28");
         cfg.set_list("APT::Keep-Fds", "17");
         cfg.set_list("APT::Keep-Fds", "broken");
-        let keys = cfg.keys_under("APT::Keep-Fds");
+        let keys: Vec<&str> = cfg.keys_under("APT::Keep-Fds").collect();
         assert_eq!(keys, vec!["28", "17", "broken"]);
     }
 

@@ -263,9 +263,10 @@ impl OmaRefresh {
         }
 
         // Set default compression order if not configured
-        let has_order = !cfg
+        let has_order = cfg
             .keys_under("Acquire::CompressionTypes::Order")
-            .is_empty();
+            .next()
+            .is_some();
         if !has_order {
             for c in &["zst", "xz", "bz2", "lzma", "gz", "lz4"] {
                 cfg.set_list("Acquire::CompressionTypes::Order", c);

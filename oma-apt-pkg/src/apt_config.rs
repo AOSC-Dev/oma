@@ -309,11 +309,12 @@ impl AptConfig {
         }
         Some(cur)
     }
-    /// Return the child key names directly under `key`.
-    pub fn keys_under(&self, key: &str) -> Vec<String> {
+
+    /// Iterate over the child key names directly under `key`.
+    pub fn keys_under(&self, key: &str) -> impl Iterator<Item = &str> + '_ {
         self.node(key)
-            .map(|n| n.children.keys().cloned().collect())
-            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|n| n.children.keys().map(|k| k.as_str()))
     }
 
     /// The architectures to read package indexes for — `APT::Architectures`
@@ -324,7 +325,11 @@ impl AptConfig {
     /// No architecture is assumed: if neither is configured, an empty list
     /// is returned (the caller then reads no per-architecture indexes).
     pub fn architectures(&self) -> Vec<String> {
-        let archs = self.keys_under("APT::Architectures");
+        let archs: Vec<String> = self
+            .keys_under("APT::Architectures")
+            .map(str::to_owned)
+            .collect();
+
         if archs.is_empty() {
             let native = self.get("APT::Architecture", "");
             if native.is_empty() {
