@@ -101,7 +101,7 @@ impl<'a> PackageMatcher<'a> {
                         .index
                         .get_all(pkg)
                         .iter()
-                        .any(|entry| arch_matches(&entry.architecture, arch))
+                        .any(|version| arch_matches(&version.entry.architecture, arch))
             }
             None => self.index.has_package(name),
         }

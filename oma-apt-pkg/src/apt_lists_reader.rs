@@ -8,13 +8,16 @@
 //! packages need to be looked up, saving memory and I/O on the bulk parse.
 
 use std::borrow::Cow;
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::io::{BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use deb822_fast::{Deb822, FromDeb822Paragraph};
 
-use crate::apt_lists::{AptListsError, EntriesWithSource, IndexSource, PackageEntry, PackageIndex};
+use crate::apt_lists::{
+    AptListsError, EntriesWithSource, IndexSource, PackageEntry, PackageIndex, PackageVersion,
+};
 use crate::apt_sources::SourceLookup;
 
 /// A (source, byte offset) pair pointing to a single deb822 paragraph in a
@@ -256,16 +259,32 @@ impl PackageIndex for AptListsReader {
         Box::new(self.index.keys().map(|s| s.as_str()))
     }
 
-    fn get_all(&self, name: &str) -> Cow<'_, [PackageEntry]> {
-        // Parsing is best-effort: malformed paragraphs are skipped.
-        Cow::Owned(
-            self.index
-                .get(name)
-                .into_iter()
-                .flatten()
-                .filter_map(|entry| self.parse_at(entry).ok())
-                .collect(),
-        )
+    fn get_all(&self, name: &str) -> Cow<'_, [PackageVersion]> {
+        // Parsing is best-effort: malformed paragraphs are skipped; the same
+        // version from several source files is merged into one version with
+        // every source listed.
+        let mut versions: Vec<PackageVersion> = Vec::new();
+        for entry in self.index.get(name).into_iter().flatten() {
+            let Ok(pkg) = self.parse_at(entry) else {
+                continue;
+            };
+            if let Some(existing) = versions
+                .iter_mut()
+                .find(|v| v.entry.version == pkg.version)
+            {
+                if !existing.sources.contains(&entry.index_source) {
+                    existing.sources.push(entry.index_source.clone());
+                }
+            } else {
+                versions.push(PackageVersion {
+                    entry: pkg,
+                    sources: vec![entry.index_source.clone()],
+                    deps: OnceCell::new(),
+                    parsed_version: OnceCell::new(),
+                });
+            }
+        }
+        Cow::Owned(versions)
     }
 
     fn get_with_source(&self, name: &str) -> EntriesWithSource<'_> {
@@ -283,20 +302,10 @@ impl PackageIndex for AptListsReader {
         )
     }
 
-    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageEntry>> {
+    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>> {
         self.get_all(name)
             .iter()
-            .max_by(|a, b| {
-                let a_ver = a
-                    .version
-                    .as_deref()
-                    .and_then(|v| v.parse::<debversion::Version>().ok());
-                let b_ver = b
-                    .version
-                    .as_deref()
-                    .and_then(|v| v.parse::<debversion::Version>().ok());
-                a_ver.cmp(&b_ver)
-            })
+            .max_by_key(|v| v.parsed_version())
             .cloned()
             .map(Cow::Owned)
     }
