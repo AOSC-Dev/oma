@@ -147,36 +147,6 @@ impl IndexSource {
     }
 }
 
-/// Scan `/var/lib/apt/lists/` and parse all `*_Packages` files.
-///
-/// Returns a flat list of all package entries across all repos/components/archs.
-/// Parse `/var/lib/apt/lists/` and return all package entries (without source tracking).
-pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, AptListsError> {
-    let dir = path.as_ref();
-    let mut files = Vec::new();
-
-    for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
-        let entry = entry.map_err(AptListsError::Io)?;
-        if entry.file_name().to_string_lossy().ends_with("_Packages") {
-            files.push(entry.path());
-        }
-    }
-
-    // Parse each `*_Packages` file in parallel, folding into a single flat
-    // vec instead of collecting into an intermediate nested vec.
-    files
-        .par_iter()
-        .map(parse_single_packages_file)
-        .try_fold(Vec::new, |mut acc, entries| {
-            acc.extend(entries?);
-            Ok(acc)
-        })
-        .try_reduce(Vec::new, |mut acc, entries| {
-            acc.extend(entries);
-            Ok(acc)
-        })
-}
-
 /// Parse `/var/lib/apt/lists/` and return all package entries paired with
 /// the [`IndexSource`] each came from.
 ///
