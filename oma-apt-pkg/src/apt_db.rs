@@ -383,7 +383,7 @@ impl AptDb {
     /// for the pretty form.
     ///
     /// See [`PackageEntry::fullname`].
-    pub fn fullname(&self, entry: &PackageEntry, pretty: bool) -> String {
+    pub fn fullname<'a>(&self, entry: &'a PackageEntry, pretty: bool) -> Cow<'a, str> {
         entry.fullname(pretty, &self.native_arch)
     }
 

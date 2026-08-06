@@ -83,17 +83,17 @@ impl PackageEntry {
     /// equals `native_arch` or is `all`/`any`/unset — so a native amd64
     /// `apt` shows `apt`, an `Architecture: all` package shows `foo`, and a
     /// foreign `foo:i386` shows `foo:i386`.
-    pub fn fullname(&self, pretty: bool, native_arch: &str) -> String {
+    pub fn fullname(&self, pretty: bool, native_arch: &str) -> Cow<'_, str> {
         match self.architecture.as_deref() {
             Some(arch) if !arch.is_empty() => {
                 let omit = pretty && (arch == "all" || arch == "any" || arch == native_arch);
                 if omit {
-                    self.package.clone()
+                    Cow::Borrowed(&self.package)
                 } else {
-                    format!("{}:{arch}", self.package)
+                    Cow::Owned(format!("{}:{arch}", self.package))
                 }
             }
-            _ => self.package.clone(),
+            _ => Cow::Borrowed(&self.package),
         }
     }
 }
