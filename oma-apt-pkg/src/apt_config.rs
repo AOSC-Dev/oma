@@ -38,20 +38,31 @@ impl AptConfig {
 
     /// Initialize the default APT configuration tree.
     ///
-    /// The values mirror APT's own built-in defaults, so paths and
-    /// behaviours match the reference implementation:
-    /// - the `Dir::*` tree, `Dir::Ignore-Files-Silently` patterns,
-    ///   `Acquire::Allow*` hardening, `APT::Sandbox::User` and the
-    ///   `Acquire::IndexTargets` definitions come from `apt-pkg/init.cc`
-    ///   (`Configuration::Defaults`)
-    /// - `APT::Install-Recommends` / `APT::Install-Suggests` match the
-    ///   defaults apt reads them with in `apt-pkg/aptconfiguration.cc`
-    /// - `APT::Build-Essential` matches `apt-pkg/depcache.cc`
-    /// - `APT::Key::Assert-Pubkey-Algo` (plus `::Next` / `::Future`) is
-    ///   apt 2.7+'s key-algorithm enforcement from `apt-pkg/init.cc`
-    /// - `APT::Architecture` is detected by this crate's
-    ///   `config_parser::detect_arch()` (apt instead queries
-    ///   `dpkg --print-architecture`)
+    /// The values mirror apt's own built-in defaults, so paths and
+    /// behaviours match the reference implementation. Line numbers refer
+    /// to the apt source at `3.2.0` (Debian/apt):
+    ///
+    /// - `apt-pkg/init.cc` — `pkgInitConfig()` (starts at L113):
+    ///   - L116 `APT::Architecture` (apt sets the compile-time `COMMON_ARCH`;
+    ///     this crate instead detects it via `config_parser::detect_arch()`,
+    ///     i.e. the output of `dpkg --print-architecture`)
+    ///   - L117-118 `APT::Build-Essential`
+    ///   - L119-120 `APT::Install-Recommends` / `APT::Install-Suggests`
+    ///   - L121-123 `APT::Key::Assert-Pubkey-Algo` (+ `::Next` / `::Future`,
+    ///     apt 2.7+ key-algorithm enforcement)
+    ///   - L127-129 `Dir::State` / `::lists` / `::cdroms`
+    ///   - L132-135 `Dir::Cache` / `::archives` / `::srcpkgcache` / `::pkgcache`
+    ///   - L138-149 `Dir::Etc` tree, L150 `Dir::Bin::methods`,
+    ///     L153 `Dir::Media::MountPath`
+    ///   - L156-159 `Dir::Log` / `::Terminal` / `::History` / `::Planner`
+    ///   - L161-168 `Dir::Ignore-Files-Silently` patterns
+    ///   - L171-173 `Acquire::AllowInsecureRepositories` /
+    ///     `AllowWeakRepositories` / `AllowDowngradeToInsecureRepositories`
+    ///   - L176 `Acquire::cdrom::mount`, L179 `APT::Sandbox::User`
+    ///   - L181-197 `Acquire::IndexTargets`: `deb::Packages` (L181-186),
+    ///     `deb::Translations` (L187-191), `deb-src::Sources` (L192-197)
+    /// - `apt-pkg/deb/debsystem.cc` — `debSystem::Initialize()` (starts at
+    ///   L288): L293 `Dir::State::extended_states`, L296 `Dir::Bin::dpkg`
     ///
     /// Every key here can be overridden by the system configuration
     /// (`load_system`, e.g. `/etc/apt/apt.conf.d` and friends).
@@ -60,7 +71,7 @@ impl AptConfig {
         self.set_list("APT::Build-Essential", "build-essential");
         self.set("APT::Install-Recommends", "true");
         self.set("APT::Install-Suggests", "false");
-        // apt 2.7+ key-algorithm enforcement (apt-pkg/init.cc).
+        // apt 2.7+ key-algorithm enforcement (apt-pkg/init.cc:121-123).
         self.set(
             "APT::Key::Assert-Pubkey-Algo",
             ">=rsa2048,ed25519,ed448,nistp256,nistp384,nistp512,\
@@ -115,9 +126,8 @@ impl AptConfig {
         self.set("Acquire::AllowDowngradeToInsecureRepositories", "false");
         self.set("Acquire::cdrom::mount", "/media/cdrom/");
         self.set("APT::Sandbox::User", "_apt");
-        // The `Acquire::IndexTargets` definitions below are apt's built-in
-        // index targets (deb Packages / Translations, deb-src Sources) from
-        // apt-pkg/init.cc (`Configuration::Defaults`).
+        // apt's built-in index targets (deb Packages / Translations,
+        // deb-src Sources), from apt-pkg/init.cc:181-197 (pkgInitConfig).
         self.set(
             "Acquire::IndexTargets::deb::Packages::MetaKey",
             "$(COMPONENT)/binary-$(ARCHITECTURE)/Packages",
