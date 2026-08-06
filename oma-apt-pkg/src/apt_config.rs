@@ -36,12 +36,31 @@ impl AptConfig {
         }
     }
 
-    /// Init default apt config tree
+    /// Initialize the default APT configuration tree.
+    ///
+    /// The values mirror APT's own built-in defaults, so paths and
+    /// behaviours match the reference implementation:
+    /// - the `Dir::*` tree, `Dir::Ignore-Files-Silently` patterns,
+    ///   `Acquire::Allow*` hardening, `APT::Sandbox::User` and the
+    ///   `Acquire::IndexTargets` definitions come from `apt-pkg/init.cc`
+    ///   (`Configuration::Defaults`)
+    /// - `APT::Install-Recommends` / `APT::Install-Suggests` match the
+    ///   defaults apt reads them with in `apt-pkg/aptconfiguration.cc`
+    /// - `APT::Build-Essential` matches `apt-pkg/depcache.cc`
+    /// - `APT::Key::Assert-Pubkey-Algo` (plus `::Next` / `::Future`) is
+    ///   apt 2.7+'s key-algorithm enforcement from `apt-pkg/init.cc`
+    /// - `APT::Architecture` is detected by this crate's
+    ///   `config_parser::detect_arch()` (apt instead queries
+    ///   `dpkg --print-architecture`)
+    ///
+    /// Every key here can be overridden by the system configuration
+    /// (`load_system`, e.g. `/etc/apt/apt.conf.d` and friends).
     pub fn init_defaults(&mut self) -> std::io::Result<()> {
         self.set("APT::Architecture", &crate::config_parser::detect_arch()?);
         self.set_list("APT::Build-Essential", "build-essential");
         self.set("APT::Install-Recommends", "true");
         self.set("APT::Install-Suggests", "false");
+        // apt 2.7+ key-algorithm enforcement (apt-pkg/init.cc).
         self.set(
             "APT::Key::Assert-Pubkey-Algo",
             ">=rsa2048,ed25519,ed448,nistp256,nistp384,nistp512,\
@@ -96,6 +115,9 @@ impl AptConfig {
         self.set("Acquire::AllowDowngradeToInsecureRepositories", "false");
         self.set("Acquire::cdrom::mount", "/media/cdrom/");
         self.set("APT::Sandbox::User", "_apt");
+        // The `Acquire::IndexTargets` definitions below are apt's built-in
+        // index targets (deb Packages / Translations, deb-src Sources) from
+        // apt-pkg/init.cc (`Configuration::Defaults`).
         self.set(
             "Acquire::IndexTargets::deb::Packages::MetaKey",
             "$(COMPONENT)/binary-$(ARCHITECTURE)/Packages",
