@@ -43,7 +43,10 @@ pub struct ListIndexEntry {
 /// # Example
 ///
 /// ```ignore
-/// let reader = AptListsReader::build("/var/lib/apt/lists")?;
+/// let cfg = AptConfig::new();
+/// let lookup = SourceLookup::build(&cfg);
+/// let archs = cfg.architectures();
+/// let reader = AptListsReader::build_with_sources("/var/lib/apt/lists", &lookup, &archs)?;
 /// if reader.has_package("bash") {
 ///     for entry in reader.get("bash")? {
 ///         println!("{} {}", entry.package, entry.version.unwrap_or_default());
@@ -58,18 +61,6 @@ pub struct AptListsReader {
 }
 
 impl AptListsReader {
-    /// Build a new reader by scanning the given lists directory for
-    /// `*_Packages` files and building the offset index, without source
-    /// resolution (every entry reports [`IndexSource::none`]).
-    pub fn build(lists_dir: impl AsRef<Path>) -> Result<Self, AptListsError> {
-        let mut reader = Self {
-            index: HashMap::new(),
-            file_map: HashMap::new(),
-        };
-        reader.build_from_dir(lists_dir.as_ref())?;
-        Ok(reader)
-    }
-
     /// Build a new reader that scans exactly the lists files the source
     /// list generates (see [`SourceLookup::index_files`]): every component
     /// × architecture plus `binary-all` per source, skipping files that are
@@ -93,24 +84,6 @@ impl AptListsReader {
             reader.scan_file(&path, &filename, index_source)?;
         }
         Ok(reader)
-    }
-
-    fn build_from_dir(&mut self, lists_dir: &Path) -> Result<(), AptListsError> {
-        let dir = std::fs::read_dir(lists_dir).map_err(AptListsError::Io)?;
-
-        for entry in dir {
-            let entry = entry.map_err(AptListsError::Io)?;
-            let name = entry.file_name().to_string_lossy().to_string();
-            if !name.ends_with("_Packages") {
-                continue;
-            }
-
-            let path = entry.path();
-            self.file_map.insert(name.clone(), path.clone());
-            self.scan_file(&path, &name, IndexSource::none())?;
-        }
-
-        Ok(())
     }
 
     /// Scan a single `*_Packages` file, recording byte offsets of each
@@ -290,12 +263,48 @@ mod tests {
         (dir, path)
     }
 
+    /// A `stable/main` deb822 source, used by [`build_reader`] and friends.
+    const STABLE_MAIN: &str = "Types: deb\n\
+        URIs: https://example.com/debs\n\
+        Suites: stable\n\
+        Components: main\n\
+        Signed-By: /dev/null\n";
+
+    /// Build a `SourceLookup` from a single deb822 `.sources` file.
+    fn lookup_from(text: &str) -> SourceLookup {
+        let dir = tempfile::tempdir().unwrap();
+        let list = dir.path().join("test.sources");
+        std::fs::write(&list, text).unwrap();
+        SourceLookup::from_paths(&[list], |_| {})
+    }
+
+    /// The `binary-amd64` lists filename the given lookup generates.
+    fn amd64_file(lookup: &SourceLookup, archs: &[String]) -> String {
+        lookup
+            .index_files(archs)
+            .into_iter()
+            .find(|(_, src)| src.arch.as_deref() == Some("amd64"))
+            .unwrap()
+            .0
+    }
+
+    /// Build a reader over one `stable/main` deb822 source (arch `amd64`),
+    /// writing `content` to the `binary-amd64` Packages file that source
+    /// generates. The temp dir is returned alongside so the files stay
+    /// alive for the reader's lazy parsing.
+    fn build_reader(content: &str) -> (tempfile::TempDir, AptListsReader) {
+        let (dir_handle, dir) = packages_dir();
+        let lookup = lookup_from(STABLE_MAIN);
+        let archs = vec!["amd64".to_string()];
+        let name = amd64_file(&lookup, &archs);
+        write_packages(&dir, &name, content);
+        let reader = AptListsReader::build_with_sources(&dir, &lookup, &archs).unwrap();
+        (dir_handle, reader)
+    }
+
     #[test]
     fn test_basic_lookup() {
-        let (_d, dir) = packages_dir();
-        write_packages(
-            &dir,
-            "test_main_binary-amd64_Packages",
+        let (_d, reader) = build_reader(
             r#"Package: bash
 Version: 5.2-3
 Architecture: amd64
@@ -311,8 +320,6 @@ Description: Z shell
 
 "#,
         );
-
-        let reader = AptListsReader::build(&dir).unwrap();
         assert!(reader.has_package("bash"));
         let entries = reader.get("bash").unwrap();
         assert_eq!(entries.len(), 1);
@@ -323,27 +330,14 @@ Description: Z shell
 
     #[test]
     fn test_not_found() {
-        let (_d, dir) = packages_dir();
-        write_packages(
-            &dir,
-            "test_main_binary-amd64_Packages",
-            r#"Package: bash
-Version: 5.2-3
-
-"#,
-        );
-
-        let reader = AptListsReader::build(&dir).unwrap();
+        let (_d, reader) = build_reader("Package: bash\nVersion: 5.2-3\n\n");
         assert!(!reader.has_package("nonexistent"));
         assert!(reader.get("nonexistent").unwrap().is_empty());
     }
 
     #[test]
     fn test_multiple_entries_same_package() {
-        let (_d, dir) = packages_dir();
-        write_packages(
-            &dir,
-            "test_main_binary-amd64_Packages",
+        let (_d, reader) = build_reader(
             r#"Package: bash
 Version: 5.2-3
 
@@ -352,8 +346,6 @@ Version: 5.1-1
 
 "#,
         );
-
-        let reader = AptListsReader::build(&dir).unwrap();
         let entries = reader.get("bash").unwrap();
         assert_eq!(entries.len(), 2);
         // Order matches file order
@@ -363,20 +355,9 @@ Version: 5.1-1
 
     #[test]
     fn test_multiple_packages() {
-        let (_d, dir) = packages_dir();
-        write_packages(
-            &dir,
-            "test_main_binary-amd64_Packages",
-            r#"Package: bash
-Version: 5.2-3
-
-Package: zsh
-Version: 5.9-1
-
-"#,
+        let (_d, reader) = build_reader(
+            "Package: bash\nVersion: 5.2-3\n\nPackage: zsh\nVersion: 5.9-1\n\n",
         );
-
-        let reader = AptListsReader::build(&dir).unwrap();
         assert_eq!(reader.len(), 2);
         assert!(reader.has_package("bash"));
         assert!(reader.has_package("zsh"));
@@ -385,24 +366,35 @@ Version: 5.9-1
     #[test]
     fn test_multiple_source_files() {
         let (_d, dir) = packages_dir();
-        write_packages(
-            &dir,
-            "repo1_main_binary-amd64_Packages",
-            r#"Package: bash
-Version: 5.2-3
-
-"#,
+        // Two suites of the same repo: `stable` and `preview`.
+        let lookup = lookup_from(
+            "Types: deb\n\
+             URIs: https://example.com/debs\n\
+             Suites: stable\n\
+             Components: main\n\
+             Signed-By: /dev/null\n\
+             \n\
+             Types: deb\n\
+             URIs: https://example.com/debs\n\
+             Suites: preview\n\
+             Components: main\n\
+             Signed-By: /dev/null\n",
         );
-        write_packages(
-            &dir,
-            "repo2_main_binary-amd64_Packages",
-            r#"Package: bash
-Version: 5.2-3+b1
+        let archs = vec!["amd64".to_string()];
+        for (suite, content) in [
+            ("stable", "Package: bash\nVersion: 5.2-3\n\n"),
+            ("preview", "Package: bash\nVersion: 5.2-3+b1\n\n"),
+        ] {
+            let name = lookup
+                .index_files(&archs)
+                .into_iter()
+                .find(|(_, src)| src.suite == suite && src.arch.as_deref() == Some("amd64"))
+                .unwrap()
+                .0;
+            write_packages(&dir, &name, content);
+        }
 
-"#,
-        );
-
-        let reader = AptListsReader::build(&dir).unwrap();
+        let reader = AptListsReader::build_with_sources(&dir, &lookup, &archs).unwrap();
         let entries = reader.get("bash").unwrap();
         assert_eq!(entries.len(), 2);
     }
@@ -410,35 +402,21 @@ Version: 5.2-3+b1
     #[test]
     fn test_non_packages_file_ignored() {
         let (_d, dir) = packages_dir();
-        write_packages(
-            &dir,
-            "some_random_file",
-            r#"Package: bash
-Version: 5.2-3
+        let lookup = lookup_from(STABLE_MAIN);
+        let archs = vec!["amd64".to_string()];
+        let name = amd64_file(&lookup, &archs);
+        // Only the lists files the source generates are ever scanned.
+        write_packages(&dir, "some_random_file", "Package: bash\nVersion: 5.2-3\n\n");
+        write_packages(&dir, &name, "Package: zsh\nVersion: 5.9-1\n\n");
 
-"#,
-        );
-        write_packages(
-            &dir,
-            "valid_main_binary-amd64_Packages",
-            r#"Package: zsh
-Version: 5.9-1
-
-"#,
-        );
-
-        let reader = AptListsReader::build(&dir).unwrap();
+        let reader = AptListsReader::build_with_sources(&dir, &lookup, &archs).unwrap();
         assert!(!reader.has_package("bash"));
         assert!(reader.has_package("zsh"));
     }
 
     #[test]
     fn test_blank_lines_between_paragraphs() {
-        let (_d, dir) = packages_dir();
-        // Multiple blank lines between paragraphs
-        write_packages(
-            &dir,
-            "test_main_binary-amd64_Packages",
+        let (_d, reader) = build_reader(
             r#"Package: bash
 Version: 5.2-3
 
@@ -449,8 +427,6 @@ Version: 5.9-1
 
 "#,
         );
-
-        let reader = AptListsReader::build(&dir).unwrap();
         assert!(reader.has_package("bash"));
         assert!(reader.has_package("zsh"));
     }
@@ -458,16 +434,16 @@ Version: 5.9-1
     #[test]
     fn test_empty_directory() {
         let (_d, dir) = packages_dir();
-        let reader = AptListsReader::build(&dir).unwrap();
+        let lookup = lookup_from(STABLE_MAIN);
+        let archs = vec!["amd64".to_string()];
+        // No lists files present: the reader scans nothing.
+        let reader = AptListsReader::build_with_sources(&dir, &lookup, &archs).unwrap();
         assert!(reader.is_empty());
     }
 
     #[test]
     fn test_entry_fields_preserved() {
-        let (_d, dir) = packages_dir();
-        write_packages(
-            &dir,
-            "test_main_binary-amd64_Packages",
+        let (_d, reader) = build_reader(
             r#"Package: apt
 Version: 2.7.0
 Architecture: amd64
@@ -482,8 +458,6 @@ Description: commandline package manager
 
 "#,
         );
-
-        let reader = AptListsReader::build(&dir).unwrap();
         let entries = reader.get("apt").unwrap();
         assert_eq!(entries.len(), 1);
         let e = &entries[0];
