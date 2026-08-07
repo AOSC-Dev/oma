@@ -1,61 +1,15 @@
-use std::{borrow::Cow, fmt::Display};
+use std::{fmt::Display, io, sync::LazyLock};
 
-use aho_corasick::AhoCorasick;
-use url::{Host, Url};
+use oma_apt_pkg::AptListFilename;
 
 use crate::db::RefreshError;
 
-#[derive(Debug)]
-pub(crate) struct DatabaseFilenameReplacer {
-    ac: AhoCorasick,
-}
+static CVT: LazyLock<AptListFilename> = LazyLock::new(AptListFilename::new);
 
-impl DatabaseFilenameReplacer {
-    const PATTERNS: &'static [&'static str] = &["_", "/", "+", "%3a", "%3A", "@"];
-    const REPLACE_WITH: &'static [&'static str] = &["%5f", "_", "%252b", ":", ":", "%40"];
-
-    pub fn new() -> Result<Self, RefreshError> {
-        Ok(Self {
-            ac: AhoCorasick::new(Self::PATTERNS)?,
-        })
-    }
-
-    pub fn replace(&self, url: &str) -> Result<String, RefreshError> {
-        let url_parsed = Url::parse(url).map_err(|_| RefreshError::InvalidUrl(url.to_string()))?;
-
-        let host = url_parsed.host_str();
-
-        // 不能使用 url_parsed.path()
-        // 原因是 "/./" 会被解析器解析为 "/"，而 apt 则不会这样
-        let path = if let Some(host) = host {
-            url.split_once(host)
-                .ok_or_else(|| RefreshError::InvalidUrl(url.to_string()))?
-                .1
-        } else {
-            // file:/// or file:/
-            url.strip_prefix("file://")
-                .or_else(|| url.strip_prefix("file:"))
-                .ok_or_else(|| RefreshError::InvalidUrl(url.to_string()))?
-        };
-
-        let url = if let Some(host) = host {
-            if let Some(Host::Ipv6(addr)) = url_parsed.host() {
-                Cow::Owned(format!("{addr}{path}"))
-            } else {
-                Cow::Owned(format!("{host}{path}"))
-            }
-        } else {
-            Cow::Borrowed(path)
-        };
-
-        let mut wtr = vec![];
-
-        self.ac
-            .try_stream_replace_all(url.as_bytes(), &mut wtr, Self::REPLACE_WITH)
-            .map_err(RefreshError::ReplaceAll)?;
-
-        Ok(String::from_utf8_lossy(&wtr).to_string())
-    }
+/// Convert a full repository URL or host+path into an APT list filename.
+pub(crate) fn url_to_list_filename(url: &str) -> Result<String, RefreshError> {
+    CVT.encode(url)
+        .map_err(|e| RefreshError::ReplaceAll(io::Error::other(e.to_string())))
 }
 
 #[inline]
@@ -64,17 +18,5 @@ pub(crate) fn concat_url_only_check_once_slash(url: &str, path: impl Display) ->
         format!("{url}{path}")
     } else {
         format!("{url}/{path}")
-    }
-}
-
-#[cfg(feature = "apt")]
-pub fn apt_config_set_vector(key: &str, values: &[&str]) {
-    let mut vec_key = String::from(key);
-    if !vec_key.ends_with("::") {
-        vec_key.push_str("::");
-    }
-
-    for value in values {
-        oma_apt::raw::config::set(vec_key.to_string(), value.to_string());
     }
 }

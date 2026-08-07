@@ -1,16 +1,10 @@
-use std::{
-    borrow::Cow,
-    fmt::Debug,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{borrow::Cow, fmt::Debug, path::Path, sync::Arc};
 
 use ahash::{AHashMap, HashMap};
 use fancy_regex::Regex;
 use flume::Sender;
-use oma_apt_sources_lists::{
-    Signature, SourceEntry, SourceLine, SourceListType, SourcesList, SourcesListError,
-};
+use oma_apt_pkg::AptConfig;
+use oma_apt_sources_lists::{Signature, SourceEntry};
 use oma_fetch::{
     SingleDownloadError,
     reqwest::{Method, Response, StatusCode},
@@ -19,7 +13,7 @@ use oma_fetch::{
 use oma_utils::concat_url;
 use once_cell::sync::OnceCell;
 use reqwest_middleware::ClientWithMiddleware;
-use spdlog::debug;
+use spdlog::{debug, warn};
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
@@ -30,7 +24,7 @@ use url::Url;
 
 use crate::{
     db::{Event, RefreshError, content_length},
-    util::{DatabaseFilenameReplacer, concat_url_only_check_once_slash},
+    util::{concat_url_only_check_once_slash, url_to_list_filename},
 };
 
 #[derive(Clone)]
@@ -56,96 +50,20 @@ impl Debug for OmaSourceEntry {
     }
 }
 
-pub(crate) fn scan_sources_lists_paths(
-    list_file: impl AsRef<str>,
-    list_dir: impl AsRef<str>,
-) -> Result<Vec<PathBuf>, SourcesListError> {
-    let mut paths = vec![];
-    let default = Path::new(list_file.as_ref());
-    let list_dir_path = Path::new(list_dir.as_ref());
+pub fn ignores(cfg: &AptConfig) -> Vec<Regex> {
+    let ignores_lines = cfg
+        .keys_under("Dir::Ignore-Files-Silently")
+        .into_iter()
+        .map(|k| cfg.get(&format!("Dir::Ignore-Files-Silently::{k}"), ""))
+        .filter(|s| !s.is_empty());
 
-    if default.exists() {
-        paths.push(default.to_path_buf());
-    }
-
-    if list_dir_path.exists() {
-        let dir = std::fs::read_dir(list_dir_path)?;
-
-        for i in dir {
-            let i = i?;
-            let path = i.path();
-            if !path.is_file() {
-                continue;
-            }
-
-            paths.push(path.to_path_buf());
-        }
-    }
-
-    Ok(paths)
-}
-
-#[cfg(feature = "apt")]
-pub fn ignores() -> Vec<Regex> {
-    use spdlog::warn;
-
-    oma_apt::raw::config::find_vector("Dir::Ignore-Files-Silently".to_string())
-        .iter()
-        .filter_map(|re| Regex::new(re)
-            .inspect_err(|e|
-                warn!("Failed to parse regex {} in ignore rule list (Dir::Ignore-Files-Silently): {}", re, e)).ok())
+    ignores_lines
+        .filter_map(|re| {
+            Regex::new(&re).inspect_err(|e| {
+                warn!("Failed to parse regex {re} in ignore rule list (Dir::Ignore-Files-Silently): {e}")
+            }).ok()
+        })
         .collect::<Vec<_>>()
-}
-
-pub fn scan_sources_list_from_paths(
-    paths: &[impl AsRef<Path>],
-    arch: Arc<str>,
-    ignores: &[Regex],
-    cb: &mut impl FnMut(Event),
-) -> Result<Vec<OmaSourceEntry>, SourcesListError> {
-    let mut res = vec![];
-
-    for p in paths {
-        match SourcesList::new(p) {
-            Ok(s) => match s.entries {
-                SourceListType::SourceLine(source_list_line_style) => {
-                    for source in source_list_line_style.0 {
-                        if let SourceLine::Entry(entry) = source
-                            && entry.enabled
-                        {
-                            res.push(OmaSourceEntry::new(entry, arch.clone()));
-                        }
-                    }
-                }
-                SourceListType::Deb822(source_list_deb822) => {
-                    for source in source_list_deb822.entries.into_iter().filter(|s| s.enabled) {
-                        res.push(OmaSourceEntry::new(source, arch.clone()));
-                    }
-                }
-            },
-            Err(e) => match e {
-                SourcesListError::UnknownFile { path } => {
-                    let Some(file_name) = path.file_name() else {
-                        cb(Event::SourceListFileNotSupport { path });
-                        continue;
-                    };
-
-                    if ignores
-                        .iter()
-                        .any(|re| re.is_match(&file_name.to_string_lossy()).unwrap_or(false))
-                    {
-                        debug!("File {:?} matches ignore list.", file_name);
-                        continue;
-                    }
-
-                    cb(Event::SourceListFileNotSupport { path });
-                }
-                e => return Err(e),
-            },
-        }
-    }
-
-    Ok(res)
 }
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
@@ -234,11 +152,7 @@ impl OmaSourceEntry {
         })
     }
 
-    pub fn get_download_file_name(
-        &self,
-        file_name: Option<&str>,
-        replacer: &DatabaseFilenameReplacer,
-    ) -> Result<String, RefreshError> {
+    pub fn get_download_file_name(&self, file_name: Option<&str>) -> Result<String, RefreshError> {
         let url = if let Some(file_name) = file_name {
             Cow::Owned(concat_url_only_check_once_slash(
                 self.dist_path(),
@@ -248,7 +162,7 @@ impl OmaSourceEntry {
             self.dist_path().into()
         };
 
-        replacer.replace(&url)
+        url_to_list_filename(&url)
     }
 
     #[inline]
@@ -321,15 +235,11 @@ impl MirrorSource {
     }
 
     #[inline]
-    pub fn get_download_file_name(
-        &self,
-        file_name: Option<&str>,
-        replacer: &DatabaseFilenameReplacer,
-    ) -> Result<String, RefreshError> {
+    pub fn get_download_file_name(&self, file_name: Option<&str>) -> Result<String, RefreshError> {
         self.sources
             .first()
             .unwrap()
-            .get_download_file_name(file_name, replacer)
+            .get_download_file_name(file_name)
     }
 
     #[inline]
@@ -361,7 +271,6 @@ impl MirrorSource {
     pub async fn fetch(
         &self,
         client: &ClientWithMiddleware,
-        replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
         tmp_dir: &Path,
@@ -370,11 +279,11 @@ impl MirrorSource {
     ) -> Result<(), RefreshError> {
         match self.from()? {
             OmaSourceEntryFrom::Http => {
-                self.fetch_http_release(client, replacer, index, total, tmp_dir, download_dir, tx)
+                self.fetch_http_release(client, index, total, tmp_dir, download_dir, tx)
                     .await
             }
             OmaSourceEntryFrom::Local => {
-                self.fetch_local_release(replacer, index, total, download_dir, tx)
+                self.fetch_local_release(index, total, download_dir, tx)
                     .await
             }
         }
@@ -384,7 +293,6 @@ impl MirrorSource {
     async fn fetch_http_release(
         &self,
         client: &ClientWithMiddleware,
-        replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
         tmp_dir: &Path,
@@ -433,9 +341,9 @@ impl MirrorSource {
         };
 
         let file_name = if is_release {
-            self.get_download_file_name(Some("Release"), replacer)?
+            self.get_download_file_name(Some("Release"))?
         } else {
-            self.get_download_file_name(Some("InRelease"), replacer)?
+            self.get_download_file_name(Some("InRelease"))?
         };
 
         self.download_file(
@@ -461,7 +369,7 @@ impl MirrorSource {
                 .map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e })
                 .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
-            let file_name = self.get_download_file_name(Some("Release.gpg"), replacer)?;
+            let file_name = self.get_download_file_name(Some("Release.gpg"))?;
 
             self.download_file(
                 &file_name,
@@ -552,7 +460,6 @@ impl MirrorSource {
 
     async fn fetch_local_release(
         &self,
-        replacer: &DatabaseFilenameReplacer,
         index: usize,
         total: usize,
         download_dir: &Path,
@@ -580,7 +487,7 @@ impl MirrorSource {
 
         for (index, entry) in ["InRelease", "Release"].iter().enumerate() {
             let p = dist_path.join(entry);
-            let file_name = self.get_download_file_name(Some(entry), replacer)?;
+            let file_name = self.get_download_file_name(Some(entry))?;
             let dst = download_dir.join(&file_name);
 
             if p.exists() {
@@ -612,7 +519,7 @@ impl MirrorSource {
 
         if is_release {
             let p = dist_path.join("Release.gpg");
-            let file_name = self.get_download_file_name(Some("Release.gpg"), replacer)?;
+            let file_name = self.get_download_file_name(Some("Release.gpg"))?;
             let dst = download_dir.join(&file_name);
 
             if p.exists() {
@@ -640,10 +547,7 @@ impl MirrorSource {
 }
 
 impl MirrorSources {
-    pub fn from_sourcelist(
-        sourcelist: &[OmaSourceEntry],
-        replacer: &DatabaseFilenameReplacer,
-    ) -> Result<Self, RefreshError> {
+    pub fn from_sourcelist(sourcelist: &[OmaSourceEntry]) -> Result<Self, RefreshError> {
         let mut map: HashMap<String, Vec<OmaSourceEntry>> =
             HashMap::with_hasher(ahash::RandomState::new());
 
@@ -652,7 +556,7 @@ impl MirrorSources {
         }
 
         for source in sourcelist {
-            map.entry(source.get_download_file_name(None, replacer)?)
+            map.entry(source.get_download_file_name(None)?)
                 .or_default()
                 .push(source.clone());
         }
@@ -672,7 +576,7 @@ impl MirrorSources {
     pub async fn fetch_all_release(
         &mut self,
         client: ClientWithMiddleware,
-        replacer: &Arc<DatabaseFilenameReplacer>,
+
         download_dir: Arc<Path>,
         threads: usize,
         sender: Sender<Event>,
@@ -686,7 +590,6 @@ impl MirrorSources {
 
         for (index, m) in sources.into_iter().enumerate() {
             let client = client.clone();
-            let replacer = replacer.clone();
             let tmp_dir = tmp_dir.clone();
             let sender = sender.clone();
 
@@ -709,15 +612,7 @@ impl MirrorSources {
                 };
 
                 let res = m
-                    .fetch(
-                        &client,
-                        &replacer,
-                        index,
-                        total_len,
-                        &tmp_dir,
-                        &download_dir,
-                        sender,
-                    )
+                    .fetch(&client, index, total_len, &tmp_dir, &download_dir, sender)
                     .await;
 
                 (m, res)
@@ -932,8 +827,6 @@ fn test_ose() {
 // Encode + as %252b.
 #[test]
 fn test_url_encode_plus() {
-    let replacer = DatabaseFilenameReplacer::new().unwrap();
-
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -949,9 +842,7 @@ fn test_url_encode_plus() {
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
     let ose = OmaSourceEntry::new(entry, arch.into());
-    let file_name = ose
-        .get_download_file_name(Some("InRelease"), &replacer)
-        .unwrap();
+    let file_name = ose.get_download_file_name(Some("InRelease")).unwrap();
 
     assert_eq!(
         file_name,
@@ -961,8 +852,6 @@ fn test_url_encode_plus() {
 
 #[test]
 fn test_dot() {
-    let replacer = DatabaseFilenameReplacer::new().unwrap();
-
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -978,9 +867,7 @@ fn test_dot() {
 
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
     let ose = OmaSourceEntry::new(entry, arch.into());
-    let file_name = ose
-        .get_download_file_name(Some("Packages"), &replacer)
-        .unwrap();
+    let file_name = ose.get_download_file_name(Some("Packages")).unwrap();
 
     assert_eq!(
         file_name,
@@ -991,8 +878,6 @@ fn test_dot() {
 // Encode _ as %5f
 #[test]
 fn test_encode_underline() {
-    let replacer = DatabaseFilenameReplacer::new().unwrap();
-
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -1009,9 +894,7 @@ fn test_encode_underline() {
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
     let ose = OmaSourceEntry::new(entry, arch.into());
 
-    let file_name = ose
-        .get_download_file_name(Some("InRelease"), &replacer)
-        .unwrap();
+    let file_name = ose.get_download_file_name(Some("InRelease")).unwrap();
 
     assert_eq!(
         file_name,
@@ -1022,12 +905,10 @@ fn test_encode_underline() {
 // file:/// should be transliterated as file:/
 #[test]
 fn test_file_protocol_translate() {
-    let replacer = DatabaseFilenameReplacer::new().unwrap();
-
     let s1 = "file:/debs";
     let s2 = "file:///debs";
-    let res1 = replacer.replace(s1).unwrap();
-    let res2 = replacer.replace(s2).unwrap();
+    let res1 = url_to_list_filename(s1).unwrap();
+    let res2 = url_to_list_filename(s2).unwrap();
     assert_eq!(res1, "_debs");
     assert_eq!(res1, res2);
 }
@@ -1035,8 +916,6 @@ fn test_file_protocol_translate() {
 // Dots (.) in flat repo URLs should be preserved in resolved database name.
 #[test]
 fn test_flat_repo_file_name_1() {
-    let replacer = DatabaseFilenameReplacer::new().unwrap();
-
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -1053,9 +932,7 @@ fn test_flat_repo_file_name_1() {
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
     let ose = OmaSourceEntry::new(entry, arch.into());
 
-    let file_name = ose
-        .get_download_file_name(Some("Packages"), &replacer)
-        .unwrap();
+    let file_name = ose.get_download_file_name(Some("Packages")).unwrap();
 
     assert_eq!(file_name, "_._._debs_._Packages");
 }
@@ -1063,8 +940,6 @@ fn test_flat_repo_file_name_1() {
 // Slash (/) in flat repo "suite" names should be transliterated as _.
 #[test]
 fn test_flat_repo_file_name_2() {
-    let replacer = DatabaseFilenameReplacer::new().unwrap();
-
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -1081,9 +956,7 @@ fn test_flat_repo_file_name_2() {
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
     let ose = OmaSourceEntry::new(entry, arch.into());
 
-    let file_name = ose
-        .get_download_file_name(Some("Packages"), &replacer)
-        .unwrap();
+    let file_name = ose.get_download_file_name(Some("Packages")).unwrap();
 
     assert_eq!(file_name, "_debs_Packages");
 }
@@ -1091,8 +964,6 @@ fn test_flat_repo_file_name_2() {
 // Dots (.) in flat repo "suite" names should be preserved in resolved database name
 #[test]
 fn test_flat_repo_file_name_3() {
-    let replacer = DatabaseFilenameReplacer::new().unwrap();
-
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -1109,9 +980,7 @@ fn test_flat_repo_file_name_3() {
     let arch = oma_utils::dpkg::dpkg_arch("/").unwrap();
     let ose = OmaSourceEntry::new(entry, arch.into());
 
-    let file_name = ose
-        .get_download_file_name(Some("Packages"), &replacer)
-        .unwrap();
+    let file_name = ose.get_download_file_name(Some("Packages")).unwrap();
 
     assert_eq!(file_name, "_debs_._Packages");
 }
@@ -1119,8 +988,6 @@ fn test_flat_repo_file_name_3() {
 // Slashes in URL and in flat repo "suite" names should be preserved in original number
 #[test]
 fn test_flat_repo_file_name_4() {
-    let replacer = DatabaseFilenameReplacer::new().unwrap();
-
     let entry = SourceEntry {
         enabled: true,
         source: false,
@@ -1138,9 +1005,7 @@ fn test_flat_repo_file_name_4() {
     let arch: Arc<str> = Arc::from(arch.as_str());
     let ac = arch.clone();
     let ose = OmaSourceEntry::new(entry, ac);
-    let res = ose
-        .get_download_file_name(Some("Packages"), &replacer)
-        .unwrap();
+    let res = ose.get_download_file_name(Some("Packages")).unwrap();
     assert_eq!(res, "_debs___._Packages");
 
     let entry = SourceEntry {
@@ -1157,8 +1022,6 @@ fn test_flat_repo_file_name_4() {
     };
 
     let ose = OmaSourceEntry::new(entry, arch);
-    let res = ose
-        .get_download_file_name(Some("Packages"), &replacer)
-        .unwrap();
+    let res = ose.get_download_file_name(Some("Packages")).unwrap();
     assert_eq!(res, "_debs___.___Packages");
 }

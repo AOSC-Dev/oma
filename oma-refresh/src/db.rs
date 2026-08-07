@@ -11,8 +11,7 @@ use bon::Builder;
 use jiff::Timestamp;
 
 use flume::Sender;
-#[cfg(feature = "apt")]
-use oma_apt::raw::config as apt_config;
+use oma_apt_pkg::AptConfig;
 use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
     CompressType, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
@@ -37,15 +36,17 @@ use serde::{Deserialize, Serialize};
 use spdlog::{debug, warn};
 use url::Url;
 
-use crate::sourceslist::{MirrorSource, MirrorSources, scan_sources_list_from_paths};
+use oma_apt_pkg::apt_sources::{SourceLookup, scan_sources_list_paths};
+
+use crate::sourceslist::{MirrorSource, MirrorSources};
 use crate::{
     config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
         ChecksumItem, InReleaseChecksum, InReleaseError, Release, file_is_compress,
         split_ext_and_filename, verify_inrelease,
     },
-    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom, scan_sources_lists_paths},
-    util::DatabaseFilenameReplacer,
+    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom},
+    util::url_to_list_filename,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -107,8 +108,6 @@ pub struct OmaRefresh {
     client: ClientWithMiddleware,
     #[cfg(feature = "aosc")]
     refresh_topics: bool,
-    #[cfg(not(feature = "apt"))]
-    manifest_config: Vec<(String, std::collections::HashMap<String, String>)>,
     #[cfg(feature = "aosc")]
     topic_msg: Cow<'static, str>,
     sources_lists_paths: Option<Vec<PathBuf>>,
@@ -131,79 +130,46 @@ impl OmaRefresh {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
 
-        let replacer = Arc::new(DatabaseFilenameReplacer::new()?);
+        let apt_cfg = self.init_apt_config();
 
-        #[cfg(feature = "apt")]
-        self.init_apt_options();
+        let ignores = crate::sourceslist::ignores(&apt_cfg);
 
-        let paths = if let Some(ref paths) = self.sources_lists_paths {
-            Cow::Borrowed(paths)
+        let paths: Vec<PathBuf> = if let Some(ref p) = self.sources_lists_paths {
+            p.clone()
         } else {
-            #[cfg(feature = "apt")]
             let list_file = if is_termux() {
                 "/data/data/com.termux/files/usr/etc/apt/sources.list".to_string()
             } else {
-                apt_config::find_file(
-                    "Dir::Etc::sourcelist".to_string(),
-                    "sources.list".to_string(),
-                )
+                apt_cfg.get_file("Dir::Etc::sourcelist", "etc/apt/sources.list")
             };
 
-            #[cfg(feature = "apt")]
             let list_dir = if is_termux() {
                 "/data/data/com.termux/files/usr/etc/apt/sources.list.d".to_string()
             } else {
-                apt_config::find_dir(
-                    "Dir::Etc::sourceparts".to_string(),
-                    "sources.list.d".to_string(),
-                )
+                apt_cfg.get_dir("Dir::Etc::sourceparts", "etc/apt/sources.list.d")
             };
 
-            #[cfg(feature = "apt")]
-            {
-                debug!("sources.list is: {list_file}");
-                debug!("sources.list.d is: {list_dir}");
-            }
+            debug!("sources.list is: {list_file}");
+            debug!("sources.list.d is: {list_dir}");
 
-            #[cfg(not(feature = "apt"))]
-            let list_file = if is_termux() {
-                "/data/data/com.termux/files/usr/etc/apt/sources.list".to_string()
-            } else {
-                self.source
-                    .join("etc/apt/sources.list")
-                    .to_string_lossy()
-                    .to_string()
-            };
-
-            #[cfg(not(feature = "apt"))]
-            let list_dir = if is_termux() {
-                "/data/data/com.termux/files/usr/etc/apt/sources.list.d".to_string()
-            } else {
-                self.source
-                    .join("etc/apt/sources.list.d")
-                    .to_string_lossy()
-                    .to_string()
-            };
-
-            Cow::Owned(
-                scan_sources_lists_paths(list_file, list_dir)
-                    .map_err(RefreshError::ScanSourceError)?,
-            )
+            scan_sources_list_paths(&list_file, &list_dir)
         };
 
-        #[cfg(feature = "apt")]
-        let ignores = crate::sourceslist::ignores();
+        let source_lookup = SourceLookup::from_paths(&paths, |path| {
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if ignores.iter().any(|re| re.is_match(name).unwrap_or(false)) {
+                return;
+            }
+            callback(Event::SourceListFileNotSupport {
+                path: path.to_path_buf(),
+            });
+        });
 
-        #[cfg(not(feature = "apt"))]
-        let ignores = vec![];
-
-        let sourcelist = scan_sources_list_from_paths(
-            &paths,
-            Arc::from(self.arch.as_str()),
-            &ignores,
-            &mut callback,
-        )
-        .map_err(RefreshError::ScanSourceError)?;
+        let sourcelist: Vec<OmaSourceEntry> = source_lookup
+            .entries()
+            .iter()
+            .map(|entry| OmaSourceEntry::new(entry.clone(), Arc::from(self.arch.as_str())))
+            .collect();
 
         if !self.download_dir.is_dir() {
             std::fs::create_dir_all(&self.download_dir).map_err(|e| {
@@ -222,7 +188,6 @@ impl OmaRefresh {
         let sc = self_arc.clone();
 
         let (tx, rx) = flume::unbounded::<Event>();
-        let replacer_clone = replacer.clone();
 
         let _async_rt_keep_alive;
         let async_rt_handle = if let Ok(h) = tokio::runtime::Handle::try_current() {
@@ -237,11 +202,10 @@ impl OmaRefresh {
             h
         };
 
-        let mirror_sources = MirrorSources::from_sourcelist(&sourcelist, &replacer)?;
+        let mirror_sources = MirrorSources::from_sourcelist(&sourcelist)?;
         let (mut mirror_sources, not_found) =
             run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
-                sc.download_releases(mirror_sources, &replacer_clone, tx)
-                    .await
+                sc.download_releases(mirror_sources, tx).await
             })?;
 
         self_arc.refresh_topics(not_found, &mut mirror_sources, &mut callback)?;
@@ -254,7 +218,7 @@ impl OmaRefresh {
         );
 
         let (tasks, total, optional_index_files) =
-            self_arc.collect_all_release_entry(&replacer, mirror_sources)?;
+            self_arc.collect_all_release_entry(&apt_cfg, mirror_sources)?;
 
         debug!("oma will download source metadata: {tasks:#?}");
 
@@ -280,8 +244,7 @@ impl OmaRefresh {
 
         if should_run_invoke {
             callback(Event::RunInvokeScript);
-            #[cfg(feature = "apt")]
-            self_arc.run_success_post_invoke();
+            self_arc.run_success_post_invoke(&apt_cfg);
         }
 
         callback(Event::Done);
@@ -289,23 +252,27 @@ impl OmaRefresh {
         Ok(res.success)
     }
 
-    #[cfg(feature = "apt")]
-    fn init_apt_options(&self) {
-        oma_apt::config::init_config_system();
+    fn init_apt_config(&self) -> AptConfig {
+        let mut cfg = AptConfig::new();
+        cfg.init_defaults()
+            .expect("failed to initialize APT configuration");
+        let _ = cfg.load_system();
 
         if !is_termux() {
-            apt_config::set("Dir".to_string(), self.source.to_string_lossy().to_string());
+            cfg.set("Dir", &self.source.to_string_lossy());
         }
 
-        // default compression order
-        if apt_config::find_vector("Acquire::CompressionTypes::Order".to_string()).is_empty() {
-            use crate::util::apt_config_set_vector;
-
-            apt_config_set_vector(
-                "Acquire::CompressionTypes::Order",
-                &["zst", "xz", "bz2", "lzma", "gz", "lz4"],
-            );
+        // Set default compression order if not configured
+        let has_order = !cfg
+            .keys_under("Acquire::CompressionTypes::Order")
+            .is_empty();
+        if !has_order {
+            for c in &["zst", "xz", "bz2", "lzma", "gz", "lz4"] {
+                cfg.set_list("Acquire::CompressionTypes::Order", c);
+            }
         }
+
+        cfg
     }
 
     async fn download_release_data(
@@ -363,11 +330,11 @@ impl OmaRefresh {
         Ok(res)
     }
 
-    #[cfg(feature = "apt")]
-    fn run_success_post_invoke(&self) {
-        use spdlog::warn;
-
-        let cmds = apt_config::find_vector("APT::Update::Post-Invoke-Success".to_string());
+    fn run_success_post_invoke(&self, cfg: &AptConfig) {
+        let cmds: Vec<String> = (0..)
+            .map(|i| cfg.get(&format!("APT::Update::Post-Invoke-Success#{i}"), ""))
+            .take_while(|s| !s.is_empty())
+            .collect();
 
         for cmd in &cmds {
             use std::process::Command;
@@ -396,7 +363,6 @@ impl OmaRefresh {
     async fn download_releases(
         &self,
         mut mirror_sources: MirrorSources,
-        replacer: &Arc<DatabaseFilenameReplacer>,
         sender: Sender<Event>,
     ) -> Result<(MirrorSources, Vec<Url>)> {
         #[cfg(feature = "aosc")]
@@ -408,7 +374,6 @@ impl OmaRefresh {
         let results = mirror_sources
             .fetch_all_release(
                 self.client.clone(),
-                replacer,
                 Arc::from(self.download_dir.as_ref()),
                 self.threads,
                 sender.clone(),
@@ -512,17 +477,13 @@ impl OmaRefresh {
 
     fn collect_all_release_entry(
         &self,
-        replacer: &DatabaseFilenameReplacer,
+        apt_cfg: &AptConfig,
         mirror_sources: MirrorSources,
     ) -> Result<(Vec<DownloadEntry>, u64, HashSet<String>)> {
         let mut total = 0;
         let mut tasks = vec![];
 
-        #[cfg(feature = "apt")]
-        let index_target_config = IndexTargetConfig::new_from_apt_config(&self.arch);
-        #[cfg(not(feature = "apt"))]
-        let index_target_config =
-            IndexTargetConfig::new(self.manifest_config.clone(), vec![], &self.arch);
+        let index_target_config = IndexTargetConfig::new_from_apt_config(apt_cfg, &self.arch);
 
         let archs_from_file = std::fs::read_to_string("/var/lib/dpkg/arch")
             .ok()
@@ -538,7 +499,7 @@ impl OmaRefresh {
             }
         }
         for i in flat_repo_no_release {
-            collect_flat_repo_no_release(i, &self.download_dir, &mut tasks, replacer)?;
+            collect_flat_repo_no_release(i, &self.download_dir, &mut tasks)?;
         }
 
         for m in &mirror_sources.0 {
@@ -609,6 +570,7 @@ impl OmaRefresh {
                 };
 
                 let download_list = index_target_config.get_download_list(
+                    ose.suite(),
                     checksums,
                     ose.is_source(),
                     ose.is_flat(),
@@ -626,7 +588,6 @@ impl OmaRefresh {
                     &self.download_dir,
                     &mut tasks,
                     &release,
-                    replacer,
                     &mut optional_index_files,
                 )?;
             }
@@ -757,7 +718,6 @@ fn collect_flat_repo_no_release(
     mirror_source: &MirrorSource,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
-    replacer: &DatabaseFilenameReplacer,
 ) -> Result<()> {
     let msg = mirror_source.get_human_download_message(Some("Packages"))?;
 
@@ -778,7 +738,7 @@ fn collect_flat_repo_no_release(
 
     let task = DownloadEntry::builder()
         .source(sources)
-        .filename(replacer.replace(&file_path)?)
+        .filename(url_to_list_filename(&file_path)?)
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
         .msg(msg.into())
@@ -796,7 +756,6 @@ fn collect_download_task(
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     release: &Release,
-    replacer: &DatabaseFilenameReplacer,
     optional_set: &mut HashSet<String>,
 ) -> Result<()> {
     let file_type = &c.msg;
@@ -859,9 +818,9 @@ fn collect_download_task(
     });
 
     let file_name = if c.keep_compress {
-        mirror_source.get_download_file_name(Some(&c.item.name), replacer)?
+        mirror_source.get_download_file_name(Some(&c.item.name))?
     } else {
-        mirror_source.get_download_file_name(Some(&not_compress_filename_before), replacer)?
+        mirror_source.get_download_file_name(Some(&not_compress_filename_before))?
     };
 
     if c.optional {
