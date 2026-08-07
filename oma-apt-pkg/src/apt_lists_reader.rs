@@ -15,6 +15,7 @@ use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use deb822_fast::{Deb822, FromDeb822Paragraph};
+use rayon::prelude::*;
 
 use crate::apt_lists::{
     AptListsError, IndexSource, PackageEntry, PackageIndex, PackageVersion,
@@ -67,39 +68,63 @@ impl AptListsReader {
     /// × architecture plus `binary-all` per source, skipping files that are
     /// not present. Files that no configured source produces are never
     /// scanned, exactly like [`AptDb`](crate::AptDb).
+    ///
+    /// The files are scanned in parallel with rayon; each file's
+    /// per-package entries are merged into one index afterwards.
     pub fn build_with_sources(
         lists_dir: impl AsRef<Path>,
         lookup: &SourceLookup,
         archs: &[String],
     ) -> Result<Self, AptListsError> {
-        let mut reader = Self {
-            index: HashMap::new(),
-            file_map: HashMap::new(),
-        };
-        for (filename, index_source) in lookup.index_files(archs) {
-            let path = lists_dir.as_ref().join(&filename);
-            if !path.is_file() {
-                continue;
-            }
-            reader.file_map.insert(filename.clone(), path.clone());
-            reader.scan_file(&path, &filename, index_source)?;
-        }
-        Ok(reader)
+        let lists_dir = lists_dir.as_ref();
+        // Collect the existing lists files (with the path each resolves to)
+        // up front, so rayon can work on a plain slice.
+        let files: Vec<(String, IndexSource, PathBuf)> = lookup
+            .index_files(archs)
+            .into_iter()
+            .filter_map(|(filename, index_source)| {
+                let path = lists_dir.join(&filename);
+                path.is_file().then_some((filename, index_source, path))
+            })
+            .collect();
+
+        let file_map: HashMap<String, PathBuf> = files
+            .iter()
+            .map(|(filename, _, path)| (filename.clone(), path.clone()))
+            .collect();
+
+        // Scan each file in parallel, merging every file's per-package
+        // entry lists into the shared index.
+        let index: HashMap<String, Vec<ListIndexEntry>> = files
+            .par_iter()
+            .map(|(filename, index_source, path)| {
+                Self::scan_file(path, filename, index_source.clone())
+            })
+            .try_reduce(HashMap::new, |mut acc, entries| {
+                for (pkg, list) in entries {
+                    acc.entry(pkg).or_default().extend(list);
+                }
+                Ok(acc)
+            })?;
+
+        Ok(Self { index, file_map })
     }
 
-    /// Scan a single `*_Packages` file, recording byte offsets of each
-    /// paragraph whose first line is `Package: <name>`.
+    /// Scan a single `*_Packages` file, returning the per-package entry
+    /// offsets found (`package name → entries`).
     ///
     /// Streams the file with a [`BufReader`] one line at a time (reusing a
     /// single buffer, growing only to the longest line) instead of loading
     /// it all, recording the exact byte offset of every `Package:` line so
     /// [`parse_at`](Self::parse_at) can seek straight to a paragraph later.
+    ///
+    /// The result is a per-file map, so files can be scanned in parallel
+    /// and merged afterwards (see [`build_with_sources`](Self::build_with_sources)).
     fn scan_file(
-        &mut self,
         path: &Path,
         source: &str,
         index_source: IndexSource,
-    ) -> Result<(), AptListsError> {
+    ) -> Result<HashMap<String, Vec<ListIndexEntry>>, AptListsError> {
         let file = File::open(path).map_err(AptListsError::Io)?;
         let mut reader = BufReader::new(file);
         // Reused per line, so memory stays bounded by the longest line.
@@ -107,6 +132,7 @@ impl AptListsReader {
         // Byte offset of the line about to be read.
         let mut byte_pos: u64 = 0;
         let mut pending_para = true;
+        let mut index: HashMap<String, Vec<ListIndexEntry>> = HashMap::new();
 
         loop {
             line.clear();
@@ -131,21 +157,18 @@ impl AptListsReader {
                 pending_para = false;
                 if let Some(suffix) = content.strip_prefix(b"Package: ") {
                     let pkg_name = String::from_utf8_lossy(suffix).trim().to_string();
-                    self.index
-                        .entry(pkg_name)
-                        .or_default()
-                        .push(ListIndexEntry {
-                            source: source.to_string(),
-                            index_source: index_source.clone(),
-                            offset: byte_pos,
-                        });
+                    index.entry(pkg_name).or_default().push(ListIndexEntry {
+                        source: source.to_string(),
+                        index_source: index_source.clone(),
+                        offset: byte_pos,
+                    });
                 }
             }
 
             byte_pos += n as u64;
         }
 
-        Ok(())
+        Ok(index)
     }
 
     /// Return all entries for a package name.
