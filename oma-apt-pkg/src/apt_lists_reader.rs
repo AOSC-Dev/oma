@@ -10,7 +10,8 @@
 use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::collections::HashMap;
-use std::io::{BufReader, Seek, SeekFrom};
+use std::fs::File;
+use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use deb822_fast::{Deb822, FromDeb822Paragraph};
@@ -88,34 +89,48 @@ impl AptListsReader {
 
     /// Scan a single `*_Packages` file, recording byte offsets of each
     /// paragraph whose first line is `Package: <name>`.
+    ///
+    /// Streams the file with a [`BufReader`] one line at a time (reusing a
+    /// single buffer, growing only to the longest line) instead of loading
+    /// it all, recording the exact byte offset of every `Package:` line so
+    /// [`parse_at`](Self::parse_at) can seek straight to a paragraph later.
     fn scan_file(
         &mut self,
         path: &Path,
         source: &str,
         index_source: IndexSource,
     ) -> Result<(), AptListsError> {
-        let content = std::fs::read_to_string(path).map_err(AptListsError::Io)?;
-        let bytes = content.as_bytes();
-        let total_len = bytes.len() as u64;
+        let file = File::open(path).map_err(AptListsError::Io)?;
+        let mut reader = BufReader::new(file);
+        // Reused per line, so memory stays bounded by the longest line.
+        let mut line = Vec::new();
+        // Byte offset of the line about to be read.
         let mut byte_pos: u64 = 0;
         let mut pending_para = true;
 
-        while byte_pos < total_len {
-            let line_end = bytes[byte_pos as usize..]
-                .iter()
-                .position(|&b| b == b'\n')
-                .map(|p| byte_pos + p as u64)
-                .unwrap_or(total_len);
+        loop {
+            line.clear();
+            let n = reader
+                .read_until(b'\n', &mut line)
+                .map_err(AptListsError::Io)?;
+            if n == 0 {
+                break;
+            }
 
-            let line = &content[byte_pos as usize..line_end as usize];
+            // Strip the trailing newline for inspection; `byte_pos` still
+            // points at the start of this line — the paragraph start when
+            // this is a `Package:` line.
+            let content = match line.last() {
+                Some(b'\n') => &line[..line.len() - 1],
+                _ => line.as_slice(),
+            };
 
-            if line.trim().is_empty() {
+            if content.iter().all(u8::is_ascii_whitespace) {
                 pending_para = true;
             } else if pending_para {
                 pending_para = false;
-
-                if let Some(suffix) = line.strip_prefix("Package: ") {
-                    let pkg_name = suffix.trim().to_string();
+                if let Some(suffix) = content.strip_prefix(b"Package: ") {
+                    let pkg_name = String::from_utf8_lossy(suffix).trim().to_string();
                     self.index
                         .entry(pkg_name)
                         .or_default()
@@ -127,7 +142,7 @@ impl AptListsReader {
                 }
             }
 
-            byte_pos = line_end + 1;
+            byte_pos += n as u64;
         }
 
         Ok(())
