@@ -80,36 +80,34 @@ impl AptListsReader {
         archs: &[String],
     ) -> Result<Self, AptListsError> {
         let lists_dir = lists_dir.as_ref();
-        // Collect the existing lists files (with the path each resolves to)
-        // up front, so rayon can work on a plain slice.
-        let files: Vec<(String, IndexSource, PathBuf)> = lookup
+        // Scan every existing lists file in parallel, computing
+        // `index_files` exactly once. Each file contributes its per-package
+        // entries plus a one-entry `filename → path` mapping, and the
+        // reduce merges both into the shared index and file map.
+        let (index, file_map): (
+            HashMap<String, Vec<ListIndexEntry>>,
+            HashMap<String, PathBuf>,
+        ) = lookup
             .index_files(archs)
-            .into_iter()
+            .into_par_iter()
             .filter_map(|(filename, index_source)| {
                 let path = lists_dir.join(&filename);
                 path.is_file().then_some((filename, index_source, path))
             })
-            .collect();
-
-        let file_map: HashMap<String, PathBuf> = files
-            .iter()
-            .map(|(filename, _, path)| (filename.clone(), path.clone()))
-            .collect();
-
-        // Scan each file in parallel, merging every file's per-package
-        // entry lists into the shared index. `files` is consumed so each
-        // rayon task takes its `IndexSource` by value — no clone.
-        let index: HashMap<String, Vec<ListIndexEntry>> = files
-            .into_par_iter()
             .map(|(filename, index_source, path)| {
                 Self::scan_file(&path, &filename, index_source)
+                    .map(|entries| (entries, [(filename, path)].into()))
             })
-            .try_reduce(HashMap::new, |mut acc, entries| {
-                for (pkg, list) in entries {
-                    acc.entry(pkg).or_default().extend(list);
-                }
-                Ok(acc)
-            })?;
+            .try_reduce(
+                || (HashMap::new(), HashMap::new()),
+                |(mut index, mut file_map), (entries, file_map_part)| {
+                    for (pkg, list) in entries {
+                        index.entry(pkg).or_default().extend(list);
+                    }
+                    file_map.extend(file_map_part);
+                    Ok((index, file_map))
+                },
+            )?;
 
         Ok(Self { index, file_map })
     }
