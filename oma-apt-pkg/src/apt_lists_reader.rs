@@ -97,11 +97,12 @@ impl AptListsReader {
             .collect();
 
         // Scan each file in parallel, merging every file's per-package
-        // entry lists into the shared index.
+        // entry lists into the shared index. `files` is consumed so each
+        // rayon task takes its `IndexSource` by value — no clone.
         let index: HashMap<String, Vec<ListIndexEntry>> = files
-            .par_iter()
+            .into_par_iter()
             .map(|(filename, index_source, path)| {
-                Self::scan_file(path, filename, index_source.clone())
+                Self::scan_file(&path, &filename, index_source)
             })
             .try_reduce(HashMap::new, |mut acc, entries| {
                 for (pkg, list) in entries {
