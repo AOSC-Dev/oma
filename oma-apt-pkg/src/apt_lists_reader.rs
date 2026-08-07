@@ -13,31 +13,41 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use deb822_fast::{Deb822, FromDeb822Paragraph};
 use rayon::prelude::*;
 
-use crate::apt_lists::{
-    AptListsError, IndexSource, PackageEntry, PackageIndex, PackageVersion,
-};
+use crate::apt_lists::{AptListsError, IndexSource, PackageEntry, PackageIndex, PackageVersion};
 use crate::apt_sources::SourceLookup;
 
-/// A (source, byte offset) pair pointing to a single deb822 paragraph in a
+/// A (file, byte offset) pair pointing to a single deb822 paragraph in a
 /// `*_Packages` file.
-#[derive(Debug, Clone)]
+///
+/// Kept tiny — a `u32` file id plus a `u64` offset — for low-memory
+/// machines: the per-file metadata (lists filename, resolved path and
+/// [`IndexSource`]) lives once in [`AptListsReader`]'s file table instead
+/// of being duplicated per entry.
+#[derive(Debug, Clone, Copy)]
 pub struct ListIndexEntry {
-    /// APT list filename, e.g.
-    /// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`
-    /// — the key into the file map.
-    pub source: String,
-    /// The [`IndexSource`] this file was resolved to at build time, or
-    /// [`IndexSource::none`] when no lookup was supplied. Shared via `Arc`
-    /// across every entry of the file, so the index build clones it once
-    /// per file instead of once per paragraph.
-    pub index_source: Arc<IndexSource>,
+    /// Index into [`AptListsReader`]'s file table.
+    pub file: u32,
     /// Byte offset in the file where the paragraph starts.
     pub offset: u64,
+}
+
+/// One scanned lists file: its lists filename, resolved path and source.
+///
+/// Stored once per file and referenced by every entry via
+/// [`ListIndexEntry::file`], so per-package entries stay small.
+struct ListsFile {
+    /// APT list filename, e.g.
+    /// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`.
+    name: String,
+    /// Absolute path to open when parsing an entry.
+    path: PathBuf,
+    /// The source this file was resolved to, or [`IndexSource::none`] when
+    /// no lookup was supplied.
+    index_source: IndexSource,
 }
 
 /// Lazy reader for APT `*_Packages` files.
@@ -61,8 +71,8 @@ pub struct ListIndexEntry {
 pub struct AptListsReader {
     /// Package name → list of (file, offset) entries.
     index: HashMap<String, Vec<ListIndexEntry>>,
-    /// Source filename → absolute path.
-    file_map: HashMap<String, PathBuf>,
+    /// Per-file metadata, indexed by [`ListIndexEntry::file`].
+    files: Vec<ListsFile>,
 }
 
 impl AptListsReader {
@@ -80,36 +90,37 @@ impl AptListsReader {
         archs: &[String],
     ) -> Result<Self, AptListsError> {
         let lists_dir = lists_dir.as_ref();
-        // Scan every existing lists file in parallel, computing
-        // `index_files` exactly once. Each file contributes its per-package
-        // entries plus a one-entry `filename → path` mapping, and the
-        // reduce merges both into the shared index and file map.
-        let (index, file_map): (
-            HashMap<String, Vec<ListIndexEntry>>,
-            HashMap<String, PathBuf>,
-        ) = lookup
+        // Build the file table first: each scanned file gets a stable id
+        // (its position) that every entry references.
+        let files: Vec<ListsFile> = lookup
             .index_files(archs)
-            .into_par_iter()
-            .filter_map(|(filename, index_source)| {
-                let path = lists_dir.join(&filename);
-                path.is_file().then_some((filename, index_source, path))
+            .into_iter()
+            .filter_map(|(name, index_source)| {
+                let path = lists_dir.join(&name);
+                path.is_file().then_some(ListsFile {
+                    name,
+                    path,
+                    index_source,
+                })
             })
-            .map(|(filename, index_source, path)| {
-                Self::scan_file(&path, &filename, index_source)
-                    .map(|entries| (entries, [(filename, path)].into()))
-            })
-            .try_reduce(
-                || (HashMap::new(), HashMap::new()),
-                |(mut index, mut file_map), (entries, file_map_part)| {
-                    for (pkg, list) in entries {
-                        index.entry(pkg).or_default().extend(list);
-                    }
-                    file_map.extend(file_map_part);
-                    Ok((index, file_map))
-                },
-            )?;
+            .collect();
 
-        Ok(Self { index, file_map })
+        // Scan every file in parallel. Entries reference files by id, so a
+        // per-package entry is just a `u32` + `u64` — no duplicated
+        // filenames or sources, keeping the index small on low-memory
+        // machines.
+        let index: HashMap<String, Vec<ListIndexEntry>> = files
+            .par_iter()
+            .enumerate()
+            .map(|(file, f)| Self::scan_file(&f.path, file as u32))
+            .try_reduce(HashMap::new, |mut acc, entries| {
+                for (pkg, list) in entries {
+                    acc.entry(pkg).or_default().extend(list);
+                }
+                Ok(acc)
+            })?;
+
+        Ok(Self { index, files })
     }
 
     /// Scan a single `*_Packages` file, returning the per-package entry
@@ -124,14 +135,10 @@ impl AptListsReader {
     /// and merged afterwards (see [`build_with_sources`](Self::build_with_sources)).
     fn scan_file(
         path: &Path,
-        source: &str,
-        index_source: IndexSource,
+        file: u32,
     ) -> Result<HashMap<String, Vec<ListIndexEntry>>, AptListsError> {
-        let file = File::open(path).map_err(AptListsError::Io)?;
-        let mut reader = BufReader::new(file);
-        // Shared by every entry of this file: entries only bump the
-        // refcount instead of deep-copying the whole `IndexSource`.
-        let index_source = Arc::new(index_source);
+        let file_handle = File::open(path).map_err(AptListsError::Io)?;
+        let mut reader = BufReader::new(file_handle);
         // Reused per line, so memory stays bounded by the longest line.
         let mut line = Vec::new();
         // Byte offset of the line about to be read.
@@ -163,8 +170,7 @@ impl AptListsReader {
                 if let Some(suffix) = content.strip_prefix(b"Package: ") {
                     let pkg_name = String::from_utf8_lossy(suffix).trim().to_string();
                     index.entry(pkg_name).or_default().push(ListIndexEntry {
-                        source: source.to_string(),
-                        index_source: Arc::clone(&index_source),
+                        file,
                         offset: byte_pos,
                     });
                 }
@@ -196,15 +202,9 @@ impl AptListsReader {
     }
 
     fn parse_at(&self, entry: &ListIndexEntry) -> Result<PackageEntry, AptListsError> {
-        let path = self.file_map.get(&entry.source).ok_or_else(|| {
-            AptListsError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("source file not cached: {}", entry.source),
-            ))
-        })?;
-
-        let file = std::fs::File::open(path).map_err(AptListsError::Io)?;
-        let mut reader = BufReader::new(file);
+        let file = &self.files[entry.file as usize];
+        let handle = std::fs::File::open(&file.path).map_err(AptListsError::Io)?;
+        let mut reader = BufReader::new(handle);
         reader
             .seek(SeekFrom::Start(entry.offset))
             .map_err(AptListsError::Io)?;
@@ -213,19 +213,19 @@ impl AptListsReader {
         match para_iter.next() {
             Some(Ok(paragraph)) => {
                 PackageEntry::from_paragraph(&paragraph).map_err(|e| AptListsError::Parse {
-                    path: entry.source.clone(),
+                    path: file.name.clone(),
                     detail: e,
                 })
             }
             Some(Err(e)) => Err(AptListsError::Parse {
-                path: entry.source.clone(),
+                path: file.name.clone(),
                 detail: e.to_string(),
             }),
             None => Err(AptListsError::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 format!(
                     "empty paragraph at offset {} in {}",
-                    entry.offset, entry.source
+                    entry.offset, file.name
                 ),
             ))),
         }
@@ -265,14 +265,15 @@ impl PackageIndex for AptListsReader {
             let Ok(pkg) = self.parse_at(entry) else {
                 continue;
             };
+            let source = &self.files[entry.file as usize].index_source;
             if let Some(existing) = versions.iter_mut().find(|v| v.entry.version == pkg.version) {
-                if !existing.sources.contains(&*entry.index_source) {
-                    existing.sources.push((*entry.index_source).clone());
+                if !existing.sources.contains(source) {
+                    existing.sources.push(source.clone());
                 }
             } else {
                 versions.push(PackageVersion {
                     entry: pkg,
-                    sources: vec![(*entry.index_source).clone()],
+                    sources: vec![source.clone()],
                     deps: OnceCell::new(),
                     parsed_version: OnceCell::new(),
                 });
@@ -398,9 +399,8 @@ Version: 5.1-1
 
     #[test]
     fn test_multiple_packages() {
-        let (_d, reader) = build_reader(
-            "Package: bash\nVersion: 5.2-3\n\nPackage: zsh\nVersion: 5.9-1\n\n",
-        );
+        let (_d, reader) =
+            build_reader("Package: bash\nVersion: 5.2-3\n\nPackage: zsh\nVersion: 5.9-1\n\n");
         assert_eq!(reader.len(), 2);
         assert!(reader.has_package("bash"));
         assert!(reader.has_package("zsh"));
@@ -449,7 +449,11 @@ Version: 5.1-1
         let archs = vec!["amd64".to_string()];
         let name = amd64_file(&lookup, &archs);
         // Only the lists files the source generates are ever scanned.
-        write_packages(&dir, "some_random_file", "Package: bash\nVersion: 5.2-3\n\n");
+        write_packages(
+            &dir,
+            "some_random_file",
+            "Package: bash\nVersion: 5.2-3\n\n",
+        );
         write_packages(&dir, &name, "Package: zsh\nVersion: 5.9-1\n\n");
 
         let reader = AptListsReader::build_with_sources(&dir, &lookup, &archs).unwrap();
