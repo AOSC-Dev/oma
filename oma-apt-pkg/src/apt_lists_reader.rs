@@ -71,9 +71,17 @@ struct ListsFile {
 /// ```
 pub struct AptListsReader {
     /// Package name → list of (file, offset) entries. Each list is a
-    /// `SmallVec` kept inline for the common one-or-two-source case,
-    /// avoiding a heap allocation per package.
-    index: HashMap<String, SmallVec<[ListIndexEntry; 2]>>,
+    /// `SmallVec` kept inline for the common case, avoiding a heap
+    /// allocation per package, and spilled to the heap beyond it.
+    ///
+    /// A package name can legitimately have several entries: the main
+    /// source may carry multiple versions of it in the same file (e.g.
+    /// during a transition), and each topic source adds its own
+    /// version(s) too. An entry is one `Package:` occurrence in one lists
+    /// file — typically a handful per package. Inline capacity 3 covers
+    /// that common case; packages with many versions across many sources
+    /// spill and still work, just without the inline allocation.
+    index: HashMap<String, SmallVec<[ListIndexEntry; 3]>>,
     /// Per-file metadata, indexed by [`ListIndexEntry::file`].
     files: Vec<ListsFile>,
 }
@@ -114,7 +122,7 @@ impl AptListsReader {
         // per-package entry is just a `u32` + `u64` — no duplicated
         // filenames or sources, keeping the index small on low-memory
         // machines.
-        let index: HashMap<String, SmallVec<[ListIndexEntry; 2]>> = files
+        let index: HashMap<String, SmallVec<[ListIndexEntry; 3]>> = files
             .par_iter()
             .enumerate()
             .map(|(file, f)| Self::scan_file(&f.path, file as u32))
@@ -141,7 +149,7 @@ impl AptListsReader {
     fn scan_file(
         path: &Path,
         file: u32,
-    ) -> Result<HashMap<String, SmallVec<[ListIndexEntry; 2]>>, AptListsError> {
+    ) -> Result<HashMap<String, SmallVec<[ListIndexEntry; 3]>>, AptListsError> {
         let file_handle = File::open(path).map_err(AptListsError::Io)?;
         let mut reader = BufReader::new(file_handle);
         // Reused per line, so memory stays bounded by the longest line.
@@ -149,7 +157,7 @@ impl AptListsReader {
         // Byte offset of the line about to be read.
         let mut byte_pos: u64 = 0;
         let mut pending_para = true;
-        let mut index: HashMap<String, SmallVec<[ListIndexEntry; 2]>> = HashMap::new();
+        let mut index: HashMap<String, SmallVec<[ListIndexEntry; 3]>> = HashMap::new();
 
         loop {
             line.clear();
