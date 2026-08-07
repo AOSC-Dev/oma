@@ -10,15 +10,20 @@ use std::str::FromStr;
 use std::{collections::HashMap, fs};
 
 use ahash::RandomState;
+#[cfg(any(feature = "search-strsim", feature = "search-text"))]
 use glob_match::glob_match;
-pub use indicium::simple::SearchType;
-use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
-use memchr::memmem;
 use serde::{Deserialize, Serialize};
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
 use crate::{AptDb, DpkgState, parse_dep_list};
+
+#[cfg(feature = "search-indicium")]
+pub use indicium::simple::SearchType;
+#[cfg(feature = "search-indicium")]
+use indicium::simple::{Indexable, SearchIndex, SearchIndexBuilder};
+#[cfg(any(feature = "search-strsim", feature = "search-text"))]
+use memchr::memmem;
 
 type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
 type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
@@ -95,6 +100,7 @@ impl std::fmt::Debug for SearchEntry {
     }
 }
 
+#[cfg(feature = "search-indicium")]
 impl Indexable for SearchEntry {
     fn strings(&self) -> Vec<String> {
         let mut v = vec![self.name.clone(), self.description.clone()];
@@ -137,6 +143,7 @@ pub struct SearchResult {
 }
 
 /// Index search based on `indicium`.
+#[cfg(feature = "search-indicium")]
 pub struct IndiciumSearch {
     /// Map contains package names and their corresponding search entries.
     pub pkg_map: IndexMap<String, SearchEntry>,
@@ -148,6 +155,7 @@ pub trait OmaSearch {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>>;
 }
 
+#[cfg(feature = "search-indicium")]
 impl OmaSearch for IndiciumSearch {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let mut search_res = vec![];
@@ -184,6 +192,7 @@ impl OmaSearch for IndiciumSearch {
     }
 }
 
+#[cfg(feature = "search-indicium")]
 impl IndiciumSearch {
     /// Build a new search index from an `AptDb` (package entries) and `DpkgState`.
     ///
@@ -199,7 +208,7 @@ impl IndiciumSearch {
     ) -> Self {
         let mut pkg_map: IndexMap<String, SearchEntry> = IndexMap::with_hasher(RandomState::new());
 
-        for (i, entry) in apt_db.entries.iter().enumerate() {
+        for (i, entry) in apt_db.entries().enumerate() {
             progress(i);
             let name = &entry.package;
 
@@ -265,7 +274,7 @@ impl IndiciumSearch {
                     name: name.clone(),
                     description,
                     status,
-                    provides: provides.into_iter().collect(),
+                    provides,
                     has_dbg,
                     section_is_base,
                     old_version,
@@ -294,7 +303,7 @@ impl IndiciumSearch {
     /// in the search index (e.g packages added to the software
     /// sources since the search cache was created).
     pub fn refresh_from(&mut self, apt_db: &AptDb, dpkg: &DpkgState) {
-        for entry in &apt_db.entries {
+        for entry in apt_db.entries() {
             let name = &entry.package;
             if name.ends_with("-dbg") {
                 continue;
@@ -363,8 +372,7 @@ impl IndiciumSearch {
 
         // 移除源里已删除的包
         let current: HashSet<&str> = apt_db
-            .entries
-            .iter()
+            .entries()
             .filter(|e| !e.package.ends_with("-dbg"))
             .map(|e| e.package.as_str())
             .collect();
@@ -380,6 +388,7 @@ impl IndiciumSearch {
     }
 }
 
+#[cfg(feature = "search-indicium")]
 impl IndiciumSearch {
     /// Build a search index, optionally loading from search cache when valid.
     ///
@@ -514,17 +523,19 @@ fn is_upgradable(candidate_version: Option<&String>, installed_version: Option<&
 }
 
 /// String-similarity search, results sorted by `strsim::jaro_winkler` score.
+#[cfg(feature = "search-strsim")]
 pub struct StrSimSearch<'a> {
     apt_db: &'a AptDb,
     dpkg: &'a DpkgState,
 }
 
+#[cfg(feature = "search-strsim")]
 impl OmaSearch for StrSimSearch<'_> {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let mut scored: Vec<(String, u16, bool, bool)> = Vec::new(); // (name, score, installed, upgradable)
         let query_lower = query.to_lowercase();
 
-        for entry in &self.apt_db.entries {
+        for entry in self.apt_db.entries() {
             let name = &entry.package;
             if name.ends_with("-dbg") {
                 continue;
@@ -560,7 +571,7 @@ impl OmaSearch for StrSimSearch<'_> {
         let mut results: Vec<SearchResult> = scored
             .into_iter()
             .map(|(name, _, installed, upgradable)| {
-                let entry = self.apt_db.get(&name);
+                let entry = self.apt_db.get_candidate(&name);
                 let (old_version, new_version) = if let Some(e) = entry {
                     extract_versions(
                         if upgradable {
@@ -614,6 +625,7 @@ impl OmaSearch for StrSimSearch<'_> {
     }
 }
 
+#[cfg(feature = "search-strsim")]
 impl<'a> StrSimSearch<'a> {
     pub fn new(apt_db: &'a AptDb, dpkg: &'a DpkgState) -> Self {
         Self { apt_db, dpkg }
@@ -621,22 +633,25 @@ impl<'a> StrSimSearch<'a> {
 }
 
 /// Text / glob match search based on `memmem`.
+#[cfg(feature = "search-text")]
 pub struct TextSearch<'a> {
     apt_db: &'a AptDb,
     dpkg: &'a DpkgState,
 }
 
+#[cfg(feature = "search-text")]
 impl<'a> TextSearch<'a> {
     pub fn new(apt_db: &'a AptDb, dpkg: &'a DpkgState) -> Self {
         Self { apt_db, dpkg }
     }
 }
 
+#[cfg(feature = "search-text")]
 impl OmaSearch for TextSearch<'_> {
     fn search(&self, query: &str) -> OmaSearchResult<Vec<SearchResult>> {
         let mut results = vec![];
 
-        for entry in &self.apt_db.entries {
+        for entry in self.apt_db.entries() {
             let name = &entry.package;
             if name.ends_with("-dbg") {
                 continue;
@@ -735,6 +750,8 @@ fn extract_versions(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::AptConfig;
+    use std::sync::Arc;
 
     #[test]
     fn test_is_upgradable_newer_candidate() {
@@ -849,7 +866,7 @@ mod tests {
                 sha256: None,
             },
         ];
-        let db = AptDb::from_entries(entries);
+        let db = AptDb::from_entries(&Arc::new(AptConfig::new()), entries);
         assert!(db.has_package("foo"));
         assert!(db.has_package("foo-dbg"));
     }

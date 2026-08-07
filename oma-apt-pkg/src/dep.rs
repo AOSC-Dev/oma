@@ -41,10 +41,10 @@ pub struct DepEntry {
 // Winnow parsers
 // ---------------------------------------------------------------------------
 
-/// Package name: non-whitespace chars that aren't `:`, `(`, `,`.
+/// Package name: non-whitespace chars that aren't `:`, `(`, `,` or `|`.
 fn package_name<'a>(input: &mut &'a str) -> ModalResult<&'a str> {
     take_till(1.., |c: char| {
-        c == ':' || c == '(' || c == ',' || c.is_whitespace()
+        c == ':' || c == '(' || c == ',' || c == '|' || c.is_whitespace()
     })
     .map(|s: &str| s.trim())
     .parse_next(input)
@@ -54,7 +54,9 @@ fn package_name<'a>(input: &mut &'a str) -> ModalResult<&'a str> {
 fn arch_qualifier<'a>(input: &mut &'a str) -> ModalResult<&'a str> {
     preceded(
         ':',
-        take_till(1.., |c: char| c == '(' || c == ',' || c.is_whitespace()),
+        take_till(1.., |c: char| {
+            c == '(' || c == ',' || c == '|' || c.is_whitespace()
+        }),
     )
     .parse_next(input)
 }
@@ -102,26 +104,53 @@ fn dep_entry(input: &mut &str) -> ModalResult<DepEntry> {
     })
 }
 
-/// Parse a deb822 dependency list into structured [`DepEntry`] items.
+/// A group of mutually exclusive (OR) alternatives from a dependency field.
+///
+/// Within a deb822 dependency list, `|` joins alternatives of which exactly
+/// one must be satisfied (e.g. `zsh | fish`); comma-separated groups are all
+/// required.
+pub type DepGroup = Vec<DepEntry>;
+
+/// One OR-group: alternatives separated by `|`, e.g. `a (>= 1) | b`.
+fn dep_group(input: &mut &str) -> ModalResult<DepGroup> {
+    separated(
+        1..,
+        preceded(multispace0, dep_entry),
+        preceded(multispace0, '|'),
+    )
+    .parse_next(input)
+}
+
+/// Parse a deb822 dependency field into OR-groups.
 ///
 /// Many deb822 fields (Depends, Pre-Depends, Recommends, Suggests, Provides,
-/// Breaks, Conflicts, Replaces, etc.) use a comma-separated list of package
-/// names, each optionally followed by an architecture qualifier and a version
-/// constraint in parentheses:
+/// Breaks, Conflicts, Replaces, etc.) use a comma-separated list of
+/// alternatives, where `|` separates mutually exclusive choices within one
+/// group:
 ///
 /// ```text
-/// Depends: libc6 (>= 2.38), ncurses (>= 6.5), zlib1g:amd64
+/// Depends: libc6 (>= 2.38), ncurses (>= 6.5) | zsh | fish, zlib1g:amd64
 /// ```
-pub fn parse_dep_list(value: &str) -> Vec<DepEntry> {
+///
+/// returns `[[libc6 (>= 2.38)], [ncurses (>= 6.5), zsh, fish], [zlib1g:amd64]]`.
+pub fn parse_dep_groups(value: &str) -> Vec<DepGroup> {
     let mut input = value;
-    let entries: Vec<DepEntry> = separated(
+    separated(
         0..,
-        preceded(multispace0, dep_entry),
+        preceded(multispace0, dep_group),
         preceded(multispace0, ','),
     )
     .parse_next(&mut input)
-    .unwrap_or_default();
-    entries
+    .unwrap_or_default()
+}
+
+/// Parse a deb822 dependency list into a flat list of entries (all
+/// alternatives across all groups, in order).
+///
+/// See [`parse_dep_groups`] for the OR-group form used by dependency
+/// resolution.
+pub fn parse_dep_list(value: &str) -> Vec<DepEntry> {
+    parse_dep_groups(value).into_iter().flatten().collect()
 }
 
 #[cfg(test)]
@@ -187,5 +216,49 @@ mod tests {
         assert_eq!(result[2].relation, Some(Relation::Eq));
         assert_eq!(result[3].relation, Some(Relation::Ge));
         assert_eq!(result[4].relation, Some(Relation::Gt));
+    }
+
+    #[test]
+    fn test_parse_dep_groups_alternatives() {
+        let result = parse_dep_groups("a | b, c");
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].len(), 2);
+        assert_eq!(result[0][0].name, "a");
+        assert_eq!(result[0][1].name, "b");
+        assert_eq!(result[1].len(), 1);
+        assert_eq!(result[1][0].name, "c");
+    }
+
+    #[test]
+    fn test_parse_dep_groups_with_constraints() {
+        let result = parse_dep_groups("foo (>= 1.0) | bar (= 2.0), baz");
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].len(), 2);
+        assert_eq!(result[0][0].name, "foo");
+        assert_eq!(result[0][0].relation, Some(Relation::Ge));
+        assert_eq!(result[0][1].name, "bar");
+        assert_eq!(result[0][1].relation, Some(Relation::Eq));
+        assert_eq!(result[1].len(), 1);
+        assert_eq!(result[1][0].name, "baz");
+    }
+
+    #[test]
+    fn test_parse_dep_list_alternatives_flat() {
+        let result = parse_dep_list("a | b, c");
+        assert_eq!(result.len(), 3);
+        assert_eq!(
+            result.iter().map(|d| d.name.as_str()).collect::<Vec<_>>(),
+            vec!["a", "b", "c"]
+        );
+    }
+
+    #[test]
+    fn test_parse_dep_arch_alternative() {
+        let result = parse_dep_groups("libc6:amd64 | libc6:i386, ncurses");
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].len(), 2);
+        assert_eq!(result[0][0].arch.as_deref(), Some("amd64"));
+        assert_eq!(result[0][1].arch.as_deref(), Some("i386"));
+        assert_eq!(result[1][0].arch.as_deref(), None);
     }
 }

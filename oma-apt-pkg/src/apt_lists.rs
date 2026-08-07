@@ -1,7 +1,13 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
 use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
+use rayon::prelude::*;
+use serde::Serialize;
+
+use crate::{DpkgState, extended_states::AptExtendedStates};
+#[cfg(feature = "apt-lists")]
 use wincode::{SchemaRead, SchemaWrite};
 
 /// Errors that can occur when parsing APT list files.
@@ -14,19 +20,24 @@ pub enum AptListsError {
 }
 
 /// A single package entry from a Packages file
-#[derive(Debug, Clone, SchemaWrite, SchemaRead, FromDeb822)]
+#[derive(Debug, Clone, FromDeb822, Serialize)]
+#[cfg_attr(feature = "apt-lists", derive(SchemaWrite, SchemaRead))]
+#[serde(rename_all = "PascalCase")]
 pub struct PackageEntry {
     pub package: String,
     pub version: Option<String>,
     pub architecture: Option<String>,
     pub description: Option<String>,
     #[deb822(field = "Description-md5")]
+    #[serde(rename = "Description-md5")]
     pub description_md5: Option<String>,
     pub maintainer: Option<String>,
     #[deb822(field = "Installed-Size")]
+    #[serde(rename = "Installed-Size")]
     pub installed_size: Option<u64>,
     pub depends: Option<String>,
     #[deb822(field = "Pre-Depends")]
+    #[serde(rename = "Pre-Depends")]
     pub pre_depends: Option<String>,
     pub recommends: Option<String>,
     pub suggests: Option<String>,
@@ -38,11 +49,50 @@ pub struct PackageEntry {
     pub priority: Option<String>,
     pub homepage: Option<String>,
     #[deb822(field = "Multi-Arch")]
+    #[serde(rename = "Multi-Arch")]
     pub multi_arch: Option<String>,
     pub filename: Option<String>,
     pub size: Option<u64>,
     #[deb822(field = "SHA256")]
+    #[serde(rename = "SHA256")]
     pub sha256: Option<String>,
+}
+
+impl PackageEntry {
+    /// Whether this package is currently installed on the system.
+    pub fn is_installed(&self, dpkg: &DpkgState) -> bool {
+        dpkg.is_installed(&self.package)
+    }
+
+    /// Whether this package was automatically installed as a dependency.
+    ///
+    /// Requires an `AptExtendedStates` instance (parsed from
+    /// `/var/lib/apt/extended_states`); returns `false` if unavailable.
+    pub fn is_auto_installed(&self, dpkg: &DpkgState, ext: &AptExtendedStates) -> bool {
+        dpkg.is_installed(&self.package) && ext.is_auto_installed(&self.package)
+    }
+
+    /// The display full name, `name:arch`, like apt's `Package:` line.
+    ///
+    /// Mirrors apt's `PkgIterator::FullName(Pretty)`: with `pretty == false`
+    /// the `:arch` qualifier is always shown (`foo:amd64`, `foo:all`, ...);
+    /// with `pretty == true` it is omitted when the package's architecture
+    /// equals `native_arch` or is `all`/`any`/unset — so a native amd64
+    /// `apt` shows `apt`, an `Architecture: all` package shows `foo`, and a
+    /// foreign `foo:i386` shows `foo:i386`.
+    pub fn fullname(&self, pretty: bool, native_arch: &str) -> String {
+        match self.architecture.as_deref() {
+            Some(arch) if !arch.is_empty() => {
+                let omit = pretty && (arch == "all" || arch == "any" || arch == native_arch);
+                if omit {
+                    self.package.clone()
+                } else {
+                    format!("{}:{arch}", self.package)
+                }
+            }
+            _ => self.package.clone(),
+        }
+    }
 }
 
 /// Parse contents of a single Packages file
@@ -56,24 +106,80 @@ pub struct PackagesFile {
 /// Scan `/var/lib/apt/lists/` and parse all `*_Packages` files.
 ///
 /// Returns a flat list of all package entries across all repos/components/archs.
+/// Parse `/var/lib/apt/lists/` and return all package entries (without source tracking).
 pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, AptListsError> {
     let dir = path.as_ref();
-    let mut all_packages = Vec::new();
+    let mut files = Vec::new();
 
     for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
         let entry = entry.map_err(AptListsError::Io)?;
-        let file_name = entry.file_name();
-        let name = file_name.to_string_lossy();
-
-        if !name.ends_with("_Packages") {
-            continue;
+        if entry.file_name().to_string_lossy().ends_with("_Packages") {
+            files.push(entry.path());
         }
-
-        let entries = parse_single_packages_file(entry.path())?;
-        all_packages.extend(entries);
     }
 
-    Ok(all_packages)
+    // Parse each `*_Packages` file in parallel, folding into a single flat
+    // vec instead of collecting into an intermediate nested vec.
+    files
+        .par_iter()
+        .map(parse_single_packages_file)
+        .try_fold(Vec::new, |mut acc, entries| {
+            acc.extend(entries?);
+            Ok(acc)
+        })
+        .try_reduce(Vec::new, |mut acc, entries| {
+            acc.extend(entries);
+            Ok(acc)
+        })
+}
+
+/// Parse `/var/lib/apt/lists/` and return entries alongside their source
+/// filename (the APT list filename stem, e.g.
+/// `mirrors.example.com_debian_dists_bookworm_main_binary-amd64_Packages`).
+///
+/// The two `Vec`s have the same length and are indexed in parallel.
+pub fn parse_apt_lists_dir_with_sources(
+    path: impl AsRef<Path>,
+) -> Result<(Vec<PackageEntry>, Vec<String>), AptListsError> {
+    let dir = path.as_ref();
+    let mut files = Vec::new();
+
+    for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
+        let entry = entry.map_err(AptListsError::Io)?;
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.ends_with("_Packages") {
+            files.push((entry.path(), name.into_owned()));
+        }
+    }
+
+    // Parse each `*_Packages` file in parallel, pairing each entry with its
+    // source and folding into flat parallel vecs.
+    files
+        .par_iter()
+        .map(|(path, source)| {
+            parse_single_packages_file(path).map(|entries| {
+                let sources = vec![source.clone(); entries.len()];
+                (entries, sources)
+            })
+        })
+        .try_fold(
+            || (Vec::new(), Vec::new()),
+            |(mut pkgs, mut srcs), item| {
+                let (entries, sources) = item?;
+                pkgs.extend(entries);
+                srcs.extend(sources);
+                Ok((pkgs, srcs))
+            },
+        )
+        .try_reduce(
+            || (Vec::new(), Vec::new()),
+            |(mut a_pkgs, mut a_srcs), (b_pkgs, b_srcs)| {
+                a_pkgs.extend(b_pkgs);
+                a_srcs.extend(b_srcs);
+                Ok((a_pkgs, a_srcs))
+            },
+        )
 }
 
 /// Parse a single `*_Packages` file (deb822 format).
@@ -117,6 +223,38 @@ pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String
     map
 }
 
+/// Lazy iterator over a package's entries paired with their APT list source
+/// filenames.
+pub type EntriesWithSource<'a> = Box<dyn Iterator<Item = (Cow<'a, PackageEntry>, String)> + 'a>;
+
+/// Common interface for package data sources.
+///
+/// Both [`AptDb`](crate::AptDb) (eager, cached) and
+/// [`AptListsReader`](crate::AptListsReader) (lazy, offset-based) implement
+/// this, allowing consumers to switch between them transparently.
+///
+/// Methods return [`Cow`] so that implementations owning the data can
+/// borrow a slice/value, while implementations that parse on demand can
+/// return owned data.
+pub trait PackageIndex {
+    /// Check whether a package name exists.
+    fn has_package(&self, name: &str) -> bool;
+
+    /// Return all package names known to this index.
+    fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_>;
+
+    /// Return all entries for a package name.
+    fn get_all(&self, name: &str) -> Cow<'_, [PackageEntry]>;
+
+    /// Return all entries for a package name, together with the APT list
+    /// source filename for each entry, as a lazy iterator.
+    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_>;
+
+    /// Return the entry with the highest version, or `None` if the package
+    /// does not exist.
+    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageEntry>>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,6 +281,63 @@ Depends: libc6
             Some("A smarter cd command for your terminal")
         );
         assert_eq!(entry.depends.as_deref(), Some("libc6"));
+    }
+
+    #[test]
+    fn test_fullname() {
+        let parse = |control: &str| {
+            let deb822: Deb822 = control.parse().unwrap();
+            PackageEntry::from_paragraph(deb822.iter().next().unwrap()).unwrap()
+        };
+
+        let native = "amd64";
+        // `pretty == true`: native arch → bare name
+        assert_eq!(
+            parse("Package: apt\nVersion: 1\nArchitecture: amd64\n\n").fullname(true, native),
+            "apt"
+        );
+        // `pretty == true`: `all` → bare name
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: all\n\n").fullname(true, native),
+            "foo"
+        );
+        // `pretty == true`: foreign arch → `name:arch`
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: i386\n\n").fullname(true, native),
+            "foo:i386"
+        );
+        // `pretty == true`: `any` / unset → bare name
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: any\n\n").fullname(true, native),
+            "foo"
+        );
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\n\n").fullname(true, native),
+            "foo"
+        );
+
+        // `pretty == false`: qualifier always shown, even native/`all`/`any`.
+        assert_eq!(
+            parse("Package: apt\nVersion: 1\nArchitecture: amd64\n\n").fullname(false, native),
+            "apt:amd64"
+        );
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: all\n\n").fullname(false, native),
+            "foo:all"
+        );
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: any\n\n").fullname(false, native),
+            "foo:any"
+        );
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\nArchitecture: i386\n\n").fullname(false, native),
+            "foo:i386"
+        );
+        // unset arch has nothing to qualify with
+        assert_eq!(
+            parse("Package: foo\nVersion: 1\n\n").fullname(false, native),
+            "foo"
+        );
     }
 
     #[test]
