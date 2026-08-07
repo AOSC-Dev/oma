@@ -244,9 +244,23 @@ pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String
     map
 }
 
-/// Lazy iterator over a package's entries paired with their [`IndexSource`].
-pub type EntriesWithSource<'a> =
-    Box<dyn Iterator<Item = (Cow<'a, PackageEntry>, IndexSource)> + 'a>;
+/// A package entry together with the source it came from.
+///
+/// The entry is borrowed from the database when it comes from an APT lists
+/// file, or owned when it is a local `.deb` (whose source is the `file:` URL
+/// recorded at insert time).
+#[derive(Debug, Clone)]
+pub struct EntryWithSource<'a> {
+    /// The parsed package entry data.
+    pub entry: Cow<'a, PackageEntry>,
+    /// The source this entry came from (resolved against `sources.list` at
+    /// database build time), or the `file:` source of a local `.deb`.
+    /// `None` for entries without a recorded source.
+    pub source: Option<Cow<'a, IndexSource>>,
+}
+
+/// Lazy iterator over a package's per-source entries.
+pub type EntriesWithSource<'a> = Box<dyn Iterator<Item = EntryWithSource<'a>> + 'a>;
 
 /// One `PackageVersion` per (package, version): a version seen in several
 /// mirrors/suites/components is stored once, with `sources` listing each
@@ -311,9 +325,30 @@ pub trait PackageIndex {
     /// Return all versions of a package, each with its sources.
     fn get_all(&self, name: &str) -> Cow<'_, [PackageVersion]>;
 
-    /// Return all versions of a package paired with their sources, as a
-    /// lazy iterator (one item per source of each version).
-    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_>;
+    /// Return all versions of a package expanded into per-source entries:
+    /// one [`EntryWithSource`] per (version, source), lazily. This is the
+    /// expanded view of [`Self::get_all`] — merging and expanding are
+    /// inverse operations, so the default derives it from `get_all`.
+    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_> {
+        match self.get_all(name) {
+            // Borrowed storage: hand out borrowed entries, zero-copy.
+            Cow::Borrowed(versions) => Box::new(versions.iter().flat_map(|v| {
+                v.sources.iter().map(|src| EntryWithSource {
+                    entry: Cow::Borrowed(&v.entry),
+                    source: (!src.is_none()).then_some(Cow::Borrowed(src)),
+                })
+            })),
+            // On-demand storage: the versions are freshly parsed here, so
+            // the expanded entries own their data.
+            Cow::Owned(versions) => Box::new(versions.into_iter().flat_map(|v| {
+                let entry: Cow<'_, PackageEntry> = Cow::Owned(v.entry);
+                v.sources.into_iter().map(move |src| EntryWithSource {
+                    entry: entry.clone(),
+                    source: (!src.is_none()).then_some(Cow::Owned(src)),
+                })
+            })),
+        }
+    }
 
     /// Return the candidate version of a package — the version a bare
     /// install gets by default.

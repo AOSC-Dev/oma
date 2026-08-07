@@ -13,27 +13,12 @@ use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
 use crate::apt_lists::{
-    EntriesWithSource, IndexSource, PackageEntry, PackageIndex, PackageVersion,
+    EntryWithSource, IndexSource, PackageEntry, PackageIndex, PackageVersion,
     parse_apt_lists_dir_with_sources,
 };
 use crate::apt_sources::SourceLookup;
 use crate::package_matcher::PackageMatcher;
 use crate::{AptConfig, ParsedDeps};
-
-/// A package entry together with its source file information.
-///
-/// The entry is borrowed from the database when it comes from an APT lists
-/// file, or owned when it is a local `.deb` (whose source is the `file:` URL
-/// recorded at insert time).
-#[derive(Debug, Clone)]
-pub struct EntryWithSource<'a> {
-    /// The parsed package entry data.
-    pub entry: Cow<'a, PackageEntry>,
-    /// The source this entry came from (resolved against `sources.list` at
-    /// database build time), or the `file:` source of a local `.deb`.
-    /// `None` for entries without a recorded source.
-    pub source: Option<Cow<'a, IndexSource>>,
-}
 
 /// Errors that can occur when resolving package queries.
 #[derive(Debug, thiserror::Error)]
@@ -147,8 +132,8 @@ impl AptDb {
     /// the database.
     ///
     /// Local packages have no APT list source, so
-    /// [`get_all_with_source`](Self::get_all_with_source) reports
-    /// `source: None` for them.
+    /// [`get_with_source`](Self::get_with_source) reports `source: None`
+    /// for them.
     pub fn insert(&mut self, entry: PackageEntry) {
         self.insert_with_source(entry, IndexSource::none());
     }
@@ -229,12 +214,6 @@ impl AptDb {
             groups.extend(matched.into_iter().map(|pkg| {
                 version_counts.push(self.distinct_version_count(&pkg.name));
                 pkg.entries
-                    .into_iter()
-                    .map(|(entry, source)| EntryWithSource {
-                        entry,
-                        source: (!source.is_none()).then_some(Cow::Owned(source)),
-                    })
-                    .collect()
             }));
             no_match = no_result.into_iter().map(str::to_owned).collect();
         }
@@ -422,27 +401,6 @@ impl AptDb {
             .collect()
     }
 
-    /// Find all versions of a package together with their sources: one item
-    /// per (version, source), so a version seen in several mirrors shows up
-    /// once per source.
-    pub fn get_all_with_source(&self, name: &str) -> Vec<EntryWithSource<'_>> {
-        let versions = match self.entries.get(name) {
-            Some(v) => v,
-            None => return vec![],
-        };
-
-        let mut out = Vec::new();
-        for v in versions {
-            for src in &v.sources {
-                out.push(EntryWithSource {
-                    entry: Cow::Borrowed(&v.entry),
-                    source: (!src.is_none()).then_some(Cow::Borrowed(src)),
-                });
-            }
-        }
-        out
-    }
-
     /// Number of distinct versions of a package across the whole database.
     /// Versions are already deduplicated (each [`PackageVersion`] is one
     /// version), so this is simply the entry count.
@@ -465,19 +423,6 @@ impl PackageIndex for AptDb {
             Some(v) => Cow::Borrowed(v.as_slice()),
             None => Cow::Owned(Vec::new()),
         }
-    }
-
-    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_> {
-        let Some(versions) = self.entries.get(name) else {
-            return Box::new(std::iter::empty());
-        };
-        // One item per (version, source): a version from several mirrors
-        // shows up once per source, like the pre-dedup per-source rows.
-        Box::new(versions.iter().flat_map(move |v| {
-            v.sources
-                .iter()
-                .map(move |src| (Cow::Borrowed(&v.entry), src.clone()))
-        }))
     }
 
     fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>> {
@@ -552,7 +497,7 @@ mod tests {
         assert_eq!(all[0].version.as_deref(), Some("1.0"));
 
         // Local packages have no APT list source.
-        let with_src = db.get_all_with_source("localpkg");
+        let with_src: Vec<_> = db.get_with_source("localpkg").collect();
         assert_eq!(with_src.len(), 1);
         assert!(with_src[0].source.is_none());
     }

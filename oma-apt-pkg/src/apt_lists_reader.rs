@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use deb822_fast::{Deb822, FromDeb822Paragraph};
 
 use crate::apt_lists::{
-    AptListsError, EntriesWithSource, IndexSource, PackageEntry, PackageIndex, PackageVersion,
+    AptListsError, IndexSource, PackageEntry, PackageIndex, PackageVersion,
 };
 use crate::apt_sources::SourceLookup;
 
@@ -179,25 +179,6 @@ impl AptListsReader {
         Ok(results)
     }
 
-    /// Like [`get`](Self::get) but also returns the resolved
-    /// [`IndexSource`] for each entry.
-    pub fn get_with_source(
-        &self,
-        name: &str,
-    ) -> Result<Vec<(PackageEntry, IndexSource)>, AptListsError> {
-        let Some(entries) = self.index.get(name) else {
-            return Ok(Vec::new());
-        };
-
-        let mut results = Vec::with_capacity(entries.len());
-        for entry in entries {
-            let pkg = self.parse_at(entry)?;
-            results.push((pkg, entry.index_source.clone()));
-        }
-
-        Ok(results)
-    }
-
     fn parse_at(&self, entry: &ListIndexEntry) -> Result<PackageEntry, AptListsError> {
         let path = self.file_map.get(&entry.source).ok_or_else(|| {
             AptListsError::Io(std::io::Error::new(
@@ -282,21 +263,6 @@ impl PackageIndex for AptListsReader {
             }
         }
         Cow::Owned(versions)
-    }
-
-    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_> {
-        // Parsing is best-effort: malformed paragraphs are skipped.
-        Box::new(
-            self.index
-                .get(name)
-                .into_iter()
-                .flatten()
-                .filter_map(|entry| {
-                    self.parse_at(entry)
-                        .ok()
-                        .map(|pkg| (Cow::Owned(pkg), entry.index_source.clone()))
-                }),
-        )
     }
 
     fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>> {
