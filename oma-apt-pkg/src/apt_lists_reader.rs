@@ -12,11 +12,11 @@ use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use deb822_fast::{Deb822, FromDeb822Paragraph};
 use rayon::prelude::*;
-use smallvec::SmallVec;
 
 use crate::apt_lists::{AptListsError, IndexSource, PackageEntry, PackageIndex, PackageVersion};
 use crate::apt_sources::SourceLookup;
@@ -70,18 +70,18 @@ struct ListsFile {
 /// }
 /// ```
 pub struct AptListsReader {
-    /// Package name → list of (file, offset) entries. Each list is a
-    /// `SmallVec` kept inline for the common case, avoiding a heap
-    /// allocation per package, and spilled to the heap beyond it.
+    /// Package name → range of its entries in [`Self::flat`].
     ///
-    /// A package name can legitimately have several entries: the main
-    /// source may carry multiple versions of it in the same file (e.g.
-    /// during a transition), and each topic source adds its own
-    /// version(s) too. An entry is one `Package:` occurrence in one lists
-    /// file — typically a handful per package. Inline capacity 3 covers
-    /// that common case; packages with many versions across many sources
-    /// spill and still work, just without the inline allocation.
-    index: HashMap<String, SmallVec<[ListIndexEntry; 3]>>,
+    /// Entries are stored flat — one `(file, offset)` per `Package:`
+    /// occurrence, 12 bytes each — with a per-package `Range` into the
+    /// array: no per-package container and no inline-capacity bet. A
+    /// package can have several entries: the main source may carry
+    /// multiple versions of it, and each topic source adds its own
+    /// version(s) or none. This stays small for every source layout.
+    index: HashMap<String, Range<u32>>,
+    /// All entries, one per `Package:` occurrence, grouped per package in
+    /// the order of [`Self::index`].
+    flat: Vec<ListIndexEntry>,
     /// Per-file metadata, indexed by [`ListIndexEntry::file`].
     files: Vec<ListsFile>,
 }
@@ -118,22 +118,61 @@ impl AptListsReader {
             })
             .collect();
 
-        // Scan every file in parallel. Entries reference files by id, so a
-        // per-package entry is just a `u32` + `u64` — no duplicated
-        // filenames or sources, keeping the index small on low-memory
-        // machines.
-        let index: HashMap<String, SmallVec<[ListIndexEntry; 3]>> = files
+        // Scan every file in parallel, one per-package map per file, then
+        // merge the maps into a flat entry array with per-package ranges.
+        let per_file: Vec<HashMap<String, Vec<ListIndexEntry>>> = files
             .par_iter()
             .enumerate()
             .map(|(file, f)| Self::scan_file(&f.path, file as u32))
-            .try_reduce(HashMap::new, |mut acc, entries| {
-                for (pkg, list) in entries {
-                    acc.entry(pkg).or_default().extend(list);
-                }
-                Ok(acc)
-            })?;
+            .collect::<Result<_, _>>()?;
 
-        Ok(Self { index, files })
+        let (index, flat) = Self::merge_entries(&per_file);
+
+        Ok(Self { index, flat, files })
+    }
+
+    /// Merge per-file entry maps into a flat entry array with per-package
+    /// ranges. Each package's entries are laid out contiguously in `flat`
+    /// (in a deterministic but arbitrary package order), so lookups are a
+    /// slice into the array — no per-package container.
+    fn merge_entries(
+        per_file: &[HashMap<String, Vec<ListIndexEntry>>],
+    ) -> (HashMap<String, Range<u32>>, Vec<ListIndexEntry>) {
+        // Count entries per package (keys borrowed from the per-file maps,
+        // so names are not duplicated).
+        let mut counts: HashMap<&str, u32> = HashMap::new();
+        for map in per_file {
+            for (pkg, list) in map {
+                *counts.entry(pkg.as_str()).or_default() += list.len() as u32;
+            }
+        }
+
+        // Assign each package a contiguous range and pre-size the flat
+        // array.
+        let total: usize = counts.values().map(|&len| len as usize).sum();
+        let mut flat = Vec::with_capacity(total);
+        let mut index: HashMap<String, Range<u32>> = HashMap::with_capacity(counts.len());
+        for (pkg, &len) in &counts {
+            let start = flat.len() as u32;
+            flat.resize(flat.len() + len as usize, ListIndexEntry { file: 0, offset: 0 });
+            index.insert(pkg.to_string(), start..start + len);
+        }
+
+        // Fill each package's fixed range, iterating the per-file maps in
+        // file order so entries keep file order within the range.
+        for (pkg, range) in &index {
+            let mut pos = range.start;
+            for map in per_file {
+                if let Some(list) = map.get(pkg) {
+                    for entry in list {
+                        flat[pos as usize] = *entry;
+                        pos += 1;
+                    }
+                }
+            }
+        }
+
+        (index, flat)
     }
 
     /// Scan a single `*_Packages` file, returning the per-package entry
@@ -149,7 +188,7 @@ impl AptListsReader {
     fn scan_file(
         path: &Path,
         file: u32,
-    ) -> Result<HashMap<String, SmallVec<[ListIndexEntry; 3]>>, AptListsError> {
+    ) -> Result<HashMap<String, Vec<ListIndexEntry>>, AptListsError> {
         let file_handle = File::open(path).map_err(AptListsError::Io)?;
         let mut reader = BufReader::new(file_handle);
         // Reused per line, so memory stays bounded by the longest line.
@@ -157,7 +196,7 @@ impl AptListsReader {
         // Byte offset of the line about to be read.
         let mut byte_pos: u64 = 0;
         let mut pending_para = true;
-        let mut index: HashMap<String, SmallVec<[ListIndexEntry; 3]>> = HashMap::new();
+        let mut index: HashMap<String, Vec<ListIndexEntry>> = HashMap::new();
 
         loop {
             line.clear();
@@ -201,12 +240,13 @@ impl AptListsReader {
     /// offset, and parses the single deb822 paragraph into a
     /// [`PackageEntry`].
     pub fn get(&self, name: &str) -> Result<Vec<PackageEntry>, AptListsError> {
-        let Some(entries) = self.index.get(name) else {
+        let Some(range) = self.index.get(name) else {
             return Ok(Vec::new());
         };
 
+        let entries = &self.flat[range.start as usize..range.end as usize];
         let mut results = Vec::with_capacity(entries.len());
-        for entry in entries.as_slice() {
+        for entry in entries {
             let pkg = self.parse_at(entry)?;
             results.push(pkg);
         }
@@ -246,7 +286,8 @@ impl AptListsReader {
 
     /// Return the raw index entries for a package name.
     pub fn lookup(&self, name: &str) -> Option<&[ListIndexEntry]> {
-        self.index.get(name).map(|v| v.as_slice())
+        let range = self.index.get(name)?;
+        Some(&self.flat[range.start as usize..range.end as usize])
     }
 
     /// Total number of unique package names in the index.
@@ -274,7 +315,11 @@ impl PackageIndex for AptListsReader {
         // version from several source files is merged into one version with
         // every source listed.
         let mut versions: Vec<PackageVersion> = Vec::new();
-        for entry in self.index.get(name).into_iter().flat_map(|e| e.as_slice()) {
+        let entries = self
+            .index
+            .get(name)
+            .map(|range| &self.flat[range.start as usize..range.end as usize]);
+        for entry in entries.into_iter().flatten() {
             let Ok(pkg) = self.parse_at(entry) else {
                 continue;
             };
@@ -360,31 +405,35 @@ mod tests {
     }
 
     #[test]
-    fn test_entry_list_inline_and_spill() {
+    fn test_merge_entries_flattens_ranges() {
         let e = |file, offset| ListIndexEntry { file, offset };
+        let mut file_a = HashMap::new();
+        file_a.insert("foo".to_string(), vec![e(0, 10), e(0, 20)]);
+        file_a.insert("bar".to_string(), vec![e(0, 30)]);
+        let mut file_b = HashMap::new();
+        file_b.insert("foo".to_string(), vec![e(1, 40)]);
+        file_b.insert("baz".to_string(), vec![e(1, 50), e(1, 60), e(1, 70)]);
 
-        // Stays inline up to two entries, then spills to the heap.
-        let mut l = SmallVec::<[ListIndexEntry; 2]>::new();
-        l.push(e(1, 10));
-        l.push(e(2, 20));
-        assert_eq!(l.len(), 2);
-        assert!(!l.spilled());
-        assert_eq!(l.as_slice(), &[e(1, 10), e(2, 20)]);
+        let (index, flat) = AptListsReader::merge_entries(&[file_a, file_b]);
 
-        l.push(e(3, 30));
-        assert_eq!(l.len(), 3);
-        assert!(l.spilled());
-        assert_eq!(l.as_slice(), &[e(1, 10), e(2, 20), e(3, 30)]);
-
-        // `extend` is used when merging per-file maps; more than two
-        // entries spill too.
-        let mut l2 = SmallVec::<[ListIndexEntry; 2]>::new();
-        l2.extend([e(4, 40), e(5, 50)]);
-        assert!(!l2.spilled());
-        l2.extend([e(6, 60), e(7, 70)]);
-        assert!(l2.spilled());
-        assert_eq!(l2.len(), 4);
-        assert_eq!(l2.as_slice(), &[e(4, 40), e(5, 50), e(6, 60), e(7, 70)]);
+        // Every package's entries are contiguous in `flat` and intact
+        // (file order within a package preserved).
+        let mut seen: Vec<(&str, Vec<ListIndexEntry>)> = index
+            .iter()
+            .map(|(pkg, range)| {
+                let slice = &flat[range.start as usize..range.end as usize];
+                (pkg.as_str(), slice.to_vec())
+            })
+            .collect();
+        seen.sort_by_key(|(pkg, _)| *pkg);
+        assert_eq!(
+            seen,
+            vec![
+                ("bar", vec![e(0, 30)]),
+                ("baz", vec![e(1, 50), e(1, 60), e(1, 70)]),
+                ("foo", vec![e(0, 10), e(0, 20), e(1, 40)]),
+            ]
+        );
     }
 
     #[test]
