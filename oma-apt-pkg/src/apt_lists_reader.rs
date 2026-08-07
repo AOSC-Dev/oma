@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use deb822_fast::{Deb822, FromDeb822Paragraph};
 use rayon::prelude::*;
@@ -31,8 +32,10 @@ pub struct ListIndexEntry {
     /// — the key into the file map.
     pub source: String,
     /// The [`IndexSource`] this file was resolved to at build time, or
-    /// [`IndexSource::none`] when no lookup was supplied.
-    pub index_source: IndexSource,
+    /// [`IndexSource::none`] when no lookup was supplied. Shared via `Arc`
+    /// across every entry of the file, so the index build clones it once
+    /// per file instead of once per paragraph.
+    pub index_source: Arc<IndexSource>,
     /// Byte offset in the file where the paragraph starts.
     pub offset: u64,
 }
@@ -127,6 +130,9 @@ impl AptListsReader {
     ) -> Result<HashMap<String, Vec<ListIndexEntry>>, AptListsError> {
         let file = File::open(path).map_err(AptListsError::Io)?;
         let mut reader = BufReader::new(file);
+        // Shared by every entry of this file: entries only bump the
+        // refcount instead of deep-copying the whole `IndexSource`.
+        let index_source = Arc::new(index_source);
         // Reused per line, so memory stays bounded by the longest line.
         let mut line = Vec::new();
         // Byte offset of the line about to be read.
@@ -159,7 +165,7 @@ impl AptListsReader {
                     let pkg_name = String::from_utf8_lossy(suffix).trim().to_string();
                     index.entry(pkg_name).or_default().push(ListIndexEntry {
                         source: source.to_string(),
-                        index_source: index_source.clone(),
+                        index_source: Arc::clone(&index_source),
                         offset: byte_pos,
                     });
                 }
@@ -261,13 +267,13 @@ impl PackageIndex for AptListsReader {
                 continue;
             };
             if let Some(existing) = versions.iter_mut().find(|v| v.entry.version == pkg.version) {
-                if !existing.sources.contains(&entry.index_source) {
-                    existing.sources.push(entry.index_source.clone());
+                if !existing.sources.contains(&*entry.index_source) {
+                    existing.sources.push((*entry.index_source).clone());
                 }
             } else {
                 versions.push(PackageVersion {
                     entry: pkg,
-                    sources: vec![entry.index_source.clone()],
+                    sources: vec![(*entry.index_source).clone()],
                     deps: OnceCell::new(),
                     parsed_version: OnceCell::new(),
                 });
