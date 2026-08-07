@@ -3419,6 +3419,7 @@ dependencies = [
  "oma-apt-sources-lists",
  "rayon",
  "serde",
+ "smallvec",
  "spdlog-rs",
  "strsim",
  "tar",

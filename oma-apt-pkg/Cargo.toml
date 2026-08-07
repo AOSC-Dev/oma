@@ -73,6 +73,7 @@ zstd = { workspace = true, optional = true }
 liblzma = { workspace = true, optional = true }
 ahash = { workspace = true, optional = true }
 indexmap = { workspace = true, features = ["serde"] }
+smallvec = { workspace = true }
 indicium = { workspace = true, optional = true }
 debversion = { workspace = true, optional = true }
 glob-match = { workspace = true, optional = true }

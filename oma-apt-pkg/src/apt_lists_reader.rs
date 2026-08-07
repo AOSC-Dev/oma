@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 
 use deb822_fast::{Deb822, FromDeb822Paragraph};
 use rayon::prelude::*;
+use smallvec::SmallVec;
 
 use crate::apt_lists::{AptListsError, IndexSource, PackageEntry, PackageIndex, PackageVersion};
 use crate::apt_sources::SourceLookup;
@@ -27,7 +28,7 @@ use crate::apt_sources::SourceLookup;
 /// machines: the per-file metadata (lists filename, resolved path and
 /// [`IndexSource`]) lives once in [`AptListsReader`]'s file table instead
 /// of being duplicated per entry.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ListIndexEntry {
     /// Index into [`AptListsReader`]'s file table.
     pub file: u32,
@@ -69,8 +70,10 @@ struct ListsFile {
 /// }
 /// ```
 pub struct AptListsReader {
-    /// Package name → list of (file, offset) entries.
-    index: HashMap<String, Vec<ListIndexEntry>>,
+    /// Package name → list of (file, offset) entries. Each list is a
+    /// `SmallVec` kept inline for the common one-or-two-source case,
+    /// avoiding a heap allocation per package.
+    index: HashMap<String, SmallVec<[ListIndexEntry; 2]>>,
     /// Per-file metadata, indexed by [`ListIndexEntry::file`].
     files: Vec<ListsFile>,
 }
@@ -92,6 +95,8 @@ impl AptListsReader {
         let lists_dir = lists_dir.as_ref();
         // Build the file table first: each scanned file gets a stable id
         // (its position) that every entry references.
+        // The file table must be collected anyway (it is stored on the
+        // reader for `parse_at`), and rayon's `par_iter` needs a slice.
         let files: Vec<ListsFile> = lookup
             .index_files(archs)
             .into_iter()
@@ -109,7 +114,7 @@ impl AptListsReader {
         // per-package entry is just a `u32` + `u64` — no duplicated
         // filenames or sources, keeping the index small on low-memory
         // machines.
-        let index: HashMap<String, Vec<ListIndexEntry>> = files
+        let index: HashMap<String, SmallVec<[ListIndexEntry; 2]>> = files
             .par_iter()
             .enumerate()
             .map(|(file, f)| Self::scan_file(&f.path, file as u32))
@@ -136,7 +141,7 @@ impl AptListsReader {
     fn scan_file(
         path: &Path,
         file: u32,
-    ) -> Result<HashMap<String, Vec<ListIndexEntry>>, AptListsError> {
+    ) -> Result<HashMap<String, SmallVec<[ListIndexEntry; 2]>>, AptListsError> {
         let file_handle = File::open(path).map_err(AptListsError::Io)?;
         let mut reader = BufReader::new(file_handle);
         // Reused per line, so memory stays bounded by the longest line.
@@ -144,7 +149,7 @@ impl AptListsReader {
         // Byte offset of the line about to be read.
         let mut byte_pos: u64 = 0;
         let mut pending_para = true;
-        let mut index: HashMap<String, Vec<ListIndexEntry>> = HashMap::new();
+        let mut index: HashMap<String, SmallVec<[ListIndexEntry; 2]>> = HashMap::new();
 
         loop {
             line.clear();
@@ -193,7 +198,7 @@ impl AptListsReader {
         };
 
         let mut results = Vec::with_capacity(entries.len());
-        for entry in entries {
+        for entry in entries.as_slice() {
             let pkg = self.parse_at(entry)?;
             results.push(pkg);
         }
@@ -261,7 +266,7 @@ impl PackageIndex for AptListsReader {
         // version from several source files is merged into one version with
         // every source listed.
         let mut versions: Vec<PackageVersion> = Vec::new();
-        for entry in self.index.get(name).into_iter().flatten() {
+        for entry in self.index.get(name).into_iter().flat_map(|e| e.as_slice()) {
             let Ok(pkg) = self.parse_at(entry) else {
                 continue;
             };
@@ -344,6 +349,34 @@ mod tests {
         write_packages(&dir, &name, content);
         let reader = AptListsReader::build_with_sources(&dir, &lookup, &archs).unwrap();
         (dir_handle, reader)
+    }
+
+    #[test]
+    fn test_entry_list_inline_and_spill() {
+        let e = |file, offset| ListIndexEntry { file, offset };
+
+        // Stays inline up to two entries, then spills to the heap.
+        let mut l = SmallVec::<[ListIndexEntry; 2]>::new();
+        l.push(e(1, 10));
+        l.push(e(2, 20));
+        assert_eq!(l.len(), 2);
+        assert!(!l.spilled());
+        assert_eq!(l.as_slice(), &[e(1, 10), e(2, 20)]);
+
+        l.push(e(3, 30));
+        assert_eq!(l.len(), 3);
+        assert!(l.spilled());
+        assert_eq!(l.as_slice(), &[e(1, 10), e(2, 20), e(3, 30)]);
+
+        // `extend` is used when merging per-file maps; more than two
+        // entries spill too.
+        let mut l2 = SmallVec::<[ListIndexEntry; 2]>::new();
+        l2.extend([e(4, 40), e(5, 50)]);
+        assert!(!l2.spilled());
+        l2.extend([e(6, 60), e(7, 70)]);
+        assert!(l2.spilled());
+        assert_eq!(l2.len(), 4);
+        assert_eq!(l2.as_slice(), &[e(4, 40), e(5, 50), e(6, 60), e(7, 70)]);
     }
 
     #[test]
