@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use serde::Serialize;
 
 use crate::apt_sources::SourceLookup;
-use crate::{DpkgState, ParsedDeps, extended_states::AptExtendedStates};
+use crate::{DpkgState, extended_states::AptExtendedStates};
 #[cfg(feature = "apt-lists")]
 use wincode::{SchemaRead, SchemaWrite};
 
@@ -185,28 +185,31 @@ pub fn parse_apt_lists_dir_with_sources(
 }
 
 /// Parse a single `*_Packages` file (deb822 format).
+///
+/// Streams the file through [`Deb822::iter_paragraphs_from_reader`], so a
+/// large `Packages` file (tens of MB on full mirrors) is never buffered
+/// whole — only one paragraph plus the collected [`PackageEntry`]s are in
+/// memory at once.
 pub fn parse_single_packages_file(
     path: impl AsRef<Path>,
 ) -> Result<Vec<PackageEntry>, AptListsError> {
     let path = path.as_ref();
-    let content = std::fs::read_to_string(path).map_err(AptListsError::Io)?;
+    let file = std::fs::File::open(path).map_err(AptListsError::Io)?;
 
-    let deb822: Deb822 = content
-        .parse()
-        .map_err(|e: deb822_fast::Error| AptListsError::Parse {
-            path: path.to_string_lossy().to_string(),
-            detail: e.to_string(),
-        })?;
+    let entries: Vec<PackageEntry> =
+        Deb822::iter_paragraphs_from_reader(std::io::BufReader::new(file))
+            .map(|paragraph| {
+                let paragraph = paragraph.map_err(|e| AptListsError::Parse {
+                    path: path.to_string_lossy().to_string(),
+                    detail: e.to_string(),
+                })?;
 
-    let entries: Vec<PackageEntry> = deb822
-        .iter()
-        .map(|p| {
-            PackageEntry::from_paragraph(p).map_err(|e| AptListsError::Parse {
-                path: path.to_string_lossy().to_string(),
-                detail: e,
+                PackageEntry::from_paragraph(&paragraph).map_err(|e| AptListsError::Parse {
+                    path: path.to_string_lossy().to_string(),
+                    detail: e,
+                })
             })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
 
     Ok(entries)
 }
@@ -225,24 +228,6 @@ pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String
     map
 }
 
-/// A package entry together with the source it came from.
-///
-/// The entry is borrowed from the database when it comes from an APT lists
-/// file, or owned when it is a local `.deb` (whose source is the `file:` URL
-/// recorded at insert time).
-#[derive(Debug, Clone)]
-pub struct EntryWithSource<'a> {
-    /// The parsed package entry data.
-    pub entry: Cow<'a, PackageEntry>,
-    /// The source this entry came from (resolved against `sources.list` at
-    /// database build time), or the `file:` source of a local `.deb`.
-    /// `None` for entries without a recorded source.
-    pub source: Option<Cow<'a, IndexSource>>,
-}
-
-/// Lazy iterator over a package's per-source entries.
-pub type EntriesWithSource<'a> = Box<dyn Iterator<Item = EntryWithSource<'a>> + 'a>;
-
 /// One `PackageVersion` per (package, version): a version seen in several
 /// mirrors/suites/components is stored once, with `sources` listing each
 /// place it appears. This mirrors apt's `pkgCache::Version` + `VerFile`
@@ -257,11 +242,6 @@ pub struct PackageVersion {
     /// `sources.list` at build time. Empty for entries built without source
     /// tracking.
     pub sources: Vec<IndexSource>,
-    /// Lazily pre-parsed dependency fields of `entry`, so each version's
-    /// dependency text is parsed at most once per process. Not serialized —
-    /// rebuilt on cache load.
-    #[cfg_attr(feature = "apt-lists", wincode(skip))]
-    pub(crate) deps: OnceCell<ParsedDeps>,
     /// The version string parsed once, so candidate selection never
     /// re-parses it. Not serialized.
     #[cfg_attr(feature = "apt-lists", wincode(skip))]
@@ -269,14 +249,11 @@ pub struct PackageVersion {
 }
 
 impl PackageVersion {
-    /// The pre-parsed dependency fields, parsed once on first access.
-    pub(crate) fn deps(&self) -> &ParsedDeps {
-        self.deps
-            .get_or_init(|| ParsedDeps::from_entry(&self.entry))
-    }
-
-    /// The parsed version, parsed once on first access.
-    pub(crate) fn parsed_version(&self) -> Option<&Version> {
+    /// The parsed version, parsed once on first access and cached, so
+    /// candidate selection and display ordering never re-parse the version
+    /// string. Returns `None` when the version is absent or fails to parse;
+    /// `None` compares less than any parsed version.
+    pub fn parsed_version(&self) -> Option<&Version> {
         self.parsed_version
             .get_or_init(|| self.entry.version.as_deref().and_then(|v| v.parse().ok()))
             .as_ref()
@@ -306,55 +283,6 @@ pub trait PackageIndex {
     /// Return all versions of a package, each with its sources.
     fn get_all(&self, name: &str) -> Cow<'_, [PackageVersion]>;
 
-    /// Return all versions of a package expanded into per-source entries:
-    /// one [`EntryWithSource`] per (version, source), or a single entry
-    /// with `source: None` for a version with no recorded source, lazily.
-    /// This is the expanded view of [`Self::get_all`] — merging and
-    /// expanding are inverse operations, so the default derives it from
-    /// `get_all`.
-    fn get_with_source(&self, name: &str) -> EntriesWithSource<'_> {
-        match self.get_all(name) {
-            // Borrowed storage: hand out borrowed entries, zero-copy. A
-            // version with no recorded source still yields one entry, with
-            // `source: None`, so it stays visible to the matcher.
-            Cow::Borrowed(versions) => Box::new(versions.iter().flat_map(|v| {
-                if v.sources.is_empty() {
-                    vec![EntryWithSource {
-                        entry: Cow::Borrowed(&v.entry),
-                        source: None,
-                    }]
-                } else {
-                    v.sources
-                        .iter()
-                        .map(|src| EntryWithSource {
-                            entry: Cow::Borrowed(&v.entry),
-                            source: Some(Cow::Borrowed(src)),
-                        })
-                        .collect()
-                }
-            })),
-            // On-demand storage: the versions are freshly parsed here, so
-            // the expanded entries own their data.
-            Cow::Owned(versions) => Box::new(versions.into_iter().flat_map(|v| {
-                if v.sources.is_empty() {
-                    vec![EntryWithSource {
-                        entry: Cow::Owned(v.entry),
-                        source: None,
-                    }]
-                } else {
-                    let entry: Cow<'_, PackageEntry> = Cow::Owned(v.entry);
-                    v.sources
-                        .into_iter()
-                        .map(move |src| EntryWithSource {
-                            entry: entry.clone(),
-                            source: Some(Cow::Owned(src)),
-                        })
-                        .collect()
-                }
-            })),
-        }
-    }
-
     /// Return the candidate version of a package — the version a bare
     /// install gets by default.
     ///
@@ -366,20 +294,18 @@ pub trait PackageIndex {
     /// version is not in the index. The default scans [`Self::get_all`];
     /// implementations with indexed storage may override it.
     fn get_version(&self, name: &str, version: &str) -> Option<Cow<'_, PackageVersion>> {
-        self.get_all(name)
-            .iter()
-            .find(|v| v.entry.version.as_deref() == Some(version))
-            .cloned()
-            .map(Cow::Owned)
-    }
-
-    /// Pre-parsed dependency fields of one `(name, version)`, if present.
-    /// Implementations with cached storage hand back a borrowed cache entry;
-    /// on-demand implementations fall back to the default, which parses the
-    /// version's entry on the spot.
-    fn deps_of(&self, name: &str, version: &str) -> Option<Cow<'_, ParsedDeps>> {
-        let version = self.get_version(name, version)?;
-        Some(Cow::Owned(ParsedDeps::from_entry(&version.entry)))
+        // Borrow from the slice when the implementation hands out a borrow,
+        // move out when it parses on demand — never clone.
+        match self.get_all(name) {
+            Cow::Borrowed(slice) => slice
+                .iter()
+                .find(|v| v.entry.version.as_deref() == Some(version))
+                .map(Cow::Borrowed),
+            Cow::Owned(vec) => vec
+                .into_iter()
+                .find(|v| v.entry.version.as_deref() == Some(version))
+                .map(Cow::Owned),
+        }
     }
 }
 

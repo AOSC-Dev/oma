@@ -1,16 +1,13 @@
-use std::collections::BTreeMap;
 use std::io::Write;
-use std::str::FromStr;
 use std::{borrow::Cow, io::stdout};
 
 use anyhow::Context;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
-use debversion::Version;
 use dialoguer::console::{StyledObject, style};
 use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
-    AptConfig, AptDb, AptExtendedStates, DpkgState, EntryWithSource, IndexSource, PackageEntry,
+    AptConfig, AptDb, AptExtendedStates, DpkgState, IndexSource, PackageEntry, PackageVersion,
 };
 use oma_console::indicatif::HumanBytes;
 use serde::Serialize;
@@ -80,8 +77,16 @@ impl CliExecuter for Show {
 
         let mut stdout = stdout();
 
-        for (i, entries) in resolution.groups.iter().enumerate() {
-            display_group(&mut stdout, entries, &dpkg, &ext_states, all, json, apt_cfg)?;
+        for (i, versions) in resolution.groups.iter().enumerate() {
+            display_group(
+                &mut stdout,
+                versions,
+                &dpkg,
+                &ext_states,
+                all,
+                json,
+                apt_cfg,
+            )?;
 
             if i != resolution.groups.len() - 1 {
                 writeln!(stdout).ok();
@@ -103,6 +108,7 @@ impl CliExecuter for Show {
             } else {
                 0
             };
+
             if additional > 0 {
                 info!("{}", fl!("additional-version", len = additional));
             }
@@ -116,7 +122,7 @@ impl CliExecuter for Show {
 #[allow(clippy::too_many_arguments)]
 fn display_group(
     stdout: &mut impl Write,
-    entries: &[EntryWithSource<'_>],
+    versions: &[Cow<'_, PackageVersion>],
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     all: bool,
@@ -124,53 +130,42 @@ fn display_group(
     apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
     if json {
-        display_entries_to_json(stdout, entries, dpkg, apt_cfg)?;
+        display_versions_to_json(stdout, versions, dpkg, apt_cfg)?;
     } else {
-        display_entries(stdout, entries, dpkg, ext_states, all, apt_cfg);
+        display_versions(stdout, versions, dpkg, ext_states, all, apt_cfg);
     }
     Ok(())
 }
 
-fn display_entries(
+fn display_versions(
     stdout: &mut impl Write,
-    entries: &[EntryWithSource<'_>],
+    versions: &[Cow<'_, PackageVersion>],
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     show_all: bool,
     apt_cfg: &AptConfig,
 ) {
-    // Group entries by version so the same version coming from multiple
-    // sources (e.g. a repo package and a local `.deb`) renders as one block
-    // listing every source.
-    let mut versions: BTreeMap<&str, Vec<&EntryWithSource<'_>>> = BTreeMap::new();
-    for entry in entries {
-        versions
-            .entry(entry.entry.version.as_deref().unwrap_or("0"))
-            .or_default()
-            .push(entry);
+    // Just the highest version without `--all`: a linear scan over the
+    // already-parsed versions (the `OnceCell` cache) instead of sorting
+    // them all just to keep the last.
+    if !show_all && let Some(version) = versions.iter().max_by_key(|v| v.parsed_version()) {
+        display_version(stdout, version, dpkg, ext_states, apt_cfg);
+        return;
     }
 
-    let shown = if show_all {
-        versions.iter().collect::<Vec<_>>()
-    } else {
-        // Show only the highest version.
-        versions
-            .iter()
-            .max_by(|(a, _), (b, _)| {
-                let a_ver = Version::from_str(a).ok();
-                let b_ver = Version::from_str(b).ok();
-                a_ver.cmp(&b_ver)
-            })
-            .into_iter()
-            .collect::<Vec<_>>()
-    };
+    // Show all versions oldest → newest, comparing the cached parsed
+    // versions instead of re-parsing each version string. Unstable is fine:
+    // ties only occur between versions that compare equal (e.g. unparseable
+    // version strings), whose display order is meaningless.
+    let mut shown: Vec<&Cow<'_, PackageVersion>> = versions.iter().collect();
+    shown.sort_unstable_by(|a, b| a.parsed_version().cmp(&b.parsed_version()));
 
-    for (idx, (_, group)) in shown.iter().enumerate() {
-        if show_all && idx != 0 {
+    for (idx, version) in shown.iter().enumerate() {
+        if idx != 0 {
             writeln!(stdout).ok();
         }
 
-        display_version_group(stdout, group, dpkg, ext_states, apt_cfg);
+        display_version(stdout, version, dpkg, ext_states, apt_cfg);
     }
 }
 
@@ -199,57 +194,49 @@ fn field_value<'a>(entry: &'a PackageEntry, field: &str) -> Option<Cow<'a, str>>
     }
 }
 
-/// Display all entries sharing one version as a single block, merging fields
-/// (the first entry carrying each field wins, so a repo entry's
-/// `Download-Size` shows next to a local `.deb`) and listing every source.
-fn display_version_group(
+/// Display one version as a single block, listing every source it is
+/// available from.
+fn display_version(
     stdout: &mut impl Write,
-    group: &[&EntryWithSource<'_>],
+    version: &Cow<'_, PackageVersion>,
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     apt_cfg: &AptConfig,
 ) {
     for (label, field) in DISPLAY_FIELDS {
-        let Some(value) = group
-            .iter()
-            .find_map(|e| field_value(e.entry.as_ref(), field))
-        else {
+        let Some(value) = field_value(&version.entry, field) else {
             continue;
         };
         writeln!(stdout, "{} {value}", key_style(Cow::Borrowed(label))).ok();
     }
 
-    // APT-Sources: every source of this version, deduplicated.
-    let mut sources: Vec<&IndexSource> = Vec::new();
-    for e in group {
-        if let Some(src) = e.source.as_deref()
-            && !sources.contains(&src)
-        {
-            sources.push(src);
-        }
-    }
-    if !sources.is_empty() {
+    // APT-Sources: every source of this version.
+    if !version.sources.is_empty() {
         write!(stdout, "{}", key_style(Cow::Borrowed("APT-Sources:"))).ok();
-        if sources.len() == 1 {
-            writeln!(stdout, " {}", format_apt_source(sources[0], apt_cfg)).ok();
+        if version.sources.len() == 1 {
+            writeln!(
+                stdout,
+                " {}",
+                format_apt_source(&version.sources[0], apt_cfg)
+            )
+            .ok();
         } else {
             writeln!(stdout).ok();
-            for src in &sources {
+            for src in &version.sources {
                 writeln!(stdout, "  {}", format_apt_source(src, apt_cfg)).ok();
             }
         }
     }
 
     // APT-Manual-Installed: check dpkg status and auto-installed flag.
-    let primary = &group[0].entry;
-    if primary.is_installed(dpkg) {
+    if version.entry.is_installed(dpkg) {
         write!(
             stdout,
             "{}",
             key_style(Cow::Borrowed("APT-Manual-Installed: "))
         )
         .ok();
-        if primary.is_auto_installed(dpkg, ext_states) {
+        if version.entry.is_auto_installed(dpkg, ext_states) {
             writeln!(stdout, "no").ok();
         } else {
             writeln!(stdout, "yes").ok();
@@ -262,22 +249,26 @@ struct PackageJson<'a> {
     #[serde(flatten)]
     entry: &'a PackageEntry,
     #[serde(rename = "APT-Sources")]
-    apt_sources: Option<String>,
+    apt_sources: Vec<String>,
     installed: bool,
 }
 
-fn display_entries_to_json(
+fn display_versions_to_json(
     stdout: &mut impl Write,
-    entries: &[EntryWithSource<'_>],
+    versions: &[Cow<'_, PackageVersion>],
     dpkg: &DpkgState,
     apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
-    let json_entries: Vec<PackageJson<'_>> = entries
+    let json_entries: Vec<PackageJson<'_>> = versions
         .iter()
-        .map(|ews| PackageJson {
-            entry: ews.entry.as_ref(),
-            apt_sources: ews.source.as_deref().map(|s| format_apt_source(s, apt_cfg)),
-            installed: ews.entry.is_installed(dpkg),
+        .map(|v| PackageJson {
+            entry: &v.entry,
+            apt_sources: v
+                .sources
+                .iter()
+                .map(|s| format_apt_source(s, apt_cfg))
+                .collect(),
+            installed: v.entry.is_installed(dpkg),
         })
         .collect();
 

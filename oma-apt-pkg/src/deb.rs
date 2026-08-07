@@ -52,12 +52,13 @@ pub fn read_control_from_deb(path: impl AsRef<Path>) -> Result<String, DebError>
 /// bytes).
 pub fn read_control_from_reader(reader: impl Read) -> Result<String, DebError> {
     let mut archive = Archive::new(reader);
+
     while let Some(entry) = archive.next_entry() {
         let entry = entry?;
         let name = String::from_utf8_lossy(entry.header().identifier()).into_owned();
         if name.starts_with("control.tar") {
-            let tar_bytes = decompress_control_tar(&name, entry)?;
-            return read_control_from_tar(&tar_bytes);
+            let reader = decompress_control_tar(&name, Box::new(entry))?;
+            return read_control_from_tar(reader);
         }
     }
 
@@ -97,27 +98,37 @@ pub fn parse_control_entry(control: &str) -> Result<PackageEntry, DebError> {
     })
 }
 
-/// Decompress a `control.tar.*` member into raw tar bytes.
-fn decompress_control_tar(name: &str, reader: impl Read) -> Result<Vec<u8>, DebError> {
-    let mut out = Vec::new();
+/// Decompress a `control.tar.*` member into a streaming reader.
+///
+/// The decompressed tar is not buffered whole: [`read_control_from_tar`]
+/// walks it entry by entry, keeping only the `control` file, so even a
+/// pathologically large `control.tar` does not balloon memory.
+fn decompress_control_tar<'a>(
+    name: &str,
+    reader: Box<dyn Read + 'a>,
+) -> Result<Box<dyn Read + 'a>, DebError> {
     if name.ends_with(".gz") {
-        flate2::read::GzDecoder::new(reader).read_to_end(&mut out)?;
+        Ok(Box::new(flate2::read::GzDecoder::new(reader)))
     } else if name.ends_with(".xz") {
-        liblzma::read::XzDecoder::new(reader).read_to_end(&mut out)?;
+        Ok(Box::new(liblzma::read::XzDecoder::new(reader)))
     } else if name.ends_with(".zst") {
-        zstd::stream::read::Decoder::new(reader)?.read_to_end(&mut out)?;
+        Ok(Box::new(zstd::stream::read::Decoder::new(reader)?))
     } else if name.ends_with(".tar") {
-        reader.take(u64::MAX).read_to_end(&mut out)?;
+        Ok(reader)
     } else {
-        return Err(DebError::UnsupportedCompression(name.to_string()));
+        Err(DebError::UnsupportedCompression(name.to_string()))
     }
-
-    Ok(out)
 }
 
 /// Extract the `./control` file from a tar archive.
-fn read_control_from_tar(tar_bytes: &[u8]) -> Result<String, DebError> {
-    let mut archive = tar::Archive::new(tar_bytes);
+///
+/// Streams from the (possibly decompressing) reader, buffering only the
+/// `control` entry's content. Entries are not required to be consumed: the
+/// `tar` crate's iterator tracks the next-header position itself and skips
+/// unread data, so skipped entries (like the leading `./` directory) cost
+/// nothing extra.
+fn read_control_from_tar(reader: impl Read) -> Result<String, DebError> {
+    let mut archive = tar::Archive::new(reader);
     for entry in archive.entries()? {
         let mut entry = entry?;
         if entry
@@ -138,10 +149,19 @@ fn read_control_from_tar(tar_bytes: &[u8]) -> Result<String, DebError> {
 #[cfg(test)]
 pub(crate) mod test_util {
     /// Build a `control.tar.gz` containing the given control text.
+    ///
+    /// A real `control.tar` starts with the `./` directory entry, so one is
+    /// written first — `read_control_from_tar` must skip it (without reading
+    /// it) to reach `./control`.
     pub fn control_tar_gz(control: &str) -> Vec<u8> {
         let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         {
             let mut tar = tar::Builder::new(&mut gz);
+            let mut dir = tar::Header::new_ustar();
+            dir.set_entry_type(tar::EntryType::Directory);
+            dir.set_size(0);
+            dir.set_mode(0o755);
+            tar.append_data(&mut dir, "./", std::io::empty()).unwrap();
             let mut header = tar::Header::new_ustar();
             // `append_data` does not set the size field itself.
             header.set_size(control.len() as u64);

@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use clap::Args;
 use oma_apt_pkg::AptConfig;
+use oma_apt_pkg::apt_sources::SourceLookup;
 use oma_apt_pkg::search::{IndiciumSearch, OmaSearch, SearchResult, SearchType};
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::apt::{OmaApt, OmaAptArgs, Upgrade};
@@ -230,10 +231,14 @@ fn local_searcher(
     let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path)?;
     let apt_db = oma_apt_pkg::AptDb::load_or_build(apt_cfg)?;
 
+    let lookup = SourceLookup::build(apt_cfg);
+    let archs = apt_cfg.architectures();
     let searcher = IndiciumSearch::new_with_cache(
         &apt_db,
         &dpkg,
         &lists_dir,
+        &lookup,
+        &archs,
         &search_cache,
         SearchType::Live,
         |n| {

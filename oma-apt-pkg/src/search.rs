@@ -3,11 +3,10 @@
 //! Builds a search index from parsed APT list entries and dpkg status,
 //! without depending on the C++ `oma-apt` binding.
 
+use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io::Write;
 use std::path::Path;
 use std::str::FromStr;
-use std::{collections::HashMap, fs};
 
 use ahash::RandomState;
 #[cfg(any(feature = "search-strsim", feature = "search-text"))]
@@ -16,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
+use crate::apt_sources::SourceLookup;
+use crate::cache::CacheFile;
 use crate::{AptDb, DpkgState, parse_dep_list};
 
 #[cfg(feature = "search-indicium")]
@@ -149,6 +150,18 @@ pub struct IndiciumSearch {
     pub pkg_map: IndexMap<String, SearchEntry>,
     /// Index used to perform search operations.
     pub index: SearchIndex<String>,
+    /// The lists files this index was built from (filename + size +
+    /// mtime), mirroring apt's PackageFile IMS records. Checked by
+    /// [`crate::cache::valid`] on cache load.
+    pub(crate) files: Vec<CacheFile>,
+}
+
+/// On-disk form of the search cache: the package map plus the lists files
+/// it was built from.
+#[derive(SchemaWrite, SchemaRead)]
+struct SearchCache {
+    pkg_map: IndexMap<String, SearchEntry>,
+    files: Vec<CacheFile>,
 }
 
 pub trait OmaSearch {
@@ -295,6 +308,7 @@ impl IndiciumSearch {
         Self {
             pkg_map,
             index: search_index,
+            files: Vec::new(),
         }
     }
 
@@ -400,14 +414,23 @@ impl IndiciumSearch {
         apt_db: &AptDb,
         dpkg: &DpkgState,
         lists_dir: impl AsRef<Path>,
+        lookup: &SourceLookup,
+        archs: &[String],
         search_cache_path: impl AsRef<Path>,
         search_type: SearchType,
         progress: impl Fn(usize),
     ) -> Result<Self, crate::error::Error> {
-        // Tier 1: try search cache (fastest)
-        if Self::search_cache_valid(&search_cache_path, &lists_dir)
-            && let Some(mut searcher) =
-                Self::load_search_cache(&search_cache_path, search_type.clone())
+        // Tier 1: try search cache (fastest): load it, then check the
+        // lists files it records having been built from against the current
+        // state.
+        if let Some(mut searcher) = Self::load_search_cache(&search_cache_path, search_type.clone())
+            && crate::cache::valid(
+                &search_cache_path,
+                &lists_dir,
+                lookup,
+                archs,
+                &searcher.files,
+            )
         {
             debug!("Search cache hit");
             searcher.refresh_from(apt_db, dpkg);
@@ -416,7 +439,8 @@ impl IndiciumSearch {
 
         debug!("Search cache miss, building index ...");
 
-        let searcher = Self::new(apt_db, dpkg, search_type, progress);
+        let mut searcher = Self::new(apt_db, dpkg, search_type, progress);
+        searcher.files = crate::cache::collect(&lists_dir, lookup, archs);
 
         // Persist search cache for next time
         if let Err(e) = searcher.save_search_cache(&search_cache_path) {
@@ -428,78 +452,34 @@ impl IndiciumSearch {
         Ok(searcher)
     }
 
-    /// Check whether the search cache is still valid by comparing mtimes with
-    /// the `*_Packages` source files.
-    fn search_cache_valid(cache_path: impl AsRef<Path>, lists_dir: impl AsRef<Path>) -> bool {
-        use std::fs;
-
-        let cache_mtime = match fs::metadata(&cache_path).and_then(|m| m.modified()) {
-            Ok(t) => t,
-            Err(_) => return false,
-        };
-
-        let dir = match fs::read_dir(lists_dir.as_ref()) {
-            Ok(d) => d,
-            Err(_) => return false,
-        };
-
-        for entry in dir {
-            let entry = match entry {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            if !name.ends_with("_Packages") {
-                continue;
-            }
-            let src_mtime = match entry.metadata().and_then(|m| m.modified()) {
-                Ok(t) => t,
-                Err(_) => continue,
-            };
-            if src_mtime > cache_mtime {
-                return false;
-            }
-        }
-        true
-    }
-
     /// Try to load a previously saved search index from its binary cache.
     fn load_search_cache(path: impl AsRef<Path>, search_type: SearchType) -> Option<Self> {
-        use std::fs;
-        use std::io::Read;
-
-        let mut file = fs::File::open(path.as_ref()).ok()?;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).ok()?;
-
-        let pkg_map: IndexMap<String, SearchEntry> = wincode::deserialize(&buf).ok()?;
+        let cache: SearchCache = crate::cache::load(path).ok()?;
 
         let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
             .search_type(search_type)
             .exclude_keywords(None)
             .build();
-        pkg_map.iter().for_each(|(key, value)| {
+        cache.pkg_map.iter().for_each(|(key, value)| {
             search_index.insert(key, value);
         });
 
         Some(Self {
-            pkg_map,
+            pkg_map: cache.pkg_map,
             index: search_index,
+            files: cache.files,
         })
     }
 
     /// Save the search index (pkg_map) to a binary cache file.
     fn save_search_cache(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
-        if let Some(parent) = path.as_ref().parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        let encoded = wincode::serialize(&self.pkg_map).map_err(std::io::Error::other)?;
-
-        let mut file = fs::File::create(path.as_ref())?;
-        file.write_all(&encoded)?;
-        Ok(())
+        crate::cache::save(
+            path,
+            &SearchCache {
+                pkg_map: self.pkg_map.clone(),
+                files: self.files.clone(),
+            },
+        )
     }
 }
 

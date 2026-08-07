@@ -2,6 +2,8 @@ pub mod apt_config;
 #[cfg(feature = "apt-lists")]
 mod apt_db;
 #[cfg(feature = "apt-lists")]
+mod cache;
+#[cfg(feature = "apt-lists")]
 pub mod deb;
 #[cfg(feature = "apt-lists")]
 pub use deb::*;

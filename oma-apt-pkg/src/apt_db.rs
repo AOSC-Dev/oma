@@ -3,22 +3,19 @@
 use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::collections::HashMap;
-use std::io::Read;
-use std::io::Write;
+use std::fs;
 use std::path::Path;
-use std::{fs, io};
 
 use rayon::prelude::*;
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
 use crate::apt_lists::{
-    EntryWithSource, IndexSource, PackageEntry, PackageIndex, PackageVersion,
-    parse_apt_lists_dir_with_sources,
+    IndexSource, PackageEntry, PackageIndex, PackageVersion, parse_apt_lists_dir_with_sources,
 };
 use crate::apt_sources::SourceLookup;
 use crate::package_matcher::PackageMatcher;
-use crate::{AptConfig, ParsedDeps};
+use crate::{AptConfig, cache};
 
 /// Errors that can occur when resolving package queries.
 #[derive(Debug, thiserror::Error)]
@@ -33,9 +30,11 @@ pub enum QueryError {
 #[derive(Debug)]
 pub struct QueryResolution<'a> {
     /// Display groups in query order; each group holds the (version/source
-    /// filtered) entries for one query — all versions of a package, a single
-    /// version (`pkg=1.2.3`), one branch (`pkg/suite`) or a local `.deb`.
-    pub groups: Vec<Vec<EntryWithSource<'a>>>,
+    /// filtered) versions for one query — all versions of a package, a
+    /// single version (`pkg=1.2.3`), one branch (`pkg/suite`) or a local
+    /// `.deb`. Versions borrowed from the database when no filtering needed
+    /// them owned.
+    pub groups: Vec<Vec<Cow<'a, PackageVersion>>>,
     /// Number of distinct versions each group's package has across the whole
     /// database (a version shared by several sources counts once). Parallel
     /// to [`groups`](Self::groups), computed while the database is still
@@ -91,6 +90,10 @@ pub struct AptDb {
     /// to omit the `:arch` qualifier in the pretty form. Extracted from the
     /// config at build time and stored with the cache.
     pub(crate) native_arch: String,
+    /// The lists files this database was built from (filename + size +
+    /// mtime), mirroring apt's PackageFile IMS records. Checked by
+    /// [`crate::cache::valid`] on cache load.
+    pub(crate) files: Vec<crate::cache::CacheFile>,
 }
 
 /// Push `entry` into `versions`, merging it into the existing entry of the
@@ -112,7 +115,6 @@ fn push_or_merge(
         versions.push(PackageVersion {
             entry,
             sources: source.into_iter().collect(),
-            deps: OnceCell::new(),
             parsed_version: OnceCell::new(),
         });
     }
@@ -120,8 +122,7 @@ fn push_or_merge(
 
 impl AptDb {
     /// Build from entries without source tracking: every version is stored
-    /// with no sources, so [`get_with_source`](Self::get_with_source)
-    /// reports `source: None`. Used by tests and in-memory builders.
+    /// with no sources. Used by tests and in-memory builders.
     #[allow(dead_code)]
     pub(crate) fn from_entries(native_arch: &str, entries: Vec<PackageEntry>) -> Self {
         let mut map: HashMap<String, Vec<PackageVersion>> = HashMap::new();
@@ -133,16 +134,17 @@ impl AptDb {
         Self {
             entries: map,
             native_arch: native_arch.to_string(),
+            files: Vec::new(),
         }
     }
 
     /// Insert a package entry without a recorded source.
     ///
-    /// Entries inserted this way report `source: None` from
-    /// [`get_with_source`](Self::get_with_source) — for programmatic builds
-    /// where no source is known. Local `.deb`s should instead go through
-    /// [`insert_from_deb`](Self::insert_from_deb), which records their
-    /// `file:` source so the entry renders with an `APT-Sources` entry.
+    /// Entries inserted this way have an empty source list — for
+    /// programmatic builds where no source is known. Local `.deb`s should
+    /// instead go through [`insert_from_deb`](Self::insert_from_deb), which
+    /// records their `file:` source so the entry renders with an
+    /// `APT-Sources` entry.
     pub fn insert(&mut self, entry: PackageEntry) {
         let name = entry.package.clone();
         let versions = self.entries.entry(name).or_default();
@@ -179,17 +181,17 @@ impl AptDb {
     /// Each query is either a path to a local `.deb` file or a package
     /// name/glob/version/branch expression matched via [`PackageMatcher`].
     /// Local `.deb`s are parsed (in parallel), inserted with their `file:`
-    /// source, and resolved like `pkg=<version>` so their own version is
-    /// shown — merged with any repo entries of that version — consistent
-    /// with `pkg=1.2.3` / `pkg/suite` queries.
+    /// source, and resolved against their own `(name, version)` directly —
+    /// merged with any repo entries of that version — consistent with
+    /// `pkg=1.2.3` / `pkg/suite` queries.
     ///
     /// Note: this inserts the local packages into the database for the
     /// lifetime of this instance; the caller owns the database, so that is
     /// harmless per process.
-    pub fn resolve_queries(
-        &mut self,
+    pub fn resolve_queries<'a>(
+        &'a mut self,
         queries: Vec<String>,
-    ) -> Result<QueryResolution<'_>, QueryError> {
+    ) -> Result<QueryResolution<'a>, QueryError> {
         let (deb_files, names): (Vec<String>, Vec<String>) = queries
             .into_iter()
             .partition(|q| q.ends_with(".deb") && Path::new(q).is_file());
@@ -199,34 +201,54 @@ impl AptDb {
             .map(crate::deb::parse_deb)
             .collect::<Result<_, _>>()?;
 
-        let mut keywords: Vec<String> = Vec::with_capacity(deb_files.len() + names.len());
+        // Insert every local `.deb` with its `file:` source, remembering its
+        // (name, version) so it can be resolved once the inserts are done
+        // (the matcher borrows the database).
+        let mut deb_versions: Vec<(String, Option<String>)> = Vec::with_capacity(deb_files.len());
         for (path, entry) in deb_files.iter().zip(deb_entries) {
             let source = local_deb_source(path);
             let name = entry.package.clone();
             let version = entry.version.clone();
+            deb_versions.push((name.clone(), version));
             self.insert_with_source(entry, source);
-            // Resolve the `.deb` like `pkg=<version>` so its own version is
-            // displayed (merged with any repo entries of that version).
-            keywords.push(match version {
-                Some(v) => format!("{name}={v}"),
-                None => name,
-            });
         }
-        keywords.extend(names);
 
+        let matcher = PackageMatcher::new(self);
         let mut no_match = Vec::new();
         let mut groups = Vec::new();
         let mut version_counts = Vec::new();
 
-        if !keywords.is_empty() {
-            let matcher = PackageMatcher::new(self);
-            let (matched, no_result) =
-                matcher.match_pkgs_and_versions(keywords.iter().map(String::as_str))?;
+        // Resolve each `.deb` against its own version directly — the
+        // control file's `(name, version)` go straight into
+        // `match_from_version` instead of being formatted into a
+        // `name=version` pattern and re-parsed. A `.deb` without a
+        // `Version` resolves to all versions.
+        for (name, version) in deb_versions {
+            version_counts.push(self.distinct_version_count(&name));
+            match version {
+                Some(v) => groups.extend(matcher.match_from_version(&name, &v)?),
+                None => groups.extend(matcher.match_pkgs_and_versions_from_glob(&name)?),
+            }
+        }
 
-            groups.extend(matched.into_iter().map(|pkg| {
-                version_counts.push(self.distinct_version_count(&pkg.name));
-                pkg.entries
-            }));
+        // Resolve the remaining name/glob/version/branch expressions.
+        if !names.is_empty() {
+            let (matched, no_result) =
+                matcher.match_pkgs_and_versions(names.iter().map(String::as_str))?;
+
+            for group in matched {
+                // Groups are never empty (the matcher drops empty matches),
+                // so the first version carries the package name for the
+                // distinct-version count.
+                version_counts.push(
+                    group
+                        .first()
+                        .map_or(0, |v| self.distinct_version_count(&v.entry.package)),
+                );
+
+                groups.push(group);
+            }
+
             no_match = no_result.into_iter().map(str::to_owned).collect();
         }
 
@@ -252,6 +274,7 @@ impl AptDb {
         Self {
             entries: map,
             native_arch: native_arch.to_string(),
+            files: Vec::new(),
         }
     }
 
@@ -269,17 +292,19 @@ impl AptDb {
             apt_cfg.get_file("Dir::Cache::oma-aptdb", "var/cache/apt/oma-aptdb.bincode");
         let native_arch = apt_cfg.get("APT::Architecture", "");
         let lookup = SourceLookup::build(apt_cfg);
-        if Self::cache_valid(&cache_path, &lists_dir) {
-            match Self::load_cache(&cache_path) {
-                Ok(db) => {
-                    debug!(
-                        "oma packages database cache hit: {}",
-                        Path::new(&cache_path).display()
-                    );
-                    return Ok(db);
-                }
-                Err(e) => debug!("oma packages database cache invalid, rebuilding: {e}"),
-            }
+        let archs = apt_cfg.architectures();
+
+        // Try the on-disk cache: load it, then check the lists files it
+        // records having been built from against the current state
+        // (mirroring apt's CheckValidity).
+        if let Ok(db) = cache::load::<Self>(&cache_path)
+            && cache::valid(&cache_path, &lists_dir, &lookup, &archs, &db.files)
+        {
+            debug!(
+                "oma packages database cache hit: {}",
+                Path::new(&cache_path).display()
+            );
+            return Ok(db);
         }
 
         debug!(
@@ -287,11 +312,11 @@ impl AptDb {
             Path::new(&cache_path).display()
         );
 
-        let archs = apt_cfg.architectures();
         let (entries, sources) = parse_apt_lists_dir_with_sources(&lists_dir, &lookup, &archs)?;
-        let db = Self::from_entries_with_sources(&native_arch, entries, sources);
+        let mut db = Self::from_entries_with_sources(&native_arch, entries, sources);
+        db.files = cache::collect(&lists_dir, &lookup, &archs);
 
-        if let Err(e) = db.save_cache(&cache_path) {
+        if let Err(e) = cache::save(&cache_path, &db) {
             debug!("Failed to save oma packages database cache: {e}");
         } else {
             debug!(
@@ -301,67 +326,6 @@ impl AptDb {
         }
 
         Ok(db)
-    }
-
-    /// Try to load from a saved cache file.
-    pub(crate) fn load_cache(path: impl AsRef<Path>) -> io::Result<Self> {
-        let mut buf = Vec::new();
-        fs::File::open(path.as_ref()).and_then(|mut f| f.read_to_end(&mut buf))?;
-
-        let db: Self = wincode::deserialize(&buf)
-            .map_err(|e| std::io::Error::other(format!("Failed to decode cache: {e}")))?;
-        Ok(db)
-    }
-
-    /// Save to a binary cache file.
-    pub(crate) fn save_cache(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
-        if let Some(parent) = path.as_ref().parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        let encoded = wincode::serialize(&self).map_err(std::io::Error::other)?;
-
-        let mut file = fs::File::create(path.as_ref())?;
-        file.write_all(&encoded)?;
-
-        Ok(())
-    }
-
-    /// Check whether the cache is still valid by comparing mtimes with source files.
-    pub(crate) fn cache_valid(cache_path: impl AsRef<Path>, lists_dir: impl AsRef<Path>) -> bool {
-        let cache_mtime = match fs::metadata(&cache_path).and_then(|m| m.modified()) {
-            Ok(t) => t,
-            Err(_) => return false,
-        };
-
-        let dir = match fs::read_dir(lists_dir.as_ref()) {
-            Ok(d) => d,
-            Err(_) => return false,
-        };
-
-        for entry in dir {
-            let entry = match entry {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-
-            if !name.ends_with("_Packages") {
-                continue;
-            }
-
-            let src_mtime = match entry.metadata().and_then(|m| m.modified()) {
-                Ok(t) => t,
-                Err(_) => continue,
-            };
-
-            if src_mtime > cache_mtime {
-                return false;
-            }
-        }
-        true
     }
 
     /// Check if a package name exists in the database.
@@ -433,7 +397,7 @@ impl PackageIndex for AptDb {
     fn get_all(&self, name: &str) -> Cow<'_, [PackageVersion]> {
         match self.entries.get(name) {
             Some(v) => Cow::Borrowed(v.as_slice()),
-            None => Cow::Owned(Vec::new()),
+            None => Cow::Borrowed(&[]),
         }
     }
 
@@ -451,15 +415,6 @@ impl PackageIndex for AptDb {
             .iter()
             .find(|v| v.entry.version.as_deref() == Some(version))
             .map(Cow::Borrowed)
-    }
-
-    fn deps_of(&self, name: &str, version: &str) -> Option<Cow<'_, ParsedDeps>> {
-        let v = self
-            .entries
-            .get(name)?
-            .iter()
-            .find(|v| v.entry.version.as_deref() == Some(version))?;
-        Some(Cow::Borrowed(v.deps()))
     }
 }
 
@@ -508,10 +463,10 @@ mod tests {
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].version.as_deref(), Some("1.0"));
 
-        // Entries inserted without a source report `source: None`.
-        let with_src: Vec<_> = db.get_with_source("localpkg").collect();
-        assert_eq!(with_src.len(), 1);
-        assert!(with_src[0].source.is_none());
+        // Versions inserted without a source have an empty source list.
+        let versions = <AptDb as PackageIndex>::get_all(&db, "localpkg");
+        assert_eq!(versions.len(), 1);
+        assert!(versions[0].sources.is_empty());
     }
 
     #[test]
@@ -539,9 +494,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(resolution.groups.len(), 1);
-        let entries = &resolution.groups[0];
-        assert_eq!(entries.len(), 2);
-        assert!(entries.iter().all(|e| e.entry.package == "fish"));
+        let versions = &resolution.groups[0];
+        assert_eq!(versions.len(), 2);
+        assert!(versions.iter().all(|v| v.entry.package == "fish"));
         // two distinct versions (3.6, 3.7)
         assert_eq!(resolution.version_counts, vec![2]);
         assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
@@ -562,16 +517,16 @@ mod tests {
 
         assert!(resolution.no_match.is_empty());
         assert_eq!(resolution.groups.len(), 1);
-        let entries = &resolution.groups[0];
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].entry.package, "hello");
-        assert_eq!(entries[0].entry.version.as_deref(), Some("2.10-2"));
+        let versions = &resolution.groups[0];
+        assert_eq!(versions.len(), 1);
+        assert_eq!(versions[0].entry.package, "hello");
+        assert_eq!(versions[0].entry.version.as_deref(), Some("2.10-2"));
         // only the local `.deb` version exists in the database
         assert_eq!(resolution.version_counts, vec![1]);
 
         // The local `.deb` carries a `file:` URI source.
-        let source = entries[0].source.as_deref().unwrap();
-        assert!(source.base_url.starts_with("file:"));
+        assert_eq!(versions[0].sources.len(), 1);
+        assert!(versions[0].sources[0].base_url.starts_with("file:"));
     }
 
     #[test]
@@ -597,18 +552,13 @@ mod tests {
             .unwrap();
 
         assert_eq!(resolution.groups.len(), 1);
-        let entries = &resolution.groups[0];
-        // repo entry (same version) + local `.deb` entry
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].source.as_deref().unwrap().suite, "stable");
-        assert!(
-            entries[1]
-                .source
-                .as_deref()
-                .unwrap()
-                .base_url
-                .starts_with("file:")
-        );
+        let versions = &resolution.groups[0];
+        // repo (same version) + local `.deb` merge into one version whose
+        // source list carries both the `stable` and `file:` entries.
+        assert_eq!(versions.len(), 1);
+        assert_eq!(versions[0].sources.len(), 2);
+        assert_eq!(versions[0].sources[0].suite, "stable");
+        assert!(versions[0].sources[1].base_url.starts_with("file:"));
         // repo 2.10-2 + local 2.10-2 dedupe to one distinct version
         assert_eq!(resolution.version_counts, vec![1]);
     }

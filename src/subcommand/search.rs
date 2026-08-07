@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
+use oma_apt_pkg::apt_sources::SourceLookup;
 use oma_apt_pkg::search::{
     IndiciumSearch, OmaSearch as _, PackageStatus, SearchResult, SearchType, StrSimSearch,
     TextSearch,
@@ -236,10 +237,14 @@ fn local_indicium_search(
     let search_cache =
         crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
+    let lookup = SourceLookup::build(apt_cfg);
+    let archs = apt_cfg.architectures();
     let searcher = IndiciumSearch::new_with_cache(
         &apt_db,
         &dpkg,
         &lists_dir,
+        &lookup,
+        &archs,
         &search_cache,
         SearchType::Live,
         f,

@@ -334,7 +334,6 @@ impl PackageIndex for AptListsReader {
                 versions.push(PackageVersion {
                     entry: pkg,
                     sources: vec![source.clone()],
-                    deps: OnceCell::new(),
                     parsed_version: OnceCell::new(),
                 });
             }
@@ -343,10 +342,12 @@ impl PackageIndex for AptListsReader {
     }
 
     fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>> {
+        // `get_all` parses on demand, so the slice is always owned — consume
+        // it and move the candidate out instead of cloning.
         self.get_all(name)
-            .iter()
-            .max_by_key(|v| v.parsed_version())
-            .cloned()
+            .into_owned()
+            .into_iter()
+            .max_by(|a, b| a.parsed_version().cmp(&b.parsed_version()))
             .map(Cow::Owned)
     }
 }
@@ -608,7 +609,10 @@ Description: commandline package manager
             Some("APT Development Team <deity@lists.debian.org>")
         );
         assert_eq!(e.installed_size, Some(4096));
-        assert_eq!(e.depends.as_deref(), Some("libc6, libstdc++6"));
+        assert_eq!(
+            e.depends.as_ref().map(ToString::to_string).as_deref(),
+            Some("libc6, libstdc++6")
+        );
         assert_eq!(e.homepage.as_deref(), Some("https://wiki.debian.org/Apt"));
         assert_eq!(e.section.as_deref(), Some("admin"));
         assert_eq!(e.priority.as_deref(), Some("important"));
