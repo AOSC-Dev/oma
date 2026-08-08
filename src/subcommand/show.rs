@@ -285,10 +285,12 @@ fn load_apt_db_and_dpkg(
 
     let apt_db = AptDb::load_or_build(cfg).context("Failed to load apt database")?;
 
-    let dpkg = DpkgState::from_file(&dpkg_path).context("Failed to load dpkg status")?;
+    // Lazy: show only needs `is_installed` for the displayed package(s), so
+    // the status file is scanned just until the queried package is found
+    // instead of parsing every installed package.
+    let dpkg = DpkgState::from_file_lazy(&dpkg_path);
 
-    let ext_states =
-        AptExtendedStates::from_file(ext_path).context("Failed to read apt extended states")?;
+    let ext_states = AptExtendedStates::from_file_lazy(ext_path);
 
     Ok((apt_db, dpkg, ext_states))
 }

@@ -9,22 +9,11 @@
 //! Auto-Installed: 1
 //! ```
 
-use std::collections::HashSet;
-use std::path::Path;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
-use thiserror::Error;
-
-/// Errors that can occur when reading APT extended states.
-#[derive(Debug, Error)]
-pub enum ExtendedStatesError {
-    /// Failed to open the extended states file.
-    #[error("Failed to open extended states file: {0}")]
-    Io(#[from] std::io::Error),
-    /// Failed to parse the extended states file.
-    #[error("Failed to parse extended states file: {0}")]
-    Deb822(#[from] deb822_fast::Error),
-}
 
 /// A single entry from `/var/lib/apt/extended_states`.
 #[derive(Debug, FromDeb822)]
@@ -34,40 +23,96 @@ struct ExtendedStateEntry {
     auto_installed: Option<String>,
 }
 
-/// Parsed APT extended states, providing the auto-installed flag per package.
+/// APT extended states, providing the auto-installed flag per package.
 ///
-/// Read from `/var/lib/apt/extended_states` via [`AptExtendedStates::from_file`].
+/// Constructed lazily via [`AptExtendedStates::from_file_lazy`]: the file is
+/// scanned only until the queried package is found, so `oma show` never
+/// parses the whole file.
 #[derive(Debug, Clone)]
 pub struct AptExtendedStates {
-    auto_installed: HashSet<String>,
+    /// Extended states file path.
+    path: PathBuf,
+    /// Lazily-answered `is_auto_installed` results (name → auto-installed),
+    /// filled by partial scans.
+    answers: RefCell<HashMap<String, bool>>,
 }
 
 impl AptExtendedStates {
-    /// Parse the extended states file at the given path.
-    ///
-    /// The file is streamed paragraph by paragraph via
-    /// [`Deb822::iter_paragraphs_from_reader`] — only one paragraph is in
-    /// memory at a time instead of the whole file. Malformed paragraphs are
-    /// skipped (best-effort), like elsewhere in this crate.
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, ExtendedStatesError> {
-        let file = std::fs::File::open(path.as_ref())?;
-
-        let auto_installed = Deb822::iter_paragraphs_from_reader(std::io::BufReader::new(file))
-            .filter_map(|para| {
-                let entry = ExtendedStateEntry::from_paragraph(&para.ok()?).ok()?;
-                let is_auto = entry
-                    .auto_installed
-                    .as_deref()
-                    .is_some_and(|v| v == "1" || v == "yes");
-                if is_auto { Some(entry.package) } else { None }
-            })
-            .collect();
-
-        Ok(Self { auto_installed })
+    /// Record the extended states file path without parsing it;
+    /// [`Self::is_auto_installed`] then scans until the queried package is
+    /// found. Infallible — a missing or unreadable file simply reports
+    /// nothing as auto-installed.
+    pub fn from_file_lazy(path: impl AsRef<Path>) -> Self {
+        Self {
+            path: path.as_ref().to_path_buf(),
+            answers: RefCell::new(HashMap::new()),
+        }
     }
 
     /// Whether the given package was automatically installed as a dependency.
     pub fn is_auto_installed(&self, name: &str) -> bool {
-        self.auto_installed.contains(name)
+        let mut answers = self.answers.borrow_mut();
+        if let Some(&auto) = answers.get(name) {
+            return auto;
+        }
+
+        let file = match std::fs::File::open(&self.path) {
+            Ok(f) => f,
+            Err(_) => return false,
+        };
+
+        for para in Deb822::iter_paragraphs_from_reader(std::io::BufReader::new(file)) {
+            let Ok(para) = para else { continue };
+            let Ok(entry) = ExtendedStateEntry::from_paragraph(&para) else {
+                continue;
+            };
+            let auto = entry
+                .auto_installed
+                .as_deref()
+                .is_some_and(|v| v == "1" || v == "yes");
+            answers.insert(entry.package.clone(), auto);
+            if entry.package == name {
+                return auto;
+            }
+        }
+
+        answers.insert(name.to_string(), false);
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    const EXTENDED: &str = "\
+Package: fish
+Architecture: amd64
+Auto-Installed: 1
+
+Package: bash
+Architecture: amd64
+Auto-Installed: 0
+
+Package: zsh
+Architecture: amd64
+Auto-Installed: yes
+";
+
+    #[test]
+    fn lazy_is_auto_installed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("extended_states");
+        std::fs::File::create(&path)
+            .unwrap()
+            .write_all(EXTENDED.as_bytes())
+            .unwrap();
+
+        let states = AptExtendedStates::from_file_lazy(&path);
+        assert!(states.is_auto_installed("fish"));
+        assert!(!states.is_auto_installed("bash"));
+        assert!(states.is_auto_installed("zsh"));
+        assert!(!states.is_auto_installed("nosuchpkg"));
     }
 }

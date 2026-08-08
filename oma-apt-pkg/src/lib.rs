@@ -24,7 +24,7 @@ pub(crate) mod config_parser;
 mod dpkg;
 mod dpkg_state;
 pub mod extended_states;
-pub use extended_states::{AptExtendedStates, ExtendedStatesError};
+pub use extended_states::AptExtendedStates;
 pub mod error;
 
 #[cfg(feature = "filename")]
