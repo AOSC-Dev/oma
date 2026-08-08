@@ -155,10 +155,10 @@ fn display_versions(
 
     // Show all versions oldest → newest, comparing the cached parsed
     // versions instead of re-parsing each version string. Unstable is fine:
-    // ties only occur between versions that compare equal (e.g. unparseable
+    // ties only occur between versions that compare equal (e.g. unparsable
     // version strings), whose display order is meaningless.
     let mut shown: Vec<&Cow<'_, PackageVersion>> = versions.iter().collect();
-    shown.sort_unstable_by(|a, b| a.parsed_version().cmp(&b.parsed_version()));
+    shown.sort_unstable_by_key(|a| a.parsed_version());
 
     for (idx, version) in shown.iter().enumerate() {
         if idx != 0 {
@@ -198,7 +198,7 @@ fn field_value<'a>(entry: &'a PackageEntry, field: &str) -> Option<Cow<'a, str>>
 /// available from.
 fn display_version(
     stdout: &mut impl Write,
-    version: &Cow<'_, PackageVersion>,
+    version: &PackageVersion,
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     apt_cfg: &AptConfig,

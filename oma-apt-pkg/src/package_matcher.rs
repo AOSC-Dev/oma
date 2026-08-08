@@ -93,7 +93,7 @@ impl<'a> PackageMatcher<'a> {
     fn has_package(&self, name: &str) -> bool {
         let (pkg, arch) = split_arch(name);
         self.index.has_package(pkg)
-            && arch.map_or(true, |arch| {
+            && arch.is_none_or(|arch| {
                 self.index
                     .get_all(pkg)
                     .iter()
@@ -219,7 +219,7 @@ fn split_arch(name: &str) -> (&str, Option<&str>) {
 
 /// Whether `v` satisfies an `:arch` qualifier (`None` = any arch).
 fn arch_matches_or(v: &PackageVersion, arch: Option<&str>) -> bool {
-    arch.map_or(true, |a| arch_matches(&v.entry.architecture, a))
+    arch.is_none_or(|a| arch_matches(&v.entry.architecture, a))
 }
 
 /// Whether an entry's `Architecture` satisfies an `:arch` qualifier.

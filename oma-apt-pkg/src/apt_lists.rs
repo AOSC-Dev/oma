@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -10,8 +9,6 @@ use serde::Serialize;
 
 use crate::apt_sources::SourceLookup;
 use crate::{DpkgState, extended_states::AptExtendedStates};
-#[cfg(feature = "apt-lists")]
-use wincode::{SchemaRead, SchemaWrite};
 
 /// Errors that can occur when parsing APT list files.
 #[derive(Debug, thiserror::Error)]
@@ -24,7 +21,10 @@ pub enum AptListsError {
 
 /// A single package entry from a Packages file
 #[derive(Debug, Clone, FromDeb822, Serialize)]
-#[cfg_attr(feature = "apt-lists", derive(SchemaWrite, SchemaRead))]
+#[cfg_attr(
+    feature = "apt-lists",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 #[serde(rename_all = "PascalCase")]
 pub struct PackageEntry {
     pub package: String,
@@ -113,7 +113,10 @@ pub struct PackagesFile {
 /// read these fields directly; no `sources.list` re-resolution is needed
 /// after the database is built.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "apt-lists", derive(SchemaWrite, SchemaRead))]
+#[cfg_attr(
+    feature = "apt-lists",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct IndexSource {
     /// Canonical base URL from `sources.list` (e.g.
     /// `https://mirrors.example.com/debian`). For a local `.deb` this is
@@ -234,7 +237,10 @@ pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String
 /// model — a version carries a list of index files instead of duplicating
 /// the record once per source.
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "apt-lists", derive(SchemaWrite, SchemaRead))]
+#[cfg_attr(
+    feature = "apt-lists",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct PackageVersion {
     /// The version metadata (name, version, description, dependencies, ...).
     pub entry: PackageEntry,
@@ -242,21 +248,16 @@ pub struct PackageVersion {
     /// `sources.list` at build time. Empty for entries built without source
     /// tracking.
     pub sources: Vec<IndexSource>,
-    /// The version string parsed once, so candidate selection never
-    /// re-parses it. Not serialized.
-    #[cfg_attr(feature = "apt-lists", wincode(skip))]
-    pub(crate) parsed_version: OnceCell<Option<Version>>,
 }
 
 impl PackageVersion {
-    /// The parsed version, parsed once on first access and cached, so
-    /// candidate selection and display ordering never re-parse the version
-    /// string. Returns `None` when the version is absent or fails to parse;
-    /// `None` compares less than any parsed version.
-    pub fn parsed_version(&self) -> Option<&Version> {
-        self.parsed_version
-            .get_or_init(|| self.entry.version.as_deref().and_then(|v| v.parse().ok()))
-            .as_ref()
+    /// The parsed version. Parsed on demand (a version parse is
+    /// microseconds; the `OnceCell` cache was dropped when the database
+    /// moved to an immutable memory-mapped archive). Returns `None` when
+    /// the version is absent or fails to parse; `None` compares less than
+    /// any parsed version.
+    pub fn parsed_version(&self) -> Option<Version> {
+        self.entry.version.as_deref().and_then(|v| v.parse().ok())
     }
 }
 

@@ -232,9 +232,8 @@ impl OmaConfig {
             cfg.set(k, v);
         }
 
-        // `AptDb` cache location: root uses the default
-        // `/var/cache/apt/oma-aptdb.bincode`; unprivileged users get
-        // `~/.cache/oma/`.
+        // Binary cache locations: root uses the system defaults under
+        // `/var/cache/apt/`; unprivileged users get `~/.cache/oma/`.
         if !crate::root::is_root() {
             let cache_dir = dirs::cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
             cfg.set(
@@ -242,6 +241,13 @@ impl OmaConfig {
                 &cache_dir
                     .join("oma")
                     .join("oma-aptdb.bincode")
+                    .to_string_lossy(),
+            );
+            cfg.set(
+                "Dir::Cache::oma-search",
+                &cache_dir
+                    .join("oma")
+                    .join("oma-search.bincode")
                     .to_string_lossy(),
             );
         }

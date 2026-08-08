@@ -1,21 +1,41 @@
 //! Shared helpers for the binary caches of [`AptDb`](crate::AptDb) and
 //! [`IndiciumSearch`](crate::search::IndiciumSearch): a
-//! [`SourceLookup`]-driven staleness check plus streaming load/save.
+//! [`SourceLookup`]-driven staleness check, the rkyv cache-file header, and
+//! zero-copy deserialization.
 
 use std::fs;
-use std::io::{self, BufReader, Write};
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
-use wincode::config::DefaultConfig;
-use wincode::{SchemaRead, SchemaReadOwned, SchemaWrite};
-
 use crate::apt_sources::SourceLookup;
+
+/// Header shared by the rkyv cache files: 8-byte magic, u32 little-endian
+/// format version, 4 reserved bytes, then the rkyv archive. The payload
+/// starts at a 16-byte offset so it is 8-byte aligned (mapping bases and
+/// freshly allocated buffers are page/8-aligned).
+pub(crate) const CACHE_HEADER_LEN: usize = 16;
+pub(crate) const CACHE_VERSION: u32 = 1;
+
+/// Whether `bytes` begins with a valid header for `magic` (magic + current
+/// version).
+pub(crate) fn header_ok(bytes: &[u8], magic: &[u8; 8]) -> bool {
+    bytes.len() >= CACHE_HEADER_LEN
+        && &bytes[..8] == magic
+        && u32::from_le_bytes(bytes[8..12].try_into().expect("len checked")) == CACHE_VERSION
+}
+
+/// Append the cache header with `magic` to `buf`; callers then append the
+/// archive.
+pub(crate) fn push_header(buf: &mut Vec<u8>, magic: &[u8; 8]) {
+    buf.extend_from_slice(magic);
+    buf.extend_from_slice(&CACHE_VERSION.to_le_bytes());
+    buf.extend_from_slice(&[0u8; 4]); // reserved
+}
 
 /// One lists file a cache was built from, mirroring apt's PackageFile IMS
 /// record (name + size + mtime) so validity can be checked against what
 /// was actually read.
-#[derive(Debug, Clone, PartialEq, Eq, SchemaWrite, SchemaRead)]
+#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub(crate) struct CacheFile {
     /// The lists filename, e.g.
     /// `mirrors.example.com_debian_dists_stable_main_binary-amd64_Packages`.
@@ -98,31 +118,21 @@ pub(crate) fn valid(
         })
 }
 
-/// Load a wincode-serialized value from `path`, streaming it through a
-/// [`BufReader`] so the whole file is never buffered into memory.
-pub(crate) fn load<T>(path: impl AsRef<Path>) -> io::Result<T>
+/// Deserialize one archived value into its owned form. Infallible in
+/// practice: only ever called on archives validated with [`rkyv::access`],
+/// so the per-value deserialization cannot fail.
+///
+/// The deserializer is a [`rancor::Strategy`] over `()` — the standard
+/// collection `Deserialize` impls only require `D: Fallible`, and
+/// allocating types (String/Vec/HashMap/IndexMap) allocate directly.
+pub(crate) fn from_archived<T>(value: &T::Archived) -> T
 where
-    T: SchemaReadOwned<DefaultConfig, Dst = T>,
+    T: rkyv::Archive,
+    T::Archived: rkyv::Deserialize<T, rkyv::rancor::Strategy<(), rkyv::rancor::Error>>,
 {
-    let file = fs::File::open(path.as_ref())?;
-    wincode::deserialize_from(BufReader::new(file)).map_err(io::Error::other)
-}
-
-/// Serialize `value` with wincode and write it to `path`, creating the
-/// parent directory if needed.
-pub(crate) fn save<T>(path: impl AsRef<Path>, value: &T) -> io::Result<()>
-where
-    T: SchemaWrite<DefaultConfig, Src = T> + ?Sized,
-{
-    if let Some(parent) = path.as_ref().parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let encoded = wincode::serialize(value).map_err(io::Error::other)?;
-    let mut file = fs::File::create(path.as_ref())?;
-    file.write_all(&encoded)?;
-
-    Ok(())
+    let mut unit = ();
+    let deserializer = rkyv::rancor::Strategy::<(), rkyv::rancor::Error>::wrap(&mut unit);
+    rkyv::Deserialize::deserialize(value, deserializer).expect("validated archive")
 }
 
 /// The file's modification time in whole seconds since the Unix epoch,
@@ -348,18 +358,28 @@ mod tests {
     }
 
     #[test]
-    fn test_load_save_roundtrip() {
-        let dir = tempfile::tempdir().unwrap();
-        // Nested path: `save` must create the parent directory.
-        let path = dir.path().join("sub/cache");
-        let value = vec![CacheFile {
+    fn test_cache_header() {
+        // `push_header` writes magic + version; `header_ok` accepts it and
+        // rejects wrong magic or a truncated file.
+        let mut buf = Vec::new();
+        push_header(&mut buf, b"TESTMAG\x00");
+        assert!(header_ok(&buf, b"TESTMAG\x00"));
+        assert!(!header_ok(&buf, b"WRONGMG\x00"));
+        assert!(!header_ok(&buf[..8], b"TESTMAG\x00"));
+    }
+
+    #[test]
+    fn test_from_archived_roundtrip() {
+        let value = CacheFile {
             filename: "example.com_debs_dists_stable_main_binary-amd64_Packages".to_string(),
             size: 42,
             mtime: 12345,
-        }];
+        };
 
-        save(&path, &value).unwrap();
-        let loaded: Vec<CacheFile> = load(&path).unwrap();
+        // rkyv-serialize, validate with `access`, deserialize back.
+        let archive = rkyv::to_bytes::<rkyv::rancor::Error>(&value).unwrap();
+        let archived = rkyv::access::<ArchivedCacheFile, rkyv::rancor::Error>(&archive).unwrap();
+        let loaded: CacheFile = from_archived(archived);
         assert_eq!(loaded, value);
     }
 }

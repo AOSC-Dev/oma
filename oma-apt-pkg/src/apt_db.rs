@@ -1,21 +1,153 @@
-//! oma package database — Parse APT `Packages` files with binary cache support.
+//! oma package database — Parse APT `Packages` files with a zero-copy,
+//! memory-mapped binary cache (mirroring apt's `pkgcache.bin` model: the
+//! cache file *is* the memory layout, and lookups touch only the pages they
+//! need).
 
 use std::borrow::Cow;
-use std::cell::OnceCell;
 use std::collections::HashMap;
+use std::fmt;
 use std::fs;
-use std::path::Path;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
+use memmap2::{Mmap, MmapOptions};
 use rayon::prelude::*;
+use rkyv::vec::ArchivedVec;
 use spdlog::debug;
-use wincode::{SchemaRead, SchemaWrite};
 
+use crate::AptConfig;
 use crate::apt_lists::{
-    IndexSource, PackageEntry, PackageIndex, PackageVersion, parse_apt_lists_dir_with_sources,
+    ArchivedPackageVersion, IndexSource, PackageEntry, PackageIndex, PackageVersion,
+    parse_apt_lists_dir_with_sources,
 };
 use crate::apt_sources::SourceLookup;
+use crate::cache;
+use crate::cache::CacheFile;
 use crate::package_matcher::PackageMatcher;
-use crate::{AptConfig, cache};
+
+/// Magic for the package-database cache file (`Dir::Cache::oma-aptdb`);
+/// the rest of the header layout (version + reserved bytes) is shared via
+/// [`crate::cache`].
+const CACHE_MAGIC: &[u8; 8] = b"OMADB\x00\x00\x00";
+
+/// The on-disk payload of the [`AptDb`] cache, archived with rkyv. The file
+/// layout is a small header followed by this archive, which is
+/// memory-mapped at load time so a single-package query never deserializes
+/// the whole database.
+#[derive(Debug, Clone, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub(crate) struct AptDbData {
+    /// Map from package name to its versions, each carrying every source it
+    /// is available from — a version seen in several mirrors is stored once.
+    pub(crate) entries: HashMap<String, Vec<PackageVersion>>,
+    /// Native architecture (`APT::Architecture`), used by [`AptDb::fullname`]
+    /// to omit the `:arch` qualifier in the pretty form. Extracted from the
+    /// config at build time and stored with the cache.
+    pub(crate) native_arch: String,
+    /// The lists files this database was built from (filename + size +
+    /// mtime), mirroring apt's PackageFile IMS records. Checked by
+    /// [`crate::cache::valid`] on cache load.
+    pub(crate) files: Vec<CacheFile>,
+}
+
+/// A validated, memory-mapped view of the [`AptDbData`] archive.
+///
+/// Created by [`Self::open`], which maps the cache file and runs a full
+/// rkyv validation pass once. Afterwards [`Self::archived`] hands out
+/// `&ArchivedAptDbData` with zero-copy unchecked access — sound because the
+/// mapping is read-only and was validated at open time. This is the same
+/// trust model as apt's `pkgcache.bin`: the cache file is only as safe as
+/// its writer, and its validity is re-checked via the recorded lists files
+/// before the database is used.
+pub(crate) struct ArchivedAptDb {
+    mmap: Mmap,
+}
+
+impl ArchivedAptDb {
+    /// Map `path` and validate the header + archive. `Err` is returned for
+    /// a missing/unreadable file, a foreign format, or a corrupt archive —
+    /// the caller treats every case as a miss and rebuilds, but logs the
+    /// reason.
+    pub(crate) fn open(path: impl AsRef<Path>) -> std::io::Result<Self> {
+        let file = fs::File::open(path.as_ref())?;
+        // SAFETY: the cache file is only ever written atomically (temp file
+        // + rename) and we map it read-only; the MAP_PRIVATE copy-on-write
+        // mapping stays valid even if the file is replaced or truncated
+        // concurrently, and pages are shared from the page cache.
+        let mmap = unsafe { MmapOptions::new().map_copy_read_only(&file) }?;
+
+        if !cache::header_ok(&mmap, CACHE_MAGIC) {
+            return Err(std::io::Error::other(
+                "unrecognized cache format or version",
+            ));
+        }
+
+        // One full validation pass; afterwards the unchecked accessor below
+        // is sound.
+        rkyv::access::<ArchivedAptDbData, rkyv::rancor::Error>(&mmap[cache::CACHE_HEADER_LEN..])
+            .map_err(|e| std::io::Error::other(format!("cache archive failed validation: {e}")))?;
+
+        Ok(Self { mmap })
+    }
+
+    /// The validated archive.
+    ///
+    /// # Safety
+    ///
+    /// Safe because [`Self::open`] validated the whole archive and `self`
+    /// holds the mapping read-only for the lifetime of the borrow.
+    pub(crate) fn archived(&self) -> &ArchivedAptDbData {
+        // SAFETY: the archive was fully validated in `open` and the mapping
+        // is immutable for `self`'s lifetime.
+        unsafe {
+            rkyv::access_unchecked::<ArchivedAptDbData>(&self.mmap[cache::CACHE_HEADER_LEN..])
+        }
+    }
+}
+
+impl fmt::Debug for ArchivedAptDb {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ArchivedAptDb")
+            .field("len", &self.mmap.len())
+            .finish()
+    }
+}
+
+/// Write `data` as an rkyv archive behind the cache header, atomically (temp
+/// file + rename) so a crash mid-write never leaves a half-written cache
+/// that would later fail validation and force a rebuild.
+fn save_aptdb(path: impl AsRef<Path>, data: &AptDbData) -> std::io::Result<()> {
+    let path = path.as_ref();
+    let archive = rkyv::to_bytes::<rkyv::rancor::Error>(data).map_err(std::io::Error::other)?;
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let mut buf = Vec::with_capacity(cache::CACHE_HEADER_LEN + archive.len());
+    cache::push_header(&mut buf, CACHE_MAGIC);
+    buf.extend_from_slice(&archive);
+
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+
+    let mut file = fs::File::create(&tmp)?;
+    file.write_all(&buf)?;
+    file.sync_all()?;
+    fs::rename(&tmp, path)?;
+
+    Ok(())
+}
+
+/// Deserialize every version of one archived package into owned
+/// [`PackageVersion`]s. Only called on an archive validated by
+/// [`ArchivedAptDb::open`], so the per-version deserialization cannot fail.
+fn deserialize_versions(versions: &ArchivedVec<ArchivedPackageVersion>) -> Vec<PackageVersion> {
+    versions
+        .iter()
+        .map(cache::from_archived::<PackageVersion>)
+        .collect()
+}
 
 /// Errors that can occur when resolving package queries.
 #[derive(Debug, thiserror::Error)]
@@ -80,20 +212,55 @@ fn local_deb_source(path: impl AsRef<Path>) -> IndexSource {
     }
 }
 
+/// Where the package data lives.
+#[derive(Debug)]
+enum Repo {
+    /// Live in-memory data — freshly built databases and in-memory builders
+    /// (tests). Mutations go straight into the map.
+    Owned(HashMap<String, Vec<PackageVersion>>),
+    /// Zero-copy, read-only view over the memory-mapped cache file. Point
+    /// lookups deserialize only the queried package's versions; mutations
+    /// (local `.deb` inserts) land in [`AptDb::overlay`].
+    Archived(ArchivedAptDb),
+}
+
 /// Parse and cache APT package database.
-#[derive(Debug, Clone, SchemaWrite, SchemaRead)]
+///
+/// The data is either owned in memory or — on the common cache-hit path —
+/// memory-mapped from the rkyv cache file (see [`AptDbData`] and
+/// [`ArchivedAptDb`]), so a single-package query like `oma show apt` touches
+/// only the mapped pages of that package instead of deserializing the whole
+/// database. Search/TUI consumers that iterate everything pay one
+/// deserialize per entry — the same total work as the old eager load.
+#[derive(Debug)]
 pub struct AptDb {
-    /// Map from package name to its versions, each carrying every source it
-    /// is available from — a version seen in several mirrors is stored once.
-    pub(crate) entries: HashMap<String, Vec<PackageVersion>>,
+    /// The repository data: owned or memory-mapped.
+    repo: Repo,
+    /// Packages inserted at runtime on top of a memory-mapped repo (local
+    /// `.deb` queries). Empty when the repo is owned, where inserts merge
+    /// directly. A name present here *shadows* the repo entry: its repo
+    /// versions were copied in on first insert, so merges behave exactly
+    /// like the eager database.
+    overlay: HashMap<String, Vec<PackageVersion>>,
     /// Native architecture (`APT::Architecture`), used by [`Self::fullname`]
     /// to omit the `:arch` qualifier in the pretty form. Extracted from the
     /// config at build time and stored with the cache.
     pub(crate) native_arch: String,
-    /// The lists files this database was built from (filename + size +
-    /// mtime), mirroring apt's PackageFile IMS records. Checked by
-    /// [`crate::cache::valid`] on cache load.
-    pub(crate) files: Vec<crate::cache::CacheFile>,
+}
+
+/// Build the package-name → versions map from parsed entries and their
+/// per-entry sources, merging same-version entries into one
+/// [`PackageVersion`] whose source list grows.
+fn build_map(
+    entries: Vec<PackageEntry>,
+    entry_sources: Vec<IndexSource>,
+) -> HashMap<String, Vec<PackageVersion>> {
+    let mut map = HashMap::new();
+    for (e, src) in entries.into_iter().zip(entry_sources) {
+        let pkg = e.package.clone();
+        push_or_merge(map.entry(pkg).or_default(), e, Some(src));
+    }
+    map
 }
 
 /// Push `entry` into `versions`, merging it into the existing entry of the
@@ -115,12 +282,53 @@ fn push_or_merge(
         versions.push(PackageVersion {
             entry,
             sources: source.into_iter().collect(),
-            parsed_version: OnceCell::new(),
         });
     }
 }
 
 impl AptDb {
+    /// All versions of `name` across the repo and any overlay entry: a
+    /// borrow when the data is owned and unshadowed, an owned (deserialized)
+    /// vec when it comes from the memory map or the overlay.
+    fn versions(&self, name: &str) -> Cow<'_, [PackageVersion]> {
+        if let Some(overlay) = self.overlay.get(name) {
+            return Cow::Borrowed(overlay.as_slice());
+        }
+        match &self.repo {
+            Repo::Owned(map) => map
+                .get(name)
+                .map_or(Cow::Borrowed(&[]), |v| Cow::Borrowed(v.as_slice())),
+            Repo::Archived(archived) => archived
+                .archived()
+                .entries
+                .get(name)
+                .map_or(Cow::Borrowed(&[]), |versions| {
+                    Cow::Owned(deserialize_versions(versions))
+                }),
+        }
+    }
+
+    /// The mutable version list for `name`, copying the repo's versions in
+    /// when the repo is memory-mapped (copy-on-write: overlay entries shadow
+    /// the repo so merges keep the eager semantics).
+    fn mutate_versions(&mut self, name: &str) -> &mut Vec<PackageVersion> {
+        if !self.overlay.contains_key(name) {
+            match &mut self.repo {
+                Repo::Owned(map) => return map.entry(name.to_string()).or_default(),
+                Repo::Archived(archived) => {
+                    let existing = archived
+                        .archived()
+                        .entries
+                        .get(name)
+                        .map(deserialize_versions);
+                    self.overlay
+                        .insert(name.to_string(), existing.unwrap_or_default());
+                }
+            }
+        }
+        self.overlay.get_mut(name).expect("inserted above")
+    }
+
     /// Build from entries without source tracking: every version is stored
     /// with no sources. Used by tests and in-memory builders.
     #[allow(dead_code)]
@@ -132,9 +340,9 @@ impl AptDb {
             push_or_merge(versions, e, None);
         }
         Self {
-            entries: map,
+            repo: Repo::Owned(map),
+            overlay: HashMap::new(),
             native_arch: native_arch.to_string(),
-            files: Vec::new(),
         }
     }
 
@@ -147,8 +355,7 @@ impl AptDb {
     /// `APT-Sources` entry.
     pub fn insert(&mut self, entry: PackageEntry) {
         let name = entry.package.clone();
-        let versions = self.entries.entry(name).or_default();
-        push_or_merge(versions, entry, None);
+        push_or_merge(self.mutate_versions(&name), entry, None);
     }
 
     /// Insert a package entry together with its source, merging into the
@@ -156,8 +363,7 @@ impl AptDb {
     /// sources stays one version whose source list grows.
     pub fn insert_with_source(&mut self, entry: PackageEntry, source: IndexSource) {
         let name = entry.package.clone();
-        let versions = self.entries.entry(name).or_default();
-        push_or_merge(versions, entry, Some(source));
+        push_or_merge(self.mutate_versions(&name), entry, Some(source));
     }
 
     /// Parse a local `.deb` file and insert its control entry into the
@@ -259,33 +465,33 @@ impl AptDb {
         })
     }
 
-    /// Build from entries with parallel source tracking.
+    /// Build from entries with parallel source tracking. Test-only: the
+    /// cache path builds its own map via [`build_map`].
+    #[cfg(test)]
     pub(crate) fn from_entries_with_sources(
         native_arch: &str,
         entries: Vec<PackageEntry>,
         entry_sources: Vec<IndexSource>,
     ) -> Self {
-        let mut map: HashMap<String, Vec<PackageVersion>> = HashMap::new();
-        for (e, src) in entries.into_iter().zip(entry_sources) {
-            let pkg = e.package.clone();
-            let versions = map.entry(pkg).or_default();
-            push_or_merge(versions, e, Some(src));
-        }
         Self {
-            entries: map,
+            repo: Repo::Owned(build_map(entries, entry_sources)),
+            overlay: HashMap::new(),
             native_arch: native_arch.to_string(),
-            files: Vec::new(),
         }
     }
 
-    /// Load from a binary cache file, or build from scratch if the cache
-    /// is missing or stale.
+    /// Load from the memory-mapped cache, or build from scratch if the
+    /// cache is missing, foreign or stale.
     ///
     /// `apt_cfg` supplies everything: the lists directory
     /// (`Dir::State::lists`), the cache path (`Dir::Cache::oma-aptdb`) and
     /// the `sources.list`-derived [`SourceLookup`] that drives which lists
     /// files are read. The native architecture (`APT::Architecture`) is
     /// extracted here for [`Self::fullname`].
+    ///
+    /// On a cache hit the database is zero-copy: the file is memory-mapped
+    /// and only the queried package's pages are read, so a single-package
+    /// `oma show` never deserializes the whole database.
     pub fn load_or_build(apt_cfg: &AptConfig) -> Result<Self, crate::error::Error> {
         let lists_dir = apt_cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
         let cache_path =
@@ -294,43 +500,70 @@ impl AptDb {
         let lookup = SourceLookup::build(apt_cfg);
         let archs = apt_cfg.architectures();
 
-        // Try the on-disk cache: load it, then check the lists files it
-        // records having been built from against the current state
-        // (mirroring apt's CheckValidity).
-        if let Ok(db) = cache::load::<Self>(&cache_path)
-            && cache::valid(&cache_path, &lists_dir, &lookup, &archs, &db.files)
-        {
-            debug!(
-                "oma packages database cache hit: {}",
-                Path::new(&cache_path).display()
-            );
-            return Ok(db);
+        // Try the on-disk cache: map and validate it, then check the lists
+        // files it records having been built from against the current state
+        // (mirroring apt's CheckValidity). An unusable cache — missing,
+        // foreign, or corrupt — is logged and treated as a miss.
+        let archived = match ArchivedAptDb::open(&cache_path) {
+            Ok(archived) => Some(archived),
+            Err(e) => {
+                debug!("oma packages database cache unusable: {e}");
+                None
+            }
+        };
+
+        if let Some(archived) = archived {
+            let files: Vec<CacheFile> = archived
+                .archived()
+                .files
+                .as_slice()
+                .iter()
+                .map(cache::from_archived::<CacheFile>)
+                .collect();
+
+            if cache::valid(&cache_path, &lists_dir, &lookup, &archs, &files) {
+                let native_arch = archived.archived().native_arch.to_string();
+                debug!("oma packages database cache hit: {}", cache_path);
+                return Ok(Self {
+                    repo: Repo::Archived(archived),
+                    overlay: HashMap::new(),
+                    native_arch,
+                });
+            }
         }
 
-        debug!(
-            "oma packages database cache miss: {}",
-            Path::new(&cache_path).display()
-        );
+        debug!("oma packages database cache miss: {}", cache_path);
 
         let (entries, sources) = parse_apt_lists_dir_with_sources(&lists_dir, &lookup, &archs)?;
-        let mut db = Self::from_entries_with_sources(&native_arch, entries, sources);
-        db.files = cache::collect(&lists_dir, &lookup, &archs);
+        let files = cache::collect(&lists_dir, &lookup, &archs);
+        let data = AptDbData {
+            entries: build_map(entries, sources),
+            native_arch: native_arch.to_string(),
+            files,
+        };
 
-        if let Err(e) = cache::save(&cache_path, &db) {
+        if let Err(e) = save_aptdb(&cache_path, &data) {
             debug!("Failed to save oma packages database cache: {e}");
         } else {
-            debug!(
-                "oma packages database cache saved: {}",
-                Path::new(&cache_path).display()
-            );
+            debug!("oma packages database cache saved: {}", cache_path);
         }
 
-        Ok(db)
+        Ok(Self {
+            repo: Repo::Owned(data.entries),
+            overlay: HashMap::new(),
+            native_arch: data.native_arch,
+        })
     }
 
     /// Check if a package name exists in the database.
     pub fn has_package(&self, name: &str) -> bool {
-        self.entries.contains_key(name)
+        if self.overlay.contains_key(name) {
+            return true;
+        }
+        match &self.repo {
+            Repo::Owned(map) => map.contains_key(name),
+            Repo::Archived(archived) => archived.archived().entries.contains_key(name),
+        }
     }
 
     /// The display full name of an entry, `name:arch`, using this database's
@@ -342,79 +575,128 @@ impl AptDb {
         entry.fullname(pretty, &self.native_arch)
     }
 
-    /// Get the candidate entry for a package name (highest version).
-    pub fn get_candidate(&self, name: &str) -> Option<&PackageEntry> {
-        self.entries
-            .get(name)?
-            .iter()
-            .max_by_key(|v| v.parsed_version())
-            .map(|v| &v.entry)
+    /// The candidate entry for a package name (highest version), as an
+    /// owned copy (deserialized from the memory map, or cloned from owned
+    /// data).
+    pub fn get_candidate(&self, name: &str) -> Option<PackageEntry> {
+        PackageIndex::get_candidate(self, name).map(|v| v.into_owned().entry)
     }
 
-    /// Get a specific version entry for a package name.
-    pub fn get(&self, name: &str, version: &str) -> Vec<&PackageEntry> {
-        self.entries
-            .get(name)
-            .into_iter()
+    /// Iterate the entries of `name` matching `version` exactly.
+    ///
+    /// Borrowed from the in-memory map when the repo is owned, owned
+    /// (deserialized on the fly) when it comes from the memory map. The
+    /// filter closure captures `version`, so the returned iterator is
+    /// bounded by both `self` and `version`.
+    pub fn get<'a>(
+        &'a self,
+        name: &str,
+        version: &'a str,
+    ) -> Box<dyn Iterator<Item = Cow<'a, PackageEntry>> + 'a> {
+        let versions = self.versions(name);
+        match versions {
+            Cow::Borrowed(slice) => Box::new(
+                slice
+                    .iter()
+                    .filter(move |v| v.entry.version.as_deref().is_some_and(|v| v == version))
+                    .map(|v| Cow::Borrowed(&v.entry)),
+            ),
+            Cow::Owned(vec) => Box::new(
+                vec.into_iter()
+                    .filter(move |v| v.entry.version.as_deref().is_some_and(|v| v == version))
+                    .map(|v| Cow::Owned(v.entry)),
+            ),
+        }
+    }
+
+    /// Iterate over all package entries (across all names and versions).
+    ///
+    /// Borrowed from the in-memory map when the repo is owned, owned
+    /// (deserialized on the fly) when it comes from the memory map — mapped
+    /// data is an rkyv archive, not a [`PackageEntry`], so it must be
+    /// materialized. Only the entry is deserialized, not the version's
+    /// source list. Consumers that need everything — search indexes — pay
+    /// one copy/deserialize per entry, the same total work as an eager
+    /// load.
+    pub fn entries(&self) -> impl Iterator<Item = Cow<'_, PackageEntry>> + '_ {
+        let overlay = self
+            .overlay
+            .values()
             .flatten()
-            .filter(|v| v.entry.version.as_deref() == Some(version))
-            .map(|v| &v.entry)
-            .collect()
-    }
+            .map(|v| Cow::Borrowed(&v.entry));
 
-    /// Iterate over all package entries (across all names).
-    pub fn entries(&self) -> impl Iterator<Item = &PackageEntry> {
-        self.entries.values().flatten().map(|v| &v.entry)
+        let repo: Box<dyn Iterator<Item = Cow<'_, PackageEntry>> + '_> = match &self.repo {
+            Repo::Owned(map) => Box::new(map.values().flatten().map(|v| Cow::Borrowed(&v.entry))),
+            Repo::Archived(archived) => Box::new(
+                archived
+                    .archived()
+                    .entries
+                    .iter()
+                    .flat_map(|(_, versions)| versions.iter())
+                    .map(|v| Cow::Owned(cache::from_archived::<PackageEntry>(&v.entry))),
+            ),
+        };
+
+        overlay.chain(repo)
     }
 
     /// Find all entries matching a package name.
-    pub fn get_all(&self, name: &str) -> Vec<&PackageEntry> {
-        self.entries
-            .get(name)
-            .into_iter()
-            .flatten()
-            .map(|v| &v.entry)
-            .collect()
+    pub fn get_all(&self, name: &str) -> Box<dyn Iterator<Item = Cow<'_, PackageEntry>> + '_> {
+        match self.versions(name) {
+            Cow::Borrowed(slice) => Box::new(slice.iter().map(|v| Cow::Borrowed(&v.entry))),
+            Cow::Owned(vec) => Box::new(vec.into_iter().map(|v| Cow::Owned(v.entry))),
+        }
     }
 
     /// Number of distinct versions of a package across the whole database.
     /// Versions are already deduplicated (each [`PackageVersion`] is one
-    /// version), so this is simply the entry count.
+    /// version), so this is simply the version count.
     pub(crate) fn distinct_version_count(&self, name: &str) -> usize {
-        self.entries.get(name).map_or(0, Vec::len)
+        self.versions(name).len()
     }
 }
 
 impl PackageIndex for AptDb {
     fn has_package(&self, name: &str) -> bool {
-        self.entries.contains_key(name)
+        AptDb::has_package(self, name)
     }
 
     fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_> {
-        Box::new(self.entries.keys().map(|s| s.as_str()))
+        let overlay = self.overlay.keys().map(|s| s.as_str());
+        let repo: Box<dyn Iterator<Item = &str> + '_> = match &self.repo {
+            Repo::Owned(map) => Box::new(map.keys().map(|s| s.as_str())),
+            Repo::Archived(archived) => {
+                Box::new(archived.archived().entries.iter().map(|(k, _)| k.as_str()))
+            }
+        };
+        // Overlay names shadow repo names (dedup by name).
+        Box::new(overlay.chain(repo.filter(move |n| !self.overlay.contains_key(*n))))
     }
 
     fn get_all(&self, name: &str) -> Cow<'_, [PackageVersion]> {
-        match self.entries.get(name) {
-            Some(v) => Cow::Borrowed(v.as_slice()),
-            None => Cow::Borrowed(&[]),
-        }
+        self.versions(name)
     }
 
     fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>> {
-        self.entries
-            .get(name)?
-            .iter()
-            .max_by_key(|v| v.parsed_version())
-            .map(Cow::Borrowed)
+        let versions = self.versions(name);
+        let best = versions.iter().max_by_key(|v| v.parsed_version())?;
+        // One owned copy of the best version (clone from owned data, or
+        // already-deserialized data).
+        Some(Cow::Owned(best.clone()))
     }
 
     fn get_version(&self, name: &str, version: &str) -> Option<Cow<'_, PackageVersion>> {
-        self.entries
-            .get(name)?
-            .iter()
-            .find(|v| v.entry.version.as_deref() == Some(version))
-            .map(Cow::Borrowed)
+        let versions = self.versions(name);
+        match versions {
+            Cow::Borrowed(slice) => slice
+                .iter()
+                .find(|v| v.entry.version.as_deref() == Some(version))
+                .map(Cow::Borrowed),
+            Cow::Owned(vec) => vec
+                .into_iter()
+                .find(|v| v.entry.version.as_deref() == Some(version))
+                .map(Cow::Owned),
+        }
     }
 }
 
@@ -459,7 +741,7 @@ mod tests {
         db.insert(entry("localpkg", "1.0"));
 
         assert!(db.has_package("localpkg"));
-        let all = db.get_all("localpkg");
+        let all = db.get_all("localpkg").collect::<Vec<_>>();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].version.as_deref(), Some("1.0"));
 
@@ -474,7 +756,7 @@ mod tests {
         let mut db = AptDb::from_entries("", vec![entry("localpkg", "1.0")]);
         db.insert(entry("localpkg", "2.0"));
 
-        let all = db.get_all("localpkg");
+        let all = db.get_all("localpkg").collect::<Vec<_>>();
         assert_eq!(all.len(), 2);
     }
 
@@ -578,5 +860,146 @@ mod tests {
         assert_eq!(db.distinct_version_count("fish"), 2);
         assert_eq!(db.distinct_version_count("apt"), 1);
         assert_eq!(db.distinct_version_count("nosuchpkg"), 0);
+    }
+
+    fn stable_source() -> IndexSource {
+        IndexSource {
+            base_url: "https://example.com/debs".to_string(),
+            suite: "stable".to_string(),
+            component: Some("main".to_string()),
+            arch: Some("amd64".to_string()),
+        }
+    }
+
+    /// Write an `AptDbData` to a temp cache file, map it back through the
+    /// memory-mapped path and verify the zero-copy view matches the input.
+    /// Also exercises `&str` lookups against the archived `HashMap`.
+    #[test]
+    fn test_cache_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("oma-aptdb.bincode");
+
+        let data = AptDbData {
+            entries: build_map(
+                vec![
+                    entry("fish", "3.6"),
+                    entry("fish", "3.7"),
+                    entry("apt", "2.5.4"),
+                ],
+                vec![stable_source(), stable_source(), stable_source()],
+            ),
+            native_arch: "amd64".to_string(),
+            files: Vec::new(),
+        };
+        save_aptdb(&path, &data).unwrap();
+
+        let archived = ArchivedAptDb::open(&path).expect("round-tripped cache opens");
+        let view = archived.archived();
+
+        assert_eq!(view.native_arch.as_str(), "amd64");
+        assert_eq!(view.entries.len(), 2);
+        assert!(view.entries.contains_key("apt"));
+
+        // `&str` query against `ArchivedHashMap<ArchivedString, _>`.
+        let fish = view.entries.get("fish").expect("fish present");
+        assert_eq!(fish.len(), 2);
+        assert_eq!(fish[0].entry.package.as_str(), "fish");
+        assert_eq!(fish[0].entry.version.as_ref().unwrap().as_str(), "3.6");
+        assert_eq!(fish[1].entry.version.as_ref().unwrap().as_str(), "3.7");
+        assert_eq!(fish[0].sources.len(), 1);
+        assert_eq!(fish[0].sources[0].suite.as_str(), "stable");
+
+        // A foreign or corrupt file must be rejected, not crash.
+        let garbage = dir.path().join("garbage");
+        std::fs::write(&garbage, b"this is not a cache file").unwrap();
+        assert!(ArchivedAptDb::open(&garbage).is_err());
+        let truncated = dir.path().join("truncated");
+        std::fs::write(&truncated, &[b'O', b'M', b'A', b'D', b'B']).unwrap();
+        assert!(ArchivedAptDb::open(&truncated).is_err());
+    }
+
+    /// A memory-mapped repo: point lookups deserialize only the queried
+    /// package, and inserting a local `.deb` copy-on-writes the repo's
+    /// versions into the overlay and merges — same result as the eager db.
+    #[test]
+    fn test_archived_repo_overlay_merge() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("oma-aptdb.bincode");
+
+        let data = AptDbData {
+            entries: build_map(vec![entry("hello", "2.10-2")], vec![stable_source()]),
+            native_arch: "amd64".to_string(),
+            files: Vec::new(),
+        };
+        save_aptdb(&path, &data).unwrap();
+
+        let mut db = AptDb {
+            repo: Repo::Archived(ArchivedAptDb::open(&path).unwrap()),
+            overlay: HashMap::new(),
+            native_arch: "amd64".to_string(),
+        };
+
+        // Point lookup straight from the mapping.
+        let all = <AptDb as PackageIndex>::get_all(&db, "hello");
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].entry.version.as_deref(), Some("2.10-2"));
+        assert_eq!(all[0].sources.len(), 1);
+        assert!(db.has_package("hello"));
+        assert!(!db.has_package("nosuchpkg"));
+
+        // Insert a local `.deb` of the same version: repo versions are
+        // copied into the overlay (which shadows the repo) and merged, so
+        // the version's source list carries both entries.
+        db.insert_with_source(
+            entry("hello", "2.10-2"),
+            IndexSource {
+                base_url: "file:/tmp/hello_2.10-2_amd64.deb".to_string(),
+                suite: "local-deb".to_string(),
+                component: Some("local-deb".to_string()),
+                arch: None,
+            },
+        );
+
+        let merged = <AptDb as PackageIndex>::get_all(&db, "hello");
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].sources.len(), 2);
+        assert!(merged[0].sources.iter().any(|s| s.suite == "stable"));
+        assert!(merged[0].sources.iter().any(|s| s.suite == "local-deb"));
+        assert_eq!(db.distinct_version_count("hello"), 1);
+    }
+
+    /// `resolve_queries` works against a memory-mapped repo, matching a
+    /// query by deserializing just that package's versions.
+    #[test]
+    fn test_archived_repo_resolve_queries() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("oma-aptdb.bincode");
+
+        let data = AptDbData {
+            entries: build_map(
+                vec![entry("fish", "3.6"), entry("fish", "3.7")],
+                vec![stable_source(), stable_source()],
+            ),
+            native_arch: "amd64".to_string(),
+            files: Vec::new(),
+        };
+        save_aptdb(&path, &data).unwrap();
+
+        let mut db = AptDb {
+            repo: Repo::Archived(ArchivedAptDb::open(&path).unwrap()),
+            overlay: HashMap::new(),
+            native_arch: "amd64".to_string(),
+        };
+
+        let resolution = db
+            .resolve_queries(vec!["fish".into(), "nosuchpkg".into()])
+            .unwrap();
+
+        assert_eq!(resolution.groups.len(), 1);
+        let versions = &resolution.groups[0];
+        assert_eq!(versions.len(), 2);
+        assert!(versions.iter().all(|v| v.entry.package == "fish"));
+        assert_eq!(resolution.version_counts, vec![2]);
+        assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
     }
 }

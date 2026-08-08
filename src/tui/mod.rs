@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use clap::Args;
 use oma_apt_pkg::AptConfig;
-use oma_apt_pkg::apt_sources::SourceLookup;
 use oma_apt_pkg::search::{IndiciumSearch, OmaSearch, SearchResult, SearchType};
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::apt::{OmaApt, OmaAptArgs, Upgrade};
@@ -223,27 +222,14 @@ fn local_searcher(
     apt_cfg: &AptConfig,
     pb: &crate::pb::ProgressBar,
 ) -> Result<Searcher, OutputError> {
-    let lists_dir = apt_cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
     let dpkg_path = apt_cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
-    let search_cache =
-        crate::utils::get_apt_cache_path("Dir::Cache::oma-search", "oma-search.bincode");
 
     let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path)?;
     let apt_db = oma_apt_pkg::AptDb::load_or_build(apt_cfg)?;
 
-    let lookup = SourceLookup::build(apt_cfg);
-    let archs = apt_cfg.architectures();
-    let searcher = IndiciumSearch::new_with_cache(
-        &apt_db,
-        &dpkg,
-        &lists_dir,
-        &lookup,
-        &archs,
-        &search_cache,
-        SearchType::Live,
-        |n| {
+    let searcher =
+        IndiciumSearch::new_with_cache(&apt_db, &dpkg, apt_cfg, SearchType::Live, |n| {
             pb.set_message(fl!("reading-database-with-count", count = n));
-        },
-    )?;
+        })?;
     Ok(Searcher::Local(Box::new(searcher)))
 }

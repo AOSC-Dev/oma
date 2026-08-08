@@ -8,7 +8,6 @@
 //! packages need to be looked up, saving memory and I/O on the bulk parse.
 
 use std::borrow::Cow;
-use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
@@ -334,7 +333,6 @@ impl PackageIndex for AptListsReader {
                 versions.push(PackageVersion {
                     entry: pkg,
                     sources: vec![source.clone()],
-                    parsed_version: OnceCell::new(),
                 });
             }
         }
@@ -343,11 +341,12 @@ impl PackageIndex for AptListsReader {
 
     fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>> {
         // `get_all` parses on demand, so the slice is always owned — consume
-        // it and move the candidate out instead of cloning.
+        // it and move the candidate out instead of cloning. `max_by_key`
+        // parses each version once.
         self.get_all(name)
             .into_owned()
             .into_iter()
-            .max_by(|a, b| a.parsed_version().cmp(&b.parsed_version()))
+            .max_by_key(|v| v.parsed_version())
             .map(Cow::Owned)
     }
 }
