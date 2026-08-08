@@ -15,7 +15,6 @@ apt-lists = [
     "dep:wincode",
     "dep:spdlog-rs",
     "dep:glob-match",
-    "dep:debian-control",
     "dep:ar",
     "dep:tar",
     "dep:flate2",
@@ -32,7 +31,6 @@ search-indicium = [
     "dep:ahash",
     "dep:debversion",
     "dep:glob-match",
-    "dep:winnow",
     "dep:indicium",
 ]
 search-strsim = [
@@ -41,7 +39,6 @@ search-strsim = [
     "dep:ahash",
     "dep:debversion",
     "dep:glob-match",
-    "dep:winnow",
     "dep:strsim",
     "dep:memchr",
 ]
@@ -51,7 +48,6 @@ search-text = [
     "dep:ahash",
     "dep:debversion",
     "dep:glob-match",
-    "dep:winnow",
     "dep:memchr",
 ]
 
@@ -59,7 +55,7 @@ search = ["search-indicium", "search-strsim", "search-text"]
 
 [dependencies]
 deb822-fast = { workspace = true }
-debian-control = { workspace = true, optional = true }
+debian-control = { workspace = true }
 oma-apt-sources-lists = { workspace = true, optional = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
@@ -78,7 +74,6 @@ debversion = { workspace = true, optional = true }
 glob-match = { workspace = true, optional = true }
 memchr = { workspace = true, optional = true }
 strsim = { workspace = true, optional = true }
-winnow = { workspace = true, optional = true }
 tree-sitter = { workspace = true, optional = true }
 tree-sitter-language = { workspace = true, optional = true }
 aho-corasick = { workspace = true, optional = true }

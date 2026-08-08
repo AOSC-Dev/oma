@@ -1165,6 +1165,7 @@ dependencies = [
  "debversion",
  "regex",
  "rowan",
+ "serde",
  "url",
 ]
 
@@ -3428,7 +3429,6 @@ dependencies = [
  "tree-sitter-language",
  "url",
  "wincode",
- "winnow",
  "zstd",
 ]
 

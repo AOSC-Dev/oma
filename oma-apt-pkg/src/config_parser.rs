@@ -242,10 +242,18 @@ impl AptConfig {
 
 // -- Architecture detection ------------------------------------------------
 
+/// Resolve the host Debian architecture.
+///
+/// `dpkg --print-architecture` is the C binary printing its compiled-in
+/// native arch (the `ARCHITECTURE` macro from dpkg's `config.h`) — ~2ms,
+/// versus ~23ms for the Perl `dpkg-architecture`. It is what apt itself
+/// uses for `APT::Architecture`, so it always matches the system dpkg: both
+/// the AOSC fork's renames (`i486`, `loongarch64`, `loongson2f`) and
+/// upstream's (`i386`, `loong64`, `mips64el`), including endianness and
+/// float-ABI distinctions (armel/armhf, ppc64/ppc64el) that Rust's
+/// `env::consts::ARCH` cannot express — no table parsing or guessing.
 pub(crate) fn detect_arch() -> Result<String, std::io::Error> {
-    let out = Command::new("dpkg-architecture")
-        .arg("-qDEB_HOST_ARCH")
-        .output()?;
+    let out = Command::new("dpkg").arg("--print-architecture").output()?;
 
     if out.status.success() {
         let arch = String::from_utf8_lossy(&out.stdout).trim().to_string();
@@ -256,7 +264,7 @@ pub(crate) fn detect_arch() -> Result<String, std::io::Error> {
 
     Err(std::io::Error::new(
         std::io::ErrorKind::NotFound,
-        "could not detect architecture via dpkg-architecture",
+        "could not detect architecture via `dpkg --print-architecture`",
     ))
 }
 
@@ -295,6 +303,21 @@ fn unescape_string(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use crate::AptConfig;
+
+    /// `detect_arch` must agree with the real `dpkg-architecture` on the
+    /// build host; a mismatch (e.g. `dpkg --print-architecture` not being
+    /// the host arch) would surface here.
+    #[test]
+    fn test_detect_arch_matches_dpkg_architecture() {
+        let ours = super::detect_arch().unwrap();
+        let out = std::process::Command::new("dpkg-architecture")
+            .arg("-qDEB_HOST_ARCH")
+            .output()
+            .expect("dpkg-architecture should be installed");
+        assert!(out.status.success());
+        let dpkg = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        assert_eq!(ours, dpkg);
+    }
 
     #[test]
     fn test_parse_simple_key_value() {

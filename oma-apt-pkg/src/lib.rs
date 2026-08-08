@@ -21,12 +21,6 @@ pub mod apt_sources;
 pub use apt_config::*;
 #[cfg(feature = "apt-config")]
 pub(crate) mod config_parser;
-#[cfg(any(
-    feature = "search-indicium",
-    feature = "search-strsim",
-    feature = "search-text"
-))]
-mod dep;
 mod dpkg;
 mod dpkg_state;
 pub mod extended_states;
@@ -45,12 +39,6 @@ pub mod search;
 #[cfg(feature = "apt-lists")]
 pub use apt_db::*;
 pub use apt_lists::*;
-#[cfg(any(
-    feature = "search-indicium",
-    feature = "search-strsim",
-    feature = "search-text"
-))]
-pub use dep::*;
 pub use dpkg::*;
 pub use dpkg_state::*;
 pub use error::*;

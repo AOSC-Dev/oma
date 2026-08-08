@@ -44,14 +44,17 @@ pub struct AptExtendedStates {
 
 impl AptExtendedStates {
     /// Parse the extended states file at the given path.
+    ///
+    /// The file is streamed paragraph by paragraph via
+    /// [`Deb822::iter_paragraphs_from_reader`] — only one paragraph is in
+    /// memory at a time instead of the whole file. Malformed paragraphs are
+    /// skipped (best-effort), like elsewhere in this crate.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, ExtendedStatesError> {
         let file = std::fs::File::open(path.as_ref())?;
-        let deb822 = Deb822::from_reader(file)?;
 
-        let auto_installed = deb822
-            .iter()
+        let auto_installed = Deb822::iter_paragraphs_from_reader(std::io::BufReader::new(file))
             .filter_map(|para| {
-                let entry = ExtendedStateEntry::from_paragraph(para).ok()?;
+                let entry = ExtendedStateEntry::from_paragraph(&para.ok()?).ok()?;
                 let is_auto = entry
                     .auto_installed
                     .as_deref()

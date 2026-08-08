@@ -11,6 +11,7 @@ use std::io::Read;
 use std::path::Path;
 
 use ar::Archive;
+use deb822_fast::{Deb822, FromDeb822Paragraph};
 use thiserror::Error;
 
 use crate::apt_lists::PackageEntry;
@@ -65,37 +66,20 @@ pub fn read_control_from_reader(reader: impl Read) -> Result<String, DebError> {
     Err(DebError::MissingControlTar)
 }
 
-/// Parse the `control` file text into a [`PackageEntry`] using
-/// `debian-control`'s lossy APT model.
+/// Parse the `control` file text into a [`PackageEntry`] using the same
+/// deb822-fast path as the apt lists files. Dependency fields stay as raw
+/// text — no `Relations` parsing happens here; consumers that need the
+/// parsed form (e.g. search for `Provides` names) parse on demand.
 pub fn parse_control_entry(control: &str) -> Result<PackageEntry, DebError> {
-    use debian_control::lossy::apt::Package;
+    let deb822 = control
+        .parse::<Deb822>()
+        .map_err(|e| DebError::Parse(e.to_string()))?;
+    let paragraph = deb822
+        .iter()
+        .next()
+        .ok_or_else(|| DebError::Parse("missing control paragraph".to_string()))?;
 
-    let pkg: Package = control.parse().map_err(DebError::Parse)?;
-
-    Ok(PackageEntry {
-        package: pkg.name,
-        version: Some(pkg.version.to_string()),
-        architecture: Some(pkg.architecture),
-        description: pkg.description,
-        description_md5: pkg.description_md5,
-        maintainer: pkg.maintainer,
-        installed_size: pkg.installed_size.map(|s| s as u64),
-        depends: pkg.depends.map(|r| r.to_string()),
-        pre_depends: pkg.pre_depends.map(|r| r.to_string()),
-        recommends: pkg.recommends.map(|r| r.to_string()),
-        suggests: pkg.suggests.map(|r| r.to_string()),
-        breaks: pkg.breaks.map(|r| r.to_string()),
-        conflicts: pkg.conflicts.map(|r| r.to_string()),
-        replaces: pkg.replaces.map(|r| r.to_string()),
-        provides: pkg.provides.map(|r| r.to_string()),
-        section: pkg.section,
-        priority: pkg.priority.map(|p| p.to_string()),
-        homepage: pkg.homepage,
-        multi_arch: pkg.multi_arch.map(|m| m.to_string()),
-        filename: pkg.filename,
-        size: pkg.size.map(|s| s as u64),
-        sha256: pkg.sha256,
-    })
+    PackageEntry::from_paragraph(paragraph).map_err(DebError::Parse)
 }
 
 /// Decompress a `control.tar.*` member into a streaming reader.

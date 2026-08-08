@@ -11,13 +11,14 @@ use std::str::FromStr;
 use ahash::RandomState;
 #[cfg(any(feature = "search-strsim", feature = "search-text"))]
 use glob_match::glob_match;
+use debian_control::lossy::Relations;
 use serde::{Deserialize, Serialize};
 use spdlog::debug;
 use wincode::{SchemaRead, SchemaWrite};
 
 use crate::apt_sources::SourceLookup;
 use crate::cache::CacheFile;
-use crate::{AptDb, DpkgState, parse_dep_list};
+use crate::{AptDb, DpkgState};
 
 #[cfg(feature = "search-indicium")]
 pub use indicium::simple::SearchType;
@@ -274,7 +275,11 @@ impl IndiciumSearch {
             let provides: IndexSet<String> = entry
                 .provides
                 .as_deref()
-                .map(|v| parse_dep_list(v).into_iter().map(|d| d.name).collect())
+                .map(|s| {
+                    s.parse::<Relations>()
+                        .map(|r| r.iter().flatten().map(|d| d.name.clone()).collect())
+                        .unwrap_or_default()
+                })
                 .unwrap_or_default();
 
             let has_dbg = apt_db.has_package(&format!("{name}-dbg"));
@@ -332,7 +337,11 @@ impl IndiciumSearch {
                 let provides: IndexSet<String> = entry
                     .provides
                     .as_deref()
-                    .map(|v| parse_dep_list(v).into_iter().map(|d| d.name).collect())
+                    .map(|s| {
+                        s.parse::<Relations>()
+                            .map(|r| r.iter().flatten().map(|d| d.name.clone()).collect())
+                            .unwrap_or_default()
+                    })
                     .unwrap_or_default();
 
                 let section_is_base = entry.section.as_deref().is_some_and(|s| s == "Bases");
