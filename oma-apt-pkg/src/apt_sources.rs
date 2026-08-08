@@ -316,34 +316,35 @@ pub fn substitute(
     }
 }
 
-/// The variables that made a template match.
+/// The variables that made a template match, borrowed from the input
+/// `archs`/`components`/`langs` slices — no allocation per match.
 #[derive(Debug, Clone)]
-pub struct MatchResult {
-    pub arch: String,
-    pub component: String,
-    pub lang: String,
+pub struct MatchResult<'a> {
+    pub arch: &'a str,
+    pub component: &'a str,
+    pub lang: &'a str,
 }
 
 /// Try all combinations of `release x archs × components × langs` and return every
 /// set of variables for which the template matches.
-pub fn find_matching_combinations(
+pub fn find_matching_combinations<'a>(
     template: &str,
     release: &str,
     filename: &str,
-    archs: &[&str],
-    components: &[&str],
-    langs: &[&str],
+    archs: &[&'a str],
+    components: &[&'a str],
+    langs: &[&'a str],
     native_arch: &str,
-) -> Vec<MatchResult> {
+) -> Vec<MatchResult<'a>> {
     let mut results = Vec::new();
-    for a in archs {
-        for comp in components {
-            for lang in langs {
+    for &a in archs {
+        for &comp in components {
+            for &lang in langs {
                 if substitute(template, release, comp, a, lang, native_arch) == filename {
                     results.push(MatchResult {
-                        arch: a.to_string(),
-                        component: comp.to_string(),
-                        lang: lang.to_string(),
+                        arch: a,
+                        component: comp,
+                        lang,
                     });
                 }
             }

@@ -188,9 +188,9 @@ impl<'a> IndexTargetConfig<'a> {
                             substitute(
                                 &desc,
                                 release,
-                                &m.component,
-                                &m.arch,
-                                &m.lang,
+                                m.component,
+                                m.arch,
+                                m.lang,
                                 self.native_arch,
                             )
                         };

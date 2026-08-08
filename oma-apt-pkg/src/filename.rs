@@ -20,14 +20,14 @@ use aho_corasick::AhoCorasick;
 use url::{Host, Url};
 
 /// Errors that can occur during APT list filename encoding or decoding.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum FilenameError {
     /// The Aho-Corasick replacement engine failed.
     #[error("filename replacement failed: {0}")]
-    Replace(String),
+    Replace(#[from] std::io::Error),
     /// The output of the replacement was not valid UTF-8.
     #[error("filename output is not valid utf-8: {0}")]
-    InvalidUtf8(String),
+    InvalidUtf8(#[from] std::string::FromUtf8Error),
 }
 
 /// Result type for [`AptListFilename`] operations.
@@ -125,10 +125,13 @@ impl AptListFilename {
         };
 
         let mut buf = Vec::new();
-        self.encoder
-            .try_stream_replace_all(host_path.as_bytes(), &mut buf, Self::ENCODE_REPLACE)
-            .map_err(|e| FilenameError::Replace(e.to_string()))?;
-        String::from_utf8(buf).map_err(|e| FilenameError::InvalidUtf8(e.to_string()))
+        self.encoder.try_stream_replace_all(
+            host_path.as_bytes(),
+            &mut buf,
+            Self::ENCODE_REPLACE,
+        )?;
+
+        String::from_utf8(buf).map_err(FilenameError::InvalidUtf8)
     }
 
     /// Decode an APT list filename stem back to the original host+path.
@@ -141,9 +144,9 @@ impl AptListFilename {
     pub fn decode(&self, input: &str) -> FilenameResult<String> {
         let mut buf = Vec::new();
         self.decoder
-            .try_stream_replace_all(input.as_bytes(), &mut buf, Self::DECODE_REPLACE)
-            .map_err(|e| FilenameError::Replace(e.to_string()))?;
-        String::from_utf8(buf).map_err(|e| FilenameError::InvalidUtf8(e.to_string()))
+            .try_stream_replace_all(input.as_bytes(), &mut buf, Self::DECODE_REPLACE)?;
+
+        String::from_utf8(buf).map_err(FilenameError::InvalidUtf8)
     }
 }
 
