@@ -261,55 +261,6 @@ impl PackageVersion {
     }
 }
 
-/// Common interface for package data sources.
-///
-/// Both [`AptDb`](crate::AptDb) (eager, cached) and
-/// [`AptListsReader`](crate::AptListsReader) (lazy, offset-based) implement
-/// this, allowing consumers to switch between them transparently.
-///
-/// The unit of data is a [`PackageVersion`] — one record per (package,
-/// version) carrying every source it is available from — rather than a
-/// per-source row, so a version shared by several mirrors is stored once.
-///
-/// Methods return [`Cow`] so that implementations owning the data can
-/// borrow a slice/value, while implementations that parse on demand can
-/// return owned data.
-pub trait PackageIndex {
-    /// Check whether a package name exists.
-    fn has_package(&self, name: &str) -> bool;
-
-    /// Return all package names known to this index.
-    fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-
-    /// Return all versions of a package, each with its sources.
-    fn get_all(&self, name: &str) -> Cow<'_, [PackageVersion]>;
-
-    /// Return the candidate version of a package — the version a bare
-    /// install gets by default.
-    ///
-    /// Like apt's `pkgPolicy::GetCandidateVer`, this is a *policy* choice
-    /// (the highest version) and does not run the resolver.
-    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>>;
-
-    /// Return the version for an exact version string, or `None` if that
-    /// version is not in the index. The default scans [`Self::get_all`];
-    /// implementations with indexed storage may override it.
-    fn get_version(&self, name: &str, version: &str) -> Option<Cow<'_, PackageVersion>> {
-        // Borrow from the slice when the implementation hands out a borrow,
-        // move out when it parses on demand — never clone.
-        match self.get_all(name) {
-            Cow::Borrowed(slice) => slice
-                .iter()
-                .find(|v| v.entry.version.as_deref() == Some(version))
-                .map(Cow::Borrowed),
-            Cow::Owned(vec) => vec
-                .into_iter()
-                .find(|v| v.entry.version.as_deref() == Some(version))
-                .map(Cow::Owned),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

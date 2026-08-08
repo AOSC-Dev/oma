@@ -5,7 +5,8 @@ use std::borrow::Cow;
 
 use glob_match::glob_match;
 
-use crate::apt_lists::{AptListsError, PackageIndex, PackageVersion};
+use crate::apt_db::AptDb;
+use crate::apt_lists::{AptListsError, PackageVersion};
 
 /// Errors produced by [`PackageMatcher`].
 #[derive(Debug, thiserror::Error)]
@@ -38,12 +39,12 @@ pub type MatchGroup<'a> = Vec<Cow<'a, PackageVersion>>;
 ///     matcher.match_pkgs_and_versions(["fish", "apt*", "apt=2.5.4"].into_iter())?;
 /// ```
 pub struct PackageMatcher<'a> {
-    index: &'a dyn PackageIndex,
+    index: &'a AptDb,
 }
 
 impl<'a> PackageMatcher<'a> {
-    /// Create a matcher over the given package index.
-    pub fn new(index: &'a dyn PackageIndex) -> Self {
+    /// Create a matcher over the given package database.
+    pub fn new(index: &'a AptDb) -> Self {
         Self { index }
     }
 
@@ -95,7 +96,7 @@ impl<'a> PackageMatcher<'a> {
         self.index.has_package(pkg)
             && arch.is_none_or(|arch| {
                 self.index
-                    .get_all(pkg)
+                    .versions(pkg)
                     .iter()
                     .any(|version| arch_matches(&version.entry.architecture, arch))
             })
@@ -106,7 +107,7 @@ impl<'a> PackageMatcher<'a> {
     /// is handed out zero-copy, owned storage is moved out. Callers apply
     /// arch/version/branch filtering and collect exactly once.
     fn versions_of(&self, name: &str) -> Box<dyn Iterator<Item = Cow<'a, PackageVersion>> + 'a> {
-        match self.index.get_all(name) {
+        match self.index.versions(name) {
             Cow::Borrowed(slice) => Box::new(slice.iter().map(Cow::Borrowed)),
             Cow::Owned(vec) => Box::new(vec.into_iter().map(Cow::Owned)),
         }

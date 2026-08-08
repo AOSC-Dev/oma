@@ -17,7 +17,7 @@ use spdlog::debug;
 
 use crate::AptConfig;
 use crate::apt_lists::{
-    ArchivedPackageVersion, IndexSource, PackageEntry, PackageIndex, PackageVersion,
+    ArchivedPackageVersion, IndexSource, PackageEntry, PackageVersion,
     parse_apt_lists_dir_with_sources,
 };
 use crate::apt_sources::SourceLookup;
@@ -289,8 +289,9 @@ fn push_or_merge(
 impl AptDb {
     /// All versions of `name` across the repo and any overlay entry: a
     /// borrow when the data is owned and unshadowed, an owned (deserialized)
-    /// vec when it comes from the memory map or the overlay.
-    fn versions(&self, name: &str) -> Cow<'_, [PackageVersion]> {
+    /// vec when it comes from the memory map or the overlay. Shared with the
+    /// package matcher, which uses it as its versions accessor.
+    pub(crate) fn versions(&self, name: &str) -> Cow<'_, [PackageVersion]> {
         if let Some(overlay) = self.overlay.get(name) {
             return Cow::Borrowed(overlay.as_slice());
         }
@@ -579,7 +580,9 @@ impl AptDb {
     /// owned copy (deserialized from the memory map, or cloned from owned
     /// data).
     pub fn get_candidate(&self, name: &str) -> Option<PackageEntry> {
-        PackageIndex::get_candidate(self, name).map(|v| v.into_owned().entry)
+        let versions = self.versions(name);
+        let best = versions.iter().max_by_key(|v| v.parsed_version())?;
+        Some(best.entry.clone())
     }
 
     /// Iterate the entries of `name` matching `version` exactly.
@@ -654,14 +657,10 @@ impl AptDb {
     pub(crate) fn distinct_version_count(&self, name: &str) -> usize {
         self.versions(name).len()
     }
-}
 
-impl PackageIndex for AptDb {
-    fn has_package(&self, name: &str) -> bool {
-        AptDb::has_package(self, name)
-    }
-
-    fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+    /// All package names known to the database — overlay names first,
+    /// shadowing repo names.
+    pub fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_> {
         let overlay = self.overlay.keys().map(|s| s.as_str());
         let repo: Box<dyn Iterator<Item = &str> + '_> = match &self.repo {
             Repo::Owned(map) => Box::new(map.keys().map(|s| s.as_str())),
@@ -671,32 +670,6 @@ impl PackageIndex for AptDb {
         };
         // Overlay names shadow repo names (dedup by name).
         Box::new(overlay.chain(repo.filter(move |n| !self.overlay.contains_key(*n))))
-    }
-
-    fn get_all(&self, name: &str) -> Cow<'_, [PackageVersion]> {
-        self.versions(name)
-    }
-
-    fn get_candidate(&self, name: &str) -> Option<Cow<'_, PackageVersion>> {
-        let versions = self.versions(name);
-        let best = versions.iter().max_by_key(|v| v.parsed_version())?;
-        // One owned copy of the best version (clone from owned data, or
-        // already-deserialized data).
-        Some(Cow::Owned(best.clone()))
-    }
-
-    fn get_version(&self, name: &str, version: &str) -> Option<Cow<'_, PackageVersion>> {
-        let versions = self.versions(name);
-        match versions {
-            Cow::Borrowed(slice) => slice
-                .iter()
-                .find(|v| v.entry.version.as_deref() == Some(version))
-                .map(Cow::Borrowed),
-            Cow::Owned(vec) => vec
-                .into_iter()
-                .find(|v| v.entry.version.as_deref() == Some(version))
-                .map(Cow::Owned),
-        }
     }
 }
 
@@ -746,7 +719,7 @@ mod tests {
         assert_eq!(all[0].version.as_deref(), Some("1.0"));
 
         // Versions inserted without a source have an empty source list.
-        let versions = <AptDb as PackageIndex>::get_all(&db, "localpkg");
+        let versions = db.versions("localpkg");
         assert_eq!(versions.len(), 1);
         assert!(versions[0].sources.is_empty());
     }
@@ -940,7 +913,7 @@ mod tests {
         };
 
         // Point lookup straight from the mapping.
-        let all = <AptDb as PackageIndex>::get_all(&db, "hello");
+        let all = db.versions("hello");
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].entry.version.as_deref(), Some("2.10-2"));
         assert_eq!(all[0].sources.len(), 1);
@@ -960,7 +933,7 @@ mod tests {
             },
         );
 
-        let merged = <AptDb as PackageIndex>::get_all(&db, "hello");
+        let merged = db.versions("hello");
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].sources.len(), 2);
         assert!(merged[0].sources.iter().any(|s| s.suite == "stable"));
