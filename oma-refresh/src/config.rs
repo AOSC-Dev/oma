@@ -233,7 +233,6 @@ impl<'a> IndexTargetConfig<'a> {
 
         // 与 apt 一致：如果 Release 文件声明了 `Architectures:` 字段，则跳过
         // 仓库不支持的架构（例如不提供 `binary-all` 的仓库），避免无谓地下载失败。
-        // 仅对 binary 索引应用该过滤；deb-src 的模板不依赖 $(ARCHITECTURE)。
         if !is_source && let Some(supported_archs) = supported_archs {
             let len_before = archs.len();
             archs.retain(|a| supported_archs.contains(a));
