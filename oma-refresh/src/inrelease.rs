@@ -72,6 +72,8 @@ pub struct InReleaseEntry {
     pub valid_until: Option<String>,
     #[deb822(field = "Acquire-By-Hash")]
     pub acquire_by_hash: Option<String>,
+    #[deb822(field = "Architectures")]
+    pub architectures: Option<String>,
     #[deb822(field = "MD5Sum")]
     pub md5sum: Option<String>,
     #[deb822(field = "SHA256")]
@@ -127,6 +129,16 @@ impl Release {
                 .as_ref()
                 .is_some_and(|x| x.eq_ignore_ascii_case("yes"))
         })
+    }
+
+    /// Architectures advertised in the `Architectures:` field of the Release
+    /// file. `None` means the field is absent, in which case all architectures
+    /// are considered supported (mirroring apt's behavior).
+    pub fn supported_architectures(&self) -> Option<Vec<&str>> {
+        self.source
+            .architectures
+            .as_ref()
+            .map(|x| x.split_whitespace().collect())
     }
 
     pub fn check_date(&self, now: &Timestamp) -> Result<(), InReleaseError> {
@@ -389,4 +401,18 @@ fn test_checksum_parse() {
                 .to_string()
         }
     );
+}
+
+#[test]
+fn test_supported_architectures() {
+    let with_field = "Acquire-By-Hash: yes\nArchitectures: amd64 arm64 all\n";
+    let release: Release = with_field.parse().unwrap();
+    assert_eq!(
+        release.supported_architectures(),
+        Some(vec!["amd64", "arm64", "all"])
+    );
+
+    let without_field = "Acquire-By-Hash: yes\n";
+    let release: Release = without_field.parse().unwrap();
+    assert_eq!(release.supported_architectures(), None);
 }
