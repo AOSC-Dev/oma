@@ -219,6 +219,7 @@ impl<'a> IndexTargetConfig<'a> {
         is_flat: bool,
         archs: Vec<&str>,
         components: &[String],
+        supported_archs: Option<&[&str]>,
     ) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
         let key = if is_flat { "flatMetaKey" } else { "MetaKey" };
         let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
@@ -228,6 +229,19 @@ impl<'a> IndexTargetConfig<'a> {
 
         if !archs.contains(&"all") {
             archs.push("all");
+        }
+
+        // 与 apt 一致：如果 Release 文件声明了 `Architectures:` 字段，则跳过
+        // 仓库不支持的架构（例如不提供 `binary-all` 的仓库），避免无谓地下载失败。
+        // 仅对 binary 索引应用该过滤；deb-src 的模板不依赖 $(ARCHITECTURE)。
+        if !is_source && let Some(supported_archs) = supported_archs {
+            let len_before = archs.len();
+            archs.retain(|a| supported_archs.contains(a));
+            if archs.len() != len_before {
+                debug!(
+                    "Skipping architectures not supported by the repository, remaining: {archs:?}"
+                );
+            }
         }
 
         for c in checksums {

@@ -580,6 +580,9 @@ impl OmaRefresh {
                 .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.clone(), e))?
                 .1;
 
+            // 仓库在 `Architectures:` 字段中声明的架构；若字段缺失则视为支持全部架构。
+            let supported_archs = release.supported_architectures();
+
             let arch_from_local_configure = if let Some(ref f) = archs_from_file {
                 f.iter().map(|x| x.as_str()).collect::<Vec<_>>()
             } else {
@@ -611,6 +614,7 @@ impl OmaRefresh {
                     ose.is_flat(),
                     archs,
                     ose.components(),
+                    supported_archs.as_deref(),
                 )?;
                 get_all_need_db_from_config(download_list, &mut total, checksums, &mut handle);
             }
