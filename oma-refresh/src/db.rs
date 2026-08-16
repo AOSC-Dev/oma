@@ -875,6 +875,7 @@ fn collect_download_task(
         .allow_resume(false)
         .msg(msg.into())
         .final_dir(download_dir.to_path_buf())
+        .by_hash_fallback(release.acquire_by_hash())
         .file_type({
             if c.keep_compress {
                 CompressType::None

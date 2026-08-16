@@ -26,6 +26,12 @@ pub struct DownloadEntry {
     hash: Option<Checksum>,
     allow_resume: bool,
     msg: Option<Cow<'static, str>>,
+    /// Whether this entry downloads the by-hash variant of an index file with
+    /// a fallback to the traditional by-name path of the same file. When
+    /// `true`, a `NextUrl` event means a same-file fallback rather than a
+    /// different mirror.
+    #[builder(default)]
+    by_hash_fallback: bool,
     #[builder(default)]
     file_type: CompressType,
 }
@@ -39,6 +45,7 @@ impl Debug for DownloadEntry {
             .field("hash", &self.hash.as_ref().map(|c| c.to_string()))
             .field("allow_resume", &self.allow_resume)
             .field("msg", &self.msg)
+            .field("by_hash_fallback", &self.by_hash_fallback)
             .field("file_type", &self.file_type)
             .finish()
     }
@@ -134,6 +141,9 @@ pub enum Event {
         index: usize,
         file_name: String,
         err: SingleDownloadError,
+        /// `true` when the failed source was the by-hash variant and the next
+        /// source is the traditional by-name path of the same file.
+        by_hash: bool,
     },
     DownloadDone {
         index: usize,
