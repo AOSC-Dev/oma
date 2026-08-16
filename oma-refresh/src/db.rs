@@ -580,6 +580,9 @@ impl OmaRefresh {
                 .map_err(|e| RefreshError::InReleaseParseError(inrelease_path.clone(), e))?
                 .1;
 
+            // 仓库在 `Architectures:` 字段中声明的架构；若字段缺失则视为支持全部架构。
+            let supported_archs = release.supported_architectures();
+
             let arch_from_local_configure = if let Some(ref f) = archs_from_file {
                 f.iter().map(|x| x.as_str()).collect::<Vec<_>>()
             } else {
@@ -611,6 +614,7 @@ impl OmaRefresh {
                     ose.is_flat(),
                     archs,
                     ose.components(),
+                    supported_archs.as_deref(),
                 )?;
                 get_all_need_db_from_config(download_list, &mut total, checksums, &mut handle);
             }
@@ -826,7 +830,13 @@ fn collect_download_task(
             .map(|c| &c.checksum)
     };
 
-    let download_url = if release.acquire_by_hash() {
+    // When `Acquire-By-Hash: yes` is set, prefer the by-hash path, but fall
+    // back to the traditional by-name path if the by-hash file is missing
+    // (e.g. HTTP 404). The download manager tries the sources in order and
+    // moves on to the next one if the current one fails.
+    let mut sources = vec![];
+
+    if release.acquire_by_hash() {
         let path = Path::new(&c.item.name);
         let parent = path.parent().unwrap_or(path);
         let dir = match release.checksum_type_and_list().0 {
@@ -837,15 +847,16 @@ fn collect_download_task(
 
         let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
 
-        mirror_source.get_download_url(&path.display().to_string())
-    } else {
-        mirror_source.get_download_url(&c.item.name)
-    };
+        sources.push(DownloadSource {
+            url: mirror_source.get_download_url(&path.display().to_string()),
+            source_type: from.clone(),
+        });
+    }
 
-    let sources = vec![DownloadSource {
-        url: download_url.to_string(),
+    sources.push(DownloadSource {
+        url: mirror_source.get_download_url(&c.item.name),
         source_type: from,
-    }];
+    });
 
     let file_name = if c.keep_compress {
         mirror_source.get_download_file_name(Some(&c.item.name), replacer)?
@@ -864,6 +875,7 @@ fn collect_download_task(
         .allow_resume(false)
         .msg(msg.into())
         .final_dir(download_dir.to_path_buf())
+        .by_hash_fallback(release.acquire_by_hash())
         .file_type({
             if c.keep_compress {
                 CompressType::None

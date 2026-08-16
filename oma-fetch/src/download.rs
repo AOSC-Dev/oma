@@ -305,7 +305,9 @@ impl SingleDownloader {
         let mut sources = self.entry.source.clone();
         assert!(!sources.is_empty());
 
-        sources.sort_unstable_by(|a, b| b.source_type.cmp(&a.source_type));
+        // Use a stable sort so that sources with the same priority keep their
+        // given order: the primary source first, fallbacks after it.
+        sources.sort_by(|a, b| b.source_type.cmp(&a.source_type));
 
         for (index, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
@@ -381,6 +383,7 @@ impl SingleDownloader {
                         index: self.download_list_index,
                         file_name: self.entry.filename.to_string(),
                         err: e,
+                        by_hash: self.entry.by_hash_fallback,
                     })
                     .await;
                 }

@@ -22,7 +22,7 @@ use crate::{color_formatter, error::OutputError};
 use oma_refresh::db::Event as RefreshEvent;
 
 use oma_utils::human_bytes::HumanBytes;
-use spdlog::{error, info, warn};
+use spdlog::{debug, error, info, warn};
 
 /// The global `MultiProgress` every progress bar is attached to. When no bar
 /// is active, [`MultiProgress::println`] falls back to printing the line
@@ -459,9 +459,16 @@ impl ProgressRenderer {
                 index: _,
                 file_name,
                 err,
+                by_hash,
             } => {
-                handle_download_error(file_name, is_refresh, err);
-                info!("{}", fl!("can-not-get-source-next-url"));
+                if by_hash {
+                    // 回落到传统路径是正常流程，以 debug 级别记录，不打扰用户。
+                    debug!("{}", format_download_error(&file_name, is_refresh, err));
+                    debug!("{}", fl!("fallback-to-by-name-path", c = file_name));
+                } else {
+                    handle_download_error(file_name, is_refresh, err);
+                    info!("{}", fl!("can-not-get-source-next-url"));
+                }
             }
             Event::DownloadDone { index, msg } => {
                 spdlog::debug!("Downloaded {msg}");
@@ -526,50 +533,34 @@ fn handle_download_error(file_name: String, is_refresh: bool, error: SingleDownl
         }
     }
 
+    error!("{}", format_download_error(&file_name, is_refresh, error));
+}
+
+/// Format the download failure message. Also used at debug level for the
+/// by-hash → traditional path fallback in `oma refresh`.
+fn format_download_error(file_name: &str, is_refresh: bool, error: SingleDownloadError) -> String {
     let err = OutputError::from(error);
     let errs = Chain::new(&err).collect::<Vec<_>>();
     let first_cause = errs.first().unwrap().to_string();
     let last = errs.iter().skip(1).last();
 
-    if let Some(last_cause) = last {
-        let reason = format!("{first_cause}: {last_cause}");
-
-        if is_refresh {
-            error!(
-                "{}",
-                fl!(
-                    "download-file-failed-with-reason",
-                    filename = file_name,
-                    reason = reason
-                )
-            );
-        } else {
-            error!(
-                "{}",
-                fl!(
-                    "download-package-failed-with-reason",
-                    filename = file_name,
-                    reason = reason
-                )
-            );
-        }
-    } else if is_refresh {
-        error!(
-            "{}",
-            fl!(
-                "download-file-failed-with-reason",
-                filename = file_name,
-                reason = first_cause
-            )
-        );
+    let reason = if let Some(last_cause) = last {
+        format!("{first_cause}: {last_cause}")
     } else {
-        error!(
-            "{}",
-            fl!(
-                "download-package-failed-with-reason",
-                filename = file_name,
-                reason = first_cause
-            )
-        );
+        first_cause
+    };
+
+    if is_refresh {
+        fl!(
+            "download-file-failed-with-reason",
+            filename = file_name,
+            reason = reason
+        )
+    } else {
+        fl!(
+            "download-package-failed-with-reason",
+            filename = file_name,
+            reason = reason
+        )
     }
 }
