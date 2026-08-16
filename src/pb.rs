@@ -288,9 +288,16 @@ impl OmaMultiProgressBar {
                 index: _,
                 file_name,
                 err,
+                by_hash,
             } => {
-                self.handle_download_err(file_name, is_refresh, err);
-                self.info(&fl!("can-not-get-source-next-url"));
+                if by_hash {
+                    // by-hash 文件不可用，回落到传统路径，属正常流程，
+                    // 以 debug 级别记录，不打扰用户。
+                    debug!("{}", fl!("fallback-to-by-name-path", c = file_name));
+                } else {
+                    self.handle_download_err(file_name, is_refresh, err);
+                    self.info(&fl!("can-not-get-source-next-url"));
+                }
             }
             Event::DownloadDone { index: _, msg } => {
                 spdlog::debug!("Downloaded {msg}");
@@ -471,9 +478,16 @@ impl NoProgressBar {
                 index: _,
                 file_name,
                 err,
+                by_hash,
             } => {
-                handle_no_pb_download_error(file_name, err, is_refresh);
-                info!("{}", fl!("can-not-get-source-next-url"));
+                if by_hash {
+                    // by-hash 文件不可用，回落到传统路径，属正常流程，
+                    // 以 debug 级别记录，不打扰用户。
+                    debug!("{}", fl!("fallback-to-by-name-path", c = file_name));
+                } else {
+                    handle_no_pb_download_error(file_name, err, is_refresh);
+                    info!("{}", fl!("can-not-get-source-next-url"));
+                }
             }
             Event::DownloadDone { index: _, msg } => {
                 WRITER.writeln("DONE", &msg).ok();

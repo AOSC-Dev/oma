@@ -383,6 +383,7 @@ impl SingleDownloader {
                         index: self.download_list_index,
                         file_name: self.entry.filename.to_string(),
                         err: e,
+                        by_hash: self.entry.by_hash_fallback,
                     })
                     .await;
                 }
