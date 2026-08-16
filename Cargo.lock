@@ -3432,7 +3432,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.38.3"
+version = "0.39.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -3538,7 +3538,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.56.1"
+version = "0.56.2"
 dependencies = [
  "ahash",
  "aho-corasick",
