@@ -55,7 +55,7 @@ impl CliExecuter for Mark {
         let Mark { action, packages } = self;
 
         if !config.dry_run {
-            root()?;
+            root(config.no_check_dbus)?;
         }
 
         let no_progress = config.no_progress();

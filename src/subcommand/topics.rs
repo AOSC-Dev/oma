@@ -146,7 +146,7 @@ impl CliExecuter for Topics {
         } = self;
 
         let _lock_fd = if !config.dry_run {
-            root()?;
+            root(config.no_check_dbus)?;
             Some(lock_oma(&config.sysroot)?)
         } else {
             None

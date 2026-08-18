@@ -14,7 +14,7 @@ use crate::{NOT_ALLOW_CTRLC, RT, error::OutputError, fl};
 
 type Result<T> = std::result::Result<T, OutputError>;
 
-pub fn root() -> Result<()> {
+pub fn root(no_check_dbus: bool) -> Result<()> {
     if is_termux() {
         return Ok(());
     }
@@ -40,7 +40,7 @@ pub fn root() -> Result<()> {
     // isn't running (e.g. a systemd container with logind disabled), so
     // require logind before trying it and let the pkexec/sudo/doas branches
     // take over otherwise.
-    if which::which("systemd-run").is_ok() && !is_wsl && is_logind_running() {
+    if which::which("systemd-run").is_ok() && !is_wsl && !no_check_dbus && is_logind_running() {
         systemd_run_oma()?;
     } else if is_desktop_env() && !is_wsl && which::which("pkexec").is_ok() {
         // 检测是否有 DISPLAY，如果有，则在提权时使用 pkexec

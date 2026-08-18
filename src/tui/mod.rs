@@ -126,7 +126,7 @@ impl CliExecuter for Tui {
             return Ok(ExitHandle::default());
         }
 
-        root()?;
+        root(config.no_check_dbus)?;
         let _lock_fd = lock_oma(&config.sysroot)?;
         let _fds = dbus_check(false, &config)?;
 

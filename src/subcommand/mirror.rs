@@ -230,7 +230,7 @@ impl CliExecuter for CliMirror {
 }
 
 pub fn tui(no_refresh: bool, config: &OmaConfig) -> Result<ExitHandle, OutputError> {
-    root()?;
+    root(config.no_check_dbus)?;
 
     let mut mm = MirrorManager::new("/")?;
     let mut mirrors = mm
@@ -316,7 +316,7 @@ fn operate(
     subcmd: Operate,
     config: &OmaConfig,
 ) -> Result<ExitHandle, OutputError> {
-    root()?;
+    root(config.no_check_dbus)?;
 
     let mut mm = MirrorManager::new(&config.sysroot)?;
 
@@ -347,7 +347,7 @@ fn operate(
 }
 
 fn set_order(no_refresh: bool, config: &OmaConfig) -> Result<ExitHandle, OutputError> {
-    root()?;
+    root(config.no_check_dbus)?;
 
     let mut mm = MirrorManager::new("/")?;
 
