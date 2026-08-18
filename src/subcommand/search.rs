@@ -7,7 +7,7 @@ use oma_apt_pkg::search::{
     TextSearch,
 };
 use oma_apt_pkg::{AptConfig, AptDb, DpkgState};
-use oma_console::{console::style, pager::Pager, terminal::gen_prefix};
+use oma_console::{pager::Pager, terminal::gen_prefix};
 use oma_pm::matches::SearchEngine;
 use oma_utils::zbus::proxy;
 use spdlog::debug;
@@ -90,7 +90,7 @@ impl Display for SearchResultDisplay<'_> {
         }
 
         let prefix = match i.status {
-            PackageStatus::Avail => style("AVAIL").dim(),
+            PackageStatus::Avail => "AVAIL".secondary_color(),
             PackageStatus::Installed => "INSTALLED".foreground_color(),
             PackageStatus::Upgrade => "UPGRADE".warn_color(),
         }

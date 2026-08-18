@@ -29,6 +29,7 @@ pub enum Action {
     Purple,
     Note,
     UpgradeTips,
+    Error,
     PendingBg,
 }
 
@@ -50,6 +51,8 @@ impl Action {
             (Action::Note, Theme::Light) => 172,
             (Action::UpgradeTips, Theme::Dark) => 87,
             (Action::UpgradeTips, Theme::Light) => 63,
+            (Action::Error, Theme::Dark) => 203,
+            (Action::Error, Theme::Light) => 124,
             (Action::PendingBg, Theme::Dark) => 25,
             (Action::PendingBg, Theme::Light) => 189,
         }
@@ -173,6 +176,7 @@ fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
         Action::Note => style(input).yellow(),
         Action::Foreground => style(input).cyan().bold(),
         Action::UpgradeTips => style(input).blue().bold(),
+        Action::Error => style(input).red().bold(),
         Action::PendingBg => style(input).bg(Color::Blue).bold(),
     }
 }
@@ -202,6 +206,10 @@ pub trait Colorize {
     where
         Self: Sized;
     fn upgrade_tips_color(self) -> StyledObject<Self>
+    where
+        Self: Sized;
+    #[allow(dead_code)] // reserved for error/removal styling (e.g. table.rs, args.rs)
+    fn error_color(self) -> StyledObject<Self>
     where
         Self: Sized;
     #[allow(dead_code)] // reserved for future background usage (e.g. pending bar)
@@ -234,6 +242,9 @@ impl<T> Colorize for T {
     }
     fn upgrade_tips_color(self) -> StyledObject<Self> {
         color_str(self, Action::UpgradeTips)
+    }
+    fn error_color(self) -> StyledObject<Self> {
+        color_str(self, Action::Error)
     }
     fn pending_bg_color(self) -> StyledObject<Self> {
         color_str(self, Action::PendingBg)

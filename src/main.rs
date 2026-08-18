@@ -44,6 +44,7 @@ use std::sync::atomic::AtomicBool;
 
 use oma_console::console;
 
+use crate::color::Colorize;
 use crate::config::OmaConfig;
 use crate::config_file::ConfigFile;
 use crate::exit_handle::ExitHandle;
@@ -330,7 +331,7 @@ fn display_error(e: OutputError) -> io::Result<()> {
         if cause.len() > 1 {
             for (i, c) in cause.iter().enumerate() {
                 if i == 0 {
-                    WRITER.write_prefix(&console::style("TRACE").magenta().to_string())?;
+                    WRITER.write_prefix(&"TRACE".purple_color().to_string())?;
                 } else {
                     WRITER.write_prefix("")?;
                 }
