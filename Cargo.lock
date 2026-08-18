@@ -3408,6 +3408,7 @@ dependencies = [
  "oma-fetch",
  "oma-history",
  "oma-inquire",
+ "oma-logger",
  "oma-mirror",
  "oma-pm",
  "oma-refresh",
@@ -3426,7 +3427,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
- "spdlog-rs",
  "strsim",
  "sysinfo",
  "tabled",
@@ -3581,6 +3581,16 @@ dependencies = [
  "once_cell",
  "unicode-segmentation",
  "unicode-width",
+]
+
+[[package]]
+name = "oma-logger"
+version = "0.1.0"
+dependencies = [
+ "console",
+ "jiff",
+ "oma-console",
+ "spdlog-rs",
 ]
 
 [[package]]

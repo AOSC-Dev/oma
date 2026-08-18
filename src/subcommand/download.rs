@@ -5,9 +5,9 @@ use std::thread;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use flume::unbounded;
+use oma_logger::error;
 use oma_pm::apt::{DownloadConfig, OmaApt, OmaAptArgs};
 use oma_pm::matches::PackagesMatcher;
-use spdlog::error;
 
 use crate::completions::pkgnames_completions;
 use crate::config::OmaConfig;

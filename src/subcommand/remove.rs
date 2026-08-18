@@ -4,9 +4,9 @@ use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input};
+use oma_logger::{info, warn};
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
-use spdlog::{info, warn};
 
 use crate::completions::pkgnames_remove_completions;
 use crate::config::OmaConfig;

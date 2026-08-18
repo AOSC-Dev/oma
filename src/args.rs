@@ -5,7 +5,7 @@ use clap::{
 };
 use enum_dispatch::enum_dispatch;
 use itertools::Itertools;
-use oma_console::OmaFormatter;
+use oma_logger::OmaFormatter;
 use oma_utils::is_ci;
 
 use crate::{

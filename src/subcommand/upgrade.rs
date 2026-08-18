@@ -4,8 +4,8 @@ use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
 use crate::exit_handle::ExitHandle;
 use clap_complete::ArgValueCompleter;
+use oma_logger::{debug, info, warn};
 use oma_pm::oma_apt::PackageSort;
-use spdlog::{debug, info, warn};
 
 use clap::Args;
 use oma_pm::apt::OmaApt;

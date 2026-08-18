@@ -16,7 +16,7 @@ use oma_pm::oma_apt::{Package, PackageSort};
 use oma_pm::pkginfo::OmaPackageWithoutVersion;
 use oma_utils::is_termux;
 
-use spdlog::info;
+use oma_logger::info;
 use std::io::Write;
 use tabled::builder::Builder;
 use tabled::settings::{Alignment, Settings};

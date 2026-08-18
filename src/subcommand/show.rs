@@ -11,8 +11,8 @@ use oma_apt_pkg::{
     ResolvedPackage,
 };
 use oma_console::indicatif::HumanBytes;
+use oma_logger::info;
 use serde::Serialize;
-use spdlog::info;
 
 use crate::{
     args::CliExecuter, completions::pkgnames_and_path_completions, config::OmaConfig,

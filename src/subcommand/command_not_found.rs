@@ -6,8 +6,8 @@ use anyhow::Context;
 use clap::Args;
 use oma_contents::OmaContentsError;
 use oma_contents::searcher::{Mode, search};
+use oma_logger::{debug, error};
 use oma_pm::apt::{OmaApt, OmaAptArgs};
-use spdlog::{debug, error};
 use zbus::{Connection, proxy};
 
 use crate::config::OmaConfig;

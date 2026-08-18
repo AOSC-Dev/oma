@@ -8,9 +8,9 @@ use oma_apt_pkg::search::{
 };
 use oma_apt_pkg::{AptConfig, AptDb, DpkgState};
 use oma_console::{pager::Pager, terminal::gen_prefix};
+use oma_logger::debug;
 use oma_pm::matches::SearchEngine;
 use oma_utils::zbus::proxy;
-use spdlog::debug;
 use zbus::Connection;
 
 use crate::color::Colorize;

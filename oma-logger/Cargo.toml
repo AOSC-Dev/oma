@@ -1,0 +1,26 @@
+[package]
+name = "oma-logger"
+version = "0.1.0"
+edition = "2024"
+description = "Logging infrastructure used by oma"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+spdlog-rs = { workspace = true, features = [
+    "multi-thread",
+    "source-location",
+    "log",
+] }
+oma-console = { workspace = true, optional = true }
+jiff = { workspace = true, optional = true }
+console = { workspace = true, optional = true }
+
+[features]
+default = []
+formatter = ["dep:oma-console", "dep:jiff", "dep:console"]
+
+[[example]]
+name = "msg"
+required-features = ["formatter"]

@@ -15,6 +15,7 @@ use ratatui::{
     style::Modifier,
 };
 
+use oma_logger::debug;
 use ratatui::{
     Frame, Terminal,
     layout::{Alignment, Constraint, Direction, Flex, Layout, Rect},
@@ -26,7 +27,6 @@ use ratatui::{
         ScrollbarState,
     },
 };
-use spdlog::debug;
 use terminfo::{Database, capability::MaxColors};
 
 use tui_input::Input;

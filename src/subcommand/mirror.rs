@@ -27,6 +27,7 @@ use inquire::ui::StyleSheet;
 use inquire::ui::Styled;
 use oma_console::indicatif::HumanBytes;
 use oma_console::indicatif::ProgressStyle;
+use oma_logger::{error, info, warn};
 use oma_mirror::MirrorManager;
 use oma_mirror::parser::MirrorConfig;
 use oma_refresh::inrelease::Release;
@@ -40,7 +41,6 @@ use reqwest::blocking;
 use reqwest_middleware::ClientWithMiddleware;
 use sha2::Digest;
 use sha2::Sha256;
-use spdlog::{error, info, warn};
 use std::io::Write;
 use tabled::Tabled;
 

@@ -10,7 +10,7 @@ use oma_console::{
     print::termbg,
 };
 use rustix::stdio::stdout;
-use spdlog::debug;
+use oma_logger::debug;
 
 use crate::NO_COLOR;
 use crate::dbus::is_ssh_from_loginctl;

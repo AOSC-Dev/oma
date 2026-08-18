@@ -6,6 +6,7 @@ use inquire::{
     formatter::MultiOptionFormatter,
     ui::{Color, RenderConfig, StyleSheet, Styled},
 };
+use oma_logger::{debug, error, info, warn};
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
@@ -15,7 +16,6 @@ use oma_pm::{
 };
 use oma_utils::dpkg::dpkg_arch;
 use once_cell::sync::OnceCell;
-use spdlog::{debug, error, info, warn};
 use sysinfo::System;
 use tokio::task::spawn_blocking;
 

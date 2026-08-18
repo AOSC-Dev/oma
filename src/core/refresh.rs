@@ -2,9 +2,9 @@ use std::thread;
 
 use bon::Builder;
 use flume::unbounded;
+use oma_logger::{debug, info};
 use oma_refresh::db::OmaRefresh;
 use oma_utils::dpkg::dpkg_arch;
-use spdlog::{debug, info};
 
 use crate::{
     config::OmaConfig, error::OutputError, fl, pb::ProgressRenderer, utils::get_lists_dir,

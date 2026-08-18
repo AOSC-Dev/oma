@@ -11,6 +11,7 @@ use std::{
 
 use jiff::Timestamp;
 use oma_history::HistoryEntry;
+use oma_logger::debug;
 use ratatui::{
     Frame, Terminal,
     backend::Backend,
@@ -23,7 +24,6 @@ use ratatui::{
         Table, Wrap,
     },
 };
-use spdlog::debug;
 use terminfo::{Database, capability::MaxColors};
 use tui_input::Input;
 

@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
 use crate::{DEFAULT_USER_AGENT, fl};
+use oma_logger::{error, warn};
 use serde::Deserialize;
-use spdlog::{error, warn};
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigFile {
