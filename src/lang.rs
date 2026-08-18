@@ -1,9 +1,13 @@
+use std::borrow::Cow;
+use std::fmt::Display;
 use std::sync::LazyLock;
 
+use fluent_bundle::FluentValue;
 use i18n_embed::{
     DefaultLocalizer, LanguageLoader,
     fluent::{FluentLanguageLoader, fluent_language_loader},
 };
+use oma_console::console::StyledObject;
 use rust_embed::RustEmbed;
 
 pub const DEFAULT_LANGUAGE: &str = "en_US";
@@ -33,14 +37,98 @@ pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     loader
 });
 
+/// Values accepted as [`fl!`] message arguments.
+///
+/// Besides the types `i18n_embed_fl::fl!` accepts out of the box (`String`,
+/// `&str`, numbers, `Cow`, `Option`), this also covers styled strings such as
+/// `"name".emphasis_color()`, so call sites don't need explicit `.to_string()`.
+pub trait ToFluentValue {
+    fn to_fluent_value(self) -> FluentValue<'static>;
+}
+
+impl ToFluentValue for String {
+    fn to_fluent_value(self) -> FluentValue<'static> {
+        self.into()
+    }
+}
+
+impl ToFluentValue for &str {
+    fn to_fluent_value(self) -> FluentValue<'static> {
+        self.to_owned().into()
+    }
+}
+
+impl ToFluentValue for &String {
+    fn to_fluent_value(self) -> FluentValue<'static> {
+        self.clone().into()
+    }
+}
+
+impl ToFluentValue for Cow<'_, str> {
+    fn to_fluent_value(self) -> FluentValue<'static> {
+        self.into_owned().into()
+    }
+}
+
+impl<T: ToFluentValue> ToFluentValue for Option<T> {
+    fn to_fluent_value(self) -> FluentValue<'static> {
+        match self {
+            Some(v) => v.to_fluent_value(),
+            None => FluentValue::None,
+        }
+    }
+}
+
+macro_rules! impl_to_fluent_number {
+    ($($t:ty),* $(,)?) => {
+        $(impl ToFluentValue for $t {
+            fn to_fluent_value(self) -> FluentValue<'static> {
+                self.into()
+            }
+        })*
+    };
+}
+
+impl_to_fluent_number!(
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+);
+
+impl<D: Display> ToFluentValue for StyledObject<D> {
+    fn to_fluent_value(self) -> FluentValue<'static> {
+        self.to_string().into()
+    }
+}
+
+impl ToFluentValue for std::path::Display<'_> {
+    fn to_fluent_value(self) -> FluentValue<'static> {
+        self.to_string().into()
+    }
+}
+
+impl ToFluentValue for std::io::Error {
+    fn to_fluent_value(self) -> FluentValue<'static> {
+        self.to_string().into()
+    }
+}
+
+/// Convert any [`ToFluentValue`] into a fluent message argument.
+#[inline]
+pub fn to_fluent_value(value: impl ToFluentValue) -> FluentValue<'static> {
+    value.to_fluent_value()
+}
+
 #[macro_export]
 macro_rules! fl {
     ($message_id:literal) => {{
         i18n_embed_fl::fl!($crate::lang::LANGUAGE_LOADER, $message_id)
     }};
 
-    ($message_id:literal, $($args:expr),*) => {{
-        i18n_embed_fl::fl!($crate::lang::LANGUAGE_LOADER, $message_id, $($args), *)
+    ($message_id:literal, $($key:ident = $value:expr),*) => {{
+        i18n_embed_fl::fl!(
+            $crate::lang::LANGUAGE_LOADER,
+            $message_id,
+            $($key = $crate::lang::to_fluent_value($value)),*
+        )
     }};
 }
 

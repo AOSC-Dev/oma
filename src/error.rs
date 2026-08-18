@@ -143,11 +143,11 @@ impl From<MirrorError> for OutputError {
     fn from(value: MirrorError) -> Self {
         match value {
             MirrorError::ReadFile { path, source } => Self::with_source(
-                fl!("failed-to-operate-path", p = path.display().to_string()),
+                fl!("failed-to-operate-path", p = path.display()),
                 source,
             ),
             MirrorError::ParseJson { path, source } => Self::with_source(
-                fl!("failed-to-parse-file", p = path.display().to_string()),
+                fl!("failed-to-parse-file", p = path.display()),
                 source,
             ),
             MirrorError::MirrorNotExist { mirror_name } => {
@@ -157,11 +157,11 @@ impl From<MirrorError> for OutputError {
                 Self::with_source(fl!("failed-to-serialize-struct"), source)
             }
             MirrorError::WriteFile { path, source } => Self::with_source(
-                fl!("failed-to-write-file", p = path.display().to_string()),
+                fl!("failed-to-write-file", p = path.display()),
                 source,
             ),
             MirrorError::CreateFile { path, source } => Self::with_source(
-                fl!("failed-to-create-file", p = path.display().to_string()),
+                fl!("failed-to-create-file", p = path.display()),
                 source,
             ),
             MirrorError::ApplyEmptySettings => fl!("mirrors-setting-empty").into(),
@@ -317,7 +317,7 @@ impl From<RefreshError> for OutputError {
                 ),
             },
             RefreshError::DuplicateComponents(url, component) => {
-                fl!("doplicate-component", url = url.to_string(), c = component).into()
+                fl!("doplicate-component", url = url.as_ref(), c = component).into()
             }
             RefreshError::SourceListsEmpty => fl!("sources-list-empty").into(),
             RefreshError::DownloadFailed(err) => {
@@ -328,7 +328,7 @@ impl From<RefreshError> for OutputError {
                 }
             }
             RefreshError::OperateFile(path, error) => Self::with_source(
-                fl!("failed-to-operate-path", p = path.display().to_string()),
+                fl!("failed-to-operate-path", p = path.display()),
                 error,
             ),
             RefreshError::WrongThreadCount(count) => {
@@ -390,7 +390,7 @@ fn oma_topics_error(e: OmaTopicsError) -> OutputError {
         OmaTopicsError::ReqwestError(e) => OutputError::from(e),
         OmaTopicsError::FailedSer => e.to_string().into(),
         OmaTopicsError::FailedGetParentPath(p) => {
-            fl!("failed-to-get-parent-path", p = p.display().to_string()).into()
+            fl!("failed-to-get-parent-path", p = p.display()).into()
         }
         OmaTopicsError::BrokenFile(p) => fl!("failed-to-read", p = p).into(),
         OmaTopicsError::ParseUrl(e, url) => {
@@ -586,7 +586,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             OutputError::with_source(fl!("failed-to-calculate-available-space"), e)
         }
         OmaAptError::FailedGetParentPath(p) => {
-            fl!("failed-to-get-parent-path", p = p.display().to_string()).into()
+            fl!("failed-to-get-parent-path", p = p.display()).into()
         }
         OmaAptError::FailedGetCanonicalize(p, e) => {
             OutputError::with_source(format!("Failed canonicalize path: {p}"), e)
@@ -694,7 +694,7 @@ impl From<reqwest::Error> for OutputError {
         if let Some(filename) = filename
             && filename.len() <= 256
         {
-            return Self::with_source(fl!("download-failed", filename = filename.to_string()), e);
+            return Self::with_source(fl!("download-failed", filename = *filename), e);
         }
 
         fl!("download-failed-no-name").into()
