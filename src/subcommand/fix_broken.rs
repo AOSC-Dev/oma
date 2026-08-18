@@ -39,7 +39,7 @@ pub struct FixBroken {
 
 impl CliExecuter for FixBroken {
     fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
-        root()?;
+        root(config.no_check_dbus)?;
 
         let FixBroken {
             force_unsafe_io,
