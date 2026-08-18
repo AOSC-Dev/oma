@@ -142,28 +142,24 @@ impl From<oma_apt_pkg::Error> for OutputError {
 impl From<MirrorError> for OutputError {
     fn from(value: MirrorError) -> Self {
         match value {
-            MirrorError::ReadFile { path, source } => Self::with_source(
-                fl!("failed-to-operate-path", p = path.display()),
-                source,
-            ),
-            MirrorError::ParseJson { path, source } => Self::with_source(
-                fl!("failed-to-parse-file", p = path.display()),
-                source,
-            ),
+            MirrorError::ReadFile { path, source } => {
+                Self::with_source(fl!("failed-to-operate-path", p = path.display()), source)
+            }
+            MirrorError::ParseJson { path, source } => {
+                Self::with_source(fl!("failed-to-parse-file", p = path.display()), source)
+            }
             MirrorError::MirrorNotExist { mirror_name } => {
                 fl!("mirror-not-found", mirror = mirror_name.as_ref()).into()
             }
             MirrorError::SerializeJson { source } => {
                 Self::with_source(fl!("failed-to-serialize-struct"), source)
             }
-            MirrorError::WriteFile { path, source } => Self::with_source(
-                fl!("failed-to-write-file", p = path.display()),
-                source,
-            ),
-            MirrorError::CreateFile { path, source } => Self::with_source(
-                fl!("failed-to-create-file", p = path.display()),
-                source,
-            ),
+            MirrorError::WriteFile { path, source } => {
+                Self::with_source(fl!("failed-to-write-file", p = path.display()), source)
+            }
+            MirrorError::CreateFile { path, source } => {
+                Self::with_source(fl!("failed-to-create-file", p = path.display()), source)
+            }
             MirrorError::ApplyEmptySettings => fl!("mirrors-setting-empty").into(),
             MirrorError::ParseConfig { source } => {
                 Self::with_source("Failed to parse file", source)
@@ -327,10 +323,9 @@ impl From<RefreshError> for OutputError {
                     fl!("failed-refresh").into()
                 }
             }
-            RefreshError::OperateFile(path, error) => Self::with_source(
-                fl!("failed-to-operate-path", p = path.display()),
-                error,
-            ),
+            RefreshError::OperateFile(path, error) => {
+                Self::with_source(fl!("failed-to-operate-path", p = path.display()), error)
+            }
             RefreshError::WrongThreadCount(count) => {
                 fl!("wrong-thread-count", count = count).into()
             }
