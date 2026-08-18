@@ -32,6 +32,17 @@ pub fn is_termux() -> bool {
     std::env::var("TERMUX_VERSION").is_ok_and(|v| !v.is_empty())
 }
 
+/// Detect if we are running in a CI environment (e.g. GitHub Actions, GitLab
+/// CI). The `CI` environment variable is considered set when its value is a
+/// truthy string ("1", "true", ...).
+#[inline]
+pub fn is_ci() -> bool {
+    std::env::var("CI").is_ok_and(|v| {
+        let v = v.trim();
+        !v.is_empty() && v != "0" && !v.eq_ignore_ascii_case("false")
+    })
+}
+
 #[inline]
 pub fn concat_url(url: &str, path: &str) -> String {
     format!(
@@ -103,4 +114,42 @@ pub fn get_file_lock(lock_path: &Path) -> Result<OwnedFd, GetLockError> {
     }
 
     Ok(fd)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_ci;
+
+    #[test]
+    fn test_is_ci() {
+        let original = std::env::var("CI").ok();
+
+        unsafe {
+            std::env::set_var("CI", "1");
+            assert!(is_ci());
+
+            std::env::set_var("CI", "true");
+            assert!(is_ci());
+
+            std::env::set_var("CI", "True");
+            assert!(is_ci());
+
+            std::env::set_var("CI", "0");
+            assert!(!is_ci());
+
+            std::env::set_var("CI", "false");
+            assert!(!is_ci());
+
+            std::env::set_var("CI", "");
+            assert!(!is_ci());
+
+            std::env::remove_var("CI");
+            assert!(!is_ci());
+
+            match original {
+                Some(v) => std::env::set_var("CI", v),
+                None => std::env::remove_var("CI"),
+            }
+        }
+    }
 }

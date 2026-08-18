@@ -5,7 +5,7 @@ use apt_auth_config::AuthConfig;
 use clap::ColorChoice;
 use oma_apt_pkg::AptConfig;
 use oma_pm::oma_apt;
-use oma_utils::is_termux;
+use oma_utils::{is_ci, is_termux};
 use once_cell::sync::OnceCell;
 use reqwest::Client;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -28,7 +28,7 @@ pub struct OmaConfig {
     pub color: ColorChoice,
     pub follow_terminal_color: bool,
     cli_no_progress: bool,
-    pub no_check_dbus: bool,
+    cli_no_check_dbus: bool,
     pub check_battery: BatteryTristate,
     pub take_wake_lock: TakeWakeLockTristate,
     pub sysroot: PathBuf,
@@ -61,7 +61,7 @@ impl Default for OmaConfig {
             color: ColorChoice::Auto,
             follow_terminal_color: GeneralConfig::default_follow_terminal_color(),
             cli_no_progress: false,
-            no_check_dbus: GeneralConfig::default_no_check_dbus(),
+            cli_no_check_dbus: GeneralConfig::default_no_check_dbus(),
             check_battery: GeneralConfig::default_check_battery(),
             take_wake_lock: GeneralConfig::default_take_wake_lock(),
             sysroot: PathBuf::from("/"),
@@ -108,7 +108,7 @@ impl OmaConfig {
                 ..
             } = general;
 
-            oma_config.no_check_dbus = no_check_dbus;
+            oma_config.cli_no_check_dbus = no_check_dbus;
 
             #[cfg(feature = "aosc")]
             {
@@ -160,7 +160,7 @@ impl OmaConfig {
 
         self.no_bell |= no_bell;
         self.follow_terminal_color |= follow_terminal_color;
-        self.no_check_dbus |= no_check_dbus;
+        self.cli_no_check_dbus |= no_check_dbus;
         self.amo &= !no_amo;
 
         if let Some(download_threads) = download_threads {
@@ -193,7 +193,15 @@ impl OmaConfig {
                 || self.dry_run
                 || std::env::var("OMA_LOG").is_ok()
                 || self.color == ColorChoice::Never
+                || is_ci()
         })
+    }
+
+    /// Whether to skip the DBus check. It is always skipped in CI
+    /// environments, where a session/system bus is usually unavailable.
+    #[inline]
+    pub fn no_check_dbus(&self) -> bool {
+        self.cli_no_check_dbus || is_ci()
     }
 
     #[inline]

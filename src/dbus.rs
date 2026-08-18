@@ -21,7 +21,7 @@ use crate::{
 type Result<T> = std::result::Result<T, OutputError>;
 
 pub fn dbus_check(yes: bool, config: &OmaConfig) -> Result<Option<OwnedFd>> {
-    if config.no_check_dbus {
+    if config.no_check_dbus() {
         no_check_dbus_warn();
         return Ok(None);
     }

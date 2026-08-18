@@ -11,6 +11,8 @@ use oma_pm::{
     progress::{InstallProgressManager, get_apt_progress_string, terminal_height, terminal_width},
 };
 
+use oma_utils::is_ci;
+
 use crate::subcommand::utils::is_terminal;
 
 pub struct OmaInstallProgressManager {
@@ -104,11 +106,11 @@ impl InstallProgressManager for OmaInstallProgressManager {
     }
 
     fn no_interactive(&self) -> bool {
-        !is_terminal() || self.yes
+        !is_terminal() || self.yes || is_ci()
     }
 
     fn use_pty(&self) -> bool {
-        is_terminal()
+        is_terminal() && !is_ci()
     }
 }
 

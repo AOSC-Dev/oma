@@ -147,7 +147,7 @@ impl CliExecuter for Tui {
         let autoremove = apt.count_pending_autoremovable_pkgs();
         let installed = apt.count_installed_packages();
 
-        let searcher = if config.amo && !config.no_check_dbus {
+        let searcher = if config.amo && !config.no_check_dbus() {
             match RT.block_on(Searcher::connect_amo()) {
                 Ok(searcher) => searcher,
                 Err(_) => local_searcher(config.apt_config(), &pb)?,
