@@ -121,6 +121,7 @@ rustix = { version = "1", features = ["process", "stdio"] }
 libc = "0.2.159"
 reqwest = { version = "0.13", default-features = false, features = ["http2"] }
 spdlog-rs = "0.5.2"
+log = "0.4"
 ratatui = "0.30.0"
 glob-match = "0.2.1"
 strsim = "0.11.1"

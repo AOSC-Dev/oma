@@ -35,7 +35,7 @@ use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
 use oma_console::{terminal::wrap_content, writer::Writer};
-use oma_logger::{debug, info, log_error, warn};
+use oma_logger::{debug, error as log_error, info, warn};
 use oma_utils::{OsRelease, is_ci, is_termux};
 use tokio::runtime::Runtime;
 use tui::Tui;

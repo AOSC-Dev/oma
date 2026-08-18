@@ -3587,6 +3587,7 @@ version = "0.1.0"
 dependencies = [
  "console",
  "jiff",
+ "log",
  "oma-console",
  "spdlog-rs",
 ]
