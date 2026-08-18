@@ -5,10 +5,10 @@ use oma_fetch::{
     CompressType, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event,
     Summary, checksum::Checksum,
 };
+use oma_logger::debug;
 use oma_pm_operation_type::InstallEntry;
 use oma_utils::url_no_escape::url_no_escape_times;
 use reqwest_middleware::ClientWithMiddleware;
-use spdlog::debug;
 
 use crate::{
     CustomDownloadMessage,

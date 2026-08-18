@@ -14,7 +14,7 @@ winnow = { workspace = true }
 flate2 = { workspace = true }
 rayon = { workspace = true }
 lzzzz = { workspace = true }
-spdlog-rs = { workspace = true }
+oma-logger = { workspace = true }
 which = { workspace = true }
 zstd = { workspace = true }
 memchr = { workspace = true }

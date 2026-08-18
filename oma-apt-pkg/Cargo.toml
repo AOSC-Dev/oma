@@ -14,7 +14,7 @@ apt-lists = [
     "apt-sources",
     "dep:rkyv",
     "dep:memmap2",
-    "dep:spdlog-rs",
+    "dep:oma-logger",
     "dep:glob-match",
     "dep:ar",
     "dep:tar",
@@ -63,7 +63,7 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 rkyv = { workspace = true, optional = true }
 memmap2 = { workspace = true, optional = true }
-spdlog-rs = { workspace = true, optional = true }
+oma-logger = { workspace = true, optional = true }
 tar = { workspace = true, optional = true }
 ar = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }

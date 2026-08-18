@@ -9,12 +9,12 @@ use oma_apt::{
     raw::{IntoRawIter, PkgIterator},
     records::RecordField,
 };
+use oma_logger::{debug, info};
 use oma_utils::{
     dpkg::{DpkgError, dpkg_arch},
     url_no_escape::url_no_escape,
 };
 use once_cell::sync::OnceCell;
-use spdlog::{debug, info};
 
 use crate::pkginfo::{OmaPackage, OmaPackageWithoutVersion, PtrIsNone};
 

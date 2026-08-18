@@ -25,7 +25,7 @@ tokio = { workspace = true, default-features = false, features = [
 ] }
 thiserror = { workspace = true }
 futures = { workspace = true }
-spdlog-rs = { workspace = true }
+oma-logger = { workspace = true }
 url = { workspace = true }
 oma-mirror = { workspace = true }
 ahash = { workspace = true }

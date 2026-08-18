@@ -15,7 +15,7 @@ use debian_control::lossy::Relations;
 #[cfg(any(feature = "search-strsim", feature = "search-text"))]
 use glob_match::glob_match;
 use serde::{Deserialize, Serialize};
-use spdlog::debug;
+use oma_logger::debug;
 
 use crate::apt_lists::PackageEntry;
 use crate::apt_sources::SourceLookup;

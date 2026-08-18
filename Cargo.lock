@@ -160,7 +160,6 @@ dependencies = [
  "reqwest",
  "reqwest-middleware",
  "rust-netrc",
- "spdlog-rs",
  "thiserror 2.0.20",
  "url",
 ]
@@ -1489,7 +1488,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3471,10 +3470,10 @@ dependencies = [
  "memchr",
  "memmap2",
  "oma-apt-sources-lists",
+ "oma-logger",
  "rayon",
  "rkyv",
  "serde",
- "spdlog-rs",
  "strsim",
  "tar",
  "tempfile",
@@ -3518,9 +3517,9 @@ dependencies = [
  "flate2",
  "lzzzz",
  "memchr",
+ "oma-logger",
  "rayon",
  "regex",
- "spdlog-rs",
  "thiserror 2.0.20",
  "which",
  "winnow",
@@ -3542,13 +3541,13 @@ dependencies = [
  "headers",
  "liblzma",
  "md-5",
+ "oma-logger",
  "reqwest",
  "reqwest-middleware",
  "rustls",
  "serde",
  "sha2 0.11.0",
  "snafu",
- "spdlog-rs",
  "tokio",
  "tokio-util",
 ]
@@ -3558,11 +3557,11 @@ name = "oma-history"
 version = "0.11.0"
 dependencies = [
  "jiff",
+ "oma-logger",
  "oma-pm-operation-type",
  "rusqlite",
  "serde",
  "serde_json",
- "spdlog-rs",
  "thiserror 2.0.20",
 ]
 
@@ -3598,11 +3597,11 @@ version = "0.8.2"
 dependencies = [
  "ahash",
  "indexmap",
+ "oma-logger",
  "once_cell",
  "serde",
  "serde_json",
  "snafu",
- "spdlog-rs",
  "toml 1.1.4+spec-1.1.0",
 ]
 
@@ -3621,12 +3620,12 @@ dependencies = [
  "jiff",
  "oma-apt",
  "oma-fetch",
+ "oma-logger",
  "oma-pm-operation-type",
  "oma-utils",
  "once_cell",
  "reqwest-middleware",
  "serde",
- "spdlog-rs",
  "sysinfo",
  "thiserror 2.0.20",
  "tokio",
@@ -3657,6 +3656,7 @@ dependencies = [
  "oma-apt-pkg",
  "oma-apt-sources-lists",
  "oma-fetch",
+ "oma-logger",
  "oma-repo-verify",
  "oma-topics",
  "oma-utils",
@@ -3664,7 +3664,6 @@ dependencies = [
  "reqwest-middleware",
  "rustls",
  "serde",
- "spdlog-rs",
  "sys-locale",
  "thiserror 2.0.20",
  "tokio",
@@ -3678,9 +3677,9 @@ dependencies = [
  "anyhow",
  "jiff",
  "oma-apt-sources-lists",
+ "oma-logger",
  "sequoia-openpgp",
  "sequoia-policy-config",
- "spdlog-rs",
  "thiserror 2.0.20",
 ]
 
@@ -3693,13 +3692,13 @@ dependencies = [
  "futures",
  "oma-console",
  "oma-inquire",
+ "oma-logger",
  "oma-mirror",
  "reqwest",
  "reqwest-middleware",
  "rustls",
  "serde",
  "serde_json",
- "spdlog-rs",
  "thiserror 2.0.20",
  "tokio",
  "url",
@@ -3712,11 +3711,11 @@ dependencies = [
  "ahash",
  "debversion",
  "logos",
+ "oma-logger",
  "oma-pm-operation-type",
  "serde",
  "serde_json",
  "snafu",
- "spdlog-rs",
 ]
 
 [[package]]
@@ -3726,8 +3725,8 @@ dependencies = [
  "logind-zbus-tokio",
  "nix 0.31.3",
  "number_prefix",
+ "oma-logger",
  "os-release",
- "spdlog-rs",
  "sysinfo",
  "thiserror 2.0.20",
  "url-escape",
@@ -4701,7 +4700,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -4757,7 +4756,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5510,7 +5509,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -6552,7 +6551,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

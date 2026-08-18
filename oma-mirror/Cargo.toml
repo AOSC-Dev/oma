@@ -11,6 +11,6 @@ serde_json = { workspace = true }
 snafu = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 ahash = { workspace = true }
-spdlog-rs = { workspace = true }
+oma-logger = { workspace = true }
 once_cell = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }

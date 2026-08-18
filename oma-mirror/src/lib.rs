@@ -8,10 +8,10 @@ use std::{
 };
 
 use indexmap::{IndexMap, indexmap};
+use oma_logger::debug;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
-use spdlog::debug;
 
 use crate::parser::{
     MirrorConfig, MirrorConfigTemplate, MirrorsConfig, MirrorsConfigTemplate, TemplateParseError,

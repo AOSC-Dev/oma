@@ -5,7 +5,7 @@ use oma_apt_pkg::AptConfig;
 use oma_apt_pkg::apt_sources::{
     IndexTargetTemplates, find_matching_combinations, strip_compression_ext, substitute,
 };
-use spdlog::debug;
+use oma_logger::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
 

@@ -26,7 +26,7 @@ oma-apt-pkg = { workspace = true, default-features = false, features = [
     "apt-sources",
 ] }
 oma-topics = { workspace = true, optional = true, default-features = false }
-spdlog-rs = { workspace = true }
+oma-logger = { workspace = true }
 oma-repo-verify = { workspace = true, default-features = false }
 ahash = { workspace = true }
 aho-corasick = { workspace = true }

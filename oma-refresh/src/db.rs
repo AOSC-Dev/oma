@@ -30,10 +30,10 @@ use oma_topics::TopicManager;
 #[cfg(feature = "aosc")]
 use oma_fetch::reqwest::StatusCode;
 
+use oma_logger::{debug, warn};
 use oma_utils::{GetLockError, get_file_lock, is_termux};
 use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize};
-use spdlog::{debug, warn};
 use url::Url;
 
 use oma_apt_pkg::apt_sources::{SourceLookup, scan_sources_list_paths};
@@ -355,7 +355,7 @@ impl OmaRefresh {
         Ok(res)
     }
 
-    fn run_success_post_invoke(&self, cfg: &AptConfig) {
+fn run_success_post_invoke(&self, cfg: &AptConfig) {
         // 本 crate 的配置解析器把列表项存为 `KEY::{item}`（见
         // `config_parser::handle_list_value`），不是 apt 的 `KEY#N` 约定，
         // 因此要像 `sourceslist::ignores` 一样用 `keys_under` + `get(KEY::{k})`

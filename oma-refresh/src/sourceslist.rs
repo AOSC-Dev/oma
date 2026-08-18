@@ -10,10 +10,10 @@ use oma_fetch::{
     reqwest::{Method, Response, StatusCode},
     send_request_with_url_and_method,
 };
+use oma_logger::{debug, warn};
 use oma_utils::concat_url;
 use once_cell::sync::OnceCell;
 use reqwest_middleware::ClientWithMiddleware;
-use spdlog::{debug, warn};
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
@@ -56,7 +56,7 @@ pub fn ignores(cfg: &AptConfig) -> Vec<Regex> {
         .map(|k| cfg.get(&format!("Dir::Ignore-Files-Silently::{k}"), ""))
         .filter(|s| !s.is_empty());
 
-    ignores_lines
+ignores_lines
         .filter_map(|re| {
             Regex::new(&re).inspect_err(|e| {
                 warn!("Failed to parse regex {re} in ignore rule list (Dir::Ignore-Files-Silently): {e}")

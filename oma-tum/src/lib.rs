@@ -7,10 +7,10 @@ use std::{
 
 use ahash::{HashMap, HashSet};
 use debversion::Version;
+use oma_logger::warn;
 use oma_pm_operation_type::{InstallOperation, OmaOperation};
 use serde::Deserialize;
 use snafu::{ResultExt, Snafu, Whatever};
-use spdlog::warn;
 
 use crate::parser::{VersionToken, parse_version_expr};
 

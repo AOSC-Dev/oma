@@ -3,10 +3,10 @@ mod migrations;
 use std::{collections::HashMap, env::args, path::Path};
 
 use migrations::create_and_maybe_migration_from_oma_db_v2;
+use oma_logger::debug;
 use oma_pm_operation_type::{InstallOperation, OmaOperation, RemoveTag};
 use rusqlite::{Connection, Error, OpenFlags, Result};
 use serde::Deserialize;
-use spdlog::debug;
 use thiserror::Error;
 
 pub struct HistoryEntryInner {

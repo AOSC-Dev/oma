@@ -5,10 +5,10 @@ use bon::Builder;
 use checksum::Checksum;
 use download::{BuilderError, SingleDownloader, SuccessSummary};
 
+use oma_logger::debug;
 use reqwest::{Method, Response, Url};
 use reqwest_middleware::{ClientWithMiddleware, RequestBuilder};
 use serde::{Deserialize, Serialize};
-use spdlog::debug;
 use tokio::task::JoinSet;
 
 pub mod checksum;

@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use memmap2::{Mmap, MmapOptions};
 use rayon::prelude::*;
 use rkyv::vec::ArchivedVec;
-use spdlog::debug;
+use oma_logger::debug;
 
 use crate::AptConfig;
 use crate::apt_lists::{
