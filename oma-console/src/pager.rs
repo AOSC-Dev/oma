@@ -26,17 +26,17 @@ use spdlog::debug;
 use termbg::Theme;
 use tui_input::Input;
 
-use crate::{print::OmaColorFormat, writer::Writer};
+use crate::writer::Writer;
 
 const HIGHLIGHT_START: &str = "\x1b[7m";
 const HIGHLIGHT_END: &str = "\x1b[0m";
 
-pub enum Pager<'a> {
+pub enum Pager {
     Plain,
-    External(Box<OmaPager<'a>>),
+    External(Box<OmaPager>),
 }
 
-impl<'a> Pager<'a> {
+impl Pager {
     pub fn plain() -> Self {
         Self::Plain
     }
@@ -44,14 +44,14 @@ impl<'a> Pager<'a> {
     pub fn external(
         ui_text: Box<dyn PagerUIText>,
         title: Option<String>,
-        color_format: &'a OmaColorFormat,
+        theme: Option<Theme>,
         yn_mode: bool,
     ) -> io::Result<Self> {
         if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
             return Ok(Pager::Plain);
         }
 
-        let app = OmaPager::new(title, color_format, ui_text, yn_mode);
+        let app = OmaPager::new(title, theme, ui_text, yn_mode);
         let res = Pager::External(Box::new(app));
 
         Ok(res)
@@ -118,7 +118,7 @@ enum PagerInner {
 }
 
 /// `OmaPager` is a structure that implements a pager displaying text-based content in a terminal UI.
-pub struct OmaPager<'a> {
+pub struct OmaPager {
     /// The internal state of the pager, which can be either `Working` or `Finished`.
     inner: PagerInner,
     /// The state of the vertical scrollbar.
@@ -139,8 +139,8 @@ pub struct OmaPager<'a> {
     title: Option<String>,
     /// The length of the inner content.
     inner_len: usize,
-    /// A reference to the color format used for the pager's theme.
-    theme: &'a OmaColorFormat,
+    /// The detected terminal theme (dark/light) used for the pager's theme.
+    theme: Option<Theme>,
     /// A vector containing the indices of search results.
     search_results: Vec<usize>,
     /// The index of the current search result being displayed.
@@ -157,7 +157,7 @@ pub struct OmaPager<'a> {
     search_input: Input,
 }
 
-impl Write for OmaPager<'_> {
+impl Write for OmaPager {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self.inner {
             PagerInner::Working(ref mut v) => v.extend_from_slice(buf),
@@ -205,10 +205,10 @@ impl From<PagerExit> for i32 {
     }
 }
 
-impl<'a> OmaPager<'a> {
+impl OmaPager {
     pub fn new(
         title: Option<String>,
-        theme: &'a OmaColorFormat,
+        theme: Option<Theme>,
         ui_text: Box<dyn PagerUIText>,
         yn_mode: bool,
     ) -> Self {
@@ -564,7 +564,7 @@ impl<'a> OmaPager<'a> {
 
         let chunks = Layout::vertical(layout).split(area);
 
-        let color = self.theme.theme;
+        let color = self.theme;
 
         let title_bg_color = match color {
             Some(Theme::Dark) => Color::Indexed(25),

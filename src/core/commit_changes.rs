@@ -5,7 +5,7 @@ use bon::Builder;
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use flume::unbounded;
 use jiff::Timestamp;
-use oma_console::{indicatif::HumanBytes, pager::PagerExit, print::Action};
+use oma_console::{indicatif::HumanBytes, pager::PagerExit};
 use oma_history::{DATABASE_PATH, HistoryInfo};
 use oma_pm::{
     CommitConfig,
@@ -15,10 +15,11 @@ use oma_pm::{
 };
 use spdlog::{debug, error, info, warn};
 
+use crate::color::Colorize;
 #[cfg(feature = "aosc")]
 use crate::utils::get_lists_dir;
 use crate::{
-    NOT_ALLOW_CTRLC, color_formatter,
+    NOT_ALLOW_CTRLC,
     config::OmaConfig,
     core::space_tips,
     error::OutputError,
@@ -366,21 +367,12 @@ fn autoremovable_tips(count: u64, total_size: u64) {
     }
 
     let total_size = HumanBytes(total_size).to_string();
-    let cmd1 = color_formatter()
-        .color_str("oma list --autoremovable", Action::Emphasis)
-        .to_string();
-    let cmd2 = color_formatter()
-        .color_str("oma mark manual <packages>", Action::Note)
-        .to_string();
-    let cmd3 = color_formatter()
-        .color_str("oma autoremove", Action::Secondary)
-        .to_string();
-    let count = color_formatter()
-        .color_str(count, Action::Secondary)
-        .to_string();
-    let total_size = color_formatter()
-        .color_str(total_size, Action::Secondary)
-        .to_string();
+    let cmd1 = "oma list --autoremovable".emphasis_color();
+    let cmd2 = "oma mark manual <packages>".note_color();
+    let cmd3 = "oma autoremove".secondary_color();
+    let count = count.secondary_color();
+    let total_size = total_size.secondary_color();
+
     info!(
         "{}",
         fl!(
@@ -436,8 +428,8 @@ fn history_success_tips(dry_run: bool) {
 }
 
 fn undo_tips() {
-    let cmd = color_formatter().color_str("oma undo", Action::Emphasis);
-    info!("{}", fl!("history-tips-2", cmd = cmd.to_string()));
+    let cmd = "oma undo".emphasis_color();
+    info!("{}", fl!("history-tips-2", cmd = cmd));
 }
 
 fn display_suggest_tips(suggest: &[(String, String)], recommend: &[(String, String)]) {

@@ -1,11 +1,8 @@
 use std::fmt::{self, Write};
 use std::sync::LazyLock;
-use std::time::Duration;
 
-use console::{Color, StyledObject, style};
 use jiff::Timestamp;
-use spdlog::{Level, debug, formatter::Formatter};
-use termbg::Theme;
+use spdlog::{Level, formatter::Formatter};
 
 pub use termbg;
 
@@ -21,129 +18,6 @@ static PREFIX_ERROR: LazyLock<String> =
 static PREFIX_TRACE: LazyLock<String> = LazyLock::new(|| console::style("TRACE").dim().to_string());
 static PREFIX_CRITICAL: LazyLock<String> =
     LazyLock::new(|| console::style("CRITICAL").red().bright().bold().to_string());
-
-#[derive(Clone)]
-enum StyleFollow {
-    OmaTheme,
-    TermTheme,
-}
-
-pub enum Action {
-    Emphasis,
-    Foreground,
-    Secondary,
-    EmphasisSecondary,
-    WARN,
-    Purple,
-    Note,
-    UpgradeTips,
-    PendingBg,
-}
-
-impl Action {
-    fn dark(&self) -> u8 {
-        match self {
-            Action::Emphasis => 148,
-            Action::Foreground => 72,
-            Action::Secondary => 182,
-            Action::EmphasisSecondary => 114,
-            Action::WARN => 214,
-            Action::Purple => 141,
-            Action::Note => 178,
-            Action::UpgradeTips => 87,
-            Action::PendingBg => 25,
-        }
-    }
-
-    fn light(&self) -> u8 {
-        match self {
-            Action::Emphasis => 142,
-            Action::Foreground => 72,
-            Action::Secondary => 167,
-            Action::EmphasisSecondary => 106,
-            Action::WARN => 208,
-            Action::Purple => 141,
-            Action::Note => 172,
-            Action::UpgradeTips => 63,
-            Action::PendingBg => 189,
-        }
-    }
-}
-/// OmaColorFormat
-///
-/// `OmaColorFormat` is a structure that defines the color format and theme settings for oma.
-pub struct OmaColorFormat {
-    /// A `StyleFollow` enum that indicates whether to follow the terminal theme or use the oma-defined theme.
-    follow: StyleFollow,
-    /// An optional `Theme` object that defined by oma.
-    pub theme: Option<Theme>,
-}
-
-impl OmaColorFormat {
-    pub fn new(follow: bool, duration: Duration) -> Self {
-        Self {
-            follow: if follow {
-                StyleFollow::TermTheme
-            } else {
-                StyleFollow::OmaTheme
-            },
-            theme: if !follow {
-                termbg::theme(duration)
-                    .map_err(|e| {
-                        debug!(
-                            "Failed to apply oma color schemes, falling back to default terminal colors: {e:?}."
-                        );
-                        e
-                    })
-                    .ok()
-            } else {
-                None
-            },
-        }
-    }
-    /// Convert input into StyledObject
-    ///
-    /// This function applies a color scheme to the given input string based on the specified action and the current terminal color schemes.
-    ///
-    /// # Arguments
-    ///
-    /// * `input` - The input data to be themed.
-    /// * `color` - An `Action` enum value that specifies the color to be applied.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `StyledObject` that contains the styled input data.
-    pub fn color_str<D>(&self, input: D, color: Action) -> StyledObject<D> {
-        match self.follow {
-            StyleFollow::OmaTheme => match self.theme {
-                Some(Theme::Dark) => match color {
-                    x @ Action::PendingBg => style(input).bg(Color::Color256(x.dark())).bold(),
-                    x => style(input).color256(x.dark()),
-                },
-                Some(Theme::Light) => match color {
-                    x @ Action::PendingBg => style(input).bg(Color::Color256(x.light())).bold(),
-                    x => style(input).color256(x.light()),
-                },
-                None => term_color(input, color),
-            },
-            StyleFollow::TermTheme => term_color(input, color),
-        }
-    }
-}
-
-fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
-    match color {
-        Action::Emphasis => style(input).green(),
-        Action::Secondary => style(input).dim(),
-        Action::EmphasisSecondary => style(input).cyan(),
-        Action::WARN => style(input).yellow().bold(),
-        Action::Purple => style(input).magenta(),
-        Action::Note => style(input).yellow(),
-        Action::Foreground => style(input).cyan().bold(),
-        Action::UpgradeTips => style(input).blue().bold(),
-        Action::PendingBg => style(input).bg(Color::Blue).bold(),
-    }
-}
 
 const TIME_RFC3339_LEN: u16 = "1970-01-01T00:00:00.000Z".len() as u16 + 1;
 

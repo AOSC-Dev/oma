@@ -4,16 +4,16 @@ use std::io::Write;
 use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
 
+use crate::color::Colorize;
 use crate::console::style;
 use crate::error::OutputError;
 use crate::subcommand::utils::is_terminal;
-use crate::{NO_COLOR, NOT_DISPLAY_ABORT, WRITER, color_formatter, fl};
+use crate::{NO_COLOR, NOT_DISPLAY_ABORT, WRITER, fl};
 use ahash::HashMap;
 use ahash::HashSet;
 use dialoguer::console;
 use oma_console::indicatif::HumanBytes;
 use oma_console::pager::{Pager, PagerExit, PagerUIText};
-use oma_console::print::Action;
 use oma_history::{InstallHistoryEntry, RemoveHistoryEntry};
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 
@@ -56,9 +56,7 @@ impl From<&InstallHistoryEntry> for InstallEntryDisplay {
         let name = match value.operation {
             InstallOperation::Install => style(&value.pkg_name).green().to_string(),
             InstallOperation::ReInstall => style(&value.pkg_name).blue().to_string(),
-            InstallOperation::Upgrade => color_formatter()
-                .color_str(&value.pkg_name, Action::UpgradeTips)
-                .to_string(),
+            InstallOperation::Upgrade => value.pkg_name.as_str().upgrade_tips_color().to_string(),
             InstallOperation::Downgrade => style(&value.pkg_name).yellow().to_string(),
             InstallOperation::Download => value.pkg_name.to_string(),
             InstallOperation::Default => unreachable!(),
@@ -160,9 +158,7 @@ impl From<&InstallEntry> for InstallEntryDisplay {
         let name = match value.op() {
             InstallOperation::Install => style(value.name()).green().to_string(),
             InstallOperation::ReInstall => style(value.name()).blue().to_string(),
-            InstallOperation::Upgrade => color_formatter()
-                .color_str(value.name(), Action::UpgradeTips)
-                .to_string(),
+            InstallOperation::Upgrade => value.name().upgrade_tips_color().to_string(),
             InstallOperation::Downgrade => style(value.name()).yellow().to_string(),
             InstallOperation::Download => value.name().to_string(),
             InstallOperation::Default => unreachable!(),
@@ -206,10 +202,7 @@ impl From<&InstallEntry> for InstallEntryDisplay {
     }
 }
 
-pub fn oma_display_with_normal_output(
-    is_question: bool,
-    len: usize,
-) -> Result<Pager<'static>, OutputError> {
+pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<Pager, OutputError> {
     if !is_question {
         NOT_DISPLAY_ABORT.store(true, Ordering::Relaxed);
     }
@@ -223,7 +216,7 @@ pub fn oma_display_with_normal_output(
                 download_and_install_size: None,
             }),
             None,
-            color_formatter(),
+            crate::color::color_theme(),
             false,
         )
         .map_err(|e| OutputError::with_source("Failed to get pager", e))?
@@ -416,7 +409,7 @@ pub fn table_for_install_pending(
                 download_and_install_size: Some((total_download_size, disk_size)),
             }),
             Some(fl!("pending-op")),
-            color_formatter(),
+            crate::color::color_theme(),
             yn_mode,
         )
         .map_err(|e| OutputError::with_source("Failed to get pager", e))?
@@ -492,7 +485,7 @@ pub fn table_for_history_pending(
             download_and_install_size: Some((total_download_size, disk_size)),
         }),
         Some(fl!("pending-op")),
-        color_formatter(),
+        crate::color::color_theme(),
         false,
     )
     .map_err(|e| OutputError::with_source("Failed to get pager", e))?;
@@ -627,7 +620,7 @@ fn print_pending_inner<W: Write>(
                 .println(format!(
                     "{} {}{}\n",
                     fl!("count-pkg-has-desc", count = update.len()),
-                    color_formatter().color_str(fl!("upgraded"), Action::UpgradeTips),
+                    fl!("upgraded").upgrade_tips_color(),
                     fl!("colon")
                 ))
                 .ok();
@@ -772,7 +765,7 @@ fn print_tum(
                         "tum-1-with-security",
                         updates = tum.len(),
                         security = security_count,
-                        security_str = style(fl!("security")).red().bold().to_string()
+                        security_str = style(fl!("security")).red().bold()
                     )
                 ))
                 .ok();
@@ -853,13 +846,11 @@ fn review_msg<W: Write>(printer: &mut PagerPrinter<W>) {
             "{}\n",
             fl!(
                 "oma-may",
-                a = style(fl!("install")).green().to_string(),
-                b = style(fl!("remove")).red().to_string(),
-                c = color_formatter()
-                    .color_str(fl!("upgrade"), Action::UpgradeTips)
-                    .to_string(),
-                d = style(fl!("downgrade")).yellow().to_string(),
-                e = style(fl!("reinstall")).blue().to_string()
+                a = style(fl!("install")).green(),
+                b = style(fl!("remove")).red(),
+                c = fl!("upgrade").upgrade_tips_color(),
+                d = style(fl!("downgrade")).yellow(),
+                e = style(fl!("reinstall")).blue()
             )
         ))
         .ok();

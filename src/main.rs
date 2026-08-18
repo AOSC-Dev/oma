@@ -1,13 +1,13 @@
-use std::env::{self, args};
+use std::env::args;
 use std::ffi::CString;
-use std::io::{self, IsTerminal, stderr, stdin};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use std::process::{Command, exit};
 use std::sync::{LazyLock, OnceLock};
-use std::time::Duration;
 
 mod args;
+mod color;
 mod completions;
 mod config;
 mod config_file;
@@ -31,22 +31,16 @@ use clap::builder::FalseyValueParser;
 use clap::{ArgAction, ArgMatches, Args, ColorChoice, CommandFactory, FromArgMatches};
 use clap_complete::CompleteEnv;
 use clap_i18n_richformatter::CommandI18nExt;
-use dbus::is_ssh_from_loginctl;
 use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
-use oma_console::{
-    print::{OmaColorFormat, termbg},
-    terminal::wrap_content,
-    writer::Writer,
-};
+use oma_console::{terminal::wrap_content, writer::Writer};
 use oma_utils::{OsRelease, is_termux};
-use rustix::stdio::stdout;
 use spdlog::{debug, info, prelude::error as log_error, warn};
 use tokio::runtime::Runtime;
 use tui::Tui;
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 
 use oma_console::console;
 
@@ -62,7 +56,6 @@ use anyhow::Chain;
 static NOT_DISPLAY_ABORT: AtomicBool = AtomicBool::new(false);
 static NOT_ALLOW_CTRLC: AtomicBool = AtomicBool::new(false);
 static DEFAULT_USER_AGENT: &str = concat!("oma/", env!("CARGO_PKG_VERSION"));
-static COLOR_FORMATTER: OnceLock<OmaColorFormat> = OnceLock::new();
 static RT: LazyLock<Runtime> = LazyLock::new(|| {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -275,7 +268,11 @@ fn init_localizer() {
 }
 
 fn try_main(mut config: OmaConfig, matches: ArgMatches) -> Result<ExitHandle, OutputError> {
-    init_color_formatter(&config);
+    crate::color::init_color(
+        config.color == ColorChoice::Never,
+        config.follow_terminal_color,
+    );
+
     let subcmd = config.take_subcmd();
 
     match subcmd {
@@ -314,80 +311,6 @@ fn try_main(mut config: OmaConfig, matches: ArgMatches) -> Result<ExitHandle, Ou
             }
         }
     }
-}
-
-fn init_color_formatter(config: &OmaConfig) {
-    let mut follow_term_color = config.follow_terminal_color;
-    let no_color = config.color == ColorChoice::Never;
-
-    if no_color {
-        unsafe { env::set_var("NO_COLOR", "1") };
-        console::set_colors_enabled(false);
-        NO_COLOR.store(true, Ordering::Relaxed);
-    }
-
-    COLOR_FORMATTER.get_or_init(|| {
-        // FIXME: Marking latency limits for oma's terminal color queries (via
-        // termbg). On slower terminals - i.e., SSH and unaccelerated
-        // graphical environments, any colored interfaces in oma may return a
-        // terminal color query string in the returned shell, confusing users.
-        //
-        //   (ssh)root@LoongUnion1 [ ~ ] ? 11;rgb:2323/2626/2727
-        //
-        // Following advice from termbg here. Add latency limits to avoid this
-        // strange output on slower terminals.
-        //
-        // For further investigation, we have some remaining questions:
-        //
-        // 1. Why 100ms? We see that the termbg-based procs project using the
-        //    same latency limit to workaround the aforementioned issue.
-        //    It should be noted that this is nothing more than a "magic
-        //    number" that we have tested to work.
-        // 2. The true cause or reproducing conditions for this issue is not
-        //    yet clear, we found the same issue on a slower machine (Loongson
-        //    3B4000) in a nearby datacenter (~50ms) with a faster one
-        //    (Loongson 3C5000), which does not exhibit the issue; as well as
-        //    on a faster machine (AMD EPYC 7H12) with high latency (~450ms).
-        //
-        // Ref: https://github.com/dalance/procs/issues/221
-        // Ref: https://github.com/dalance/procs/commit/83305be6fb431695a070524328b66c7107ce98f3
-        let timeout = Duration::from_millis(100);
-
-        if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() || no_color
-        {
-            follow_term_color = true;
-        } else if env::var("SSH_CONNECTION").is_ok() || is_ssh_from_loginctl()  {
-            debug!(
-                "You are running oma in an SSH session, using default terminal colors to avoid latency."
-            );
-            follow_term_color = true;
-        } else if env::var("TERM").is_err() || termbg::terminal() != termbg::Terminal::XtermCompatible {
-            debug!("Your terminal is: {:?}", termbg::terminal());
-            debug!(
-                "Unknown or unsupported terminal ($TERM is empty or unsupported) detected, using default terminal colors to avoid latency."
-            );
-            follow_term_color = true;
-        } else if let Ok(latency) = termbg::latency(Duration::from_millis(1000)) {
-            debug!("latency: {:?}", latency);
-            if latency * 2 > timeout {
-                debug!(
-                    "Terminal latency is too long, falling back to default terminal colors, latency: {:?}.",
-                    latency
-                );
-                follow_term_color = true;
-            }
-        } else {
-            debug!("Terminal latency is too long, falling back to default terminal colors.");
-            follow_term_color = true;
-        }
-
-        OmaColorFormat::new(follow_term_color, timeout)
-    });
-}
-
-#[inline]
-fn color_formatter() -> &'static OmaColorFormat {
-    COLOR_FORMATTER.get().unwrap()
 }
 
 fn display_error(e: OutputError) -> io::Result<()> {

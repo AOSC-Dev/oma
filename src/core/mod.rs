@@ -1,11 +1,11 @@
 use std::path::Path;
 
 use fs_extra::dir::get_size as get_dir_size;
-use oma_console::{indicatif::HumanBytes, print::Action};
+use oma_console::indicatif::HumanBytes;
 use oma_pm::apt::OmaApt;
 use spdlog::warn;
 
-use crate::{color_formatter, fl};
+use crate::{color::Colorize, fl};
 
 pub mod commit_changes;
 pub mod refresh;
@@ -33,9 +33,7 @@ pub fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {
 
     if archive_dir_space != 0 {
         let human_space = HumanBytes(archive_dir_space).to_string();
-        let cmd = color_formatter()
-            .color_str("oma clean", Action::Secondary)
-            .to_string();
+        let cmd = "oma clean".secondary_color();
 
         warn!("{}", fl!("space-warn", size = human_space, cmd = cmd));
     } else {

@@ -7,14 +7,15 @@ use oma_apt_pkg::search::{
     TextSearch,
 };
 use oma_apt_pkg::{AptConfig, AptDb, DpkgState};
-use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
+use oma_console::{console::style, pager::Pager, terminal::gen_prefix};
 use oma_pm::matches::SearchEngine;
 use oma_utils::zbus::proxy;
 use spdlog::debug;
 use zbus::Connection;
 
+use crate::color::Colorize;
 use crate::{
-    RT, WRITER, color_formatter, completions::pkgnames_completions, config::OmaConfig,
+    RT, WRITER, completions::pkgnames_completions, config::OmaConfig,
     config_file::SearchEngine as ConfigSearchEngine, exit_handle::ExitHandle, fl,
 };
 use crate::{error::OutputError, table::oma_display_with_normal_output};
@@ -51,15 +52,9 @@ impl Display for SearchResultDisplay<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let i = self.0;
         let mut pkg_info_line = if i.is_base {
-            color_formatter()
-                .color_str(&i.name, Action::Purple)
-                .bold()
-                .to_string()
+            i.name.as_str().purple_color().bold().to_string()
         } else {
-            color_formatter()
-                .color_str(&i.name, Action::Emphasis)
-                .bold()
-                .to_string()
+            i.name.as_str().emphasis_color().bold().to_string()
         };
 
         pkg_info_line.push(' ');
@@ -67,13 +62,14 @@ impl Display for SearchResultDisplay<'_> {
         if i.status == PackageStatus::Upgrade {
             pkg_info_line.push_str(&format!(
                 "{} -> {}",
-                color_formatter().color_str(i.old_version.as_ref().unwrap(), Action::WARN),
-                color_formatter().color_str(&i.new_version, Action::EmphasisSecondary)
+                i.old_version.as_ref().unwrap().warn_color(),
+                i.new_version.as_str().emphasis_secondary_color()
             ));
         } else {
             pkg_info_line.push_str(
-                &color_formatter()
-                    .color_str(&i.new_version, Action::EmphasisSecondary)
+                &i.new_version
+                    .as_str()
+                    .emphasis_secondary_color()
                     .to_string(),
             );
         }
@@ -90,19 +86,13 @@ impl Display for SearchResultDisplay<'_> {
 
         if !pkg_tags.is_empty() {
             pkg_info_line.push(' ');
-            pkg_info_line.push_str(
-                &color_formatter()
-                    .color_str(format!("[{}]", pkg_tags.join(",")), Action::Note)
-                    .to_string(),
-            );
+            pkg_info_line.push_str(&format!("[{}]", pkg_tags.join(",")).note_color().to_string());
         }
 
         let prefix = match i.status {
             PackageStatus::Avail => style("AVAIL").dim(),
-            PackageStatus::Installed => {
-                color_formatter().color_str("INSTALLED", Action::Foreground)
-            }
-            PackageStatus::Upgrade => color_formatter().color_str("UPGRADE", Action::WARN),
+            PackageStatus::Installed => "INSTALLED".foreground_color(),
+            PackageStatus::Upgrade => "UPGRADE".warn_color(),
         }
         .to_string();
 
@@ -114,13 +104,9 @@ impl Display for SearchResultDisplay<'_> {
             .into_iter()
             .for_each(|(prefix, body)| {
                 write!(f, "{}", gen_prefix(prefix, 10)).ok();
-                writeln!(
-                    f,
-                    "{}",
-                    color_formatter().color_str(body.trim(), Action::Secondary)
-                )
-                // Keep original behavior
-                .ok();
+                writeln!(f, "{}", body.trim().secondary_color())
+                    // Keep original behavior
+                    .ok();
             });
 
         Ok(())
