@@ -3504,7 +3504,6 @@ dependencies = [
  "ansi-to-tui",
  "console",
  "indicatif",
- "jiff",
  "ratatui",
  "spdlog-rs",
  "termbg-with-async-stdin",

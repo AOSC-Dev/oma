@@ -33,9 +33,6 @@ pub mod terminal;
 pub mod print;
 
 #[cfg(feature = "print")]
-pub use print::OmaFormatter;
-
-#[cfg(feature = "print")]
 pub use console;
 
 #[cfg(feature = "progress_bar_style")]
