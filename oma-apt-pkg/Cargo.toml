@@ -54,6 +54,15 @@ search-text = [
 
 search = ["search-indicium", "search-strsim", "search-text"]
 
+# Experimental dependency resolver (long-term, may change).
+resolver = [
+    "apt-lists",
+    "search-text",
+    "apt-sources",
+    "dep:debversion",
+    "dep:resolvo",
+]
+
 [dependencies]
 deb822-fast = { workspace = true }
 deb822-lossless = { workspace = true, features = ["deb822-fast"] }
@@ -81,6 +90,7 @@ tree-sitter = { workspace = true, optional = true }
 tree-sitter-apt-config = { workspace = true, optional = true }
 aho-corasick = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
+resolvo = { version = "0.12", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
