@@ -7,7 +7,7 @@ license = "MIT"
 authors = ["eatradish <sakiiily@aosc.io>"]
 
 [features]
-default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config"]
+default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config", "resolver"]
 apt-config = ["dep:tree-sitter", "dep:tree-sitter-apt-config"]
 apt-lists = [
     "filename",
@@ -114,5 +114,25 @@ regex = { workspace = true, optional = true }
 name = "oma-edsp"
 required-features = ["resolver"]
 
+[[example]]
+name = "resolver_check"
+required-features = ["resolver"]
+
+[[example]]
+name = "broken"
+required-features = ["resolver"]
+
+[[example]]
+name = "broken_compare"
+required-features = ["resolver"]
+
+[[example]]
+name = "apt_ops"
+required-features = ["resolver"]
+
 [dev-dependencies]
 tempfile = "3"
+clap = { workspace = true }
+oma-fetch = { workspace = true, features = ["rustls"] }
+reqwest-middleware = { workspace = true }
+rustls = { workspace = true }
