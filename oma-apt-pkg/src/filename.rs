@@ -8,8 +8,18 @@
 //! |-----------|------------|--------|
 //! | `_`       | `%5f`      | Escaped so it's not confused with path separators |
 //! | `/`       | `_`        | Path separator becomes underscore |
-//! | `+`       | `%252b`    | Plus sign (oma-refresh extension; APT leaves `+` as-is) |
+//! | `+`       | `%252b`    | Plus sign (double-encoded, see below) |
+//! | `~`       | `%257e`    | Tilde (double-encoded, see below) |
+//! | ` `       | `%2520`    | Space (double-encoded, see below) |
 //! | `@`       | `%40`      | At-sign |
+//!
+//! About `+`, `~` and space: apt percent-encodes the suite via
+//! `pkgAcquire::URIEncode` (acquire.cc — the default `Acquire::URIEncode`
+//! set is `+~ `; `+` was added as a workaround for an S3 bug,
+//! LP#1003633/LP#1086997) before building the index URI, and its
+//! `URItoFileName` then re-encodes the `%`, so `+` -> `%252b`, `~` ->
+//! `%257e` and space -> `%2520` in list filenames. oma-refresh emits the
+//! same encodings (see `test_url_encode_plus`, from commit d9287e33).
 //!
 //! The [`AptListFilename`] struct holds both directions, using `aho-corasick`
 //! for simultaneous, order-independent replacement.
@@ -67,12 +77,12 @@ impl Default for AptListFilename {
 
 impl AptListFilename {
     /// Patterns for encoding (host+path → filename stem).
-    const ENCODE_PATTERNS: &[&str] = &["_", "/", "+", "%3a", "%3A", "@"];
-    const ENCODE_REPLACE: &[&str] = &["%5f", "_", "%252b", ":", ":", "%40"];
+    const ENCODE_PATTERNS: &[&str] = &["_", "/", "+", "~", " ", "%3a", "%3A", "@"];
+    const ENCODE_REPLACE: &[&str] = &["%5f", "_", "%252b", "%257e", "%2520", ":", ":", "%40"];
 
     /// Patterns for decoding (filename stem → host+path).
-    const DECODE_PATTERNS: &[&str] = &["%252b", "%40", "_", "%5f"];
-    const DECODE_REPLACE: &[&str] = &["+", "@", "/", "_"];
+    const DECODE_PATTERNS: &[&str] = &["%252b", "%257e", "%2520", "%40", "_", "%5f"];
+    const DECODE_REPLACE: &[&str] = &["+", "~", " ", "@", "/", "_"];
 
     /// Build a new converter with the standard APT substitution rules.
     pub fn new() -> Self {
@@ -304,6 +314,20 @@ mod tests {
             "repo.example.com_debs_%40special_dists_stable_main_binary-amd64"
         );
         assert_eq!(cvt.decode(&encoded).unwrap(), input);
+    }
+
+    #[test]
+    fn test_encode_tilde_and_space() {
+        let cvt = cvt();
+        // Like apt's URIEncode default set (+~ ), ~ and space are
+        // double-encoded too: ~ -> %7e -> %257e, space -> %20 -> %2520.
+        let original = "repo.example.com/debs/dists/foo~bar baz/InRelease";
+        let encoded = cvt.encode(original).unwrap();
+        assert_eq!(
+            encoded,
+            "repo.example.com_debs_dists_foo%257ebar%2520baz_InRelease"
+        );
+        assert_eq!(cvt.decode(&encoded).unwrap(), original);
     }
 
     #[test]

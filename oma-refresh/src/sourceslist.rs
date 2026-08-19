@@ -823,7 +823,12 @@ fn test_ose() {
     assert_eq!(ose.dist_path(), "file:/usr/../debs/./");
 }
 
-// Encode + as %252b.
+// Encode + as %252b: a real AOSC mirror path contains a '+' (e.g.
+// `x264-0+git20240305`). apt percent-encodes the suite with
+// `pkgAcquire::URIEncode` (an S3-bug workaround, LP#1003633/LP#1086997),
+// then `URItoFileName` re-encodes the `%` — so apt's list filename has
+// `%252b` (see commit d9287e33, "apt will encode '+' twice"). oma must
+// produce the same filename, or the downloaded list files won't be found.
 #[test]
 fn test_url_encode_plus() {
     let entry = SourceEntry {
