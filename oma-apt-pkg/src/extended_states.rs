@@ -66,10 +66,23 @@ impl AptExtendedStates {
             let Ok(entry) = ExtendedStateEntry::from_paragraph(&para) else {
                 continue;
             };
+            // apt parses `Auto-Installed` as an integer (`FindI` → `strtol`):
+            // only numeric values count, and anything > 0 means auto.
+            // `yes`/`no`/`true`/`false` parse as 0 → not auto, and apt
+            // itself always writes `1`/`0`.
+            //
+            // See:
+            // - https://salsa.debian.org/apt-team/apt/-/blob/main/apt-pkg/depcache.cc?ref_type=heads#L312
+            //   (reading: `FindI("Auto-Installed", 0)` then `reason > 0`)
+            // - https://salsa.debian.org/apt-team/apt/-/blob/main/apt-pkg/tagfile.cc?ref_type=heads#L761-L786
+            //   (the `strtol` integer parse behind `FindI`)
+            // - https://salsa.debian.org/apt-team/apt/-/blob/main/apt-pkg/depcache.cc?ref_type=heads#L407
+            //   (writing: always `"1"` / `"0"`)
             let auto = entry
                 .auto_installed
                 .as_deref()
-                .is_some_and(|v| v == "1" || v == "yes");
+                .and_then(|v| v.trim().parse::<i64>().ok())
+                .is_some_and(|n| n > 0);
             answers.insert(entry.package.clone(), auto);
             if entry.package == name {
                 return auto;
@@ -98,6 +111,10 @@ Auto-Installed: 0
 Package: zsh
 Architecture: amd64
 Auto-Installed: yes
+
+Package: vim
+Architecture: amd64
+Auto-Installed: 2
 ";
 
     #[test]
@@ -112,7 +129,10 @@ Auto-Installed: yes
         let states = AptExtendedStates::from_file_lazy(&path);
         assert!(states.is_auto_installed("fish"));
         assert!(!states.is_auto_installed("bash"));
-        assert!(states.is_auto_installed("zsh"));
+        // `yes` is not a number → strtol gives 0 → not auto (matches apt).
+        assert!(!states.is_auto_installed("zsh"));
+        // any integer > 0 counts as auto (matches apt's `reason > 0`).
+        assert!(states.is_auto_installed("vim"));
         assert!(!states.is_auto_installed("nosuchpkg"));
     }
 }
