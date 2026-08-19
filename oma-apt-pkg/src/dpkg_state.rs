@@ -57,6 +57,28 @@ impl DpkgIndex {
         }
         index
     }
+
+    /// Record an installed package at `version`, optionally essential/held.
+    /// For callers that build the index directly instead of from a status
+    /// tree — the EDSP resolver synthesises its installed state from the
+    /// universe, which has no `/var/lib/dpkg/status` file.
+    #[cfg(feature = "resolver")]
+    pub(crate) fn add_installed(
+        &mut self,
+        name: String,
+        version: String,
+        essential: bool,
+        held: bool,
+    ) {
+        self.installed.insert(name.clone());
+        self.installed_versions.insert(name.clone(), version);
+        if essential {
+            self.essential.insert(name.clone());
+        }
+        if held {
+            self.held.insert(name);
+        }
+    }
 }
 
 /// Parsed dpkg status information.
@@ -147,6 +169,21 @@ impl DpkgState {
         }
     }
 
+    /// Build a state from a pre-computed index, without a dpkg status tree —
+    /// used by the EDSP resolver, whose installed state comes from the
+    /// universe rather than `/var/lib/dpkg/status`. The `mark_*` / `to_file`
+    /// methods are unusable on such a state (there is no tree to write
+    /// back).
+    #[cfg(feature = "resolver")]
+    pub(crate) fn from_index(index: DpkgIndex) -> Self {
+        Self {
+            tree: Deb822::default(),
+            index: OnceCell::from(index),
+            lazy_path: None,
+            lazy_answers: RefCell::new(HashMap::new()),
+            lazy_versions: OnceLock::new(),
+        }
+    }
     /// The lazily-built query index.
     fn index(&self) -> &DpkgIndex {
         self.index.get_or_init(|| DpkgIndex::from_tree(&self.tree))

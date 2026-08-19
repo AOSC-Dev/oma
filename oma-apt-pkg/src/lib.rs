@@ -41,6 +41,8 @@ pub use apt_db::*;
 #[cfg(feature = "apt-lists")]
 pub use apt_lists::*;
 pub use dpkg::*;
+#[cfg(feature = "resolver")]
+pub(crate) use dpkg_state::DpkgIndex;
 pub use dpkg_state::*;
 pub use error::*;
 #[cfg(feature = "apt-lists")]
