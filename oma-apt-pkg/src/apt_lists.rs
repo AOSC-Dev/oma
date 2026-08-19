@@ -1,9 +1,8 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
 use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
-use debversion::Version;
+use debian_control::lossy::Relation;
 use rayon::prelude::*;
 use serde::Serialize;
 
@@ -19,8 +18,13 @@ pub enum AptListsError {
     Parse { path: String, detail: String },
 }
 
+/// Parse an `Essential: yes`/`no` deb822 boolean value.
+fn parse_yes(value: &str) -> Result<bool, String> {
+    Ok(value.eq_ignore_ascii_case("yes"))
+}
+
 /// A single package entry from a Packages file
-#[derive(Debug, Clone, FromDeb822, Serialize)]
+#[derive(Debug, Clone, Default, FromDeb822, Serialize)]
 #[cfg_attr(
     feature = "apt-lists",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
@@ -59,6 +63,13 @@ pub struct PackageEntry {
     #[deb822(field = "SHA256")]
     #[serde(rename = "SHA256")]
     pub sha256: Option<String>,
+    /// `Essential: yes` — the package is essential; apt refuses to remove it.
+    #[deb822(field = "Essential", deserialize_with = parse_yes)]
+    pub essential: Option<bool>,
+    /// `Protected: yes` (dpkg 1.19+) — the package is protected; like
+    /// essential, apt refuses to remove it.
+    #[deb822(field = "Protected", deserialize_with = parse_yes)]
+    pub protected: Option<bool>,
 }
 
 impl PackageEntry {
@@ -83,17 +94,17 @@ impl PackageEntry {
     /// equals `native_arch` or is `all`/`any`/unset — so a native amd64
     /// `apt` shows `apt`, an `Architecture: all` package shows `foo`, and a
     /// foreign `foo:i386` shows `foo:i386`.
-    pub fn fullname(&self, pretty: bool, native_arch: &str) -> Cow<'_, str> {
+    pub fn fullname(&self, pretty: bool, native_arch: &str) -> String {
         match self.architecture.as_deref() {
             Some(arch) if !arch.is_empty() => {
                 let omit = pretty && (arch == "all" || arch == "any" || arch == native_arch);
                 if omit {
-                    Cow::Borrowed(&self.package)
+                    self.package.clone()
                 } else {
-                    Cow::Owned(format!("{}:{arch}", self.package))
+                    format!("{}:{arch}", self.package)
                 }
             }
-            _ => Cow::Borrowed(&self.package),
+            _ => self.package.clone(),
         }
     }
 }
@@ -129,6 +140,36 @@ pub struct IndexSource {
     pub component: Option<String>,
     /// The architecture from `binary-<arch>`; `None` for flat repositories.
     pub arch: Option<String>,
+}
+
+/// Scan `/var/lib/apt/lists/` and parse all `*_Packages` files.
+///
+/// Returns a flat list of all package entries across all repos/components/archs.
+/// Parse `/var/lib/apt/lists/` and return all package entries (without source tracking).
+pub fn parse_apt_lists_dir(path: impl AsRef<Path>) -> Result<Vec<PackageEntry>, AptListsError> {
+    let dir = path.as_ref();
+    let mut files = Vec::new();
+
+    for entry in std::fs::read_dir(dir).map_err(AptListsError::Io)? {
+        let entry = entry.map_err(AptListsError::Io)?;
+        if entry.file_name().to_string_lossy().ends_with("_Packages") {
+            files.push(entry.path());
+        }
+    }
+
+    // Parse each `*_Packages` file in parallel, folding into a single flat
+    // vec instead of collecting into an intermediate nested vec.
+    files
+        .par_iter()
+        .map(parse_single_packages_file)
+        .try_fold(Vec::new, |mut acc, entries| {
+            acc.extend(entries?);
+            Ok(acc)
+        })
+        .try_reduce(Vec::new, |mut acc, entries| {
+            acc.extend(entries);
+            Ok(acc)
+        })
 }
 
 /// Parse `/var/lib/apt/lists/` and return all package entries paired with
@@ -188,31 +229,28 @@ pub fn parse_apt_lists_dir_with_sources(
 }
 
 /// Parse a single `*_Packages` file (deb822 format).
-///
-/// Streams the file through [`Deb822::iter_paragraphs_from_reader`], so a
-/// large `Packages` file (tens of MB on full mirrors) is never buffered
-/// whole — only one paragraph plus the collected [`PackageEntry`]s are in
-/// memory at once.
 pub fn parse_single_packages_file(
     path: impl AsRef<Path>,
 ) -> Result<Vec<PackageEntry>, AptListsError> {
     let path = path.as_ref();
-    let file = std::fs::File::open(path).map_err(AptListsError::Io)?;
+    let content = std::fs::read_to_string(path).map_err(AptListsError::Io)?;
 
-    let entries: Vec<PackageEntry> =
-        Deb822::iter_paragraphs_from_reader(std::io::BufReader::new(file))
-            .map(|paragraph| {
-                let paragraph = paragraph.map_err(|e| AptListsError::Parse {
-                    path: path.to_string_lossy().to_string(),
-                    detail: e.to_string(),
-                })?;
+    let deb822: Deb822 = content
+        .parse()
+        .map_err(|e: deb822_fast::Error| AptListsError::Parse {
+            path: path.to_string_lossy().to_string(),
+            detail: e.to_string(),
+        })?;
 
-                PackageEntry::from_paragraph(&paragraph).map_err(|e| AptListsError::Parse {
-                    path: path.to_string_lossy().to_string(),
-                    detail: e,
-                })
+    let entries: Vec<PackageEntry> = deb822
+        .iter()
+        .map(|p| {
+            PackageEntry::from_paragraph(p).map_err(|e| AptListsError::Parse {
+                path: path.to_string_lossy().to_string(),
+                detail: e,
             })
-            .collect::<Result<Vec<_>, _>>()?;
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(entries)
 }
@@ -231,6 +269,8 @@ pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String
     map
 }
 
+/// A package version together with every source it is available from.
+///
 /// One `PackageVersion` per (package, version): a version seen in several
 /// mirrors/suites/components is stored once, with `sources` listing each
 /// place it appears. This mirrors apt's `pkgCache::Version` + `VerFile`
@@ -251,13 +291,93 @@ pub struct PackageVersion {
 }
 
 impl PackageVersion {
-    /// The parsed version. Parsed on demand (a version parse is
-    /// microseconds; the `OnceCell` cache was dropped when the database
-    /// moved to an immutable memory-mapped archive). Returns `None` when
-    /// the version is absent or fails to parse; `None` compares less than
-    /// any parsed version.
-    pub fn parsed_version(&self) -> Option<Version> {
+    /// The parsed version, parsed on demand (a version parse is
+    /// microseconds; the `OnceCell` cache was dropped to keep the type
+    /// directly archivable with rkyv, matching `oma show`'s database).
+    /// Returns `None` when the version is absent or fails to parse.
+    pub fn parsed_version(&self) -> Option<debversion::Version> {
         self.entry.version.as_deref().and_then(|v| v.parse().ok())
+    }
+}
+
+/// Parse a deb822 dependency field (Depends, Recommends, ...) into OR-groups
+/// of alternatives, using `debian-control`'s lossy parser.
+///
+/// `,` separates all-required groups; `|` separates mutually exclusive
+/// alternatives within one group.
+///
+/// ```text
+/// Depends: libc6 (>= 2.38), ncurses (>= 6.5) | zsh | fish, zlib1g:amd64
+/// ```
+///
+/// returns `[[libc6 (>= 2.38)], [ncurses (>= 6.5), zsh, fish], [zlib1g:amd64]]`.
+pub fn parse_dep_groups(field: &str) -> Vec<Vec<Relation>> {
+    field
+        .parse::<debian_control::lossy::Relations>()
+        .map(|r| r.0)
+        .unwrap_or_default()
+}
+
+/// Parse a deb822 dependency list into a flat list of entries (all
+/// alternatives across all groups, in order).
+///
+/// See [`parse_dep_groups`] for the OR-group form used by dependency
+/// resolution.
+pub fn parse_dep_list(field: &str) -> Vec<Relation> {
+    parse_dep_groups(field).into_iter().flatten().collect()
+}
+
+/// The arch-qualified name of a dependency alternative: `name:arch` when
+/// qualified, the bare name otherwise.
+pub trait RelationExt {
+    fn qualified_name(&self) -> String;
+}
+
+impl RelationExt for Relation {
+    fn qualified_name(&self) -> String {
+        match &self.archqual {
+            Some(arch) => format!("{}:{arch}", self.name),
+            None => self.name.clone(),
+        }
+    }
+}
+
+/// Pre-parsed dependency fields of one package version.
+///
+/// Parsing each version's dependency text once avoids re-parsing the deb822
+/// fields on every access.
+#[derive(Debug, Clone, Default)]
+pub struct ParsedDeps {
+    pub depends: Vec<Vec<Relation>>,
+    pub pre_depends: Vec<Vec<Relation>>,
+    pub recommends: Vec<Vec<Relation>>,
+    pub suggests: Vec<Vec<Relation>>,
+    pub breaks: Vec<Vec<Relation>>,
+    pub conflicts: Vec<Vec<Relation>>,
+    pub replaces: Vec<Vec<Relation>>,
+    /// Flat list of provided names — deb822 `Provides` is a comma list, and
+    /// every consumer flattens OR alternatives anyway.
+    pub provides: Vec<Relation>,
+}
+
+impl ParsedDeps {
+    /// Parse a [`PackageEntry`]'s dependency fields once.
+    pub(crate) fn from_entry(entry: &PackageEntry) -> Self {
+        let groups = |f: Option<&str>| f.map(parse_dep_groups).unwrap_or_default();
+        Self {
+            depends: groups(entry.depends.as_deref()),
+            pre_depends: groups(entry.pre_depends.as_deref()),
+            recommends: groups(entry.recommends.as_deref()),
+            suggests: groups(entry.suggests.as_deref()),
+            breaks: groups(entry.breaks.as_deref()),
+            conflicts: groups(entry.conflicts.as_deref()),
+            replaces: groups(entry.replaces.as_deref()),
+            provides: entry
+                .provides
+                .as_deref()
+                .map(parse_dep_list)
+                .unwrap_or_default(),
+        }
     }
 }
 
@@ -397,6 +517,8 @@ Status: deinstall ok config-files
                 filename: None,
                 size: None,
                 sha256: None,
+                essential: None,
+                protected: None,
             },
             PackageEntry {
                 package: "bar".into(),
@@ -421,6 +543,8 @@ Status: deinstall ok config-files
                 filename: None,
                 size: None,
                 sha256: None,
+                essential: None,
+                protected: None,
             },
         ];
 
