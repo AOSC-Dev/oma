@@ -107,6 +107,7 @@ impl<'a> IndexTargetConfig<'a> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn get_download_list(
         &self,
         release: &str,
