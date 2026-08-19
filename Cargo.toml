@@ -228,6 +228,7 @@ oma-apt-pkg = { version = "0.2.1", path = "./oma-apt-pkg", default-features = fa
 oma-apt = "0.13"
 oma-apt-sources-lists = "0.9"
 oma-inquire = "0.3"
+tree-sitter-apt-config = { version = "0.0", path = "./tree-sitter-apt-config" }
 
 [features]
 aosc = [
@@ -277,8 +278,8 @@ members = [
     "oma-mirror",
     "apt-auth-config",
     "oma-tum",
+    "tree-sitter-apt-config",
 ]
-exclude = ["oma-apt-pkg/apt-config-grammar"]
 
 [package.metadata.deb]
 copyright = "2026, AOSC Dev <maintainers@aosc.io>"
