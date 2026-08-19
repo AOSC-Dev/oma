@@ -395,8 +395,20 @@ fn fl_normalize(path: &str) -> String {
     // Try realpath first — handles symlinks, `..`, and `.` when path exists
     if let Ok(canonical) = std::fs::canonicalize(path) {
         let s = canonical.to_string_lossy().to_string();
+        // /dev/null special case — mirrors APT's `flNormalize`
+        // (apt-pkg/contrib/fileutl.cc), introduced in
+        // https://salsa.debian.org/apt-team/apt/-/commit/bbd8308cc01941e51e2cbcf88168a5560abe6042
+        // ("ensure Cnf::FindFile doesn't return files below /dev/null"): a
+        // path starting with "/dev/null" collapses to exactly "/dev/null".
+        // APT does `file.erase(strlen("/dev/null"))`, and `std::string::erase(pos)`
+        // erases from byte 9 to the end — the null device swallows everything
+        // below it, so `/dev/null/foo` -> "/dev/null". Pointing a config value
+        // at /dev/null (e.g. `Dir::State::status = /dev/null`) is how APT
+        // disables a path or runs sandboxed without touching the real
+        // filesystem (see `ConfigurationTest.DevNullInPaths` in
+        // test/libapt/configuration_test.cc).
         if s.starts_with("/dev/null") {
-            return String::new();
+            return "/dev/null".to_string();
         }
         return s;
     }
@@ -424,8 +436,10 @@ fn fl_normalize(path: &str) -> String {
     }
 
     let s = buf.to_string_lossy().to_string();
+    // Same /dev/null special case as the realpath branch above (APT's
+    // `flNormalize` applies it regardless of how the path was resolved).
     if s.starts_with("/dev/null") {
-        return String::new();
+        return "/dev/null".to_string();
     }
 
     s
@@ -446,10 +460,12 @@ mod tests {
         assert_eq!(fl_normalize("/../foo"), "/foo");
         assert_eq!(fl_normalize("../foo/bar"), "../foo/bar");
         assert_eq!(fl_normalize("foo/../bar"), "bar");
-        // /dev/null special case
-        assert_eq!(fl_normalize("/dev/null"), "");
-        // /dev/../dev/null resolves to /dev/null → cleared
-        assert_eq!(fl_normalize("/dev/../dev/null"), "");
+        // /dev/null special case — a path under /dev/null collapses to
+        // /dev/null itself (APT's flNormalize erases from byte 9 onward)
+        assert_eq!(fl_normalize("/dev/null"), "/dev/null");
+        assert_eq!(fl_normalize("/dev/null/foo"), "/dev/null");
+        // /dev/../dev/null resolves to /dev/null → stays /dev/null
+        assert_eq!(fl_normalize("/dev/../dev/null"), "/dev/null");
     }
 
     #[test]

@@ -1019,10 +1019,11 @@ mod tests {
         cfg.set("Dir::State::status", "status");
         assert_eq!(cfg.get_file("Dir::State::status", ""), "/status");
 
-        // Setting Dir::State to /dev/null makes sub-paths null too
+        // Setting Dir::State to /dev/null collapses sub-paths to /dev/null
+        // too (the null device swallows everything below it, like APT)
         cfg.set("Dir::State", "/dev/null");
-        assert_eq!(cfg.get_file("Dir::State", ""), "");
-        assert_eq!(cfg.get_file("Dir::State::status", ""), "");
+        assert_eq!(cfg.get_file("Dir::State", ""), "/dev/null");
+        assert_eq!(cfg.get_file("Dir::State::status", ""), "/dev/null");
     }
 
     #[test]
