@@ -628,8 +628,8 @@ impl OmaSearch for StrSimSearch<'_> {
         let mut results: Vec<SearchResult> = scored
             .into_iter()
             .map(|(name, _, installed, upgradable)| {
-                let entry = self.apt_db.get_candidate(&name);
-                let (old_version, new_version) = if let Some(e) = entry.as_ref() {
+                let cand = self.apt_db.package(&name).and_then(|p| p.candidate());
+                let (old_version, new_version) = if let Some(cand) = cand.as_ref() {
                     extract_versions(
                         if upgradable {
                             PackageStatus::Upgrade
@@ -640,22 +640,23 @@ impl OmaSearch for StrSimSearch<'_> {
                         },
                         &self.dpkg.installed_versions,
                         &name,
-                        &e.version,
+                        &cand.entry.version,
                     )
                 } else {
                     (None, "Unknown".to_string())
                 };
 
-                let desc = entry
+                let desc = cand
                     .as_ref()
-                    .and_then(|e| {
-                        e.description
+                    .and_then(|cand| {
+                        cand.entry
+                            .description
                             .as_deref()
                             .map(|d| d.lines().next().unwrap_or(d).to_string())
                     })
                     .unwrap_or_else(|| "No description".to_string());
 
-                let has_dbg = entry
+                let has_dbg = cand
                     .as_ref()
                     .is_some_and(|_| self.apt_db.has_package(&format!("{name}-dbg")));
 

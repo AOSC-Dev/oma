@@ -129,8 +129,12 @@ impl<'a> PackageMatcher<'a> {
                     .collect(),
             );
         } else {
-            for name in self.index.packages().filter(|p| glob_match(glob, p)) {
-                res.push(self.versions_of(name).collect());
+            for pkg in self
+                .index
+                .packages_iter()
+                .filter(|p| glob_match(glob, p.name()))
+            {
+                res.push(self.versions_of(pkg.name()).collect());
             }
         }
 
