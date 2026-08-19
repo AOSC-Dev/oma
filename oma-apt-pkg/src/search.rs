@@ -6,6 +6,7 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::Read;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -19,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::apt_lists::PackageEntry;
 use crate::apt_sources::SourceLookup;
-use crate::cache::CacheFile;
+use crate::cache::{self, CacheFile};
 use crate::{AptConfig, AptDb, DpkgState};
 
 #[cfg(feature = "search-indicium")]
@@ -134,6 +135,10 @@ pub enum OmaSearchError {
 pub type OmaSearchResult<T> = Result<T, OmaSearchError>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(
+    feature = "apt-lists",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 /// Result of a search process.
 pub struct SearchResult {
     /// String contains the name of a package to search for.
@@ -239,6 +244,14 @@ impl IndiciumSearch {
     ) -> Self {
         let mut pkg_map: IndexMap<String, SearchEntry> = IndexMap::with_hasher(RandomState::new());
 
+        // Names whose `-dbg` companion is present, so `has_dbg` below is a
+        // set lookup instead of allocating `format!("{name}-dbg")` per
+        // package.
+        let dbg_bases: HashSet<String> = apt_db
+            .entries()
+            .filter_map(|e| e.package.strip_suffix("-dbg").map(str::to_owned))
+            .collect();
+
         for (i, entry) in apt_db.entries().enumerate() {
             progress(i);
             let name = &entry.package;
@@ -268,12 +281,7 @@ impl IndiciumSearch {
             }
 
             let status = if dpkg.is_installed(name) {
-                if is_upgradable(
-                    entry.version.as_deref(),
-                    dpkg.installed_versions
-                        .get(name.as_str())
-                        .map(String::as_str),
-                ) {
+                if is_upgradable(entry.version.as_deref(), dpkg.installed_version(name)) {
                     PackageStatus::Upgrade
                 } else {
                     PackageStatus::Installed
@@ -282,8 +290,7 @@ impl IndiciumSearch {
                 PackageStatus::Avail
             };
 
-            let (old_version, new_version) =
-                extract_versions(status, &dpkg.installed_versions, name, &entry.version);
+            let (old_version, new_version) = extract_versions(status, dpkg, name, &entry.version);
 
             let description = entry
                 .description
@@ -301,7 +308,7 @@ impl IndiciumSearch {
                 })
                 .unwrap_or_default();
 
-            let has_dbg = apt_db.has_package(&format!("{name}-dbg"));
+            let has_dbg = dbg_bases.contains(name.as_str());
 
             let section_is_base = entry.section.as_deref().is_some_and(|s| s == "Bases");
 
@@ -341,6 +348,12 @@ impl IndiciumSearch {
     /// in the search index (e.g packages added to the software
     /// sources since the search cache was created).
     pub fn refresh_from(&mut self, apt_db: &AptDb, dpkg: &DpkgState) {
+        // Names whose `-dbg` companion is present (see [`Self::new`]).
+        let dbg_bases: HashSet<String> = apt_db
+            .entries()
+            .filter_map(|e| e.package.strip_suffix("-dbg").map(str::to_owned))
+            .collect();
+
         // 第一遍：只记录每个包的最高候选版本，避免为每个包克隆完整 entry
         // （含描述、依赖字段）造成缓存命中路径上的峰值内存上升。
         let mut best: HashMap<String, Option<String>> = HashMap::new();
@@ -387,8 +400,8 @@ impl IndiciumSearch {
             let name = entry.package.as_str();
 
             // 状态与已安装版本只计算一次：已安装 -> Installed/Upgrade，未安装 -> Avail。
-            let inst_ver = dpkg.installed_versions.get(name).cloned();
-            let (status, old_version) = if dpkg.installed.contains(name) {
+            let inst_ver = dpkg.installed_version(name).map(str::to_string);
+            let (status, old_version) = if dpkg.is_installed(name) {
                 let status = if is_upgradable(entry.version.as_deref(), inst_ver.as_deref()) {
                     PackageStatus::Upgrade
                 } else {
@@ -410,7 +423,7 @@ impl IndiciumSearch {
                 pkg_entry.old_version = old_version;
             } else {
                 // 源里的新包：构造完整 entry 并插入索引。
-                let has_dbg = apt_db.has_package(&format!("{name}-dbg"));
+                let has_dbg = dbg_bases.contains(name);
 
                 let provides: IndexSet<String> = entry
                     .provides
@@ -469,22 +482,21 @@ impl IndiciumSearch {
         let lists_dir = apt_cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
         let search_cache_path =
             apt_cfg.get_file("Dir::Cache::oma-search", "var/cache/apt/oma-search.bincode");
-        let lookup = SourceLookup::build(apt_cfg);
         let archs = apt_cfg.architectures();
+        let lookup = SourceLookup::build(apt_cfg);
 
-        // Tier 1: try search cache (fastest): load it, then check the
-        // lists files it records having been built from against the current
-        // state.
-        if let Some(mut searcher) = Self::load_search_cache(&search_cache_path, search_type.clone())
-            && crate::cache::valid(
+        // Tier 1: try search cache (fastest)
+        if let Some(cache) = Self::load_search_cache(&search_cache_path)
+            && cache::valid(
                 &search_cache_path,
                 &lists_dir,
                 &lookup,
                 &archs,
-                &searcher.files,
+                &cache.files,
             )
         {
             debug!("Search cache hit");
+            let mut searcher = Self::from_cache(cache, search_type);
             searcher.refresh_from(apt_db, dpkg);
             return Ok(searcher);
         }
@@ -492,7 +504,7 @@ impl IndiciumSearch {
         debug!("Search cache miss, building index ...");
 
         let mut searcher = Self::new(apt_db, dpkg, search_type, progress);
-        searcher.files = crate::cache::collect(&lists_dir, &lookup, &archs);
+        searcher.files = cache::collect(&lists_dir, &lookup, &archs);
 
         // Persist search cache for next time
         if let Err(e) = searcher.save_search_cache(&search_cache_path) {
@@ -504,22 +516,8 @@ impl IndiciumSearch {
         Ok(searcher)
     }
 
-    /// Try to load a previously saved search index from its binary cache.
-    ///
-    /// The file is a validated rkyv archive behind the shared cache header;
-    /// a foreign, corrupt or version-mismatched file simply reads as a miss
-    /// and the index is rebuilt.
-    fn load_search_cache(path: impl AsRef<Path>, search_type: SearchType) -> Option<Self> {
-        let bytes = fs::read(path.as_ref()).ok()?;
-        if !crate::cache::header_ok(&bytes, SEARCH_CACHE_MAGIC) {
-            return None;
-        }
-        let archived = rkyv::access::<ArchivedSearchCache, rkyv::rancor::Error>(
-            &bytes[crate::cache::CACHE_HEADER_LEN..],
-        )
-        .ok()?;
-        let cache: SearchCache = crate::cache::from_archived(archived);
-
+    /// Rebuild the in-memory index from a loaded cache.
+    fn from_cache(cache: SearchCache, search_type: SearchType) -> Self {
         let mut search_index: SearchIndex<String> = SearchIndexBuilder::default()
             .search_type(search_type)
             .exclude_keywords(None)
@@ -528,11 +526,31 @@ impl IndiciumSearch {
             search_index.insert(key, value);
         });
 
-        Some(Self {
+        Self {
             pkg_map: cache.pkg_map,
             index: search_index,
             files: cache.files,
-        })
+        }
+    }
+
+    /// Try to load a previously saved search index from its rkyv cache. The
+    /// archive must carry the shared cache header; returns `None` on any
+    /// failure so the caller falls back to building.
+    fn load_search_cache(path: impl AsRef<Path>) -> Option<SearchCache> {
+        let mut bytes = Vec::new();
+        fs::File::open(path.as_ref())
+            .and_then(|mut f| f.read_to_end(&mut bytes))
+            .ok()?;
+
+        if !cache::header_ok(&bytes, SEARCH_CACHE_MAGIC) {
+            return None;
+        }
+
+        let archived = rkyv::access::<ArchivedSearchCache, rkyv::rancor::Error>(
+            &bytes[cache::CACHE_HEADER_LEN..],
+        )
+        .ok()?;
+        Some(cache::from_archived(archived))
     }
 
     /// Save the search index (pkg_map) to a binary cache file, atomically
@@ -549,8 +567,8 @@ impl IndiciumSearch {
             fs::create_dir_all(parent)?;
         }
 
-        let mut buf = Vec::with_capacity(crate::cache::CACHE_HEADER_LEN + archive.len());
-        crate::cache::push_header(&mut buf, SEARCH_CACHE_MAGIC);
+        let mut buf = Vec::with_capacity(cache::CACHE_HEADER_LEN + archive.len());
+        cache::push_header(&mut buf, SEARCH_CACHE_MAGIC);
         buf.extend_from_slice(&archive);
 
         let mut tmp = path.as_os_str().to_owned();
@@ -646,13 +664,7 @@ impl OmaSearch for StrSimSearch<'_> {
 
             let installed = self.dpkg.is_installed(name);
             let upgradable = installed
-                && is_upgradable(
-                    entry.version.as_deref(),
-                    self.dpkg
-                        .installed_versions
-                        .get(name.as_str())
-                        .map(String::as_str),
-                );
+                && is_upgradable(entry.version.as_deref(), self.dpkg.installed_version(name));
             let score = (strsim::jaro_winkler(name, query_lower.as_str()) * 1000.0) as u16;
 
             scored.push((name.clone(), score, installed, upgradable));
@@ -673,7 +685,7 @@ impl OmaSearch for StrSimSearch<'_> {
                         } else {
                             PackageStatus::Avail
                         },
-                        &self.dpkg.installed_versions,
+                        self.dpkg,
                         &name,
                         &cand.entry.version,
                     )
@@ -760,13 +772,7 @@ impl OmaSearch for TextSearch<'_> {
 
             let installed = self.dpkg.is_installed(name);
             let upgradable = installed
-                && is_upgradable(
-                    entry.version.as_deref(),
-                    self.dpkg
-                        .installed_versions
-                        .get(name.as_str())
-                        .map(String::as_str),
-                );
+                && is_upgradable(entry.version.as_deref(), self.dpkg.installed_version(name));
 
             let (old_version, new_version) = extract_versions(
                 if upgradable {
@@ -776,7 +782,7 @@ impl OmaSearch for TextSearch<'_> {
                 } else {
                     PackageStatus::Avail
                 },
-                &self.dpkg.installed_versions,
+                self.dpkg,
                 name,
                 &entry.version,
             );
@@ -827,7 +833,7 @@ fn sort_and_promote(results: &mut [SearchResult]) {
 
 fn extract_versions(
     status: PackageStatus,
-    installed_versions: &HashMap<String, String>,
+    dpkg: &DpkgState,
     name: &str,
     candidate_version: &Option<String>,
 ) -> (Option<String>, String) {
@@ -837,7 +843,7 @@ fn extract_versions(
 
     // Keep the installed version for all installed packages, not just upgrades.
     let old = if status == PackageStatus::Installed || status == PackageStatus::Upgrade {
-        installed_versions.get(name).cloned()
+        dpkg.installed_version(name).map(str::to_string)
     } else {
         None
     };
@@ -1008,8 +1014,8 @@ mod tests {
         let path = dir.path().join("oma-search.bincode");
         searcher.save_search_cache(&path).unwrap();
 
-        let loaded = IndiciumSearch::load_search_cache(&path, SearchType::Live)
-            .expect("round-tripped search cache loads");
+        let loaded =
+            IndiciumSearch::load_search_cache(&path).expect("round-tripped search cache loads");
         assert_eq!(loaded.pkg_map.len(), 1);
         let entry = &loaded.pkg_map["fish"];
         assert_eq!(entry.name, "fish");
@@ -1020,6 +1026,6 @@ mod tests {
         // A foreign or corrupt file must read as a miss, not crash.
         let garbage = dir.path().join("garbage");
         std::fs::write(&garbage, b"not a cache").unwrap();
-        assert!(IndiciumSearch::load_search_cache(&garbage, SearchType::Live).is_none());
+        assert!(IndiciumSearch::load_search_cache(&garbage).is_none());
     }
 }
