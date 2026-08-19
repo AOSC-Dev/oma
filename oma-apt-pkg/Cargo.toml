@@ -6,17 +6,80 @@ description = "Rust-native parser for dpkg status and APT list files (deb822 for
 license = "MIT"
 authors = ["eatradish <sakiiily@aosc.io>"]
 
+[features]
+default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config"]
+apt-config = ["dep:tree-sitter", "dep:tree-sitter-apt-config"]
+apt-lists = [
+    "filename",
+    "apt-sources",
+    "dep:rkyv",
+    "dep:memmap2",
+    "dep:spdlog-rs",
+    "dep:glob-match",
+    "dep:ar",
+    "dep:tar",
+    "dep:flate2",
+    "dep:zstd",
+    "dep:liblzma",
+    "dep:rayon",
+]
+apt-sources = ["apt-config", "filename", "dep:oma-apt-sources-lists"]
+dpkg-status = []
+filename = ["dep:aho-corasick", "dep:url"]
+search-indicium = [
+    "apt-lists",
+    "dpkg-status",
+    "dep:ahash",
+    "dep:debversion",
+    "dep:glob-match",
+    "dep:indicium",
+]
+search-strsim = [
+    "apt-lists",
+    "dpkg-status",
+    "dep:ahash",
+    "dep:debversion",
+    "dep:glob-match",
+    "dep:strsim",
+    "dep:memchr",
+]
+search-text = [
+    "apt-lists",
+    "dpkg-status",
+    "dep:ahash",
+    "dep:debversion",
+    "dep:glob-match",
+    "dep:memchr",
+]
+
+search = ["search-indicium", "search-strsim", "search-text"]
+
 [dependencies]
 deb822-fast = { workspace = true }
+debian-control = { workspace = true }
+oma-apt-sources-lists = { workspace = true, optional = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-ahash = { workspace = true }
+rkyv = { workspace = true, optional = true }
+memmap2 = { workspace = true, optional = true }
+spdlog-rs = { workspace = true, optional = true }
+tar = { workspace = true, optional = true }
+ar = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
+zstd = { workspace = true, optional = true }
+liblzma = { workspace = true, optional = true }
+ahash = { workspace = true, optional = true }
 indexmap = { workspace = true, features = ["serde"] }
-indicium = { workspace = true }
-debversion = { workspace = true }
-spdlog-rs = { workspace = true }
-glob-match = { workspace = true }
-memchr = { workspace = true }
-strsim = { workspace = true }
-winnow = { workspace = true }
-wincode = { workspace = true }
+indicium = { workspace = true, optional = true }
+debversion = { workspace = true, optional = true }
+glob-match = { workspace = true, optional = true }
+memchr = { workspace = true, optional = true }
+strsim = { workspace = true, optional = true }
+tree-sitter = { workspace = true, optional = true }
+tree-sitter-apt-config = { workspace = true, optional = true }
+aho-corasick = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = "3"

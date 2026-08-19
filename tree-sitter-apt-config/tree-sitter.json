@@ -1,0 +1,38 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "apt_config",
+      "camelcase": "AptConfig",
+      "title": "AptConfig",
+      "scope": "source.apt_config",
+      "file-types": [
+        "conf"
+      ],
+      "injection-regex": "^apt_config$"
+    }
+  ],
+  "metadata": {
+    "version": "0.0.1",
+    "license": "MIT",
+    "description": "AptConfig grammar for tree-sitter",
+    "authors": [
+      {
+        "name": "eatradish"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/AOSC-Dev/oma"
+    }
+  },
+  "bindings": {
+    "rust": true,
+    "c": false,
+    "go": false,
+    "node": false,
+    "python": false,
+    "swift": false,
+    "java": false,
+    "zig": false
+  }
+}

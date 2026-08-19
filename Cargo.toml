@@ -81,12 +81,13 @@ oma-repo-verify = { workspace = true, default-features = false }
 oma-mirror = { workspace = true, optional = true }
 apt-auth-config = { workspace = true }
 oma-tum = { workspace = true, optional = true }
-oma-apt-pkg = { workspace = true }
+oma-apt-pkg = { workspace = true, default-features = false, features = ["search", "filename", "apt-config", "apt-sources"] }
 
 # i18n
 i18n-embed = { workspace = true}
 i18n-embed-fl = { workspace = true }
 rust-embed = { workspace = true }
+oma-apt-sources-lists.workspace = true
 
 [workspace.dependencies]
 dialoguer = "0.12.0"
@@ -156,9 +157,15 @@ termbg = { version = "0.1", package = "termbg-with-async-stdin" }
 console = "0.16"
 indicatif = "0.18"
 winnow = "1"
+tree-sitter = "0.26"
+tree-sitter-language = "0.1"
+cc = "1"
 flate2 = "1.0"
 lzzzz = "2.0"
 zstd = "0.13"
+tar = "0.4"
+ar = "0.9"
+debian-control = { version = "0.3", default-features = false, features = ["lossless", "serde"] }
 memchr = "2"
 async-compression = "=0.4.27"
 liblzma = { version = "0", features = ["uncheck_liblzma_version"] }
@@ -187,7 +194,12 @@ nix = "0.31"
 reqwest-middleware = "0.5"
 http = "1.4.2"
 tui-input = { version = "0.15", features = ["ratatui"] }
-wincode = { version = "0.6", features = ["derive", "alloc", "indexmap"] }
+rkyv = { version = "0.8", default-features = false, features = [
+    "std",
+    "bytecheck",
+    "indexmap-2",
+] }
+memmap2 = "0.9"
 
 # i18n
 i18n-embed = { version = "0.16.0", features = [
@@ -212,10 +224,11 @@ oma-mirror = { version = "0.8.2", path = "./oma-mirror" }
 apt-auth-config = { version = "0.6.0", path = "./apt-auth-config" }
 oma-tum = { version = "0.6.1", path = "./oma-tum" }
 oma-pm-operation-type = { version = "0.10.1", path = "./oma-pm-operation-type" }
-oma-apt-pkg = { version = "0.2.1", path = "./oma-apt-pkg" }
+oma-apt-pkg = { version = "0.2.1", path = "./oma-apt-pkg", default-features = false }
 oma-apt = "0.13"
 oma-apt-sources-lists = "0.9"
 oma-inquire = "0.3"
+tree-sitter-apt-config = { version = "0.0", path = "./tree-sitter-apt-config" }
 
 [features]
 aosc = [
@@ -244,8 +257,8 @@ openssl = [
     "oma-refresh/native-tls",
     "oma-topics/native-tls",
 ]
-nice-setup = ["sequoia-nettle-backend", "rustls", "oma-refresh/apt"]
-openssl-setup = ["sequoia-openssl-backend", "openssl", "oma-refresh/apt"]
+nice-setup = ["sequoia-nettle-backend", "rustls"]
+openssl-setup = ["sequoia-openssl-backend", "openssl"]
 decompress-parallel = ["oma-fetch/xz-parallel"]
 default = ["aosc", "nice-setup"]
 
@@ -265,6 +278,7 @@ members = [
     "oma-mirror",
     "apt-auth-config",
     "oma-tum",
+    "tree-sitter-apt-config",
 ]
 
 [package.metadata.deb]

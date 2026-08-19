@@ -1,0 +1,84 @@
+/// <reference types="tree-sitter-cli/dsl" />
+// @ts-check
+
+export default grammar({
+  name: 'apt_config',
+
+  extras: $ => [
+    /\s/,
+    $.line_comment,
+    $.block_comment,
+  ],
+
+  rules: {
+    source_file: $ => repeat($._statement),
+
+    _statement: $ => choice(
+      $.key_value,
+      $.list_value,
+      $.scope,
+      $.include_directive,
+      $.clear_directive,
+      $.hash_comment,
+    ),
+
+    include_directive: $ => seq(
+      '#include',
+      field('path', $.string),
+    ),
+
+    clear_directive: $ => seq(
+      '#clear',
+      field('key', $.path),
+    ),
+
+    hash_comment: $ => seq(
+      '#',
+      /[^\n]*/,
+    ),
+
+    key_value: $ => seq(
+      field('key', $.path),
+      repeat(field('value', $.string)),
+      ';',
+    ),
+
+    list_value: $ => seq(
+      field('value', $.string),
+      ';',
+    ),
+
+    scope: $ => seq(
+      field('key', $.path),
+      '{',
+      repeat($._statement),
+      '}',
+      optional(';'),
+    ),
+
+    path: $ => prec.right(seq(
+      $.identifier,
+      repeat(seq('::', $.identifier)),
+      optional('::'),
+    )),
+
+    identifier: $ => /[a-zA-Z0-9_\-.+]+/,
+
+    string: $ => token(seq('"', repeat(choice(
+      /[^"\\\n]/,
+      /\\./,
+    )), '"')),
+
+    line_comment: $ => token(seq('//', /[^\n]*/)),
+
+    block_comment: $ => token(seq(
+      '/*',
+      repeat(choice(
+        /[^*]/,
+        seq('*', /[^/]/),
+      )),
+      optional('*'),
+      '*/',
+    )),
+  },
+});

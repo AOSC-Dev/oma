@@ -1,0 +1,16 @@
+{
+  "name": "tree-sitter-apt-config",
+  "version": "0.0.1",
+  "description": "AptConfig grammar for tree-sitter",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "incremental",
+    "parsing",
+    "tree-sitter",
+    "apt-config"
+  ],
+  "devDependencies": {
+    "tree-sitter-cli": "^0.26.8"
+  }
+}

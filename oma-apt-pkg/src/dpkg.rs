@@ -62,14 +62,17 @@ impl DpkgPackage {
     }
 }
 /// Parse `/var/lib/dpkg/status` and return full package information.
+///
+/// Streams the file paragraph by paragraph via
+/// [`Deb822::iter_paragraphs_from_reader`] — the file holds every installed
+/// package and is never buffered whole.
 pub fn parse_dpkg_status(path: impl AsRef<Path>) -> Result<Vec<DpkgPackage>, DpkgError> {
     let file = std::fs::File::open(path.as_ref())?;
-    let deb822 = Deb822::from_reader(file)?;
 
-    deb822
-        .iter()
+    Deb822::iter_paragraphs_from_reader(std::io::BufReader::new(file))
         .map(|para| {
-            DpkgPackage::from_paragraph(para)
+            let para = para.map_err(DpkgError::Deb822)?;
+            DpkgPackage::from_paragraph(&para)
                 .map_err(|e| DpkgError::Deb822(deb822_fast::Error::Io(std::io::Error::other(e))))
         })
         .collect()

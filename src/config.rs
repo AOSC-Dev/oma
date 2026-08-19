@@ -1,7 +1,9 @@
+use std::sync::{Arc, OnceLock};
 use std::{borrow::Cow, path::PathBuf};
 
 use apt_auth_config::AuthConfig;
 use clap::ColorChoice;
+use oma_apt_pkg::AptConfig;
 use oma_pm::oma_apt;
 use oma_utils::is_termux;
 use once_cell::sync::OnceCell;
@@ -48,6 +50,7 @@ pub struct OmaConfig {
     http_client_blocking: OnceCell<reqwest::blocking::Client>,
     rustls_crypto_provider: OnceCell<()>,
     pub amo: bool,
+    apt_config: OnceLock<Arc<AptConfig>>,
 }
 
 impl Default for OmaConfig {
@@ -80,6 +83,7 @@ impl Default for OmaConfig {
             #[cfg(feature = "aosc")]
             http_client_blocking: OnceCell::new(),
             amo: GeneralConfig::default_amo(),
+            apt_config: OnceLock::new(),
         }
     }
 }
@@ -198,6 +202,7 @@ impl OmaConfig {
     }
 
     pub fn init_apt_config(&self) {
+        // Legacy C FFI config (keep for backward compat)
         oma_apt::config::init_config_system();
 
         if !is_termux() {
@@ -211,6 +216,49 @@ impl OmaConfig {
             debug!("Set apt option: {k}={v}");
             oma_apt::raw::config::set(k.to_string(), v.to_string());
         }
+
+        // Pure-Rust AptConfig (new code path)
+        let mut cfg = AptConfig::new();
+        cfg.init_defaults()
+            .expect("failed to initialize APT configuration");
+        cfg.load_system().expect("failed to load APT config files");
+
+        if !is_termux() {
+            cfg.set("Dir", &self.sysroot.to_string_lossy());
+        }
+
+        for kv in &self.apt_options {
+            let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
+            cfg.set(k, v);
+        }
+
+        // Binary cache locations: root uses the system defaults under
+        // `/var/cache/apt/`; unprivileged users get `~/.cache/oma/`.
+        if !crate::root::is_root() {
+            let cache_dir = dirs::cache_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+            cfg.set(
+                "Dir::Cache::oma-aptdb",
+                &cache_dir
+                    .join("oma")
+                    .join("oma-aptdb.bincode")
+                    .to_string_lossy(),
+            );
+            cfg.set(
+                "Dir::Cache::oma-search",
+                &cache_dir
+                    .join("oma")
+                    .join("oma-search.bincode")
+                    .to_string_lossy(),
+            );
+        }
+
+        self.apt_config.set(Arc::new(cfg)).ok();
+    }
+
+    pub fn apt_config(&self) -> &AptConfig {
+        self.apt_config
+            .get()
+            .expect("AptConfig not initialized — call init_apt_config first")
     }
 
     fn init_tls_config(&self) {
