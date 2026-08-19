@@ -274,6 +274,8 @@ mod tests {
                 filename: None,
                 size: None,
                 sha256: None,
+                essential: None,
+                protected: None,
             }
         }
     }

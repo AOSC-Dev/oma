@@ -273,6 +273,8 @@ Auto-Installed: 1
                 filename: None,
                 size: None,
                 sha256: None,
+                essential: None,
+                protected: None,
             }
         }
     }

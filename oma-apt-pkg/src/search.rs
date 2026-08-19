@@ -12,7 +12,6 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use ahash::RandomState;
-use debian_control::lossy::Relations;
 #[cfg(any(feature = "search-strsim", feature = "search-text"))]
 use glob_match::glob_match;
 use oma_logger::debug;
@@ -299,13 +298,10 @@ impl IndiciumSearch {
                 .unwrap_or_else(|| "No description".to_string());
 
             let provides: IndexSet<String> = entry
-                .provides
+                .version
                 .as_deref()
-                .map(|s| {
-                    s.parse::<Relations>()
-                        .map(|r| r.iter().flatten().map(|d| d.name.clone()).collect())
-                        .unwrap_or_default()
-                })
+                .and_then(|v| apt_db.deps_of(&entry.package, v))
+                .map(|deps| deps.provides.iter().map(|d| d.name.clone()).collect())
                 .unwrap_or_default();
 
             let has_dbg = dbg_bases.contains(name.as_str());
@@ -426,13 +422,10 @@ impl IndiciumSearch {
                 let has_dbg = dbg_bases.contains(name);
 
                 let provides: IndexSet<String> = entry
-                    .provides
+                    .version
                     .as_deref()
-                    .map(|s| {
-                        s.parse::<Relations>()
-                            .map(|r| r.iter().flatten().map(|d| d.name.clone()).collect())
-                            .unwrap_or_default()
-                    })
+                    .and_then(|v| apt_db.deps_of(&entry.package, v))
+                    .map(|deps| deps.provides.iter().map(|d| d.name.clone()).collect())
                     .unwrap_or_default();
 
                 let section_is_base = entry.section.as_deref().is_some_and(|s| s == "Bases");
@@ -948,6 +941,8 @@ mod tests {
                 filename: None,
                 size: None,
                 sha256: None,
+                essential: None,
+                protected: None,
             },
             PackageEntry {
                 package: "foo-dbg".into(),
@@ -972,6 +967,8 @@ mod tests {
                 filename: None,
                 size: None,
                 sha256: None,
+                essential: None,
+                protected: None,
             },
         ];
         let db = AptDb::from_entries("", entries);
