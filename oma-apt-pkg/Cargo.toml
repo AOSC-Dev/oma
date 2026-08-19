@@ -56,6 +56,7 @@ search = ["search-indicium", "search-strsim", "search-text"]
 
 [dependencies]
 deb822-fast = { workspace = true }
+deb822-lossless = { workspace = true, features = ["deb822-fast"] }
 debian-control = { workspace = true }
 oma-apt-sources-lists = { workspace = true, optional = true }
 serde = { workspace = true }
