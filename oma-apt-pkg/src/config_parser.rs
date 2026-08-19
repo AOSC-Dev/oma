@@ -2,14 +2,8 @@ use std::path::Path;
 use std::process::Command;
 
 use tree_sitter::Parser;
-use tree_sitter_language::LanguageFn;
 
 use crate::AptConfig;
-
-// Tree-sitter grammar generated from apt-config-grammar/grammar.js
-unsafe extern "C" {
-    fn tree_sitter_apt_config() -> *const ();
-}
 
 const MAX_INCLUDE_DEPTH: usize = 10;
 
@@ -71,8 +65,7 @@ impl AptConfig {
             return;
         }
 
-        let language_fn = unsafe { LanguageFn::from_raw(tree_sitter_apt_config) };
-        let language = tree_sitter::Language::new(language_fn);
+        let language = tree_sitter::Language::new(tree_sitter_apt_config::LANGUAGE);
 
         let mut parser = Parser::new();
         if parser.set_language(&language).is_err() {

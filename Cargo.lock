@@ -3459,7 +3459,6 @@ dependencies = [
  "ahash",
  "aho-corasick",
  "ar",
- "cc",
  "deb822-fast",
  "debian-control",
  "debversion",
@@ -3480,7 +3479,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.19",
  "tree-sitter",
- "tree-sitter-language",
+ "tree-sitter-apt-config",
  "url",
  "zstd",
 ]
@@ -5998,6 +5997,15 @@ dependencies = [
  "regex-syntax",
  "serde_json",
  "streaming-iterator",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-apt-config"
+version = "0.0.1"
+dependencies = [
+ "cc",
+ "tree-sitter",
  "tree-sitter-language",
 ]
 

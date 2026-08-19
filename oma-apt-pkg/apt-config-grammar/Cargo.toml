@@ -2,16 +2,24 @@
 name = "tree-sitter-apt-config"
 description = "AptConfig grammar for tree-sitter"
 version = "0.0.1"
+authors = ["eatradish"]
 license = "MIT"
 readme = "README.md"
 keywords = ["incremental", "parsing", "tree-sitter", "apt-config"]
-categories = ["parsing", "text-editors"]
-repository = "https://github.com/AOSC-Dev/oma"
-edition = "2021"
+categories = ["parser-implementations", "parsing", "text-editors"]
+repository = "https://github.com/aosc-dev/oma"
+edition = "2024"
 autoexamples = false
 
 build = "bindings/rust/build.rs"
-include = ["bindings/rust/*", "grammar.js", "queries/*", "src/*"]
+include = [
+  "bindings/rust/*",
+  "grammar.js",
+  "queries/*",
+  "src/*",
+  "tree-sitter.json",
+  "/LICENSE",
+]
 
 [lib]
 path = "bindings/rust/lib.rs"
@@ -19,8 +27,8 @@ path = "bindings/rust/lib.rs"
 [dependencies]
 tree-sitter-language = "0.1"
 
-[dev-dependencies]
-tree-sitter = { version = "0.26" }
-
 [build-dependencies]
-cc = "1.0.87"
+cc = "1.2"
+
+[dev-dependencies]
+tree-sitter = "0.26.8"

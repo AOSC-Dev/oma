@@ -1,6 +1,7 @@
-/// <reference types="tree-sitter-cli/dist/grammar" />
+/// <reference types="tree-sitter-cli/dsl" />
+// @ts-check
 
-module.exports = grammar({
+export default grammar({
   name: 'apt_config',
 
   extras: $ => [

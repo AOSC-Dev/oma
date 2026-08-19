@@ -278,6 +278,7 @@ members = [
     "apt-auth-config",
     "oma-tum",
 ]
+exclude = ["oma-apt-pkg/apt-config-grammar"]
 
 [package.metadata.deb]
 copyright = "2026, AOSC Dev <maintainers@aosc.io>"

@@ -1,19 +1,15 @@
 # Rust artifacts
-Cargo.lock
 target/
 
 # Node artifacts
 build/
 prebuilds/
 node_modules/
-*.tgz
 
 # Swift artifacts
 .build/
-Package.resolved
 
 # Go artifacts
-go.sum
 _obj/
 
 # Python artifacts
@@ -29,6 +25,13 @@ dist/
 *.dylib
 *.dll
 *.pc
+*.exp
+*.lib
+
+# Zig artifacts
+.zig-cache/
+zig-cache/
+zig-out/
 
 # Example dirs
 /examples/*/
@@ -37,3 +40,9 @@ dist/
 *.wasm
 *.obj
 *.o
+
+# Archives
+*.tar.gz
+*.tgz
+*.zip
+*.jar

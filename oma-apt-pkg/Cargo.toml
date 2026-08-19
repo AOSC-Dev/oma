@@ -8,7 +8,7 @@ authors = ["eatradish <sakiiily@aosc.io>"]
 
 [features]
 default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config"]
-apt-config = ["dep:tree-sitter", "dep:tree-sitter-language"]
+apt-config = ["dep:tree-sitter", "dep:tree-sitter-apt-config"]
 apt-lists = [
     "filename",
     "apt-sources",
@@ -77,12 +77,9 @@ glob-match = { workspace = true, optional = true }
 memchr = { workspace = true, optional = true }
 strsim = { workspace = true, optional = true }
 tree-sitter = { workspace = true, optional = true }
-tree-sitter-language = { workspace = true, optional = true }
+tree-sitter-apt-config = { path = "apt-config-grammar", optional = true }
 aho-corasick = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
-
-[build-dependencies]
-cc = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"
