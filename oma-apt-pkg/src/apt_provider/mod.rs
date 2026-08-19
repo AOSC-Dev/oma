@@ -8,6 +8,9 @@
 //! - [`provider`] — the `AptProvider`/`AptPool` resolver glue (internal)
 //! - [`solve`] — entry points returning a consistent `(name, version)` set
 //! - [`plan`] — `InstallItem` + dependency-ordered install plans
+//! - [`transaction`] — the `TransactionPlanner` (install/remove/upgrade)
+//! - [`change`] — the `Change`/`ChangeSet`/`Transaction` state model
+//! - [`dpkg_plan`] — the `DpkgOp`/`DpkgPlan` dpkg execution plan
 //!
 //! Mapping (see the analysis in the repo docs):
 //! - `Depends` / `Pre-Depends` → `KnownDependencies.requirements`
@@ -23,14 +26,30 @@ use thiserror::Error;
 
 use crate::AptConfig;
 
+mod change;
+mod dpkg_plan;
+/// EDSP (External Dependency Solving Protocol) — the protocol apt uses to
+/// delegate dependency resolution to an external solver binary. See the
+/// module docs for the wire format and the `oma-edsp` binary.
+pub mod edsp;
+mod executor;
+mod lock;
 mod plan;
 mod provider;
 mod solve;
+#[cfg(test)]
+mod tests;
+mod transaction;
 mod version_set;
 
 // --- public API ---
+pub use change::{Change, ChangeKind, ChangeSet, Transaction};
+pub use dpkg_plan::{DpkgOp, DpkgPlan};
+pub use executor::{DownloadList, Executor, ExecutorError, ExecutorLocks};
+pub use lock::{LockError, LockGuard};
 pub use plan::{InstallItem, resolve_install_order, resolve_install_order_with};
 pub use solve::{SharedSolver, solve_packages, solve_requirements, solve_requirements_with};
+pub use transaction::{TransactionPlanner, UpgradeMode};
 pub use version_set::AptVersionSet;
 
 // --- internal items shared between submodules ---
@@ -81,7 +100,7 @@ pub struct ResolveOptions {
     /// the newest candidate.
     ///
     /// Defaults to true. Only effective when the resolver is given the
-    /// installed state.
+    /// installed state (e.g. through [`TransactionPlanner`]).
     pub prefer_installed: bool,
 }
 
