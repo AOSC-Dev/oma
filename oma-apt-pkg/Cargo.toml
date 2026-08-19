@@ -7,7 +7,7 @@ license = "MIT"
 authors = ["eatradish <sakiiily@aosc.io>"]
 
 [features]
-default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config"]
+default = ["apt-lists", "dpkg-status", "filename", "search", "apt-config", "resolver"]
 apt-config = ["dep:tree-sitter", "dep:tree-sitter-apt-config"]
 apt-lists = [
     "filename",
@@ -54,8 +54,25 @@ search-text = [
 
 search = ["search-indicium", "search-strsim", "search-text"]
 
+# Experimental dependency resolver (long-term, may change).
+resolver = [
+    "apt-lists",
+    "search-text",
+    "apt-sources",
+    "dep:debversion",
+    "dep:resolvo",
+    "dep:oma-fetch",
+    "dep:reqwest-middleware",
+    "dep:tokio",
+    "dep:flume",
+    "dep:once_cell",
+    "dep:oma-utils",
+    "dep:regex",
+]
+
 [dependencies]
 deb822-fast = { workspace = true }
+deb822-lossless = { workspace = true, features = ["deb822-fast"] }
 debian-control = { workspace = true }
 oma-apt-sources-lists = { workspace = true, optional = true }
 serde = { workspace = true }
@@ -80,6 +97,42 @@ tree-sitter = { workspace = true, optional = true }
 tree-sitter-apt-config = { workspace = true, optional = true }
 aho-corasick = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
+resolvo = { version = "0.12", optional = true }
+oma-fetch = { workspace = true, default-features = false, optional = true }
+reqwest-middleware = { workspace = true, optional = true }
+tokio = { workspace = true, default-features = false, features = [
+    "rt-multi-thread",
+    "time",
+    "net",
+], optional = true }
+flume = { workspace = true, optional = true }
+once_cell = { workspace = true, optional = true }
+oma-utils = { workspace = true, optional = true }
+regex = { workspace = true, optional = true }
+
+[[bin]]
+name = "oma-edsp"
+required-features = ["resolver"]
+
+[[example]]
+name = "resolver_check"
+required-features = ["resolver"]
+
+[[example]]
+name = "broken"
+required-features = ["resolver"]
+
+[[example]]
+name = "broken_compare"
+required-features = ["resolver"]
+
+[[example]]
+name = "apt_ops"
+required-features = ["resolver"]
 
 [dev-dependencies]
 tempfile = "3"
+clap = { workspace = true }
+oma-fetch = { workspace = true, features = ["rustls"] }
+reqwest-middleware = { workspace = true }
+rustls = { workspace = true }
