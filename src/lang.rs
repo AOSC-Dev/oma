@@ -42,6 +42,13 @@ pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
 /// Besides the types `i18n_embed_fl::fl!` accepts out of the box (`String`,
 /// `&str`, numbers, `Cow`, `Option`), this also covers styled strings such as
 /// `"name".emphasis_color()`, so call sites don't need explicit `.to_string()`.
+///
+/// The impls below re-implement, as a trait, the `From<...> for FluentValue`
+/// conversions fluent itself provides (string, borrowed string, `Cow`, and
+/// `Option` variants), so that call sites can go through [`to_fluent_value`]
+/// and arbitrary `Display`/styled values can be plugged in too. See:
+/// - https://github.com/projectfluent/fluent-rs/blob/fluent-bundle@0.16.0/fluent-bundle/src/types/mod.rs#L292-L326
+///   (the `From<...> for FluentValue` impls)
 pub trait ToFluentValue {
     fn to_fluent_value(self) -> FluentValue<'static>;
 }
@@ -79,6 +86,10 @@ impl<T: ToFluentValue> ToFluentValue for Option<T> {
     }
 }
 
+// The integer conversions mirror fluent's `from_num!` macro, which generates
+// `From<$int> for FluentValue` for exactly these types. See:
+// - https://github.com/projectfluent/fluent-rs/blob/fluent-bundle@0.16.0/fluent-bundle/src/types/number.rs#L184-L246
+//   (the `from_num!` macro and its `i8`..`usize` type list)
 macro_rules! impl_to_fluent_number {
     ($($t:ty),* $(,)?) => {
         $(impl ToFluentValue for $t {
