@@ -5,7 +5,9 @@ use aho_corasick::{AhoCorasick, BuildError};
 use oma_apt_sources_lists::{SourceEntry, SourceLine, SourceListType, SourcesList};
 
 use crate::AptConfig;
+#[cfg(feature = "apt-lists")]
 use crate::apt_lists::IndexSource;
+#[cfg(feature = "apt-lists")]
 use crate::filename::AptListFilename;
 
 /// Scan the filesystem for sources list files, returning their paths.
@@ -113,6 +115,7 @@ impl SourceLookup {
     /// `URItoFileName` encoding of the index URI, so a parser reads exactly
     /// the files in this list that exist under `Dir::State::lists` — lists
     /// files that no configured source produces are never read.
+    #[cfg(feature = "apt-lists")]
     pub fn index_files(&self, archs: &[String]) -> Vec<(String, IndexSource)> {
         let cvt = AptListFilename::new();
         let mut out = Vec::new();

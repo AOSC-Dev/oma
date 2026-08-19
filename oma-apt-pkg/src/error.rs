@@ -1,5 +1,6 @@
 //! Crate-level error type for oma-apt-pkg.
 
+#[cfg(feature = "apt-lists")]
 use crate::apt_lists::AptListsError;
 use crate::dpkg::DpkgError;
 
@@ -7,6 +8,7 @@ use crate::dpkg::DpkgError;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// APT list file parsing failed.
+    #[cfg(feature = "apt-lists")]
     #[error("Failed to parse apt lists: {0}")]
     AptLists(#[from] AptListsError),
     /// dpkg status file parsing failed.

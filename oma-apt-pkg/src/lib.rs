@@ -11,6 +11,7 @@ pub use deb::*;
 pub mod package_matcher;
 #[cfg(feature = "apt-lists")]
 pub use package_matcher::*;
+#[cfg(feature = "apt-lists")]
 mod apt_lists;
 #[cfg(feature = "apt-sources")]
 pub mod apt_sources;
@@ -34,6 +35,7 @@ pub mod search;
 
 #[cfg(feature = "apt-lists")]
 pub use apt_db::*;
+#[cfg(feature = "apt-lists")]
 pub use apt_lists::*;
 pub use dpkg::*;
 pub use dpkg_state::*;
