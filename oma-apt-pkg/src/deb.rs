@@ -87,6 +87,18 @@ pub fn parse_control_entry(control: &str) -> Result<PackageEntry, DebError> {
 /// The decompressed tar is not buffered whole: [`read_control_from_tar`]
 /// walks it entry by entry, keeping only the `control` file, so even a
 /// pathologically large `control.tar` does not balloon memory.
+///
+/// Only none/gzip/xz/zstd are handled — exactly dpkg's `control.tar`
+/// whitelist. dpkg rejects any other compression for this member
+/// (`src/deb/extract.c`, the `ADMINMEMBER` check allows only
+/// `COMPRESSOR_TYPE_NONE/GZIP/ZSTD/XZ`), so bzip2/lzma — valid only for
+/// `data.tar` — are intentionally not supported here.
+///
+/// See:
+/// - https://salsa.debian.org/dpkg-team/dpkg/-/blob/main/src/deb/extract.c#L184-L204
+///   (the `control.tar` member compression check)
+/// - https://salsa.debian.org/dpkg-team/dpkg/-/blob/main/man/deb.pod#L90-L187
+///   (the supported `control.tar` / `data.tar` compression lists)
 fn decompress_control_tar<'a>(
     name: &str,
     reader: Box<dyn Read + 'a>,
