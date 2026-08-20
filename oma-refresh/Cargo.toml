@@ -52,6 +52,7 @@ default = ["aosc", "sequoia-nettle-backend", "rustls"]
 flume = { workspace = true }
 oma-utils = { workspace = true, features = ["dpkg"] }
 rustls = { workspace = true }
+tempfile = "3"
 
 [[example]]
 name = "update"

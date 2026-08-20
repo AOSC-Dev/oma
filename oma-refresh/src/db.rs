@@ -14,9 +14,10 @@ use flume::Sender;
 use oma_apt_pkg::AptConfig;
 use oma_apt_sources_lists::SourcesListError;
 use oma_fetch::{
-    CompressType, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
+    CompressType, DownloadEntry, DownloadManager,
     checksum::{Checksum, ChecksumError},
     download::{BuilderError, SuccessSummary},
+    mirror::ResolvedMirror,
     reqwest::{
         Response,
         header::{CONTENT_LENGTH, HeaderValue},
@@ -45,7 +46,7 @@ use crate::{
         ChecksumItem, InReleaseChecksum, InReleaseError, Release, file_is_compress,
         split_ext_and_filename, verify_inrelease,
     },
-    sourceslist::{OmaSourceEntry, OmaSourceEntryFrom},
+    sourceslist::OmaSourceEntry,
     util::url_to_list_filename,
 };
 
@@ -59,6 +60,8 @@ pub enum RefreshError {
     ScanSourceError(SourcesListError),
     #[error("Unsupported Protocol: {0}")]
     UnsupportedProtocol(String),
+    #[error(transparent)]
+    MirrorResolve(#[from] oma_fetch::mirror::MirrorError),
     #[error("Failed to download some metadata")]
     DownloadFailed(Option<SingleDownloadError>),
     #[cfg(feature = "aosc")]
@@ -361,11 +364,48 @@ impl OmaRefresh {
         }
     }
 
+    /// Resolve the mirror lists of all `mirror://` sources, once per source
+    /// URI, storing the ordered mirrors on each entry before any download
+    /// starts (so downstream code only ever sees concrete URLs).
+    async fn resolve_mirror_sources(&self, mirror_sources: &mut MirrorSources) -> Result<()> {
+        let mut resolved: AHashMap<String, Vec<ResolvedMirror>> = AHashMap::new();
+
+        for m in &mut mirror_sources.0 {
+            for source in &m.sources {
+                if !source.is_mirror() || source.mirrors().is_some() {
+                    continue;
+                }
+
+                let uri = source.url().to_string();
+                let mirrors = if let Some(cached) = resolved.get(&uri) {
+                    cached.clone()
+                } else {
+                    let mirrors = oma_fetch::mirror::resolve_mirrors(
+                        &uri,
+                        &self.client,
+                        Some(&self.arch),
+                        Some(source.suite()),
+                        source.is_source(),
+                    )
+                    .await?;
+                    resolved.insert(uri, mirrors.clone());
+                    mirrors
+                };
+
+                source.set_mirrors(mirrors);
+            }
+        }
+
+        Ok(())
+    }
+
     async fn download_releases(
         &self,
         mut mirror_sources: MirrorSources,
         sender: Sender<Event>,
     ) -> Result<(MirrorSources, Vec<Url>)> {
+        self.resolve_mirror_sources(&mut mirror_sources).await?;
+
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
 
@@ -724,18 +764,10 @@ fn collect_flat_repo_no_release(
 
     let dist_url = mirror_source.dist_path();
 
-    let from = match mirror_source.from()? {
-        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
-    };
-
     let download_url = format!("{dist_url}/Packages");
     let file_path = format!("{dist_url}Packages");
 
-    let sources = vec![DownloadSource {
-        url: download_url.clone(),
-        source_type: from,
-    }];
+    let sources = mirror_source.download_sources_for(&download_url, mirror_source.is_flat())?;
 
     let task = DownloadEntry::builder()
         .source(sources)
@@ -763,14 +795,8 @@ fn collect_download_task(
 
     let msg = mirror_source.get_human_download_message(Some(file_type))?;
 
-    let from = match mirror_source.from()? {
-        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local(
-            mirror_source.is_flat()
-                && (!file_is_compress(&c.item.name)
-                    || (file_is_compress(&c.item.name) && c.keep_compress)),
-        ),
-    };
+    let local_as_symlink = mirror_source.is_flat()
+        && (!file_is_compress(&c.item.name) || (file_is_compress(&c.item.name) && c.keep_compress));
 
     let not_compress_filename_before = if file_is_compress(&c.item.name) {
         Cow::Owned(split_ext_and_filename(&c.item.name).1)
@@ -807,16 +833,12 @@ fn collect_download_task(
 
         let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
 
-        sources.push(DownloadSource {
-            url: mirror_source.get_download_url(&path.display().to_string()),
-            source_type: from.clone(),
-        });
+        let url = mirror_source.get_download_url(&path.display().to_string());
+        sources.extend(mirror_source.download_sources_for(&url, local_as_symlink)?);
     }
 
-    sources.push(DownloadSource {
-        url: mirror_source.get_download_url(&c.item.name),
-        source_type: from,
-    });
+    let url = mirror_source.get_download_url(&c.item.name);
+    sources.extend(mirror_source.download_sources_for(&url, local_as_symlink)?);
 
     let file_name = if c.keep_compress {
         mirror_source.get_download_file_name(Some(&c.item.name))?

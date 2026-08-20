@@ -6,7 +6,8 @@ use flume::Sender;
 use oma_apt_pkg::AptConfig;
 use oma_apt_sources_lists::{Signature, SourceEntry};
 use oma_fetch::{
-    SingleDownloadError,
+    DownloadSource, DownloadSourceType, SingleDownloadError,
+    mirror::{MirrorSourceType, ResolvedMirror},
     reqwest::{Method, Response, StatusCode},
     send_request_with_url_and_method,
 };
@@ -35,6 +36,10 @@ pub struct OmaSourceEntry {
     suite: OnceCell<String>,
     dist_path: OnceCell<String>,
     from: OnceCell<OmaSourceEntryFrom>,
+    /// Resolved mirrors for `mirror://` sources (in priority order), set
+    /// during the pre-resolution step in `OmaRefresh`. `url()`/`dist_path()`
+    /// and the resulting list-file names keep the original `mirror://` URI.
+    mirrors: OnceCell<Vec<ResolvedMirror>>,
 }
 
 impl Debug for OmaSourceEntry {
@@ -80,11 +85,26 @@ impl OmaSourceEntry {
             suite: OnceCell::new(),
             dist_path: OnceCell::new(),
             from: OnceCell::new(),
+            mirrors: OnceCell::new(),
         }
     }
 
     pub fn from(&self) -> Result<&OmaSourceEntryFrom, RefreshError> {
         self.from.get_or_try_init(|| {
+            if self.is_mirror() {
+                // The primary mirror's transport decides how this source is
+                // fetched. Mirrors are resolved during `OmaRefresh`'s
+                // pre-resolution step, before any download begins.
+                let primary = self
+                    .mirrors()
+                    .and_then(|m| m.first())
+                    .ok_or_else(|| RefreshError::UnsupportedProtocol(self.url().to_string()))?;
+                return Ok(match primary.source_type {
+                    MirrorSourceType::Http => OmaSourceEntryFrom::Http,
+                    MirrorSourceType::File => OmaSourceEntryFrom::Local,
+                });
+            }
+
             let url = Url::parse(self.url())
                 .map_err(|_| RefreshError::InvalidUrl(self.url().to_string()))?;
 
@@ -94,6 +114,64 @@ impl OmaSourceEntry {
                 x => Err(RefreshError::UnsupportedProtocol(x.to_string())),
             }
         })
+    }
+
+    /// Whether this source uses the apt `mirror://` protocol.
+    pub fn is_mirror(&self) -> bool {
+        let url = self.url();
+        url.starts_with("mirror:") || url.starts_with("mirror+")
+    }
+
+    /// Store the resolved mirrors (priority order). Must be called before any
+    /// download; list-file naming keeps the original `mirror://` URI so files
+    /// are stored under stable names. Idempotent: re-resolving a source is a
+    /// no-op.
+    pub fn set_mirrors(&self, mirrors: Vec<ResolvedMirror>) {
+        let _ = self.mirrors.set(mirrors);
+    }
+
+    pub fn mirrors(&self) -> Option<&[ResolvedMirror]> {
+        self.mirrors.get().map(Vec::as_slice)
+    }
+
+    /// Expand an original (mirror-based) full URL into concrete URLs — one per
+    /// resolved mirror — each with its transport. Non-mirror sources return
+    /// the URL unchanged.
+    ///
+    /// `local_as_symlink` is used for `file:` mirrors, mirroring how plain
+    /// local sources map to `DownloadSourceType::Local`.
+    pub fn expand_mirror_url(
+        &self,
+        original_url: &str,
+        local_as_symlink: bool,
+    ) -> Result<Vec<(String, DownloadSourceType)>, RefreshError> {
+        if !self.is_mirror() {
+            let source_type = match self.from()? {
+                OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+                OmaSourceEntryFrom::Local => DownloadSourceType::Local(local_as_symlink),
+            };
+            return Ok(vec![(original_url.to_string(), source_type)]);
+        }
+
+        let mirrors = self
+            .mirrors()
+            .ok_or_else(|| RefreshError::UnsupportedProtocol(self.url().to_string()))?;
+
+        let base = self.url().trim_end_matches('/');
+        let suffix = original_url
+            .strip_prefix(base)
+            .ok_or_else(|| RefreshError::InvalidUrl(original_url.to_string()))?;
+
+        Ok(mirrors
+            .iter()
+            .map(|m| {
+                let source_type = match m.source_type {
+                    MirrorSourceType::Http => DownloadSourceType::Http,
+                    MirrorSourceType::File => DownloadSourceType::Local(local_as_symlink),
+                };
+                (format!("{}{suffix}", m.url), source_type)
+            })
+            .collect())
     }
 
     pub fn components(&self) -> &[String] {
@@ -170,8 +248,17 @@ impl OmaSourceEntry {
     }
 
     pub fn get_human_download_url(&self, file_name: Option<&str>) -> Result<String, RefreshError> {
-        let url = self.url();
-        let url = Url::parse(url).map_err(|_| RefreshError::InvalidUrl(url.to_string()))?;
+        // For mirror sources display the primary mirror instead of the
+        // `mirror://` URI, which `url::Url` cannot parse.
+        let url = if self.is_mirror() {
+            self.mirrors()
+                .and_then(|m| m.first())
+                .map(|m| Cow::Owned(m.url.clone()))
+                .unwrap_or_else(|| Cow::Borrowed(self.url()))
+        } else {
+            Cow::Borrowed(self.url())
+        };
+        let url = Url::parse(&url).map_err(|_| RefreshError::InvalidUrl(url.to_string()))?;
 
         let host = url.host_str();
 
@@ -258,6 +345,53 @@ impl MirrorSource {
         self.sources.first().unwrap().is_flat()
     }
 
+    pub fn is_mirror(&self) -> bool {
+        self.sources.first().is_some_and(|x| x.is_mirror())
+    }
+
+    /// Candidate URLs for a metadata file — one per resolved mirror, with its
+    /// transport. Non-mirror sources yield a single candidate.
+    pub fn candidate_urls_for(
+        &self,
+        file_name: &str,
+    ) -> Result<Vec<(String, OmaSourceEntryFrom)>, RefreshError> {
+        let original = self.get_download_url(file_name);
+        self.sources
+            .first()
+            .unwrap()
+            .expand_mirror_url(&original, self.is_flat())
+            .map(|v| {
+                v.into_iter()
+                    .map(|(url, source_type)| {
+                        let from = match source_type {
+                            DownloadSourceType::Http => OmaSourceEntryFrom::Http,
+                            DownloadSourceType::Local(_) => OmaSourceEntryFrom::Local,
+                        };
+                        (url, from)
+                    })
+                    .collect()
+            })
+    }
+
+    /// Expand a full original URL into `DownloadSource`s, one per mirror.
+    /// `local_as_symlink` is applied to `file:` mirrors (and to plain local
+    /// sources), matching `collect_download_task`'s existing logic.
+    pub fn download_sources_for(
+        &self,
+        original_url: &str,
+        local_as_symlink: bool,
+    ) -> Result<Vec<DownloadSource>, RefreshError> {
+        self.sources
+            .first()
+            .unwrap()
+            .expand_mirror_url(original_url, local_as_symlink)
+            .map(|v| {
+                v.into_iter()
+                    .map(|(url, source_type)| DownloadSource { url, source_type })
+                    .collect()
+            })
+    }
+
     pub fn trusted(&self) -> bool {
         self.sources.iter().any(|x| x.trusted())
     }
@@ -276,6 +410,12 @@ impl MirrorSource {
         download_dir: &Path,
         tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
+        if self.is_mirror() {
+            return self
+                .fetch_mirror_release(client, index, total, tmp_dir, download_dir, tx)
+                .await;
+        }
+
         match self.from()? {
             OmaSourceEntryFrom::Http => {
                 self.fetch_http_release(client, index, total, tmp_dir, download_dir, tx)
@@ -540,6 +680,159 @@ impl MirrorSource {
 
         let name = name.ok_or_else(|| RefreshError::NoInReleaseFile(self.url().to_string()))?;
         self.set_release_file_name(name);
+
+        Ok(())
+    }
+
+    /// Fetch the release files for a `mirror://` source, trying each resolved
+    /// mirror in order until one succeeds (apt's mirror method behavior).
+    /// Supports both http(s) and `file:` mirrors within one list.
+    #[allow(clippy::too_many_arguments)]
+    async fn fetch_mirror_release(
+        &self,
+        client: &ClientWithMiddleware,
+        index: usize,
+        total: usize,
+        tmp_dir: &Path,
+        download_dir: &Path,
+        tx: Sender<Event>,
+    ) -> Result<(), RefreshError> {
+        let msg = self.get_human_download_message(None)?;
+
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+                index,
+                total,
+                msg,
+            }))
+            .await;
+
+        // Try `InRelease` first, then `Release`, each against every mirror.
+        let mut obtained = None; // (file_name, is_release)
+
+        for (file, is_release) in [("InRelease", false), ("Release", true)] {
+            let file_name = self.get_download_file_name(Some(file))?;
+            let candidates = self.candidate_urls_for(file)?;
+
+            for (url, from) in &candidates {
+                let got = match from {
+                    OmaSourceEntryFrom::Http => {
+                        match send_request_with_url_and_method(url, client, Method::GET).await {
+                            Ok(resp) => {
+                                self.download_file(
+                                    &file_name,
+                                    resp,
+                                    index,
+                                    total,
+                                    tmp_dir,
+                                    download_dir,
+                                    tx.clone(),
+                                )
+                                .await
+                                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+                                true
+                            }
+                            // Try the next mirror on any failure.
+                            Err(_) => false,
+                        }
+                    }
+                    OmaSourceEntryFrom::Local => {
+                        let path = Path::new(url.strip_prefix("file:").unwrap_or(url));
+                        if path.exists() {
+                            let dst = download_dir.join(&file_name);
+                            if dst.exists() {
+                                fs::remove_file(&dst)
+                                    .await
+                                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                            }
+                            fs::symlink(path, &dst)
+                                .await
+                                .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                };
+
+                if got {
+                    obtained = Some((file_name, is_release));
+                    break;
+                }
+            }
+
+            if obtained.is_some() {
+                break;
+            }
+        }
+
+        let Some((file_name, is_release)) = obtained else {
+            if self.is_flat() {
+                // Flat repo without a release file.
+                let _ = tx
+                    .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+                    .await;
+                return Ok(());
+            }
+            return Err(RefreshError::NoInReleaseFile(self.url().to_string()));
+        };
+
+        self.set_release_file_name(file_name);
+
+        if is_release && !self.trusted() {
+            // Fetch `Release.gpg` from the first mirror that has it.
+            let file_name = self.get_download_file_name(Some("Release.gpg"))?;
+            let candidates = self.candidate_urls_for("Release.gpg")?;
+
+            for (url, from) in &candidates {
+                let got = match from {
+                    OmaSourceEntryFrom::Http => {
+                        match send_request_with_url_and_method(url, client, Method::GET).await {
+                            Ok(resp) => {
+                                self.download_file(
+                                    &file_name,
+                                    resp,
+                                    index,
+                                    total,
+                                    tmp_dir,
+                                    download_dir,
+                                    tx.clone(),
+                                )
+                                .await
+                                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+                                true
+                            }
+                            Err(_) => false,
+                        }
+                    }
+                    OmaSourceEntryFrom::Local => {
+                        let path = Path::new(url.strip_prefix("file:").unwrap_or(url));
+                        if path.exists() {
+                            let dst = download_dir.join(&file_name);
+                            if dst.exists() {
+                                fs::remove_file(&dst)
+                                    .await
+                                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                            }
+                            fs::symlink(path, &dst)
+                                .await
+                                .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                };
+
+                if got {
+                    break;
+                }
+            }
+        }
+
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+            .await;
 
         Ok(())
     }
@@ -1028,4 +1321,102 @@ fn test_flat_repo_file_name_4() {
     let ose = OmaSourceEntry::new(entry, arch);
     let res = ose.get_download_file_name(Some("Packages")).unwrap();
     assert_eq!(res, "_debs___.___Packages");
+}
+
+#[test]
+fn test_mirror_expansion() {
+    // A mirror source keeps its `mirror://` URI for naming, and expands to
+    // one concrete URL per resolved mirror for downloading.
+    let entry: SourceEntry = "deb mirror+file:///etc/apt/mirrors.test bookworm main"
+        .parse()
+        .unwrap();
+    let entry = OmaSourceEntry::new(entry, Arc::from("amd64"));
+    assert!(entry.is_mirror());
+
+    // Simulate the pre-resolution step.
+    entry.set_mirrors(vec![
+        ResolvedMirror {
+            url: "http://m1.example.com/debian".into(),
+            source_type: MirrorSourceType::Http,
+        },
+        ResolvedMirror {
+            url: "http://m2.example.com/debian".into(),
+            source_type: MirrorSourceType::Http,
+        },
+    ]);
+
+    // `from()` follows the primary mirror's transport.
+    assert_eq!(entry.from().unwrap(), &OmaSourceEntryFrom::Http);
+
+    // Naming stays based on the original `mirror://` URI.
+    let original = entry.get_download_url("InRelease");
+    assert!(original.starts_with("mirror+file:"));
+
+    // Expansion replaces the mirror base with each resolved mirror.
+    let expanded = entry.expand_mirror_url(&original, false).unwrap();
+    assert_eq!(expanded.len(), 2);
+    assert_eq!(
+        expanded[0].0,
+        "http://m1.example.com/debian/dists/bookworm/InRelease"
+    );
+    assert_eq!(
+        expanded[1].0,
+        "http://m2.example.com/debian/dists/bookworm/InRelease"
+    );
+    assert_eq!(expanded[0].1, DownloadSourceType::Http);
+
+    // A `file:` mirror maps to a local source.
+    let entry_file = OmaSourceEntry::new(
+        "deb mirror+file:///etc/apt/mirrors.test bookworm main"
+            .parse()
+            .unwrap(),
+        Arc::from("amd64"),
+    );
+    entry_file.set_mirrors(vec![ResolvedMirror {
+        url: "file:///repo".into(),
+        source_type: MirrorSourceType::File,
+    }]);
+    let original = entry_file.get_download_url("InRelease");
+    let expanded = entry_file.expand_mirror_url(&original, true).unwrap();
+    assert_eq!(expanded[0].0, "file:///repo/dists/bookworm/InRelease");
+    assert_eq!(expanded[0].1, DownloadSourceType::Local(true));
+
+    // Non-mirror sources are returned unchanged.
+    let plain = OmaSourceEntry::new(
+        "deb http://example.com/debian bookworm main"
+            .parse()
+            .unwrap(),
+        Arc::from("amd64"),
+    );
+    let original = plain.get_download_url("InRelease");
+    let expanded = plain.expand_mirror_url(&original, false).unwrap();
+    assert_eq!(expanded.len(), 1);
+    assert_eq!(expanded[0].0, original);
+    assert_eq!(expanded[0].1, DownloadSourceType::Http);
+}
+
+#[tokio::test]
+async fn test_resolve_mirrors_local_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let list = dir.path().join("mirrors.list");
+    std::fs::write(
+        &list,
+        "http://m1.example.com/\tpriority:1\trelease:bookworm\nfile:///local/repo\tpriority:2\n",
+    )
+    .unwrap();
+
+    let uri = format!("mirror+file://{}", list.display());
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let client = reqwest_middleware::ClientBuilder::new(oma_fetch::reqwest::Client::new()).build();
+
+    let mirrors =
+        oma_fetch::mirror::resolve_mirrors(&uri, &client, Some("amd64"), Some("bookworm"), false)
+            .await
+            .unwrap();
+
+    assert_eq!(mirrors.len(), 2);
+    assert_eq!(mirrors[0].url, "http://m1.example.com");
+    assert_eq!(mirrors[0].source_type, MirrorSourceType::Http);
+    assert_eq!(mirrors[1].url, "file:///local/repo");
+    assert_eq!(mirrors[1].source_type, MirrorSourceType::File);
 }
