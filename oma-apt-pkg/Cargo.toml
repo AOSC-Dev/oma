@@ -51,8 +51,15 @@ search-text = [
     "dep:glob-match",
     "dep:memchr",
 ]
+search-fts = [
+    "apt-lists",
+    "dpkg-status",
+    "dep:ahash",
+    "dep:debversion",
+    "dep:rusqlite",
+]
 
-search = ["search-indicium", "search-strsim", "search-text"]
+search = ["search-indicium", "search-strsim", "search-text", "search-fts"]
 
 [dependencies]
 deb822-fast = { workspace = true }
@@ -76,6 +83,7 @@ debversion = { workspace = true, optional = true }
 glob-match = { workspace = true, optional = true }
 memchr = { workspace = true, optional = true }
 strsim = { workspace = true, optional = true }
+rusqlite = { workspace = true, optional = true }
 tree-sitter = { workspace = true, optional = true }
 tree-sitter-apt-config = { workspace = true, optional = true }
 aho-corasick = { workspace = true, optional = true }

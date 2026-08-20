@@ -172,7 +172,7 @@ liblzma = { version = "0", features = ["uncheck_liblzma_version"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 md-5 = "0.11"
 headers = "0.4.1"
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled", "backup"] }
 indicium = "0.6"
 cxx = "1.0.196"
 deb822-lossless = "0.5"

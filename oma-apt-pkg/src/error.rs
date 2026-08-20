@@ -17,4 +17,8 @@ pub enum Error {
     /// APT-Sources formatting failed (e.g. missing architecture).
     #[error("{0}")]
     AptSources(String),
+    /// SQLite (FTS5 search index) operation failed.
+    #[cfg(feature = "search-fts")]
+    #[error("Failed to operate SQLite search index: {0}")]
+    Sqlite(#[from] rusqlite::Error),
 }
