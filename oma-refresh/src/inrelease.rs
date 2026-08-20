@@ -56,7 +56,7 @@ pub enum InReleaseChecksum {
     Md5,
 }
 
-const COMPRESS: &[&str] = &[".gz", ".xz", ".zst", ".bz2"];
+const COMPRESS: &[&str] = &[".gz", ".xz", ".zst", ".bz2", ".lzma", ".lz4"];
 
 pub struct Release {
     pub source: InReleaseEntry,
@@ -387,6 +387,35 @@ fn test_split_name_and_ext() {
     let example2 = "main/i18n/Translation-bg";
     let res = split_ext_and_filename(&example2);
     assert_eq!(res, ("".into(), "main/i18n/Translation-bg".to_string()));
+}
+
+#[test]
+fn test_file_is_compress() {
+    for name in [
+        "main/binary/Packages.gz",
+        "main/binary/Packages.xz",
+        "main/binary/Packages.zst",
+        "main/binary/Packages.bz2",
+        "main/binary/Packages.lzma",
+        "main/binary/Packages.lz4",
+    ] {
+        assert!(
+            file_is_compress(name),
+            "expected compressed filename: {name}"
+        );
+    }
+
+    for name in [
+        "main/binary/Packages",
+        "main/binary/Packages.gz.bak",
+        "main/binary/Packages.GZ",
+        "main/binary/Packages.zip",
+    ] {
+        assert!(
+            !file_is_compress(name),
+            "expected uncompressed filename: {name}"
+        );
+    }
 }
 
 #[test]
