@@ -804,8 +804,12 @@ impl OmaSearch for FtsSearch {
 
             let is_new = !self.pkg_map.contains_key(name);
 
+            // has_dbg / section_is_base are not persisted in the FTS5 cache,
+            // so recompute them on every refresh (including cache hits).
+            let has_dbg = apt_db.has_package(&format!("{name}-dbg"));
+            let section_is_base = entry.section.as_deref().is_some_and(|s| s == "Bases");
+
             if is_new {
-                let has_dbg = apt_db.has_package(&format!("{name}-dbg"));
                 let provides: IndexSet<String> = entry
                     .provides
                     .as_deref()
@@ -815,7 +819,6 @@ impl OmaSearch for FtsSearch {
                             .unwrap_or_default()
                     })
                     .unwrap_or_default();
-                let section_is_base = entry.section.as_deref().is_some_and(|s| s == "Bases");
                 let description = entry
                     .description
                     .as_deref()
@@ -849,6 +852,8 @@ impl OmaSearch for FtsSearch {
             }
 
             let pkg_entry = self.pkg_map.get_mut(name).unwrap();
+            pkg_entry.has_dbg = has_dbg;
+            pkg_entry.section_is_base = section_is_base;
 
             if dpkg.installed.contains(name.as_str()) {
                 let inst_ver = dpkg.installed_versions.get(name).cloned();
@@ -864,6 +869,9 @@ impl OmaSearch for FtsSearch {
                 } else {
                     pkg_entry.status = PackageStatus::Installed;
                     pkg_entry.old_version = inst_ver;
+                    if let Some(ref v) = entry.version {
+                        pkg_entry.new_version.clone_from(v);
+                    }
                 }
             } else {
                 pkg_entry.status = PackageStatus::Avail;
