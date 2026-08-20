@@ -14,14 +14,17 @@ follow_terminal_color = false
 search_contents_println = false
 # Default search engine for `oma search':
 #
+# - fts:      SQLite FTS5 trigram backend. Substring matching (so `ssl`
+#             finds `openssl`/`libssl3`), relevance-ranked, persisted to a
+#             SQLite cache (default).
 # - indicium: A complete search engine, but with higher performance
-#             requirements (default).
+#             requirements.
 # - strsim:   Simple string-based relevance search on package names and
 #             descriptions, with relatively low performance requirements but
 #             not as effective as indicium.
 # - text:     Simple character-based search with support for globs and no
 #             relevance sorting, most rudimentary but the fastest.
-search_engine = "indicium"
+search_engine = "fts"
 # Ring the terminal bell when oma completes a transaction.
 bell = true
 # Number of log entries to save.

@@ -78,6 +78,7 @@ pub enum SearchEngine {
     Indicium,
     StrSim,
     Text,
+    Fts,
 }
 
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,11 +141,7 @@ impl GeneralConfig {
     }
 
     pub const fn default_search_engine() -> SearchEngine {
-        if cfg!(feature = "aosc") {
-            SearchEngine::Indicium
-        } else {
-            SearchEngine::StrSim
-        }
+        SearchEngine::Fts
     }
 
     pub const fn default_save_log_count() -> usize {

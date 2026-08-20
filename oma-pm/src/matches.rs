@@ -41,6 +41,7 @@ pub enum SearchEngine {
     Indicium(Box<dyn Fn(usize)>),
     Strsim,
     Text,
+    Fts,
 }
 
 /// Method of getting system architecture.

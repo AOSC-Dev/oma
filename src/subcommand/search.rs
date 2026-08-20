@@ -3,8 +3,8 @@ use std::fmt::Display;
 use clap::{ArgAction, Args};
 use clap_complete::ArgValueCompleter;
 use oma_apt_pkg::search::{
-    IndiciumSearch, OmaSearch as _, PackageStatus, SearchResult, SearchType, StrSimSearch,
-    TextSearch,
+    FtsSearch, IndiciumSearch, OmaSearch as _, PackageStatus, SearchResult, SearchType,
+    StrSimSearch, TextSearch,
 };
 use oma_apt_pkg::{AptConfig, AptDb, DpkgState};
 use oma_console::{console::style, pager::Pager, print::Action, terminal::gen_prefix};
@@ -144,6 +144,7 @@ impl CliExecuter for Search {
                 ConfigSearchEngine::Indicium => SearchEngine::Indicium(Box::new(|_| {})),
                 ConfigSearchEngine::StrSim => SearchEngine::Strsim,
                 ConfigSearchEngine::Text => SearchEngine::Text,
+                ConfigSearchEngine::Fts => SearchEngine::Fts,
             },
             &config,
         )?;
@@ -210,6 +211,11 @@ pub fn search(
             }
 
             Ok(result)
+        }
+        SearchEngine::Fts => {
+            let (apt_db, dpkg) = load_apt_db_and_dpkg(config.apt_config())?;
+            let searcher = FtsSearch::new_with_cache(&apt_db, &dpkg, config.apt_config(), |_| {})?;
+            Ok(searcher.search(&keywords.join(" "))?)
         }
     }
 }

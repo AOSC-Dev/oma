@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use clap::Args;
 use oma_apt_pkg::AptConfig;
-use oma_apt_pkg::search::{IndiciumSearch, OmaSearch, SearchResult, SearchType};
+use oma_apt_pkg::search::{FtsSearch, IndiciumSearch, OmaSearch, SearchResult, SearchType};
 use oma_console::pager::{exit_tui, prepare_create_tui};
 use oma_pm::apt::{OmaApt, OmaAptArgs, Upgrade};
 use render::{Task, Tui as TuiInner};
@@ -56,7 +56,7 @@ pub struct Tui {
 }
 
 pub(crate) enum Searcher {
-    Local(Box<IndiciumSearch>),
+    Local(Box<dyn OmaSearch>),
     Amo {
         _connection: Connection,
         proxy: AmoProxy<'static>,
@@ -88,7 +88,7 @@ impl Searcher {
 
     pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResult>> {
         match self {
-            Searcher::Local(indicium_search) => Ok(indicium_search.search(query)?),
+            Searcher::Local(searcher) => Ok(searcher.search(query)?),
             Searcher::Amo { proxy, .. } => {
                 Ok(serde_json::from_str(&RT.block_on(proxy.search(query))?)?)
             }
@@ -98,8 +98,8 @@ impl Searcher {
     #[allow(dead_code)]
     /// Refresh status metadata from fresh dpkg status data.
     pub(crate) fn refresh(&mut self, apt_db: &oma_apt_pkg::AptDb, dpkg: &oma_apt_pkg::DpkgState) {
-        if let Searcher::Local(indicium_search) = self {
-            indicium_search.refresh_from(apt_db, dpkg);
+        if let Searcher::Local(searcher) = self {
+            searcher.refresh_from(apt_db, dpkg);
         }
     }
 }
@@ -150,10 +150,10 @@ impl CliExecuter for Tui {
         let searcher = if config.amo && !config.no_check_dbus {
             match RT.block_on(Searcher::connect_amo()) {
                 Ok(searcher) => searcher,
-                Err(_) => local_searcher(config.apt_config(), &pb)?,
+                Err(_) => local_searcher(config.apt_config(), config.search_engine, &pb)?,
             }
         } else {
-            local_searcher(config.apt_config(), &pb)?
+            local_searcher(config.apt_config(), config.search_engine, &pb)?
         };
 
         pb.finish_and_clear();
@@ -220,6 +220,7 @@ impl CliExecuter for Tui {
 
 fn local_searcher(
     apt_cfg: &AptConfig,
+    search_engine: crate::config_file::SearchEngine,
     pb: &crate::pb::ProgressBar,
 ) -> Result<Searcher, OutputError> {
     let dpkg_path = apt_cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
@@ -227,9 +228,21 @@ fn local_searcher(
     let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path)?;
     let apt_db = oma_apt_pkg::AptDb::load_or_build(apt_cfg)?;
 
-    let searcher =
-        IndiciumSearch::new_with_cache(&apt_db, &dpkg, apt_cfg, SearchType::Live, |n| {
-            pb.set_message(fl!("reading-database-with-count", count = n));
-        })?;
-    Ok(Searcher::Local(Box::new(searcher)))
+    let progress = |n: usize| {
+        pb.set_message(fl!("reading-database-with-count", count = n));
+    };
+
+    let searcher: Box<dyn OmaSearch> = match search_engine {
+        crate::config_file::SearchEngine::Fts => Box::new(FtsSearch::new_with_cache(
+            &apt_db, &dpkg, apt_cfg, progress,
+        )?),
+        _ => Box::new(IndiciumSearch::new_with_cache(
+            &apt_db,
+            &dpkg,
+            apt_cfg,
+            SearchType::Live,
+            progress,
+        )?),
+    };
+    Ok(Searcher::Local(searcher))
 }
