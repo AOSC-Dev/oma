@@ -32,8 +32,6 @@ pub struct DownloadEntry {
     /// different mirror.
     #[builder(default)]
     by_hash_fallback: bool,
-    #[builder(default)]
-    file_type: CompressType,
 }
 
 impl Debug for DownloadEntry {
@@ -46,7 +44,6 @@ impl Debug for DownloadEntry {
             .field("allow_resume", &self.allow_resume)
             .field("msg", &self.msg)
             .field("by_hash_fallback", &self.by_hash_fallback)
-            .field("file_type", &self.file_type)
             .finish()
     }
 }
@@ -79,6 +76,12 @@ impl From<&str> for CompressType {
 pub struct DownloadSource {
     pub url: String,
     pub source_type: DownloadSourceType,
+    /// The compression format of the file this source points to. Used to
+    /// decompress the downloaded file. This is per-source so that a single
+    /// [`DownloadEntry`] can fall back between different compression formats
+    /// (e.g. `Packages.zst` → `Packages.xz` → `Packages.gz`), matching apt's
+    /// `Acquire::CompressionTypes::Order` behavior.
+    pub file_type: CompressType,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

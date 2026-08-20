@@ -539,7 +539,7 @@ impl SingleDownloader {
                 reported = read;
             }
 
-            if self.entry.file_type != CompressType::None {
+            if source.file_type != CompressType::None {
                 downloaded_size = 0;
             }
         }
@@ -582,7 +582,7 @@ impl SingleDownloader {
         } else {
             true
         } {
-            if !allow_resume || self.entry.file_type != CompressType::None {
+            if !allow_resume || source.file_type != CompressType::None {
                 // restart download if resume is disallowed
                 downloaded_size = 0;
             }
@@ -702,7 +702,7 @@ impl SingleDownloader {
 
             // seek to expected location
             if downloaded_size != old_downloaded_size {
-                assert!(downloaded_size == 0 || self.entry.file_type == CompressType::None);
+                assert!(downloaded_size == 0 || source.file_type == CompressType::None);
                 debug!("moving writer from {old_downloaded_size} to {downloaded_size}");
                 if let Err(e) = dest.seek(SeekFrom::Start(0)).await {
                     callback(Event::ProgressDone(self.download_list_index)).await;
@@ -801,7 +801,7 @@ impl SingleDownloader {
             let mut stream = BufReader::new(stream);
 
             // initialize decompressor
-            let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.entry.file_type {
+            let reader: &mut (dyn AsyncRead + Unpin + Send) = match source.file_type {
                 CompressType::Xz => &mut XzDecoder::new(&mut stream),
                 CompressType::Gzip => &mut GzipDecoder::new(&mut stream),
                 CompressType::Bz2 => &mut BzDecoder::new(&mut stream),
@@ -971,7 +971,7 @@ impl SingleDownloader {
             .await
             .context(CreateSnafu)?;
 
-        let reader: &mut (dyn AsyncRead + Unpin + Send) = match self.entry.file_type {
+        let reader: &mut (dyn AsyncRead + Unpin + Send) = match source.file_type {
             CompressType::Xz => &mut XzDecoder::new(BufReader::new(from)),
             CompressType::Gzip => &mut GzipDecoder::new(BufReader::new(from)),
             CompressType::Bz2 => &mut BzDecoder::new(BufReader::new(from)),
