@@ -4,6 +4,7 @@ use flume::Sender;
 use oma_fetch::{
     DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event, Summary,
     checksum::Checksum,
+    mirror::{MirrorSourceType, ResolvedMirror, resolve_mirrors},
 };
 use oma_pm_operation_type::InstallEntry;
 use oma_utils::url_no_escape::url_no_escape_times;
@@ -14,6 +15,44 @@ use crate::{
     CustomDownloadMessage,
     apt::{DownloadConfig, OmaAptError, OmaAptResult},
 };
+
+/// Whether a URL uses the apt `mirror://` protocol (mirror, mirror+http(s),
+/// mirror+file).
+fn is_mirror_uri(uri: &str) -> bool {
+    uri.starts_with("mirror:") || uri.starts_with("mirror+")
+}
+
+/// Expand a mirrored package URL (`download_url`) into one `DownloadSource`
+/// per resolved mirror. `index_url` is the source's base URI (`mirror://...`,
+/// with a trailing `/`), which `download_url` starts with; the remainder is
+/// the path inside the repository.
+fn mirror_download_sources(
+    download_url: &str,
+    index_url: &str,
+    mirrors: &[ResolvedMirror],
+    download_only: bool,
+) -> Vec<DownloadSource> {
+    let suffix = download_url.strip_prefix(index_url).unwrap_or(download_url);
+
+    mirrors
+        .iter()
+        .map(|m| {
+            let url = format!(
+                "{}/{}",
+                m.url.trim_end_matches('/'),
+                suffix.trim_start_matches('/')
+            );
+            let (source_type, url) = match m.source_type {
+                MirrorSourceType::Http => (DownloadSourceType::Http, url),
+                MirrorSourceType::File => (
+                    DownloadSourceType::Local(!download_only),
+                    url_no_escape_times(&url, 1),
+                ),
+            };
+            DownloadSource { url, source_type }
+        })
+        .collect()
+}
 
 /// Download packages (inner)
 pub async fn download_pkgs(
@@ -49,21 +88,34 @@ pub async fn download_pkgs(
 
     for entry in download_pkg_list.iter() {
         let uris = entry.pkg_urls();
-        let sources = uris
-            .iter()
-            .map(|x| {
-                let (source_type, url) = if x.index_url.starts_with("file:") {
-                    (
-                        DownloadSourceType::Local(!download_only),
-                        url_no_escape_times(&x.download_url, 1),
-                    )
-                } else {
-                    (DownloadSourceType::Http, x.download_url.clone())
-                };
+        let mut sources = vec![];
 
-                DownloadSource { url, source_type }
-            })
-            .collect::<Vec<_>>();
+        for x in uris.iter() {
+            if is_mirror_uri(&x.download_url) {
+                // `index_url` is the source's base URI (e.g. `mirror://...`,
+                // with a trailing `/`); resolve the mirror list and expand
+                // into one `DownloadSource` per mirror. The download manager
+                // tries the sources in order, so later mirrors are the
+                // fallbacks (apt's Alternate-URIs behavior).
+                let mirrors = resolve_mirrors(&x.index_url, &client, None, None, false).await?;
+                sources.extend(mirror_download_sources(
+                    &x.download_url,
+                    &x.index_url,
+                    &mirrors,
+                    download_only,
+                ));
+            } else if x.index_url.starts_with("file:") {
+                sources.push(DownloadSource {
+                    url: url_no_escape_times(&x.download_url, 1),
+                    source_type: DownloadSourceType::Local(!download_only),
+                });
+            } else {
+                sources.push(DownloadSource {
+                    url: x.download_url.clone(),
+                    source_type: DownloadSourceType::Http,
+                });
+            }
+        }
 
         debug!("Sources is: {:?}", sources);
 
@@ -140,4 +192,56 @@ fn apt_style_filename(entry: &InstallEntry) -> String {
     let version = version.replace(':', "%3a");
 
     format!("{package}_{version}_{arch}.deb").replace("%2b", "+")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_mirror_uri() {
+        assert!(is_mirror_uri("mirror://host/list"));
+        assert!(is_mirror_uri("mirror+http://host/list"));
+        assert!(is_mirror_uri("mirror+https://host/list"));
+        assert!(is_mirror_uri("mirror+file:///path"));
+        assert!(!is_mirror_uri("http://host"));
+        assert!(!is_mirror_uri("https://host"));
+        assert!(!is_mirror_uri("file:///path"));
+    }
+
+    #[test]
+    fn test_mirror_download_sources() {
+        let mirrors = vec![
+            ResolvedMirror {
+                url: "http://m1.example.com/debian/".into(),
+                source_type: MirrorSourceType::Http,
+            },
+            ResolvedMirror {
+                url: "file:///local/repo".into(),
+                source_type: MirrorSourceType::File,
+            },
+        ];
+
+        // `index_url` is the mirror base URI (with trailing `/`); the
+        // download URL is the same base plus the pool path.
+        let sources = mirror_download_sources(
+            "mirror+http://host/list/pool/main/a/apt_1_amd64.deb",
+            "mirror+http://host/list/",
+            &mirrors,
+            false,
+        );
+
+        assert_eq!(sources.len(), 2);
+        assert_eq!(
+            sources[0].url,
+            "http://m1.example.com/debian/pool/main/a/apt_1_amd64.deb"
+        );
+        assert_eq!(sources[0].source_type, DownloadSourceType::Http);
+        assert!(
+            sources[1]
+                .url
+                .starts_with("file:///local/repo/pool/main/a/apt_1_amd64.deb")
+        );
+        assert_eq!(sources[1].source_type, DownloadSourceType::Local(true));
+    }
 }

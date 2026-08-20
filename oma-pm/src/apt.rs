@@ -172,6 +172,8 @@ pub enum OmaAptError {
     #[error("recv async event error")]
     RecvError,
     #[error(transparent)]
+    Mirror(#[from] oma_fetch::mirror::MirrorError),
+    #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
 }
 

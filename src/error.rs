@@ -661,6 +661,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
             ),
         },
         OmaAptError::RecvError => anyhow::anyhow!("{err}").into(),
+        OmaAptError::Mirror(e) => anyhow::anyhow!("{e}").into(),
         OmaAptError::Anyhow(error) => error.into(),
     }
 }
