@@ -727,11 +727,14 @@ impl OmaSearch for FtsSearch {
         // FTS5 trigram needs at least 3 characters; for shorter queries fall
         // back to a LIKE scan (still fast enough for the small result set).
         let names: Vec<String> = if query.len() >= 3 {
+            // Rank package-name matches above description-only matches so that
+            // e.g. `apt` surfaces apt/apt-fast/libapt-pkg-perl before packages
+            // that merely mention "apt" in their description (thinkfan, etc.).
             let mut stmt = self
                 .conn
                 .prepare(
                     "SELECT name FROM pkg WHERE pkg MATCH ?1 \
-                     ORDER BY (name LIKE ?2) DESC, bm25(pkg) LIMIT ?3",
+                     ORDER BY (name LIKE ?2) DESC, (name LIKE ?3) DESC, bm25(pkg) LIMIT ?4",
                 )
                 .map_err(|_| OmaSearchError::NoResult(query.clone()))?;
             let rows = stmt
@@ -739,6 +742,7 @@ impl OmaSearch for FtsSearch {
                     rusqlite::params![
                         format!("\"{query}\""),
                         format!("{query}%"),
+                        format!("%{query}%"),
                         FTS_MAX_RESULTS as i64
                     ],
                     |r| r.get::<_, String>(0),
