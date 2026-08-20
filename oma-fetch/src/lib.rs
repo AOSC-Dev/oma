@@ -13,6 +13,7 @@ use tokio::task::JoinSet;
 
 pub mod checksum;
 pub mod download;
+pub mod mirror;
 pub use crate::download::SingleDownloadError;
 
 pub use reqwest;

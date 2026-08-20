@@ -1,6 +1,11 @@
 [default.extend-words]
 ratatui = "ratatui"
 
+[default.extend-identifiers]
+# apt's methods/mirror.cc spells its mirror-list parser function
+# `MirrorListFileRecieved` (sic); keep the faithful reference.
+MirrorListFileRecieved = "MirrorListFileRecieved"
+
 [type.md]
 extend-glob = ["*.md"]
 check-file = false
