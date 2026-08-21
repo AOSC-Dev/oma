@@ -135,8 +135,9 @@ impl OmaSourceEntry {
     }
 
     /// Expand an original (mirror-based) full URL into concrete URLs — one per
-    /// resolved mirror — each with its transport. Non-mirror sources return
-    /// the URL unchanged.
+    /// resolved mirror — each with its transport and the mirror's priority
+    /// (lower is tried first). Non-mirror sources return the URL unchanged
+    /// with a default priority so their transport preference applies.
     ///
     /// `local_as_symlink` is used for `file:` mirrors, mirroring how plain
     /// local sources map to `DownloadSourceType::Local`.
@@ -144,13 +145,13 @@ impl OmaSourceEntry {
         &self,
         original_url: &str,
         local_as_symlink: bool,
-    ) -> Result<Vec<(String, DownloadSourceType)>, RefreshError> {
+    ) -> Result<Vec<(String, DownloadSourceType, u64)>, RefreshError> {
         if !self.is_mirror() {
             let source_type = match self.from()? {
                 OmaSourceEntryFrom::Http => DownloadSourceType::Http,
                 OmaSourceEntryFrom::Local => DownloadSourceType::Local(local_as_symlink),
             };
-            return Ok(vec![(original_url.to_string(), source_type)]);
+            return Ok(vec![(original_url.to_string(), source_type, u64::MAX)]);
         }
 
         let mirrors = self
@@ -169,7 +170,7 @@ impl OmaSourceEntry {
                     MirrorSourceType::Http => DownloadSourceType::Http,
                     MirrorSourceType::File => DownloadSourceType::Local(local_as_symlink),
                 };
-                (format!("{}{suffix}", m.url), source_type)
+                (format!("{}{suffix}", m.url), source_type, m.priority)
             })
             .collect())
     }
@@ -362,7 +363,7 @@ impl MirrorSource {
             .expand_mirror_url(&original, self.is_flat())
             .map(|v| {
                 v.into_iter()
-                    .map(|(url, source_type)| {
+                    .map(|(url, source_type, _priority)| {
                         let from = match source_type {
                             DownloadSourceType::Http => OmaSourceEntryFrom::Http,
                             DownloadSourceType::Local(_) => OmaSourceEntryFrom::Local,
@@ -387,7 +388,11 @@ impl MirrorSource {
             .expand_mirror_url(original_url, local_as_symlink)
             .map(|v| {
                 v.into_iter()
-                    .map(|(url, source_type)| DownloadSource { url, source_type })
+                    .map(|(url, source_type, priority)| DownloadSource {
+                        url,
+                        source_type,
+                        priority,
+                    })
                     .collect()
             })
     }
@@ -1375,10 +1380,12 @@ fn test_mirror_expansion() {
         ResolvedMirror {
             url: "http://m1.example.com/debian".into(),
             source_type: MirrorSourceType::Http,
+            priority: 1,
         },
         ResolvedMirror {
             url: "http://m2.example.com/debian".into(),
             source_type: MirrorSourceType::Http,
+            priority: 2,
         },
     ]);
 
@@ -1412,6 +1419,7 @@ fn test_mirror_expansion() {
     entry_file.set_mirrors(vec![ResolvedMirror {
         url: "file:///repo".into(),
         source_type: MirrorSourceType::File,
+        priority: 1,
     }]);
     let original = entry_file.get_download_url("InRelease");
     let expanded = entry_file.expand_mirror_url(&original, true).unwrap();
@@ -1478,10 +1486,12 @@ async fn test_fetch_mirror_release_atomic_pair() {
         ResolvedMirror {
             url: format!("file://{}", mirror_a.display()),
             source_type: MirrorSourceType::File,
+            priority: 1,
         },
         ResolvedMirror {
             url: format!("file://{}", mirror_b.display()),
             source_type: MirrorSourceType::File,
+            priority: 2,
         },
     ]);
 

@@ -58,6 +58,10 @@ pub struct ResolvedMirror {
     /// Base URI with any trailing `/` stripped.
     pub url: String,
     pub source_type: MirrorSourceType,
+    /// The mirror list `priority:` tag (lower is preferred; untagged
+    /// entries default to `u64::MAX`). Preserved so callers can keep the
+    /// priority ordering even when the sources are sorted later.
+    pub priority: u64,
 }
 
 #[derive(Debug, Snafu)]
@@ -219,6 +223,7 @@ pub fn select_mirrors(
             } else {
                 MirrorSourceType::Http
             },
+            priority: e.priority,
         })
         .collect()
 }
@@ -357,18 +362,22 @@ file:///local/repo\tpriority:0
                 ResolvedMirror {
                     url: "file:///local/repo".into(),
                     source_type: MirrorSourceType::File,
+                    priority: 0,
                 },
                 ResolvedMirror {
                     url: "http://m2.example.com".into(),
                     source_type: MirrorSourceType::Http,
+                    priority: 1,
                 },
                 ResolvedMirror {
                     url: "http://m3.example.com".into(),
                     source_type: MirrorSourceType::Http,
+                    priority: 1,
                 },
                 ResolvedMirror {
                     url: "http://m1.example.com".into(),
                     source_type: MirrorSourceType::Http,
+                    priority: 2,
                 },
             ]
         );

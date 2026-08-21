@@ -49,7 +49,14 @@ fn mirror_download_sources(
                     url_no_escape_times(&url, 1),
                 ),
             };
-            DownloadSource { url, source_type }
+            DownloadSource {
+                url,
+                source_type,
+                // Keep the mirror list's priority so the download manager
+                // tries higher-priority mirrors (even HTTP) before
+                // lower-priority ones (even local `file:` fallbacks).
+                priority: m.priority,
+            }
         })
         .collect()
 }
@@ -119,14 +126,17 @@ pub async fn download_pkgs(
                     download_only,
                 ));
             } else if x.index_url.starts_with("file:") {
+                // Local sources are preferred over HTTP ones.
                 sources.push(DownloadSource {
                     url: url_no_escape_times(&x.download_url, 1),
                     source_type: DownloadSourceType::Local(!download_only),
+                    priority: 0,
                 });
             } else {
                 sources.push(DownloadSource {
                     url: x.download_url.clone(),
                     source_type: DownloadSourceType::Http,
+                    priority: u64::MAX,
                 });
             }
         }
@@ -229,10 +239,12 @@ mod tests {
             ResolvedMirror {
                 url: "http://m1.example.com/debian/".into(),
                 source_type: MirrorSourceType::Http,
+                priority: 1,
             },
             ResolvedMirror {
                 url: "file:///local/repo".into(),
                 source_type: MirrorSourceType::File,
+                priority: 2,
             },
         ];
 
@@ -251,11 +263,14 @@ mod tests {
             "http://m1.example.com/debian/pool/main/a/apt_1_amd64.deb"
         );
         assert_eq!(sources[0].source_type, DownloadSourceType::Http);
+        // The mirror-list priority survives onto each source.
+        assert_eq!(sources[0].priority, 1);
         assert!(
             sources[1]
                 .url
                 .starts_with("file:///local/repo/pool/main/a/apt_1_amd64.deb")
         );
         assert_eq!(sources[1].source_type, DownloadSourceType::Local(true));
+        assert_eq!(sources[1].priority, 2);
     }
 }

@@ -305,9 +305,17 @@ impl SingleDownloader {
         let mut sources = self.entry.source.clone();
         assert!(!sources.is_empty());
 
-        // Use a stable sort so that sources with the same priority keep their
-        // given order: the primary source first, fallbacks after it.
-        sources.sort_by(|a, b| b.source_type.cmp(&a.source_type));
+        // Try higher-priority sources first: mirror sources carry their
+        // mirror-list `priority:`, and non-mirror local sources sort before
+        // HTTP ones. Among equal priorities keep the transport preference
+        // (local before HTTP) and, within that, the caller's given order —
+        // a stable sort keeps equal sources in their original relative
+        // order (primary first, fallbacks after it).
+        sources.sort_by(|a, b| {
+            a.priority
+                .cmp(&b.priority)
+                .then_with(|| b.source_type.cmp(&a.source_type))
+        });
 
         for (index, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
