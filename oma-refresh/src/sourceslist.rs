@@ -843,18 +843,33 @@ impl MirrorSource {
             OmaSourceEntryFrom::Http => {
                 match send_request_with_url_and_method(url, client, Method::GET).await {
                     Ok(resp) => {
-                        self.download_file(
-                            file_name,
-                            resp,
-                            index,
-                            total,
-                            tmp_dir,
-                            download_dir,
-                            tx.clone(),
-                        )
-                        .await
-                        .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
-                        true
+                        match self
+                            .download_file(
+                                file_name,
+                                resp,
+                                index,
+                                total,
+                                tmp_dir,
+                                download_dir,
+                                tx.clone(),
+                            )
+                            .await
+                        {
+                            Ok(()) => true,
+                            // The mirror returned headers but dropped the
+                            // response body mid-stream — a common transient
+                            // failure. Clean up the partial file and let the
+                            // caller try the next mirror, like a request
+                            // failure. Local disk errors still abort.
+                            Err(SingleDownloadError::ReqwestMiddlewareError { source }) => {
+                                debug!("Mirror dropped the response body: {source}");
+                                let _ = tokio::fs::remove_file(tmp_dir.join(file_name)).await;
+                                false
+                            }
+                            Err(e) => {
+                                return Err(RefreshError::DownloadFailed(Some(e)));
+                            }
+                        }
                     }
                     // Try the next mirror on any failure.
                     Err(_) => false,
@@ -1597,5 +1612,94 @@ async fn test_fetch_mirror_release_atomic_pair() {
     assert_eq!(
         std::fs::read_to_string(download_dir.path().join(&gpg_name)).unwrap(),
         "gpg-b"
+    );
+}
+
+/// A server that answers `200 OK` with a `Content-Length` larger than the
+/// body it sends, then closes the connection — the mirror drops the
+/// response body mid-stream.
+#[cfg(test)]
+async fn drop_body_server(body: &'static [u8]) -> u16 {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        while let Ok((mut socket, _)) = listener.accept().await {
+            tokio::spawn(async move {
+                let mut buf = [0u8; 4096];
+                let _ = socket.read(&mut buf).await;
+                let head = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len() + 100
+                );
+                let _ = socket.write_all(head.as_bytes()).await;
+                let _ = socket.write_all(body).await;
+                // Close without sending the promised bytes.
+            });
+        }
+    });
+    port
+}
+
+#[tokio::test]
+async fn test_fetch_mirror_release_falls_back_when_body_is_dropped() {
+    // The first mirror returns 200 headers but disconnects while streaming
+    // `InRelease`; the release fetch must fall back to the second (healthy)
+    // mirror instead of aborting the whole refresh.
+    let dir = tempfile::tempdir().unwrap();
+    let mirror_file = dir.path().join("file");
+    let download_dir = tempfile::tempdir().unwrap();
+    let tmp_dir = tempfile::tempdir().unwrap();
+
+    let port = drop_body_server(b"partial-inrelease").await;
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let client = reqwest_middleware::ClientBuilder::new(oma_fetch::reqwest::Client::new()).build();
+
+    let entry: SourceEntry = "deb mirror+file:///etc/apt/mirrors.test bookworm main"
+        .parse()
+        .unwrap();
+    let ose = OmaSourceEntry::new(entry, Arc::from("amd64"));
+    ose.set_mirrors(vec![
+        ResolvedMirror {
+            url: format!("http://127.0.0.1:{port}"),
+            source_type: MirrorSourceType::Http,
+            priority: 1,
+        },
+        ResolvedMirror {
+            url: format!("file://{}", mirror_file.display()),
+            source_type: MirrorSourceType::File,
+            priority: 2,
+        },
+    ]);
+
+    // The file mirror carries a complete `InRelease`.
+    let inrelease_name = ose.get_download_file_name(Some("InRelease")).unwrap();
+    let urls = ose
+        .expand_mirror_url(&ose.get_download_url("InRelease"), false)
+        .unwrap();
+    assert_eq!(urls.len(), 2);
+    let file_inrelease = Path::new(urls[1].0.strip_prefix("file:").unwrap());
+    std::fs::create_dir_all(file_inrelease.parent().unwrap()).unwrap();
+    std::fs::write(file_inrelease, b"real-inrelease").unwrap();
+
+    let ms = MirrorSource {
+        sources: vec![ose],
+        release_file_name: OnceCell::new(),
+    };
+
+    let (tx, _rx) = flume::unbounded();
+    ms.fetch_mirror_release(&client, 0, 1, tmp_dir.path(), download_dir.path(), tx)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        ms.release_file_name.get().map(String::as_str),
+        Some(inrelease_name.as_str())
+    );
+    assert_eq!(
+        std::fs::read_to_string(download_dir.path().join(&inrelease_name)).unwrap(),
+        "real-inrelease"
     );
 }

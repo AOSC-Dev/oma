@@ -53,6 +53,7 @@ flume = { workspace = true }
 oma-utils = { workspace = true, features = ["dpkg"] }
 rustls = { workspace = true }
 tempfile = "3"
+tokio = { workspace = true, features = ["net", "io-util"] }
 
 [[example]]
 name = "update"
