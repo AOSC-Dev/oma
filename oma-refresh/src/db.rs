@@ -549,6 +549,9 @@ impl OmaRefresh {
 
         let mut flat_repo_no_release = vec![];
         let mut optional_index_files = HashSet::with_hasher(ahash::RandomState::new());
+        // Flat repos without a release file: at most one task per
+        // destination file, so entries sharing a dist path cannot race.
+        let mut flat_emitted: HashSet<String> = HashSet::with_hasher(ahash::RandomState::new());
 
         for m in &mirror_sources.0 {
             if m.file_name().is_none() {
@@ -557,7 +560,12 @@ impl OmaRefresh {
         }
         for m in flat_repo_no_release {
             for source in &m.sources {
-                collect_flat_repo_no_release(source, &self.download_dir, &mut tasks)?;
+                collect_flat_repo_no_release(
+                    source,
+                    &self.download_dir,
+                    &mut tasks,
+                    &mut flat_emitted,
+                )?;
             }
         }
 
@@ -794,19 +802,33 @@ fn collect_flat_repo_no_release(
     source: &OmaSourceEntry,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
+    seen: &mut HashSet<String>,
 ) -> Result<()> {
-    let msg = source.get_human_download_url(Some("Packages"))?;
+    // A flat repo has no release file; its binary and source indexes live
+    // side by side (`Packages` vs `Sources`), so pick the index for this
+    // entry's type — a deb-src entry must fetch `Sources`, not `Packages`.
+    let index = if source.is_source() { "Sources" } else { "Packages" };
 
     let dist_url = source.dist_path();
+    let file_path = format!("{dist_url}{index}");
+    let filename = url_to_list_filename(&file_path)?;
 
-    let download_url = format!("{dist_url}/Packages");
-    let file_path = format!("{dist_url}Packages");
+    // Emit at most one task per destination: entries sharing a dist path
+    // (e.g. paired `deb` + `deb-src` lines) would otherwise queue two
+    // tasks for the same file and race while the download manager runs
+    // them concurrently.
+    if !seen.insert(filename.clone()) {
+        return Ok(());
+    }
+
+    let msg = source.get_human_download_url(Some(index))?;
+    let download_url = format!("{dist_url}/{index}");
 
     let sources = source.download_sources_for(&download_url, source.is_flat())?;
 
     let task = DownloadEntry::builder()
         .source(sources)
-        .filename(url_to_list_filename(&file_path)?)
+        .filename(filename)
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
         .msg(msg.into())
@@ -947,4 +969,58 @@ where
     result_rx
         .recv()
         .map_err(|_| RefreshError::DownloadFailed(None))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use oma_apt_sources_lists::SourceEntry;
+    use oma_fetch::mirror::{MirrorSourceType, ResolvedMirror};
+
+    use crate::sourceslist::OmaSourceEntry;
+
+    fn flat_source(entry: SourceEntry) -> OmaSourceEntry {
+        let ose = OmaSourceEntry::new(entry, Arc::from("amd64"));
+        ose.set_mirrors(vec![ResolvedMirror {
+            url: "http://m.example.com/repo".into(),
+            source_type: MirrorSourceType::Http,
+            priority: 1,
+        }]);
+        ose
+    }
+
+    #[test]
+    fn flat_repo_emits_distinct_tasks_per_type_and_dedups_destinations() {
+        let download_dir = tempfile::tempdir().unwrap();
+
+        let deb: SourceEntry = "deb mirror+file:///etc/apt/mirrors.test ./"
+            .parse()
+            .unwrap();
+        let deb_src: SourceEntry = "deb-src mirror+file:///etc/apt/mirrors.test ./"
+            .parse()
+            .unwrap();
+        let deb = flat_source(deb);
+        let deb_src = flat_source(deb_src);
+
+        let mut tasks = vec![];
+        let mut seen = HashSet::with_hasher(ahash::RandomState::new());
+        collect_flat_repo_no_release(&deb, download_dir.path(), &mut tasks, &mut seen).unwrap();
+        collect_flat_repo_no_release(&deb_src, download_dir.path(), &mut tasks, &mut seen).unwrap();
+
+        // One task per source type, with distinct destinations (`Packages`
+        // vs `Sources`) so the download manager cannot race on one file.
+        assert_eq!(tasks.len(), 2);
+        let mut names = tasks.iter().map(|t| t.filename.as_str()).collect::<Vec<_>>();
+        names.sort_unstable();
+        assert!(names[0].ends_with("Packages"), "got {names:?}");
+        assert!(names[1].ends_with("Sources"), "got {names:?}");
+        assert_ne!(names[0], names[1]);
+
+        // A duplicate entry must not queue a second task for the same file.
+        let mut tasks2 = vec![];
+        let mut seen2 = HashSet::with_hasher(ahash::RandomState::new());
+        collect_flat_repo_no_release(&deb, download_dir.path(), &mut tasks2, &mut seen2).unwrap();
+        collect_flat_repo_no_release(&deb, download_dir.path(), &mut tasks2, &mut seen2).unwrap();
+        assert_eq!(tasks2.len(), 1);
+    }
 }
