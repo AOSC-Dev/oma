@@ -687,6 +687,13 @@ impl MirrorSource {
     /// Fetch the release files for a `mirror://` source, trying each resolved
     /// mirror in order until one succeeds (apt's mirror method behavior).
     /// Supports both http(s) and `file:` mirrors within one list.
+    ///
+    /// `InRelease` embeds its own signature, so the first mirror that has it
+    /// wins. Otherwise `Release` is fetched and — when the repo is untrusted —
+    /// its detached `Release.gpg` is fetched from the *same* mirror: taking
+    /// the signature from any mirror that has one could combine it with a
+    /// `Release` from another, and an out-of-sync cross-mirror pair fails
+    /// verification even though some mirror carries a valid pair.
     #[allow(clippy::too_many_arguments)]
     async fn fetch_mirror_release(
         &self,
@@ -707,134 +714,164 @@ impl MirrorSource {
             }))
             .await;
 
-        // Try `InRelease` first, then `Release`, each against every mirror.
-        let mut obtained = None; // (file_name, is_release)
-
-        for (file, is_release) in [("InRelease", false), ("Release", true)] {
-            let file_name = self.get_download_file_name(Some(file))?;
-            let candidates = self.candidate_urls_for(file)?;
-
-            for (url, from) in &candidates {
-                let got = match from {
-                    OmaSourceEntryFrom::Http => {
-                        match send_request_with_url_and_method(url, client, Method::GET).await {
-                            Ok(resp) => {
-                                self.download_file(
-                                    &file_name,
-                                    resp,
-                                    index,
-                                    total,
-                                    tmp_dir,
-                                    download_dir,
-                                    tx.clone(),
-                                )
-                                .await
-                                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
-                                true
-                            }
-                            // Try the next mirror on any failure.
-                            Err(_) => false,
-                        }
-                    }
-                    OmaSourceEntryFrom::Local => {
-                        let path = Path::new(url.strip_prefix("file:").unwrap_or(url));
-                        if path.exists() {
-                            let dst = download_dir.join(&file_name);
-                            if dst.exists() {
-                                fs::remove_file(&dst)
-                                    .await
-                                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
-                            }
-                            fs::symlink(path, &dst)
-                                .await
-                                .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                };
-
-                if got {
-                    obtained = Some((file_name, is_release));
-                    break;
-                }
-            }
-
-            if obtained.is_some() {
-                break;
-            }
-        }
-
-        let Some((file_name, is_release)) = obtained else {
-            if self.is_flat() {
-                // Flat repo without a release file.
+        // Try `InRelease` first — it carries its own signature, so any
+        // mirror that has it yields a complete, verifiable release file.
+        let inrelease_name = self.get_download_file_name(Some("InRelease"))?;
+        for (url, from) in self.candidate_urls_for("InRelease")? {
+            if self
+                .try_fetch_release_file(
+                    &inrelease_name,
+                    &url,
+                    &from,
+                    client,
+                    index,
+                    total,
+                    tmp_dir,
+                    download_dir,
+                    tx.clone(),
+                )
+                .await?
+            {
+                self.set_release_file_name(inrelease_name);
                 let _ = tx
                     .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
                     .await;
                 return Ok(());
             }
-            return Err(RefreshError::NoInReleaseFile(self.url().to_string()));
-        };
+        }
 
-        self.set_release_file_name(file_name);
+        // No mirror has `InRelease`. Fall back to `Release`, and when the
+        // repo is untrusted fetch its detached `Release.gpg` from the same
+        // mirror — try the pair mirror-by-mirror instead of taking `Release`
+        // from one mirror and the signature from another.
+        let release_name = self.get_download_file_name(Some("Release"))?;
+        let gpg_name = self.get_download_file_name(Some("Release.gpg"))?;
+        let release_candidates = self.candidate_urls_for("Release")?;
+        // The same mirrors in the same order, so zip pairs each `Release`
+        // candidate with the `Release.gpg` candidate of the same mirror.
+        let gpg_candidates = self.candidate_urls_for("Release.gpg")?;
+        let trusted = self.trusted();
 
-        if is_release && !self.trusted() {
-            // Fetch `Release.gpg` from the first mirror that has it.
-            let file_name = self.get_download_file_name(Some("Release.gpg"))?;
-            let candidates = self.candidate_urls_for("Release.gpg")?;
+        for ((release_url, release_from), (gpg_url, gpg_from)) in
+            release_candidates.iter().zip(gpg_candidates.iter())
+        {
+            if !self
+                .try_fetch_release_file(
+                    &release_name,
+                    release_url,
+                    release_from,
+                    client,
+                    index,
+                    total,
+                    tmp_dir,
+                    download_dir,
+                    tx.clone(),
+                )
+                .await?
+            {
+                continue;
+            }
 
-            for (url, from) in &candidates {
-                let got = match from {
-                    OmaSourceEntryFrom::Http => {
-                        match send_request_with_url_and_method(url, client, Method::GET).await {
-                            Ok(resp) => {
-                                self.download_file(
-                                    &file_name,
-                                    resp,
-                                    index,
-                                    total,
-                                    tmp_dir,
-                                    download_dir,
-                                    tx.clone(),
-                                )
-                                .await
-                                .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
-                                true
-                            }
-                            Err(_) => false,
-                        }
-                    }
-                    OmaSourceEntryFrom::Local => {
-                        let path = Path::new(url.strip_prefix("file:").unwrap_or(url));
-                        if path.exists() {
-                            let dst = download_dir.join(&file_name);
-                            if dst.exists() {
-                                fs::remove_file(&dst)
-                                    .await
-                                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
-                            }
-                            fs::symlink(path, &dst)
-                                .await
-                                .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                };
+            if trusted {
+                self.set_release_file_name(release_name);
+                let _ = tx
+                    .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+                    .await;
+                return Ok(());
+            }
 
-                if got {
-                    break;
-                }
+            // Untrusted: the detached signature must come from this mirror
+            // too; otherwise the pair is incomplete, try the next mirror.
+            if self
+                .try_fetch_release_file(
+                    &gpg_name,
+                    gpg_url,
+                    gpg_from,
+                    client,
+                    index,
+                    total,
+                    tmp_dir,
+                    download_dir,
+                    tx.clone(),
+                )
+                .await?
+            {
+                self.set_release_file_name(release_name);
+                let _ = tx
+                    .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+                    .await;
+                return Ok(());
             }
         }
 
-        let _ = tx
-            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
-            .await;
+        // Nothing usable: no mirror served `InRelease`, or (untrusted) no
+        // mirror had a consistent `Release` + `Release.gpg` pair.
+        if self.is_flat() {
+            // Flat repo without a release file.
+            let _ = tx
+                .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+                .await;
+            return Ok(());
+        }
+        Err(RefreshError::NoInReleaseFile(self.url().to_string()))
+    }
 
-        Ok(())
+    /// Try to obtain `file_name` from one candidate mirror, writing it under
+    /// `download_dir`. Returns whether the file was obtained; failures to
+    /// reach a mirror return `false` so the caller can try the next one.
+    #[allow(clippy::too_many_arguments)]
+    async fn try_fetch_release_file(
+        &self,
+        file_name: &str,
+        url: &str,
+        from: &OmaSourceEntryFrom,
+        client: &ClientWithMiddleware,
+        index: usize,
+        total: usize,
+        tmp_dir: &Path,
+        download_dir: &Path,
+        tx: Sender<Event>,
+    ) -> Result<bool, RefreshError> {
+        let got = match from {
+            OmaSourceEntryFrom::Http => {
+                match send_request_with_url_and_method(url, client, Method::GET).await {
+                    Ok(resp) => {
+                        self.download_file(
+                            file_name,
+                            resp,
+                            index,
+                            total,
+                            tmp_dir,
+                            download_dir,
+                            tx.clone(),
+                        )
+                        .await
+                        .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
+                        true
+                    }
+                    // Try the next mirror on any failure.
+                    Err(_) => false,
+                }
+            }
+            OmaSourceEntryFrom::Local => {
+                let path = Path::new(url.strip_prefix("file:").unwrap_or(url));
+                if path.exists() {
+                    let dst = download_dir.join(file_name);
+                    if dst.exists() {
+                        fs::remove_file(&dst)
+                            .await
+                            .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                    }
+                    fs::symlink(path, &dst)
+                        .await
+                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                    true
+                } else {
+                    false
+                }
+            }
+        };
+        Ok(got)
     }
 }
 
@@ -1419,4 +1456,94 @@ async fn test_resolve_mirrors_local_file() {
     assert_eq!(mirrors[0].source_type, MirrorSourceType::Http);
     assert_eq!(mirrors[1].url, "file:///local/repo");
     assert_eq!(mirrors[1].source_type, MirrorSourceType::File);
+}
+
+#[tokio::test]
+async fn test_fetch_mirror_release_atomic_pair() {
+    // Mirror A has `Release` but no signature; mirror B has a consistent
+    // `Release` + `Release.gpg` pair. The release fetch must fall through to
+    // mirror B's *pair* rather than combining A's `Release` with B's
+    // signature — a cross-mirror pair that would fail verification.
+    let dir = tempfile::tempdir().unwrap();
+    let mirror_a = dir.path().join("a");
+    let mirror_b = dir.path().join("b");
+    let download_dir = tempfile::tempdir().unwrap();
+    let tmp_dir = tempfile::tempdir().unwrap();
+
+    let entry: SourceEntry = "deb mirror+file:///etc/apt/mirrors.test bookworm main"
+        .parse()
+        .unwrap();
+    let ose = OmaSourceEntry::new(entry, Arc::from("amd64"));
+    ose.set_mirrors(vec![
+        ResolvedMirror {
+            url: format!("file://{}", mirror_a.display()),
+            source_type: MirrorSourceType::File,
+        },
+        ResolvedMirror {
+            url: format!("file://{}", mirror_b.display()),
+            source_type: MirrorSourceType::File,
+        },
+    ]);
+
+    let release_name = ose.get_download_file_name(Some("Release")).unwrap();
+    let gpg_name = ose.get_download_file_name(Some("Release.gpg")).unwrap();
+
+    // Expand the concrete paths so the fixtures land exactly where the
+    // fetch will look for them.
+    let release_urls = ose
+        .expand_mirror_url(&ose.get_download_url("Release"), false)
+        .unwrap();
+    let gpg_urls = ose
+        .expand_mirror_url(&ose.get_download_url("Release.gpg"), false)
+        .unwrap();
+    assert_eq!(release_urls.len(), 2);
+    assert_eq!(gpg_urls.len(), 2);
+
+    // Mirror A: only `Release` — out of sync, no signature.
+    let a_release = Path::new(release_urls[0].0.strip_prefix("file:").unwrap());
+    std::fs::create_dir_all(a_release.parent().unwrap()).unwrap();
+    std::fs::write(a_release, b"release-a").unwrap();
+
+    // Mirror B: a complete `Release` + `Release.gpg` pair.
+    let b_release = Path::new(release_urls[1].0.strip_prefix("file:").unwrap());
+    std::fs::create_dir_all(b_release.parent().unwrap()).unwrap();
+    std::fs::write(b_release, b"release-b").unwrap();
+    let b_gpg = Path::new(gpg_urls[1].0.strip_prefix("file:").unwrap());
+    std::fs::create_dir_all(b_gpg.parent().unwrap()).unwrap();
+    std::fs::write(b_gpg, b"gpg-b").unwrap();
+
+    let ms = MirrorSource {
+        sources: vec![ose],
+        release_file_name: OnceCell::new(),
+    };
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let client = reqwest_middleware::ClientBuilder::new(oma_fetch::reqwest::Client::new()).build();
+    let (tx, _rx) = flume::unbounded();
+
+    ms.fetch_mirror_release(
+        &client,
+        0,
+        1,
+        tmp_dir.path(),
+        download_dir.path(),
+        tx,
+    )
+    .await
+    .unwrap();
+
+    // The pair must come from the same (second) mirror: the downloaded
+    // `Release` is B's, not A's, alongside B's signature.
+    assert_eq!(
+        ms.release_file_name.get().map(String::as_str),
+        Some(release_name.as_str())
+    );
+    assert_eq!(
+        std::fs::read_to_string(download_dir.path().join(&release_name)).unwrap(),
+        "release-b"
+    );
+    assert_eq!(
+        std::fs::read_to_string(download_dir.path().join(&gpg_name)).unwrap(),
+        "gpg-b"
+    );
 }
