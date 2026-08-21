@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use flume::Sender;
 use oma_fetch::{
@@ -86,6 +86,12 @@ pub async fn download_pkgs(
     let mut download_list = vec![];
     let mut total_size = 0;
 
+    // Resolve each distinct mirror list once and reuse it for every package
+    // from the same source: a large install/upgrade can otherwise fetch and
+    // parse the same `mirror://` list once per package, sequentially, and a
+    // single transient failure on a repeat would abort the whole download.
+    let mut resolved_mirrors: HashMap<String, Vec<ResolvedMirror>> = HashMap::new();
+
     for entry in download_pkg_list.iter() {
         let uris = entry.pkg_urls();
         let mut sources = vec![];
@@ -97,7 +103,15 @@ pub async fn download_pkgs(
                 // into one `DownloadSource` per mirror. The download manager
                 // tries the sources in order, so later mirrors are the
                 // fallbacks (apt's Alternate-URIs behavior).
-                let mirrors = resolve_mirrors(&x.index_url, &client, None, None, false).await?;
+                let mirrors = match resolved_mirrors.get(&x.index_url) {
+                    Some(mirrors) => mirrors.clone(),
+                    None => {
+                        let mirrors =
+                            resolve_mirrors(&x.index_url, &client, None, None, false).await?;
+                        resolved_mirrors.insert(x.index_url.clone(), mirrors.clone());
+                        mirrors
+                    }
+                };
                 sources.extend(mirror_download_sources(
                     &x.download_url,
                     &x.index_url,
