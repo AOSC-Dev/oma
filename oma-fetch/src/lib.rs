@@ -80,10 +80,16 @@ impl From<&str> for CompressType {
 pub struct DownloadSource {
     pub url: String,
     pub source_type: DownloadSourceType,
-    /// Sort priority: lower is tried first. Mirror sources carry their
-    /// mirror-list `priority:` so the mirror order survives the download
-    /// manager's transport-aware sort; non-mirror sources use `u64::MAX`
-    /// so their transport preference (local before HTTP) applies.
+    /// The alternate-URL group this source belongs to — e.g. the index of
+    /// the `PackageUrl` it was expanded from. Sources of the caller's
+    /// primary URL are tried before later alternates; mirror priority only
+    /// applies within the same group, since priorities from independent
+    /// mirror lists share no scale and must not be compared across groups.
+    pub order: usize,
+    /// Sort priority within the group: lower is tried first. Mirror sources
+    /// carry their mirror-list `priority:`; non-mirror local sources use `0`
+    /// and HTTP sources `u64::MAX`, so their transport preference (local
+    /// before HTTP) applies.
     pub priority: u64,
 }
 

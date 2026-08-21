@@ -38,6 +38,7 @@ async fn every_bar_is_closed_on_request_timeout() {
     let source = DownloadSource {
         url: format!("http://127.0.0.1:{port}/pkg.deb"),
         source_type: DownloadSourceType::Http,
+        order: 0,
         priority: u64::MAX,
     };
     let entry = DownloadEntry::builder()

@@ -14,6 +14,7 @@ async fn main() {
     let source_1 = DownloadSource {
         url: "https://mirrors.jlu.edu.cn/anthon/aosc-os/os-amd64/base/aosc-os_base_20260312_amd64.squashfs".to_string(),
         source_type: DownloadSourceType::Http,
+        order: 0,
         priority: u64::MAX,
     };
 
@@ -34,6 +35,7 @@ async fn main() {
     let source_2 = DownloadSource {
         url: "https://mirrors.jlu.edu.cn/anthon/oma/pool/beige/main/o/oma_1.27.0~rc.1-1_amd64-deepin23.deb".to_string(),
         source_type: DownloadSourceType::Http,
+        order: 0,
         priority: u64::MAX,
     };
 

@@ -49,6 +49,7 @@ async fn higher_priority_http_mirror_wins_over_lower_priority_local() {
             DownloadSource {
                 url: format!("http://127.0.0.1:{port}/pkg.deb"),
                 source_type: DownloadSourceType::Http,
+                order: 0,
                 priority: 1,
             },
             // Fallback: local `file:` mirror with lower priority. A
@@ -56,6 +57,7 @@ async fn higher_priority_http_mirror_wins_over_lower_priority_local() {
             DownloadSource {
                 url: format!("file://{}", local_file.display()),
                 source_type: DownloadSourceType::Local(false),
+                order: 0,
                 priority: 2,
             },
         ])
@@ -126,11 +128,13 @@ async fn local_source_is_tried_before_http_at_equal_priority() {
             DownloadSource {
                 url: format!("http://127.0.0.1:{port}/pkg.deb"),
                 source_type: DownloadSourceType::Http,
+                order: 0,
                 priority: u64::MAX,
             },
             DownloadSource {
                 url: format!("file://{}", local_file.display()),
                 source_type: DownloadSourceType::Local(false),
+                order: 0,
                 priority: u64::MAX,
             },
         ])
@@ -169,5 +173,76 @@ async fn local_source_is_tried_before_http_at_equal_priority() {
     assert_eq!(
         std::fs::read(work.join("partial/pkg.deb")).unwrap(),
         b"from-local"
+    );
+}
+
+/// The caller's alternate-URL order is preserved: a primary normal HTTP URL
+/// (order 0) is tried before a `mirror://` fallback's expansions (order 1),
+/// even though the mirror's priority number is much smaller — mirror
+/// priority only applies among expansions of the same mirror list.
+#[tokio::test]
+async fn primary_alternate_url_wins_over_mirror_priority() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    let port = http_server(b"from-http").await;
+    let work = std::env::temp_dir().join(format!(
+        "oma-fetch-source-order-alt-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&work);
+    tokio::fs::create_dir_all(&work).await.unwrap();
+
+    let local_file = work.join("mirror.deb");
+    std::fs::write(&local_file, b"from-mirror").unwrap();
+
+    let entry = DownloadEntry::builder()
+        .source(vec![
+            // Primary: normal HTTP repository URL.
+            DownloadSource {
+                url: format!("http://127.0.0.1:{port}/pkg.deb"),
+                source_type: DownloadSourceType::Http,
+                order: 0,
+                priority: u64::MAX,
+            },
+            // Fallback: a `mirror://` expansion. Its tiny priority number
+            // must not promote it over the primary alternate.
+            DownloadSource {
+                url: format!("file://{}", local_file.display()),
+                source_type: DownloadSourceType::Local(false),
+                order: 1,
+                priority: 1,
+            },
+        ])
+        .filename("pkg.deb".to_string())
+        .dir(work.join("partial"))
+        .allow_resume(true)
+        .build();
+
+    let client = ClientBuilder::new().user_agent("oma").build().unwrap();
+    let (tx, rx) = flume::unbounded();
+    let download_manager = DownloadManager::builder()
+        .client(client.into())
+        .download_list(Box::new([entry]))
+        .threads(1)
+        .timeout(Duration::from_secs(5))
+        .build();
+
+    let summary = download_manager
+        .start_download(move |event| {
+            let tx = tx.clone();
+            async move {
+                let _ = tx.send_async(event).await;
+            }
+        })
+        .await
+        .unwrap();
+
+    drop(rx);
+
+    assert_eq!(summary.success.len(), 1, "the primary URL should win");
+    assert!(
+        summary.success[0].url.starts_with(&format!("http://127.0.0.1:{port}/")),
+        "expected the primary HTTP source to be used, got: {}",
+        summary.success[0].url
     );
 }

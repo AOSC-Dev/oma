@@ -193,6 +193,7 @@ impl OmaSourceEntry {
                     .map(|(url, source_type, priority)| DownloadSource {
                         url,
                         source_type,
+                        order: 0,
                         priority,
                     })
                     .collect()

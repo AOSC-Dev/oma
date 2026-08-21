@@ -25,12 +25,15 @@ fn is_mirror_uri(uri: &str) -> bool {
 /// Expand a mirrored package URL (`download_url`) into one `DownloadSource`
 /// per resolved mirror. `index_url` is the source's base URI (`mirror://...`,
 /// with a trailing `/`), which `download_url` starts with; the remainder is
-/// the path inside the repository.
+/// the path inside the repository. All expansions share `order` — the index
+/// of this URL among the package's alternates — so mirror priority is only
+/// compared between mirrors of this same list.
 fn mirror_download_sources(
     download_url: &str,
     index_url: &str,
     mirrors: &[ResolvedMirror],
     download_only: bool,
+    order: usize,
 ) -> Vec<DownloadSource> {
     let suffix = download_url.strip_prefix(index_url).unwrap_or(download_url);
 
@@ -52,9 +55,11 @@ fn mirror_download_sources(
             DownloadSource {
                 url,
                 source_type,
+                order,
                 // Keep the mirror list's priority so the download manager
                 // tries higher-priority mirrors (even HTTP) before
-                // lower-priority ones (even local `file:` fallbacks).
+                // lower-priority ones (even local `file:` fallbacks) —
+                // among expansions of this same list only.
                 priority: m.priority,
             }
         })
@@ -103,7 +108,11 @@ pub async fn download_pkgs(
         let uris = entry.pkg_urls();
         let mut sources = vec![];
 
-        for x in uris.iter() {
+        // `uris` are the package's alternate URLs in the caller's order
+        // (primary first). Every source of one URL shares its `order`, so
+        // the alternates keep that order and mirror priority is only ever
+        // compared between expansions of the same mirror list.
+        for (order, x) in uris.iter().enumerate() {
             if is_mirror_uri(&x.download_url) {
                 // `index_url` is the source's base URI (e.g. `mirror://...`,
                 // with a trailing `/`); resolve the mirror list and expand
@@ -124,18 +133,21 @@ pub async fn download_pkgs(
                     &x.index_url,
                     &mirrors,
                     download_only,
+                    order,
                 ));
             } else if x.index_url.starts_with("file:") {
                 // Local sources are preferred over HTTP ones.
                 sources.push(DownloadSource {
                     url: url_no_escape_times(&x.download_url, 1),
                     source_type: DownloadSourceType::Local(!download_only),
+                    order,
                     priority: 0,
                 });
             } else {
                 sources.push(DownloadSource {
                     url: x.download_url.clone(),
                     source_type: DownloadSourceType::Http,
+                    order,
                     priority: u64::MAX,
                 });
             }
@@ -255,6 +267,7 @@ mod tests {
             "mirror+http://host/list/",
             &mirrors,
             false,
+            2,
         );
 
         assert_eq!(sources.len(), 2);
@@ -263,8 +276,10 @@ mod tests {
             "http://m1.example.com/debian/pool/main/a/apt_1_amd64.deb"
         );
         assert_eq!(sources[0].source_type, DownloadSourceType::Http);
-        // The mirror-list priority survives onto each source.
+        // The mirror-list priority survives onto each source, scoped to the
+        // caller's alternate-URL order.
         assert_eq!(sources[0].priority, 1);
+        assert_eq!(sources[0].order, 2);
         assert!(
             sources[1]
                 .url
