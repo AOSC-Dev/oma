@@ -175,6 +175,30 @@ impl OmaSourceEntry {
             .collect())
     }
 
+    /// Expand a full original URL into `DownloadSource`s, one per mirror,
+    /// using *this* source's resolved mirrors. Tasks built from a specific
+    /// source must go through here rather than a group-level helper: `deb`
+    /// and `deb-src` entries sharing a mirror URI may have selected different
+    /// mirror sets (`type:deb` / `type:deb-src`), and expanding every task
+    /// with only the group's first entry would send one type's indexes to
+    /// the other type's mirrors.
+    pub fn download_sources_for(
+        &self,
+        original_url: &str,
+        local_as_symlink: bool,
+    ) -> Result<Vec<DownloadSource>, RefreshError> {
+        self.expand_mirror_url(original_url, local_as_symlink)
+            .map(|v| {
+                v.into_iter()
+                    .map(|(url, source_type, priority)| DownloadSource {
+                        url,
+                        source_type,
+                        priority,
+                    })
+                    .collect()
+            })
+    }
+
     pub fn components(&self) -> &[String] {
         &self.source.components
     }
@@ -369,29 +393,6 @@ impl MirrorSource {
                             DownloadSourceType::Local(_) => OmaSourceEntryFrom::Local,
                         };
                         (url, from)
-                    })
-                    .collect()
-            })
-    }
-
-    /// Expand a full original URL into `DownloadSource`s, one per mirror.
-    /// `local_as_symlink` is applied to `file:` mirrors (and to plain local
-    /// sources), matching `collect_download_task`'s existing logic.
-    pub fn download_sources_for(
-        &self,
-        original_url: &str,
-        local_as_symlink: bool,
-    ) -> Result<Vec<DownloadSource>, RefreshError> {
-        self.sources
-            .first()
-            .unwrap()
-            .expand_mirror_url(original_url, local_as_symlink)
-            .map(|v| {
-                v.into_iter()
-                    .map(|(url, source_type, priority)| DownloadSource {
-                        url,
-                        source_type,
-                        priority,
                     })
                     .collect()
             })
@@ -1363,6 +1364,53 @@ fn test_flat_repo_file_name_4() {
     let ose = OmaSourceEntry::new(entry, arch);
     let res = ose.get_download_file_name(Some("Packages")).unwrap();
     assert_eq!(res, "_debs___.___Packages");
+}
+
+#[test]
+fn per_source_mirror_selection_is_kept() {
+    // `deb` and `deb-src` entries sharing a mirror URI and suite group
+    // together, but each keeps its own resolved mirrors (`type:deb` vs
+    // `type:deb-src` selections): expanding an index URL must use the
+    // source's own mirrors, never the group's first entry.
+    let deb: SourceEntry = "deb mirror+file:///etc/apt/mirrors.test bookworm main"
+        .parse()
+        .unwrap();
+    let deb_src: SourceEntry = "deb-src mirror+file:///etc/apt/mirrors.test bookworm main"
+        .parse()
+        .unwrap();
+    let deb = OmaSourceEntry::new(deb, Arc::from("amd64"));
+    let deb_src = OmaSourceEntry::new(deb_src, Arc::from("amd64"));
+
+    deb.set_mirrors(vec![ResolvedMirror {
+        url: "http://deb.example.com/debian".into(),
+        source_type: MirrorSourceType::Http,
+        priority: 1,
+    }]);
+    deb_src.set_mirrors(vec![ResolvedMirror {
+        url: "http://src.example.com/debian".into(),
+        source_type: MirrorSourceType::Http,
+        priority: 1,
+    }]);
+
+    // They share a dist path, so they land in one `MirrorSource` group.
+    let grouped = MirrorSources::from_sourcelist(&[deb.clone(), deb_src.clone()]).unwrap();
+    assert_eq!(grouped.0.len(), 1);
+    assert_eq!(grouped.0[0].sources.len(), 2);
+
+    // Each source's index tasks expand to its own mirrors.
+    let deb_sources = deb
+        .download_sources_for(&deb.get_download_url("Packages"), false)
+        .unwrap();
+    assert_eq!(deb_sources.len(), 1);
+    assert!(deb_sources[0].url.starts_with("http://deb.example.com/debian/"));
+    assert!(deb_sources[0].url.ends_with("/Packages"));
+
+    let src_sources = deb_src
+        .download_sources_for(&deb_src.get_download_url("Sources"), false)
+        .unwrap();
+    assert_eq!(src_sources.len(), 1);
+    assert!(src_sources[0].url.starts_with("http://src.example.com/debian/"));
+    assert!(src_sources[0].url.ends_with("/Sources"));
 }
 
 #[test]

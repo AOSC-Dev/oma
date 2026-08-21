@@ -39,7 +39,7 @@ use url::Url;
 
 use oma_apt_pkg::apt_sources::{SourceLookup, scan_sources_list_paths};
 
-use crate::sourceslist::{MirrorSource, MirrorSources};
+use crate::sourceslist::MirrorSources;
 use crate::{
     config::{ChecksumDownloadEntry, IndexTargetConfig},
     inrelease::{
@@ -545,8 +545,10 @@ impl OmaRefresh {
                 flat_repo_no_release.push(m);
             }
         }
-        for i in flat_repo_no_release {
-            collect_flat_repo_no_release(i, &self.download_dir, &mut tasks)?;
+        for m in flat_repo_no_release {
+            for source in &m.sources {
+                collect_flat_repo_no_release(source, &self.download_dir, &mut tasks)?;
+            }
         }
 
         for m in &mirror_sources.0 {
@@ -625,18 +627,21 @@ impl OmaRefresh {
                     ose.components(),
                     supported_archs.as_deref(),
                 )?;
-                get_all_need_db_from_config(download_list, &mut total, checksums, &mut handle);
-            }
-
-            for c in &handle {
-                collect_download_task(
-                    c,
-                    m,
-                    &self.download_dir,
-                    &mut tasks,
-                    &release,
-                    &mut optional_index_files,
-                )?;
+                // Build each index task from the source that produced it:
+                // a group may hold both `deb` and `deb-src` entries whose
+                // mirror selections differ (`type:deb` / `type:deb-src`).
+                let new_entries =
+                    get_all_need_db_from_config(download_list, &mut total, checksums, &mut handle);
+                for c in &new_entries {
+                    collect_download_task(
+                        c,
+                        ose,
+                        &self.download_dir,
+                        &mut tasks,
+                        &release,
+                        &mut optional_index_files,
+                    )?;
+                }
             }
         }
 
@@ -695,12 +700,17 @@ fn detect_duplicate_repositories(sourcelist: &[OmaSourceEntry]) -> Result<()> {
     Ok(())
 }
 
+/// Deduplicate `filter_checksums` against `handle` (counting each new
+/// entry's size into `total`) and return the new entries, so callers can
+/// associate each one with the source it came from.
 fn get_all_need_db_from_config(
     filter_checksums: Vec<ChecksumDownloadEntry>,
     total: &mut u64,
     checksums: &[ChecksumItem],
     handle: &mut HashSet<ChecksumDownloadEntry>,
-) {
+) -> Vec<ChecksumDownloadEntry> {
+    let mut new_entries = vec![];
+
     for i in filter_checksums {
         if handle.contains(&i) {
             continue;
@@ -729,8 +739,11 @@ fn get_all_need_db_from_config(
             *total += size;
         }
 
-        handle.insert(i);
+        handle.insert(i.clone());
+        new_entries.push(i);
     }
+
+    new_entries
 }
 
 fn remove_unused_db(download_dir: &Path, download_list: HashSet<String>) -> Result<()> {
@@ -762,18 +775,18 @@ fn remove_unused_db(download_dir: &Path, download_list: HashSet<String>) -> Resu
 }
 
 fn collect_flat_repo_no_release(
-    mirror_source: &MirrorSource,
+    source: &OmaSourceEntry,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
 ) -> Result<()> {
-    let msg = mirror_source.get_human_download_message(Some("Packages"))?;
+    let msg = source.get_human_download_url(Some("Packages"))?;
 
-    let dist_url = mirror_source.dist_path();
+    let dist_url = source.dist_path();
 
     let download_url = format!("{dist_url}/Packages");
     let file_path = format!("{dist_url}Packages");
 
-    let sources = mirror_source.download_sources_for(&download_url, mirror_source.is_flat())?;
+    let sources = source.download_sources_for(&download_url, source.is_flat())?;
 
     let task = DownloadEntry::builder()
         .source(sources)
@@ -791,7 +804,7 @@ fn collect_flat_repo_no_release(
 
 fn collect_download_task(
     c: &ChecksumDownloadEntry,
-    mirror_source: &MirrorSource,
+    source: &OmaSourceEntry,
     download_dir: &Path,
     tasks: &mut Vec<DownloadEntry>,
     release: &Release,
@@ -799,9 +812,9 @@ fn collect_download_task(
 ) -> Result<()> {
     let file_type = &c.msg;
 
-    let msg = mirror_source.get_human_download_message(Some(file_type))?;
+    let msg = source.get_human_download_url(Some(file_type))?;
 
-    let local_as_symlink = mirror_source.is_flat()
+    let local_as_symlink = source.is_flat()
         && (!file_is_compress(&c.item.name) || (file_is_compress(&c.item.name) && c.keep_compress));
 
     let not_compress_filename_before = if file_is_compress(&c.item.name) {
@@ -839,17 +852,17 @@ fn collect_download_task(
 
         let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
 
-        let url = mirror_source.get_download_url(&path.display().to_string());
-        sources.extend(mirror_source.download_sources_for(&url, local_as_symlink)?);
+        let url = source.get_download_url(&path.display().to_string());
+        sources.extend(source.download_sources_for(&url, local_as_symlink)?);
     }
 
-    let url = mirror_source.get_download_url(&c.item.name);
-    sources.extend(mirror_source.download_sources_for(&url, local_as_symlink)?);
+    let url = source.get_download_url(&c.item.name);
+    sources.extend(source.download_sources_for(&url, local_as_symlink)?);
 
     let file_name = if c.keep_compress {
-        mirror_source.get_download_file_name(Some(&c.item.name))?
+        source.get_download_file_name(Some(&c.item.name))?
     } else {
-        mirror_source.get_download_file_name(Some(&not_compress_filename_before))?
+        source.get_download_file_name(Some(&not_compress_filename_before))?
     };
 
     if c.optional {
