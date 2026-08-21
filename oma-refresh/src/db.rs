@@ -17,7 +17,7 @@ use oma_fetch::{
     CompressType, DownloadEntry, DownloadManager,
     checksum::{Checksum, ChecksumError},
     download::{BuilderError, SuccessSummary},
-    mirror::ResolvedMirror,
+    mirror::{MirrorEntry, select_mirrors},
     reqwest::{
         Response,
         header::{CONTENT_LENGTH, HeaderValue},
@@ -364,11 +364,18 @@ impl OmaRefresh {
         }
     }
 
-    /// Resolve the mirror lists of all `mirror://` sources, once per source
-    /// URI, storing the ordered mirrors on each entry before any download
-    /// starts (so downstream code only ever sees concrete URLs).
+    /// Resolve the mirror lists of all `mirror://` sources, fetching each
+    /// list once per source URI and storing the ordered mirrors on each
+    /// entry before any download starts (so downstream code only ever sees
+    /// concrete URLs).
+    ///
+    /// The fetched/parsed list is cached per URI, but the mirrors are
+    /// *selected* per source: selection filters by the source's suite and
+    /// `deb`/`deb-src` type, so caching the already-selected mirrors by URI
+    /// would reuse the first source's filter for every later source sharing
+    /// the list.
     async fn resolve_mirror_sources(&self, mirror_sources: &mut MirrorSources) -> Result<()> {
-        let mut resolved: AHashMap<String, Vec<ResolvedMirror>> = AHashMap::new();
+        let mut parsed: AHashMap<String, Vec<MirrorEntry>> = AHashMap::new();
 
         for m in &mut mirror_sources.0 {
             for source in &m.sources {
@@ -377,21 +384,21 @@ impl OmaRefresh {
                 }
 
                 let uri = source.url().to_string();
-                let mirrors = if let Some(cached) = resolved.get(&uri) {
+                let entries = if let Some(cached) = parsed.get(&uri) {
                     cached.clone()
                 } else {
-                    let mirrors = oma_fetch::mirror::resolve_mirrors(
-                        &uri,
-                        &self.client,
-                        Some(&self.arch),
-                        Some(source.suite()),
-                        source.is_source(),
-                    )
-                    .await?;
-                    resolved.insert(uri, mirrors.clone());
-                    mirrors
+                    let entries =
+                        oma_fetch::mirror::fetch_mirror_list(&uri, &self.client).await?;
+                    parsed.insert(uri, entries.clone());
+                    entries
                 };
 
+                let mirrors = select_mirrors(
+                    entries,
+                    Some(&self.arch),
+                    Some(source.suite()),
+                    source.is_source(),
+                );
                 source.set_mirrors(mirrors);
             }
         }

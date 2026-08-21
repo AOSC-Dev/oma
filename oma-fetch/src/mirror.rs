@@ -223,15 +223,17 @@ pub fn select_mirrors(
         .collect()
 }
 
-/// Fetch (or read) and parse a mirror list, returning the resolved mirrors in
-/// priority order.
-pub async fn resolve_mirrors(
+/// Fetch (or read) and parse a mirror list into its entries, without
+/// applying any per-request filtering.
+///
+/// The parsed list can be cached and [`select_mirrors`] applied once per
+/// source — the selection depends on the request's `suite` and
+/// `deb`/`deb-src` type, so a list shared by several suites or by both
+/// `deb` and `deb-src` must be filtered per source, not once.
+pub async fn fetch_mirror_list(
     mirror_uri: &str,
     client: &ClientWithMiddleware,
-    arch: Option<&str>,
-    suite: Option<&str>,
-    is_source: bool,
-) -> Result<Vec<ResolvedMirror>, MirrorError> {
+) -> Result<Vec<MirrorEntry>, MirrorError> {
     let location = parse_mirror_uri(mirror_uri)?;
 
     let (text, from_network) = match location {
@@ -260,6 +262,19 @@ pub async fn resolve_mirrors(
         });
     }
 
+    Ok(entries)
+}
+
+/// Fetch (or read) a mirror list and return the resolved mirrors for one
+/// request, filtered by `arch`/`suite`/`is_source` and in priority order.
+pub async fn resolve_mirrors(
+    mirror_uri: &str,
+    client: &ClientWithMiddleware,
+    arch: Option<&str>,
+    suite: Option<&str>,
+    is_source: bool,
+) -> Result<Vec<ResolvedMirror>, MirrorError> {
+    let entries = fetch_mirror_list(mirror_uri, client).await?;
     Ok(select_mirrors(entries, arch, suite, is_source))
 }
 
