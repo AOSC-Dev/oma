@@ -182,10 +182,13 @@ pub fn parse_mirror_list(text: &str, from_network: bool) -> Vec<MirrorEntry> {
 ///
 /// A mirror is kept when each of its tags matches the request attribute
 /// (`arch`, `suite`/`codename`/`release`, `type: deb`/`deb-src`); missing
-/// request attributes do not filter anything out.
+/// request attributes do not filter anything out. `archs` holds every
+/// architecture the request will cover (a source's `[arch=...]` option, or
+/// the native plus any foreign architectures): an entry with an `arch:` tag
+/// is kept when it names any of them.
 pub fn select_mirrors(
     mut entries: Vec<MirrorEntry>,
-    arch: Option<&str>,
+    archs: &[&str],
     suite: Option<&str>,
     is_source: bool,
 ) -> Vec<ResolvedMirror> {
@@ -202,8 +205,21 @@ pub fn select_mirrors(
         }
     }
 
+    fn tag_matches_any(
+        tags: &HashMap<Box<str>, Vec<Box<str>>>,
+        key: &str,
+        values: &[&str],
+    ) -> bool {
+        if values.is_empty() {
+            return true;
+        }
+        tags.get(key).is_none_or(|tagged| {
+            tagged.iter().any(|x| values.iter().any(|v| x.as_ref() == *v))
+        })
+    }
+
     entries.retain(|e| {
-        tag_matches(&e.tags, "arch", arch)
+        tag_matches_any(&e.tags, "arch", archs)
             && tag_matches(&e.tags, "release", suite)
             && tag_matches(
                 &e.tags,
@@ -280,7 +296,11 @@ pub async fn resolve_mirrors(
     is_source: bool,
 ) -> Result<Vec<ResolvedMirror>, MirrorError> {
     let entries = fetch_mirror_list(mirror_uri, client).await?;
-    Ok(select_mirrors(entries, arch, suite, is_source))
+    let archs: &[&str] = match &arch {
+        Some(arch) => std::slice::from_ref(arch),
+        None => &[],
+    };
+    Ok(select_mirrors(entries, archs, suite, is_source))
 }
 
 #[cfg(test)]
@@ -355,7 +375,7 @@ file:///local/repo\tpriority:0
         let entries = parse_mirror_list(text, false);
 
         // suite filter + priority ordering (stable within equal priority)
-        let selected = select_mirrors(entries.clone(), None, Some("stable"), false);
+        let selected = select_mirrors(entries.clone(), &[], Some("stable"), false);
         assert_eq!(
             selected,
             vec![
@@ -385,8 +405,23 @@ file:///local/repo\tpriority:0
         // arch filter
         let text = "http://m1.example.com/\tarch:arm64\nhttp://m2.example.com/\n";
         let entries = parse_mirror_list(text, false);
-        let selected = select_mirrors(entries, Some("amd64"), None, false);
+        let selected = select_mirrors(entries, &["amd64"], None, false);
         assert_eq!(selected.len(), 1);
         assert_eq!(selected[0].url, "http://m2.example.com");
+
+        // A source requesting a foreign architecture keeps that arch's
+        // mirrors: `arch:arm64` is not discarded just because the host is
+        // amd64, and a multiarch request covers every needed architecture.
+        let text = "\
+http://amd.example.com/\tarch:amd64
+http://arm.example.com/\tarch:arm64
+http://any.example.com/
+";
+        let entries = parse_mirror_list(text, false);
+        let selected = select_mirrors(entries.clone(), &["arm64"], None, false);
+        assert_eq!(selected.len(), 2);
+        assert!(selected.iter().all(|m| m.url != "http://amd.example.com"));
+        let selected = select_mirrors(entries, &["amd64", "arm64"], None, false);
+        assert_eq!(selected.len(), 3);
     }
 }

@@ -376,6 +376,11 @@ impl OmaRefresh {
     /// the list.
     async fn resolve_mirror_sources(&self, mirror_sources: &mut MirrorSources) -> Result<()> {
         let mut parsed: AHashMap<String, Vec<MirrorEntry>> = AHashMap::new();
+        // Indexes are requested for a source's `[arch=...]` option, or for
+        // every locally-configured architecture; select mirrors for that
+        // whole set so `arch:`-tagged mirrors of a foreign architecture are
+        // not discarded just because the host is another arch.
+        let local_archs = local_archs(&self.arch);
 
         for m in &mut mirror_sources.0 {
             for source in &m.sources {
@@ -392,9 +397,17 @@ impl OmaRefresh {
                     entries
                 };
 
+                let archs: Vec<&str> = if let Some(archs) = source.archs()
+                    && !archs.is_empty()
+                {
+                    archs.iter().map(String::as_str).collect()
+                } else {
+                    local_archs.iter().map(String::as_str).collect()
+                };
+
                 let mirrors = select_mirrors(
                     entries,
-                    Some(&self.arch),
+                    &archs,
                     Some(source.suite()),
                     source.is_source(),
                 );
@@ -532,10 +545,7 @@ impl OmaRefresh {
 
         let index_target_config = IndexTargetConfig::new_from_apt_config(apt_cfg, &self.arch);
 
-        let archs_from_file = std::fs::read_to_string("/var/lib/dpkg/arch")
-            .ok()
-            .map(|file| file.lines().map(|x| x.to_string()).collect::<Vec<_>>())
-            .filter(|res| !res.is_empty());
+        let arch_from_local_configure = local_archs(&self.arch);
 
         let mut flat_repo_no_release = vec![];
         let mut optional_index_files = HashSet::with_hasher(ahash::RandomState::new());
@@ -593,18 +603,14 @@ impl OmaRefresh {
             // 仓库在 `Architectures:` 字段中声明的架构；若字段缺失则视为支持全部架构。
             let supported_archs = release.supported_architectures();
 
-            let arch_from_local_configure = if let Some(ref f) = archs_from_file {
-                f.iter().map(|x| x.as_str()).collect::<Vec<_>>()
-            } else {
-                vec![self.arch.as_str()]
-            };
-
             for ose in &m.sources {
                 let archs = if let Some(archs) = ose.archs()
                     && !archs.is_empty()
                 {
                     let archs = archs.iter().map(|x| x.as_str()).collect::<Vec<_>>();
-                    if arch_from_local_configure.iter().all(|x| !archs.contains(x))
+                    if arch_from_local_configure
+                        .iter()
+                        .all(|x| !archs.contains(&x.as_str()))
                         && !archs.contains(&"all")
                         && !archs.contains(&"any")
                     {
@@ -615,7 +621,7 @@ impl OmaRefresh {
                     }
                     archs
                 } else {
-                    arch_from_local_configure.clone()
+                    arch_from_local_configure.iter().map(String::as_str).collect()
                 };
 
                 let download_list = index_target_config.get_download_list(
@@ -661,6 +667,16 @@ pub fn content_length(resp: &Response) -> u64 {
         .ok()
         .and_then(|x| x.parse::<u64>().ok())
         .unwrap_or_default()
+}
+
+/// The architectures the local system is configured for: the native arch
+/// plus any foreign architectures listed in `/var/lib/dpkg/arch`.
+fn local_archs(host_arch: &str) -> Vec<String> {
+    std::fs::read_to_string("/var/lib/dpkg/arch")
+        .ok()
+        .map(|file| file.lines().map(|x| x.to_string()).collect::<Vec<_>>())
+        .filter(|res| !res.is_empty())
+        .unwrap_or_else(|| vec![host_arch.to_string()])
 }
 
 fn detect_duplicate_repositories(sourcelist: &[OmaSourceEntry]) -> Result<()> {
