@@ -44,9 +44,11 @@ impl<'a> Package<'a> {
         &self.name
     }
 
-    /// The display name, `name:arch` — the pretty form omits the `:arch`
-    /// qualifier for the native architecture and `all` (see
-    /// [`PackageEntry::fullname`]).
+    /// The display name of the representative (candidate) version,
+    /// `name:arch` — the pretty form omits the `:arch` qualifier for the
+    /// native architecture and `all` (see [`PackageEntry::fullname`]). To
+    /// name a specific version (e.g. the one a query filtered to), use
+    /// [`Self::fullname_of`].
     pub fn fullname(&self, pretty: bool) -> Cow<'_, str> {
         match self.representative() {
             Some(Cow::Borrowed(version)) => self.apt_db.fullname(&version.entry, pretty),
@@ -57,6 +59,15 @@ impl<'a> Package<'a> {
                 .into(),
             None => Cow::Borrowed(self.name.as_ref()),
         }
+    }
+
+    /// The display name of a specific version, `name:arch` — uses the
+    /// version's own architecture, unlike [`Self::fullname`] which takes
+    /// the package-wide candidate's. Lets an architecture-filtered query
+    /// (e.g. `foo:i386`) or an `--all` listing label every displayed block
+    /// with the architecture that block actually shows.
+    pub fn fullname_of<'b>(&self, version: &'b PackageVersion, pretty: bool) -> Cow<'b, str> {
+        self.apt_db.fullname(&version.entry, pretty)
     }
 
     /// Number of distinct versions in the database (a version shared by

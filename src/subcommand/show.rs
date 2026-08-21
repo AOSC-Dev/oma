@@ -202,10 +202,12 @@ fn display_version(
     apt_cfg: &AptConfig,
 ) {
     for (label, field) in DISPLAY_FIELDS {
-        // The package name is the fullname (`name:arch`, omitting the
-        // native arch), like apt's `apt show` and old oma.
+        // The package name is this version's fullname (`name:arch`,
+        // omitting the native arch), like apt's `apt show` — taken from
+        // the displayed version so an arch-filtered query (`foo:i386`) or
+        // `--all` labels each block with its own architecture.
         let value = if *field == "Package" {
-            Some(resolved.pkg.fullname(true))
+            Some(resolved.pkg.fullname_of(version, true))
         } else {
             field_value(&version.entry, field)
         };
