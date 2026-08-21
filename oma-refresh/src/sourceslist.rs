@@ -1531,16 +1531,9 @@ async fn test_fetch_mirror_release_atomic_pair() {
     let client = reqwest_middleware::ClientBuilder::new(oma_fetch::reqwest::Client::new()).build();
     let (tx, _rx) = flume::unbounded();
 
-    ms.fetch_mirror_release(
-        &client,
-        0,
-        1,
-        tmp_dir.path(),
-        download_dir.path(),
-        tx,
-    )
-    .await
-    .unwrap();
+    ms.fetch_mirror_release(&client, 0, 1, tmp_dir.path(), download_dir.path(), tx)
+        .await
+        .unwrap();
 
     // The pair must come from the same (second) mirror: the downloaded
     // `Release` is B's, not A's, alongside B's signature.

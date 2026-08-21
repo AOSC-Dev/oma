@@ -387,8 +387,7 @@ impl OmaRefresh {
                 let entries = if let Some(cached) = parsed.get(&uri) {
                     cached.clone()
                 } else {
-                    let entries =
-                        oma_fetch::mirror::fetch_mirror_list(&uri, &self.client).await?;
+                    let entries = oma_fetch::mirror::fetch_mirror_list(&uri, &self.client).await?;
                     parsed.insert(uri, entries.clone());
                     entries
                 };
