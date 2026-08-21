@@ -639,11 +639,13 @@ impl AptDb {
         }
         match &self.repo {
             Repo::Owned(map) => map.get_key_value(name).map(|(k, _)| k.as_str()),
+            // rkyv `ArchivedHashMap::get_key_value` is a hash lookup, like
+            // the owned map — never scan the archived keys linearly (that
+            // would make per-package lookups O(all packages)).
             Repo::Archived(archived) => archived
                 .archived()
                 .entries
-                .iter()
-                .find(|(k, _)| k.as_str() == name)
+                .get_key_value(name)
                 .map(|(k, _)| k.as_str()),
         }
     }
