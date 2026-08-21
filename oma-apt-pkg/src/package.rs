@@ -376,5 +376,17 @@ Auto-Installed: 1
         assert!(!vim.is_installed(&dpkg));
         assert_eq!(vim.installed_version(&dpkg), None);
         assert!(!vim.is_upgradable(&dpkg));
+
+        // The lazy status reader (used by single-package consumers like
+        // `oma show`) must report the same installed versions and upgrade
+        // status, not a silent "not upgradable" for every package.
+        let lazy = DpkgState::from_file_lazy(dir.path().join("status"));
+        let fish = db.package("fish").unwrap();
+        assert!(fish.is_installed(&lazy));
+        assert_eq!(fish.installed_version(&lazy), Some("3.6"));
+        assert!(fish.is_upgradable(&lazy));
+        let vim = db.package("vim").unwrap();
+        assert_eq!(vim.installed_version(&lazy), None);
+        assert!(!vim.is_upgradable(&lazy));
     }
 }
