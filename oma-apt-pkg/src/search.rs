@@ -567,8 +567,9 @@ fn is_upgradable(candidate_version: Option<&str>, installed_version: Option<&str
             let inst_ver = debversion::Version::from_str(inst);
             match (cand_ver, inst_ver) {
                 (Ok(cv), Ok(iv)) => cv > iv,
-                // Fall back to string comparison if parsing fails
-                _ => cand != inst,
+                // Directional string fallback: only an unparsable candidate
+                // that sorts above the installed string counts as an upgrade.
+                _ => cand > inst,
             }
         }
         (Some(_), None) => false, // not installed
@@ -856,6 +857,18 @@ mod tests {
     #[test]
     fn test_is_upgradable_no_candidate() {
         assert!(!is_upgradable(None, Some("1.0")));
+    }
+
+    #[test]
+    fn test_is_upgradable_malformed_fallback_is_directional() {
+        // An unparsable candidate that sorts below the installed version is
+        // not an upgrade: the string fallback compares directionally instead
+        // of reporting any unequal pair as an upgrade.
+        assert!(!is_upgradable(Some("1.0!"), Some("5.0")));
+        // An unparsable candidate that sorts above → upgradable.
+        assert!(is_upgradable(Some("5.0!"), Some("1.0")));
+        // Identical unparsable strings → not upgradable.
+        assert!(!is_upgradable(Some("1.0!"), Some("1.0!")));
     }
 
     #[test]

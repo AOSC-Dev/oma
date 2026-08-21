@@ -127,7 +127,8 @@ impl<'a> Package<'a> {
 
     /// Whether a newer version than the installed one is available in the
     /// database. Uses proper Debian version comparison (epochs, `~`, ...),
-    /// falling back to string comparison when a version fails to parse.
+    /// falling back to a directional string comparison (`cand > installed`)
+    /// when a version fails to parse.
     pub fn is_upgradable(&self, dpkg: &DpkgState) -> bool {
         let Some(installed) = dpkg.installed_version(&self.name) else {
             return false;
@@ -143,7 +144,9 @@ impl<'a> Package<'a> {
             debversion::Version::from_str(installed),
         ) {
             (Ok(cand), Ok(installed)) => cand > installed,
-            _ => cand != installed,
+            // Directional string fallback: only an unparsable candidate
+            // that sorts above the installed string counts as an upgrade.
+            _ => cand > installed,
         }
     }
 
@@ -388,5 +391,28 @@ Auto-Installed: 1
         let vim = db.package("vim").unwrap();
         assert_eq!(vim.installed_version(&lazy), None);
         assert!(!vim.is_upgradable(&lazy));
+    }
+
+    #[test]
+    fn is_upgradable_falls_back_directionally() {
+        let dir = tempfile::tempdir().unwrap();
+        let status = dir.path().join("status");
+        std::fs::write(
+            &status,
+            "Package: weird\nVersion: 5.0\nArchitecture: amd64\nStatus: install ok installed\n\n",
+        )
+        .unwrap();
+        let dpkg = DpkgState::from_file(&status).unwrap();
+
+        // A malformed candidate (`!` is not a valid Debian version char)
+        // that sorts below the installed version is not an upgrade: the
+        // string-comparison fallback is directional, not mere inequality.
+        let db = AptDb::from_entries("amd64", vec![entry("weird", "1.0!")]);
+        assert!(!db.package("weird").unwrap().is_upgradable(&dpkg));
+
+        // A malformed candidate that sorts above the installed version is
+        // still reported as an upgrade by the string fallback.
+        let db = AptDb::from_entries("amd64", vec![entry("weird", "5.0!")]);
+        assert!(db.package("weird").unwrap().is_upgradable(&dpkg));
     }
 }
