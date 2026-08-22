@@ -3,10 +3,7 @@
 //! Builds a search index from parsed APT list entries and dpkg status,
 //! without depending on the C++ `oma-apt` binding.
 
-#[cfg(feature = "search-indicium")]
-use std::borrow::Cow;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -342,11 +339,36 @@ impl IndiciumSearch {
     /// in the search index (e.g packages added to the software
     /// sources since the search cache was created).
     pub fn refresh_from(&mut self, apt_db: &AptDb, dpkg: &DpkgState) {
+        // 第一遍：只记录每个包的最高候选版本，避免为每个包克隆完整 entry
+        // （含描述、依赖字段）造成缓存命中路径上的峰值内存上升。
+        let mut best: HashMap<String, Option<String>> = HashMap::new();
         for entry in apt_db.entries() {
-            let name = &entry.package;
-            if name.ends_with("-dbg") {
+            if entry.package.ends_with("-dbg") {
                 continue;
             }
+            let replace = best.get(&entry.package).is_none_or(|existing| {
+                version_gt(entry.version.as_deref(), existing.as_deref())
+            });
+
+            if replace {
+                best.insert(entry.package.clone(), entry.version.clone());
+            }
+        }
+
+        // 第二遍：只处理最高版本 entry，用完即弃，不保留完整 entry。
+        for entry in apt_db.entries() {
+            if entry.package.ends_with("-dbg") {
+                continue;
+            }
+            let Some(best_version) = best.get(&entry.package) else {
+                continue;
+            };
+            // 只处理版本不低于最高候选版本的 entry（Debian 版本比较下
+            // 可能多个字符串表示同一版本，如 `1.0` 与 `1.0.0`）。
+            if version_gt(best_version.as_deref(), entry.version.as_deref()) {
+                continue;
+            }
+            let name = entry.package.as_str();
 
             let is_new = !self.pkg_map.contains_key(name);
 
@@ -372,9 +394,9 @@ impl IndiciumSearch {
                     .unwrap_or_else(|| "No description".to_string());
 
                 self.pkg_map.insert(
-                    name.clone(),
+                    name.to_string(),
                     SearchEntry {
-                        name: name.clone(),
+                        name: name.to_string(),
                         description,
                         status: PackageStatus::Avail,
                         provides,
@@ -385,49 +407,38 @@ impl IndiciumSearch {
                     },
                 );
 
-                self.index.insert(name, &self.pkg_map[name]);
+                let key = self.pkg_map.get_key_value(name).map(|(k, _)| k).unwrap();
+                self.index.insert(key, &self.pkg_map[name]);
             }
 
             let pkg_entry = self.pkg_map.get_mut(name).unwrap();
 
+            // 候选版本始终取当前源里的最高版本，避免残留旧源
+            // （如已退出的 topic）的版本号
+            if let Some(ref v) = entry.version {
+                pkg_entry.new_version.clone_from(v);
+            }
+
             // 更新已安装的包的状态
-            if dpkg.installed.contains(name.as_str()) {
-                let inst_ver = dpkg.installed_versions.get(name).cloned();
-                if is_upgradable(
-                    entry.version.as_deref(),
-                    dpkg.installed_versions.get(name).map(String::as_str),
-                ) {
+            let inst_ver = dpkg.installed_versions.get(name).cloned();
+            if dpkg.installed.contains(name) {
+                if is_upgradable(entry.version.as_deref(), inst_ver.as_deref()) {
                     pkg_entry.status = PackageStatus::Upgrade;
-                    pkg_entry.old_version = inst_ver;
-                    if let Some(ref v) = entry.version {
-                        pkg_entry.new_version.clone_from(v);
-                    }
                 } else {
                     pkg_entry.status = PackageStatus::Installed;
-                    pkg_entry.old_version = inst_ver;
                 }
+                pkg_entry.old_version = inst_ver;
             } else {
                 // 未安装的包
                 pkg_entry.status = PackageStatus::Avail;
                 pkg_entry.old_version = None;
-                if let Some(ref v) = entry.version {
-                    pkg_entry.new_version.clone_from(v);
-                }
             }
         }
 
-        // 移除源里已删除的包
-        let current: HashSet<Cow<_>> = apt_db
-            .entries()
-            .filter(|e| !e.package.ends_with("-dbg"))
-            .map(|e| match e {
-                Cow::Borrowed(e) => Cow::Borrowed(&e.package),
-                Cow::Owned(e) => Cow::Owned(e.package),
-            })
-            .collect();
-
+        // 移除源里已删除的包：`best` 已包含当前源里所有非 `-dbg` 包名，
+        // 无需再扫描一次数据库。
         self.pkg_map.retain(|name, entry| {
-            if current.contains(name) {
+            if best.contains_key(name) {
                 true
             } else {
                 self.index.remove(name, entry);
@@ -573,6 +584,24 @@ fn is_upgradable(candidate_version: Option<&str>, installed_version: Option<&str
         }
         (Some(_), None) => false, // not installed
         (None, _) => false,       // no candidate available
+    }
+}
+
+/// Whether `a` is a strictly newer version than `b`.
+/// Uses proper Debian version comparison; falls back to string comparison.
+fn version_gt(a: Option<&str>, b: Option<&str>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => {
+            match (
+                debversion::Version::from_str(a),
+                debversion::Version::from_str(b),
+            ) {
+                (Ok(av), Ok(bv)) => av > bv,
+                _ => a > b,
+            }
+        }
+        (Some(_), None) => true,
+        (None, _) => false,
     }
 }
 
