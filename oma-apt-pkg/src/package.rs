@@ -49,6 +49,14 @@ impl<'a> Package<'a> {
     /// native architecture and `all` (see [`PackageEntry::fullname`]). To
     /// name a specific version (e.g. the one a query filtered to), use
     /// [`Self::fullname_of`].
+    ///
+    /// `fullname()` takes parameter `pretty` (boolean):
+    ///
+    /// * When `true`: Take into account whether the package is built for
+    ///   our "native" architecture (e.g., amd64 on amd64), and display
+    ///   `pkgname` on native, and `pkgname:arch` on foreign (e.g., loong64
+    ///   on loongarch64).
+    /// * When `false`: Display `pkgname:arch` unconditionally.
     pub fn fullname(&self, pretty: bool) -> Cow<'_, str> {
         match self.representative() {
             Some(Cow::Borrowed(version)) => self.apt_db.fullname(&version.entry, pretty),
