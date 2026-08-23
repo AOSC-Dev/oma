@@ -914,10 +914,8 @@ mod tests {
 
     #[test]
     fn remove_unused_db_reports_and_removes_stale_files() {
-        let dir = std::env::temp_dir().join(format!(
-            "oma-remove-unused-test-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("oma-remove-unused-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         // 需要保留的（仍在 download_list 里）
         std::fs::write(dir.join("stable_Packages"), b"x").unwrap();
