@@ -366,10 +366,10 @@ impl IndiciumSearch {
         });
 
         // 第二遍：每个包只处理一次其最高候选版本的 entry，用完即弃。
-        // 同一包在多个源里可能出现“语义相等但字符串不同”的版本
-        // （如 `1.0` 与 `1.0.0`，Debian 版本比较下视为同一版本），
-        // 这些 entry 的版本都 >= best；用 `handled` 保证只取第一个，
+        // 同一包在多个源里可能出现完全相同的版本字符串（如 `1.0` 同时出现在
+        // stable 与某个 topic），它们都 == best；用 `handled` 保证只取第一个，
         // 避免重复计算状态、也避免 `new_version` 被后面的 entry 覆盖成别的字符串。
+        // （注意：`1.0` 与 `1.0.0` 并不是同一版本——dpkg 下 `1.0 < 1.0.0`。）
         let mut handled: HashSet<String> = HashSet::new();
         for entry in non_dbg_entries(apt_db) {
             let Some(best_version) = best.get(&entry.package) else {
@@ -856,6 +856,15 @@ mod tests {
     #[test]
     fn test_is_upgradable_same_version() {
         assert!(!is_upgradable(Some("4.8.1"), Some("4.8.1")));
+    }
+
+    #[test]
+    fn test_is_upgradable_more_trailing_segments() {
+        // dpkg: 1.0 < 1.0.0 (longer trailing version segment is newer)
+        assert!(is_upgradable(Some("1.0.0"), Some("1.0")));
+        assert!(!is_upgradable(Some("1.0"), Some("1.0.0")));
+        assert!(version_gt(Some("1.0.0"), Some("1.0")));
+        assert!(!version_gt(Some("1.0"), Some("1.0.0")));
     }
 
     #[test]
