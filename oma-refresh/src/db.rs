@@ -285,7 +285,7 @@ impl OmaRefresh {
                 .next()
                 .is_some();
             if !has_order {
-                for c in crate::config::SUPPORTED_COMPRESSION_FORMATS {
+                for c in crate::config::DECODABLE_COMPRESSION_FORMATS {
                     cfg.set_list("Acquire::CompressionTypes::Order", c);
                 }
             }

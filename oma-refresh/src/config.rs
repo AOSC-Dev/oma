@@ -9,11 +9,11 @@ use spdlog::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
 
-/// All compression formats oma can decode, in oma's preferred order (`zst`
-/// first). Used to complete a configured `Acquire::CompressionTypes::Order`
-/// so every compressed variant ranks ahead of the uncompressed fallback, and
-/// as the default order applied on AOSC builds.
-pub(crate) const SUPPORTED_COMPRESSION_FORMATS: [&str; 6] =
+/// Compression formats oma can decode, in oma's preferred order (`zst` first).
+/// Seeds the AOSC default `Acquire::CompressionTypes::Order`, and filters the
+/// `Acquire::CompressionTypes` tree when no Order is configured (like apt
+/// filters by available decompression methods).
+pub(crate) const DECODABLE_COMPRESSION_FORMATS: [&str; 6] =
     ["zst", "xz", "bz2", "lzma", "gz", "lz4"];
 
 /// IndexTarget config — stores only the enabled target keys and reads
@@ -40,15 +40,19 @@ impl<'a> IndexTargetConfig<'a> {
             .keys_under("Acquire::CompressionTypes::Order")
             .map(str::to_owned)
             .collect();
-        // `Acquire::CompressionTypes::Order` is a priority order, not a
-        // whitelist: append every format oma can decode (configured ones stay
-        // first, the rest follow in the default order) so any available
-        // compressed variant ranks ahead of the uncompressed fallback.
-        // Without this, a partial config such as `{"gz";}` would rank the
-        // plain `Packages` file before `Packages.xz`.
-        for c in SUPPORTED_COMPRESSION_FORMATS {
-            if !compression_order.iter().any(|x| x == c) {
-                compression_order.push(c.to_string());
+
+        // 显式配置了 `Acquire::CompressionTypes::Order` 就直接使用；为空时才
+        // 遍历整个 `Acquire::CompressionTypes` 树取默认顺序（与 apt 的
+        // `getCompressionTypes` 一致），且只保留 oma 能解码的格式。
+        if compression_order.is_empty() {
+            for ext in apt_cfg.keys_under("Acquire::CompressionTypes") {
+                if ext == "Order" {
+                    continue;
+                }
+                if !DECODABLE_COMPRESSION_FORMATS.contains(&ext) {
+                    continue;
+                }
+                compression_order.push(ext.to_string());
             }
         }
         // apt always tries the uncompressed file last.
@@ -321,26 +325,35 @@ fn test_compression_rank_reads_apt_config() {
 }
 
 #[test]
-fn test_compression_rank_partial_config_keeps_compressed_first() {
-    // Only `gz` is configured; the remaining supported formats must still
-    // rank ahead of the uncompressed fallback, otherwise a mirror without
-    // gzip would download the large plain `Packages` before trying `xz`.
+fn test_compression_rank_default_from_config_tree() {
+    // No Order configured: the default order comes from the
+    // `Acquire::CompressionTypes` tree, uncompressed last.
     let mut cfg = AptConfig::new();
     cfg.init_defaults().unwrap();
-    cfg.set_list("Acquire::CompressionTypes::Order", "gz");
     let config = IndexTargetConfig::new_from_apt_config(&cfg, "amd64");
 
-    assert_eq!(
-        config.compression_rank("Packages.gz"),
-        0,
-        "configured format is tried first"
-    );
-    for f in ["gz", "xz", "zst", "bz2", "lzma", "lz4"] {
+    for f in ["xz", "bz2", "lzma", "gz", "lz4", "zst"] {
         assert!(
             config.compression_rank(&format!("Packages.{f}")) < config.compression_rank("Packages"),
             "{f} must rank before the uncompressed fallback"
         );
     }
+}
+
+#[test]
+fn test_compression_rank_partial_config_is_authoritative() {
+    // An explicitly configured Order is used as-is: only the configured
+    // formats rank ahead of the uncompressed fallback.
+    let mut cfg = AptConfig::new();
+    cfg.init_defaults().unwrap();
+    cfg.set_list("Acquire::CompressionTypes::Order", "gz");
+    let config = IndexTargetConfig::new_from_apt_config(&cfg, "amd64");
+
+    assert_eq!(config.compression_rank("Packages.gz"), 0);
+    assert_eq!(config.compression_rank("Packages"), 1);
+    // Not-configured formats sort after the uncompressed fallback.
+    assert!(config.compression_rank("Packages.xz") > config.compression_rank("Packages"));
+    assert!(config.compression_rank("Packages.zst") > config.compression_rank("Packages"));
 }
 
 #[test]
