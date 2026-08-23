@@ -261,6 +261,14 @@ impl OmaConfig {
             .expect("AptConfig not initialized — call init_apt_config first")
     }
 
+    /// The initialized [`AptConfig`] as a shared [`Arc`], so callers can hand
+    /// it to long-lived workers (e.g. `OmaRefresh`) without deep-cloning it.
+    pub fn apt_config_arc(&self) -> &Arc<AptConfig> {
+        self.apt_config
+            .get()
+            .expect("AptConfig not initialized — call init_apt_config first")
+    }
+
     fn init_tls_config(&self) {
         self.rustls_crypto_provider.get_or_init(|| {
             #[cfg(feature = "rustls")]

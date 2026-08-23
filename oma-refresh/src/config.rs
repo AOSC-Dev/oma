@@ -9,9 +9,11 @@ use spdlog::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
 
-/// All compression formats oma can decode, in the default download order
-/// (mirrors apt's built-in `Acquire::CompressionTypes::Order`).
-pub(crate) const DEFAULT_COMPRESSION_ORDER: [&str; 6] =
+/// All compression formats oma can decode, in oma's preferred order (`zst`
+/// first). Used to complete a configured `Acquire::CompressionTypes::Order`
+/// so every compressed variant ranks ahead of the uncompressed fallback, and
+/// as the default order applied on AOSC builds.
+pub(crate) const SUPPORTED_COMPRESSION_FORMATS: [&str; 6] =
     ["zst", "xz", "bz2", "lzma", "gz", "lz4"];
 
 /// IndexTarget config — stores only the enabled target keys and reads
@@ -39,12 +41,12 @@ impl<'a> IndexTargetConfig<'a> {
             .map(str::to_owned)
             .collect();
         // `Acquire::CompressionTypes::Order` is a priority order, not a
-        // whitelist: append every supported format (configured ones stay
+        // whitelist: append every format oma can decode (configured ones stay
         // first, the rest follow in the default order) so any available
         // compressed variant ranks ahead of the uncompressed fallback.
         // Without this, a partial config such as `{"gz";}` would rank the
         // plain `Packages` file before `Packages.xz`.
-        for c in DEFAULT_COMPRESSION_ORDER {
+        for c in SUPPORTED_COMPRESSION_FORMATS {
             if !compression_order.iter().any(|x| x == c) {
                 compression_order.push(c.to_string());
             }
@@ -335,8 +337,7 @@ fn test_compression_rank_partial_config_keeps_compressed_first() {
     );
     for f in ["gz", "xz", "zst", "bz2", "lzma", "lz4"] {
         assert!(
-            config.compression_rank(&format!("Packages.{f}"))
-                < config.compression_rank("Packages"),
+            config.compression_rank(&format!("Packages.{f}")) < config.compression_rank("Packages"),
             "{f} must rank before the uncompressed fallback"
         );
     }

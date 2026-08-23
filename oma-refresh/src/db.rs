@@ -111,6 +111,10 @@ pub struct OmaRefresh {
     #[cfg(feature = "aosc")]
     topic_msg: Cow<'static, str>,
     sources_lists_paths: Option<Vec<PathBuf>>,
+    /// An externally-supplied APT configuration, shared via [`Arc`]. When
+    /// omitted, a fresh one is built from the system defaults inside
+    /// [`OmaRefresh`].
+    apt_config: Option<Arc<AptConfig>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -125,7 +129,10 @@ pub enum Event {
 }
 
 impl OmaRefresh {
-    pub fn start(self, mut callback: impl FnMut(Event) + 'static) -> Result<Vec<SuccessSummary>> {
+    pub fn start(
+        mut self,
+        mut callback: impl FnMut(Event) + 'static,
+    ) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
@@ -252,24 +259,35 @@ impl OmaRefresh {
         Ok(res.success)
     }
 
-    fn init_apt_config(&self) -> AptConfig {
-        let mut cfg = AptConfig::new();
-        cfg.init_defaults()
-            .expect("failed to initialize APT configuration");
-        let _ = cfg.load_system();
+    fn init_apt_config(&mut self) -> AptConfig {
+        // 调用方传入的 Arc 配置在需要写入（Dir、压缩顺序）时按写时复制 clone
+        // 一份，调用方本身无需深拷贝；未传入时新建一份并初始化默认值与系统配置。
+        let mut cfg = match self.apt_config.take() {
+            Some(arc) => Arc::unwrap_or_clone(arc),
+            None => {
+                let mut cfg = AptConfig::new();
+                cfg.init_defaults()
+                    .expect("failed to initialize APT configuration");
+                let _ = cfg.load_system();
+                cfg
+            }
+        };
 
         if !is_termux() {
             cfg.set("Dir", &self.source.to_string_lossy());
         }
 
-        // Set default compression order if not configured
-        let has_order = cfg
-            .keys_under("Acquire::CompressionTypes::Order")
-            .next()
-            .is_some();
-        if !has_order {
-            for c in crate::config::DEFAULT_COMPRESSION_ORDER {
-                cfg.set_list("Acquire::CompressionTypes::Order", c);
+        // AOSC 仓库默认优先 zst；非 aosc 构建沿用系统配置，不强加默认顺序。
+        #[cfg(feature = "aosc")]
+        {
+            let has_order = cfg
+                .keys_under("Acquire::CompressionTypes::Order")
+                .next()
+                .is_some();
+            if !has_order {
+                for c in crate::config::SUPPORTED_COMPRESSION_FORMATS {
+                    cfg.set_list("Acquire::CompressionTypes::Order", c);
+                }
             }
         }
 
