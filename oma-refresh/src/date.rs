@@ -1,10 +1,10 @@
 //! Parsing of the date/time strings found in Debian `Release`/`InRelease`
 //! files (the `Date:` and `Valid-Until:` fields).
 //!
-//! The parser mirrors apt's `RFC1123StrToTime`
-//! (apt-pkg/contrib/strutl.cc on master, lines ~1038-1132), which accepts the
-//! RFC 1123, RFC 850 and asctime layouts. jiff does the actual calendar, clock
-//! and offset validation.
+//! The parser mirrors APT's `RFC1123StrToTime` (apt-pkg/contrib/strutl.cc @
+//! d8f548e00ca4, lines ~1067-1161), which accepts the RFC 1123, RFC 850, and
+//! asctime layouts. jiff does the actual calendar, clock and offset
+//! validation.
 
 use jiff::Timestamp;
 use thiserror::Error;
@@ -15,31 +15,35 @@ pub(crate) enum ParseDateError {
     ParseError(#[from] jiff::Error),
     // Raised for structural problems across all three accepted layouts, e.g.
     // a missing weekday, a localized weekday, or a wrongly placed comma.
-    #[error("Invalid date: expected RFC 1123, RFC 850 or asctime format")]
+    #[error("Invalid date: expected RFC 1123, RFC 850, or asctime format")]
     BadDate,
     #[error("Unknown timezone `{0}`")]
     BadZone(String),
 }
 
 pub(crate) fn parse_date(date: &str) -> Result<Timestamp, ParseDateError> {
-    // Mirror of apt's `RFC1123StrToTime` (apt-pkg/contrib/strutl.cc on master,
-    // lines ~1038-1132), which accepts RFC 1123, RFC 850 and asctime forms.
-    // Weekday validation and layout selection mirror lines ~1048-1097,
-    // timezone handling lines ~1097-1127, and the final strict parse lines
-    // ~1127-1132. The only deliberate divergence is accepting non-UTC numeric
-    // offsets (see parse_zone) instead of rejecting them. jiff does the actual
-    // calendar, clock and offset validation.
+    // Mirror of APT's `RFC1123StrToTime` (apt-pkg/contrib/strutl.cc @
+    // d8f548e00ca4 (lines ~1067-1161), which accepts RFC 1123, RFC 850, and
+    // asctime forms. Weekday validation and layout selection mirror lines
+    // ~1084-1130, timezone handling at lines ~1135-1146, and the final strict
+    // parse at lines ~1155-1160.
     //
-    // Collapse any whitespace so fields are predictable, mirroring apt's
+    // The only deliberate divergence is accepting non-UTC numeric offsets (see
+    // `parse_zone`) instead of rejecting them. jiff does the actual calendar,
+    // clock and offset validation.
+    //
+    // Collapse any whitespace so fields are predictable, mirroring APT's
     // `operator>>` which skips arbitrary whitespace between fields.
     let date = date.split_ascii_whitespace().collect::<Vec<_>>().join(" ");
 
     let (weekday, rest) = date.split_once(' ').ok_or(ParseDateError::BadDate)?;
 
-    // Like apt (strutl.cc lines ~1052-1059), only the first three letters are
-    // checked to reject localized weekdays; the *length* of the token then
-    // selects the date layout (strutl.cc lines ~1060-1097). This is as lenient
-    // as apt: a typo like `Thursdayyyyy,` still routes to RFC 850.
+    // Like APT, only the first three letters are checked to reject localized
+    // weekdays; the *length* of the token then selects the date layout (see
+    // `switch (weekday.length())`.
+    //
+    // This is as lenient as APT: a typo like `Thursdayyyyy,` still routes to
+    // RFC 850.
     let wd = weekday
         .get(..weekday.len().min(3))
         .ok_or(ParseDateError::BadDate)?;
@@ -70,13 +74,13 @@ pub(crate) fn parse_date(date: &str) -> Result<Timestamp, ParseDateError> {
     }
 }
 
-/// Parse the fields after `Weekday,` — date + time + trailing timezone token —
+/// Parse the fields after `Weekday,` - date + time + trailing timezone token -
 /// for the RFC 1123 (`dd Mon yyyy`) and RFC 850 (`dd-Mon-yy`) layouts.
 ///
-/// Mirrors apt's RFC1123StrToTime (strutl.cc lines ~1062-1097): the date/time
-/// fields and the trailing zone token are read separately, then the datetime
-/// is parsed strictly (equivalent to apt's `strptime("%Y-%m-%d %H:%M:%S")` at
-/// lines ~1127-1132).
+/// Mirrors APT's RFC1123StrToTime: the date/time fields and the trailing zone
+/// token are read separately, then the datetime is parsed strictly (mirroring
+/// APT's `strptime(datetime.c_str(), "%Y-%m-%d %H:%M:%S", &Tm)` at line 1157
+/// (commit d8f548e00ca4).
 fn parse_comma_date(rest: &str, format: &str) -> Result<Timestamp, ParseDateError> {
     let (date_part, zone) = rest
         .rsplit_once(' ')
@@ -90,15 +94,16 @@ fn parse_comma_date(rest: &str, format: &str) -> Result<Timestamp, ParseDateErro
 /// Resolve the trailing timezone token of an RFC 1123/850 date to a fixed UTC
 /// offset.
 ///
-/// Mirrors apt's RFC1123StrToTime (strutl.cc lines ~1097-1113), which resolves
-/// the zone by hand (strptime's `%Z` is a no-op on glibc). With a case
-/// sensitive comparison apt accepts exactly:
+/// Mirrors APT's RFC1123StrToTime, which resolves the zone by hand (strptime's
+/// `%Z` is a no-op on glibc). With a case sensitive comparison apt accepts
+/// exactly:
 ///
 ///   - the named zones `GMT`, `UTC` and `Z` (strutl.cc line ~1099), or
 ///   - any zone whose integer value is 0 and is fully consumed, i.e. any
 ///     all-zero token with or without a sign — `+0000`, `-0000`, `0000`,
-///     `+0`, `-0`, `+000`, `0`, ... (strutl.cc lines ~1100-1111;
-///     see also the note in apt-pkg/contrib/strutl.h lines ~61-79).
+///     `+0`, `-0`, `+000`, `0`, ... (see `TimeRFC1123` and lines ~1135-1146,
+///     and notes in apt-pkg/contrib/strutl.h lines ~61-79 regarding "parses
+///     time as needed by HTTP/1.1 and Debian files.")
 ///
 /// We deliberately extend this (as oma's previous rfc2822-based parser did):
 ///
@@ -163,7 +168,7 @@ fn pair_to_num(a: u8, b: u8, token: &str) -> Result<i32, ParseDateError> {
 
 #[test]
 fn test_apt_date_parser() {
-    // These are the three date layouts handled by apt's RFC1123StrToTime.
+    // These are the three date layouts handled by APT's RFC1123StrToTime.
     let cases = [
         ("Thu, 02 May 2024 09:58:03 +0000", "2024-05-02T09:58:03Z"),
         ("Thursday, 02-May-24 09:58:03 +0000", "2024-05-02T09:58:03Z"),
@@ -174,7 +179,7 @@ fn test_apt_date_parser() {
         assert_eq!(parse_date(input).unwrap().to_string(), expected);
     }
 
-    // Apt's parser is permissive about whitespace between fields.
+    // APT's parser is permissive about whitespace between fields.
     assert!(parse_date("Thu, 02 May 2024  09:58:03 +0000").is_ok());
 
     // RFC 1123 specifies GMT as the zone; apt additionally accepts UTC (a
@@ -227,7 +232,7 @@ fn test_apt_date_parser() {
 
 #[test]
 fn test_whitespace_tolerance() {
-    // Like apt's `operator>>`, any ASCII whitespace may separate fields.
+    // Like APT's `operator>>`, any ASCII whitespace may separate fields.
     let cases = [
         "Sun,\t06 Nov 1994 08:49:37 UTC",
         "  Sun, 06 Nov 1994 08:49:37 UTC",
@@ -246,7 +251,7 @@ fn test_whitespace_tolerance() {
 
 #[test]
 fn test_zone_and_year_edges() {
-    // Timezone tokens. apt's accepted set (case-sensitive) is exactly
+    // Timezone tokens. APT's accepted set (case-sensitive) is exactly
     // {GMT, UTC, Z} plus anything `stoi`-ing to 0 (`+0000`, `-0000`, `0000`,
     // `0`, `+0`, `+000`, ...). We additionally accept `UT`, lowercase `z`
     // and non-zero offsets (converted correctly) — see parse_zone.
@@ -325,7 +330,7 @@ fn test_zone_and_year_edges() {
 
 #[test]
 fn test_apt_suite_cases() {
-    // Accepted by apt's own test suite (test/libapt/strutil_test.cc).
+    // Accepted by APT's own test suite (test/libapt/strutil_test.cc).
     let cases = [
         ("Sun, 06 Nov 1994 08:49:37 GMT", "1994-11-06T08:49:37Z"),
         ("Sun, 6 Nov 1994 08:49:37 UTC", "1994-11-06T08:49:37Z"),
@@ -344,7 +349,7 @@ fn test_apt_suite_cases() {
         assert_eq!(parse_date(input).unwrap().to_string(), expected);
     }
 
-    // Rejected by apt's own test suite.
+    // Rejected by APT's own test suite.
     let rejected = [
         "So, 06 Nov 1994 08:49:37 UTC",
         ", 06 Nov 1994 08:49:37 UTC",
