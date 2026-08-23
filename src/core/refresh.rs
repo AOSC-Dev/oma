@@ -33,7 +33,11 @@ impl Refresh<'_> {
             .source(sysroot.clone())
             .threads(config.download_threads)
             .arch(arch)
-            .client(config.http_client()?.clone());
+            .client(config.http_client()?.clone())
+            // 传入 oma 已初始化的 APT 配置（含 sysroot 的 Dir、apt_options、
+            // 二进制缓存路径等），OmaRefresh 不再自己从系统默认值新建一份。
+            // `Arc::clone` 只是引用计数 +1，不深拷贝配置树。
+            .apt_config(config.apt_config_arc().clone());
 
         #[cfg(feature = "aosc")]
         let msg = fl!("do-not-edit-topic-sources-list");

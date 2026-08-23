@@ -1,6 +1,8 @@
 use std::{path::PathBuf, time::Duration};
 
-use oma_fetch::{DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event};
+use oma_fetch::{
+    CompressType, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event,
+};
 use reqwest::ClientBuilder;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
@@ -38,6 +40,7 @@ async fn every_bar_is_closed_on_request_timeout() {
     let source = DownloadSource {
         url: format!("http://127.0.0.1:{port}/pkg.deb"),
         source_type: DownloadSourceType::Http,
+        file_type: CompressType::None,
     };
     let entry = DownloadEntry::builder()
         .source(vec![source])

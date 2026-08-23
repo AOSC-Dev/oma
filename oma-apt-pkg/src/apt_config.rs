@@ -125,6 +125,17 @@ impl AptConfig {
         self.set("Acquire::AllowWeakRepositories", "false");
         self.set("Acquire::AllowDowngradeToInsecureRepositories", "false");
         self.set("Acquire::cdrom::mount", "/media/cdrom/");
+        // apt's built-in compression-method map (`Acquire::CompressionTypes`),
+        // from apt-pkg/aptconfiguration.cc `setDefaultConfigurationForCompressors`.
+        // `Acquire::CompressionTypes::Order` (a priority list) is intentionally
+        // not set here: oma-refresh seeds the AOSC default, and this tree's
+        // iteration order is apt's fallback when no Order is configured.
+        self.set("Acquire::CompressionTypes::xz", "xz");
+        self.set("Acquire::CompressionTypes::bz2", "bzip2");
+        self.set("Acquire::CompressionTypes::lzma", "lzma");
+        self.set("Acquire::CompressionTypes::gz", "gzip");
+        self.set("Acquire::CompressionTypes::lz4", "lz4");
+        self.set("Acquire::CompressionTypes::zst", "zstd");
         self.set("APT::Sandbox::User", "_apt");
         // apt's built-in index targets (deb Packages / Translations,
         // deb-src Sources), from apt-pkg/init.cc:181-197 (pkgInitConfig).

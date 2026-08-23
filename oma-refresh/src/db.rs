@@ -111,6 +111,10 @@ pub struct OmaRefresh {
     #[cfg(feature = "aosc")]
     topic_msg: Cow<'static, str>,
     sources_lists_paths: Option<Vec<PathBuf>>,
+    /// An externally-supplied APT configuration, shared via [`Arc`]. When
+    /// omitted, a fresh one is built from the system defaults inside
+    /// [`OmaRefresh`].
+    apt_config: Option<Arc<AptConfig>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -125,7 +129,10 @@ pub enum Event {
 }
 
 impl OmaRefresh {
-    pub fn start(self, mut callback: impl FnMut(Event) + 'static) -> Result<Vec<SuccessSummary>> {
+    pub fn start(
+        mut self,
+        mut callback: impl FnMut(Event) + 'static,
+    ) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
         }
@@ -252,24 +259,35 @@ impl OmaRefresh {
         Ok(res.success)
     }
 
-    fn init_apt_config(&self) -> AptConfig {
-        let mut cfg = AptConfig::new();
-        cfg.init_defaults()
-            .expect("failed to initialize APT configuration");
-        let _ = cfg.load_system();
+    fn init_apt_config(&mut self) -> AptConfig {
+        // 调用方传入的 Arc 配置在需要写入（Dir、压缩顺序）时按写时复制 clone
+        // 一份，调用方本身无需深拷贝；未传入时新建一份并初始化默认值与系统配置。
+        let mut cfg = match self.apt_config.take() {
+            Some(arc) => Arc::unwrap_or_clone(arc),
+            None => {
+                let mut cfg = AptConfig::new();
+                cfg.init_defaults()
+                    .expect("failed to initialize APT configuration");
+                let _ = cfg.load_system();
+                cfg
+            }
+        };
 
         if !is_termux() {
             cfg.set("Dir", &self.source.to_string_lossy());
         }
 
-        // Set default compression order if not configured
-        let has_order = cfg
-            .keys_under("Acquire::CompressionTypes::Order")
-            .next()
-            .is_some();
-        if !has_order {
-            for c in &["zst", "xz", "bz2", "lzma", "gz", "lz4"] {
-                cfg.set_list("Acquire::CompressionTypes::Order", c);
+        // AOSC 仓库默认优先 zst；非 aosc 构建沿用系统配置，不强加默认顺序。
+        #[cfg(feature = "aosc")]
+        {
+            let has_order = cfg
+                .keys_under("Acquire::CompressionTypes::Order")
+                .next()
+                .is_some();
+            if !has_order {
+                for c in crate::config::DECODABLE_COMPRESSION_FORMATS {
+                    cfg.set_list("Acquire::CompressionTypes::Order", c);
+                }
             }
         }
 
@@ -660,11 +678,17 @@ fn get_all_need_db_from_config(
             continue;
         }
 
+        // Only the preferred (first) compression variant will actually be
+        // downloaded; the rest are fallbacks tried on failure. Count only its
+        // size toward the total so the progress bar reflects the expected
+        // download size.
+        let item = &i.items[0];
+
         if i.keep_compress {
-            *total += i.item.size;
+            *total += item.size;
         } else {
-            let size = if file_is_compress(&i.item.name) {
-                let (_, name_without_compress) = split_ext_and_filename(&i.item.name);
+            let size = if file_is_compress(&item.name) {
+                let (_, name_without_compress) = split_ext_and_filename(&item.name);
 
                 checksums
                     .iter()
@@ -675,9 +699,9 @@ fn get_all_need_db_from_config(
                             None
                         }
                     })
-                    .unwrap_or(i.item.size)
+                    .unwrap_or(item.size)
             } else {
-                i.item.size
+                item.size
             };
 
             *total += size;
@@ -735,6 +759,7 @@ fn collect_flat_repo_no_release(
     let sources = vec![DownloadSource {
         url: download_url.clone(),
         source_type: from,
+        file_type: CompressType::None,
     }];
 
     let task = DownloadEntry::builder()
@@ -743,7 +768,6 @@ fn collect_flat_repo_no_release(
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
         .msg(msg.into())
-        .file_type(CompressType::None)
         .build();
 
     tasks.push(task);
@@ -759,6 +783,11 @@ fn collect_download_task(
     release: &Release,
     optional_set: &mut HashSet<String>,
 ) -> Result<()> {
+    // The preferred (first) compression variant drives the message, filename,
+    // checksum and primary file type; the remaining variants are fallbacks
+    // tried in order if the preferred one is unavailable.
+    let item = &c.items[0];
+
     let file_type = &c.msg;
 
     let msg = mirror_source.get_human_download_message(Some(file_type))?;
@@ -767,19 +796,19 @@ fn collect_download_task(
         OmaSourceEntryFrom::Http => DownloadSourceType::Http,
         OmaSourceEntryFrom::Local => DownloadSourceType::Local(
             mirror_source.is_flat()
-                && (!file_is_compress(&c.item.name)
-                    || (file_is_compress(&c.item.name) && c.keep_compress)),
+                && (!file_is_compress(&item.name)
+                    || (file_is_compress(&item.name) && c.keep_compress)),
         ),
     };
 
-    let not_compress_filename_before = if file_is_compress(&c.item.name) {
-        Cow::Owned(split_ext_and_filename(&c.item.name).1)
+    let not_compress_filename_before = if file_is_compress(&item.name) {
+        Cow::Owned(split_ext_and_filename(&item.name).1)
     } else {
-        Cow::Borrowed(&c.item.name)
+        Cow::Borrowed(&item.name)
     };
 
     let checksum = if c.keep_compress {
-        Some(&c.item.checksum)
+        Some(&item.checksum)
     } else {
         release
             .checksum_type_and_list()
@@ -790,36 +819,66 @@ fn collect_download_task(
             .map(|c| &c.checksum)
     };
 
-    // When `Acquire-By-Hash: yes` is set, prefer the by-hash path, but fall
-    // back to the traditional by-name path if the by-hash file is missing
-    // (e.g. HTTP 404). The download manager tries the sources in order and
-    // moves on to the next one if the current one fails.
+    // Build one source per compression variant, ordered best-first. The
+    // download manager tries the sources in order and falls back to the next
+    // one on failure (e.g. HTTP 404), matching apt's
+    // `Acquire::CompressionTypes::Order` behavior. Each source carries its own
+    // `file_type` so the correct decompressor is used for whichever variant
+    // actually succeeds.
+    //
+    // When `keep_compress` is set the stored filename embeds the compression
+    // extension and the checksum is that of the compressed file, so a
+    // transparent fallback to a different compression format is impossible;
+    // in that case only the preferred variant is tried.
+    let variants: &[ChecksumItem] = if c.keep_compress {
+        &c.items[..1]
+    } else {
+        &c.items
+    };
+
     let mut sources = vec![];
 
-    if release.acquire_by_hash() {
-        let path = Path::new(&c.item.name);
-        let parent = path.parent().unwrap_or(path);
-        let dir = match release.checksum_type_and_list().0 {
-            InReleaseChecksum::Sha256 => "SHA256",
-            InReleaseChecksum::Sha512 => "SHA512",
-            InReleaseChecksum::Md5 => "MD5Sum",
+    for variant in variants {
+        // KeepCompressed means the downloaded bytes must be stored as-is.
+        // The checksum in that mode is for the compressed variant, so passing
+        // its decompressor here would both corrupt the stored file and make
+        // checksum verification fail.
+        let variant_file_type = if c.keep_compress {
+            CompressType::None
+        } else {
+            compress_type_of(&variant.name)
         };
 
-        let path = parent.join("by-hash").join(dir).join(&c.item.checksum);
+        // When `Acquire-By-Hash: yes` is set, prefer the by-hash path, but
+        // fall back to the traditional by-name path if the by-hash file is
+        // missing (e.g. HTTP 404).
+        if release.acquire_by_hash() {
+            let path = Path::new(&variant.name);
+            let parent = path.parent().unwrap_or(path);
+            let dir = match release.checksum_type_and_list().0 {
+                InReleaseChecksum::Sha256 => "SHA256",
+                InReleaseChecksum::Sha512 => "SHA512",
+                InReleaseChecksum::Md5 => "MD5Sum",
+            };
+
+            let path = parent.join("by-hash").join(dir).join(&variant.checksum);
+
+            sources.push(DownloadSource {
+                url: mirror_source.get_download_url(&path.display().to_string()),
+                source_type: from.clone(),
+                file_type: variant_file_type,
+            });
+        }
 
         sources.push(DownloadSource {
-            url: mirror_source.get_download_url(&path.display().to_string()),
+            url: mirror_source.get_download_url(&variant.name),
             source_type: from.clone(),
+            file_type: variant_file_type,
         });
     }
 
-    sources.push(DownloadSource {
-        url: mirror_source.get_download_url(&c.item.name),
-        source_type: from,
-    });
-
     let file_name = if c.keep_compress {
-        mirror_source.get_download_file_name(Some(&c.item.name))?
+        mirror_source.get_download_file_name(Some(&item.name))?
     } else {
         mirror_source.get_download_file_name(Some(&not_compress_filename_before))?
     };
@@ -836,21 +895,6 @@ fn collect_download_task(
         .msg(msg.into())
         .final_dir(download_dir.to_path_buf())
         .by_hash_fallback(release.acquire_by_hash())
-        .file_type({
-            if c.keep_compress {
-                CompressType::None
-            } else {
-                match Path::new(&c.item.name).extension().and_then(|x| x.to_str()) {
-                    Some("gz") => CompressType::Gzip,
-                    Some("xz") => CompressType::Xz,
-                    Some("bz2") => CompressType::Bz2,
-                    Some("zst") => CompressType::Zstd,
-                    Some("lzma") => CompressType::Lzma,
-                    Some("lz4") => CompressType::Lz4,
-                    _ => CompressType::None,
-                }
-            }
-        })
         .maybe_hash(if let Some(checksum) = checksum {
             match release.checksum_type_and_list().0 {
                 InReleaseChecksum::Sha256 => Some(Checksum::from_sha256_str(checksum)?),
@@ -865,6 +909,20 @@ fn collect_download_task(
     tasks.push(task);
 
     Ok(())
+}
+
+/// Map a file name to its [`CompressType`], used to pick the correct
+/// decompressor for a downloaded source.
+fn compress_type_of(name: &str) -> CompressType {
+    match Path::new(name).extension().and_then(|x| x.to_str()) {
+        Some("gz") => CompressType::Gzip,
+        Some("xz") => CompressType::Xz,
+        Some("bz2") => CompressType::Bz2,
+        Some("zst") => CompressType::Zstd,
+        Some("lzma") => CompressType::Lzma,
+        Some("lz4") => CompressType::Lz4,
+        _ => CompressType::None,
+    }
 }
 
 fn run_task_with_pump<Fut, T>(

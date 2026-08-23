@@ -2,8 +2,8 @@ use std::{path::Path, sync::Arc};
 
 use flume::Sender;
 use oma_fetch::{
-    DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event, Summary,
-    checksum::Checksum,
+    CompressType, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event,
+    Summary, checksum::Checksum,
 };
 use oma_pm_operation_type::InstallEntry;
 use oma_utils::url_no_escape::url_no_escape_times;
@@ -61,7 +61,11 @@ pub async fn download_pkgs(
                     (DownloadSourceType::Http, x.download_url.clone())
                 };
 
-                DownloadSource { url, source_type }
+                DownloadSource {
+                    url,
+                    source_type,
+                    file_type: CompressType::None,
+                }
             })
             .collect::<Vec<_>>();
 

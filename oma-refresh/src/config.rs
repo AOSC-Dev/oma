@@ -1,86 +1,20 @@
-use std::{cmp::Ordering, collections::HashSet, path::Path};
+use std::{collections::HashSet, path::Path};
 
 use ahash::AHashMap;
 use oma_apt_pkg::AptConfig;
 use oma_apt_pkg::apt_sources::{
     IndexTargetTemplates, find_matching_combinations, strip_compression_ext, substitute,
 };
-use oma_fetch::CompressType;
-use once_cell::sync::OnceCell;
 use spdlog::debug;
 
 use crate::{db::RefreshError, inrelease::ChecksumItem};
 
-static COMPRESSION_ORDER: OnceCell<Vec<CompressFileWrapper>> = OnceCell::new();
-
-#[derive(Debug, Eq, PartialEq)]
-struct CompressFileWrapper {
-    compress_file: CompressType,
-}
-
-impl From<&str> for CompressFileWrapper {
-    fn from(value: &str) -> Self {
-        match value {
-            "xz" => CompressFileWrapper {
-                compress_file: CompressType::Xz,
-            },
-            "bz2" => CompressFileWrapper {
-                compress_file: CompressType::Bz2,
-            },
-            "lzma" => CompressFileWrapper {
-                compress_file: CompressType::Lzma,
-            },
-            "gz" => CompressFileWrapper {
-                compress_file: CompressType::Gzip,
-            },
-            "lz4" => CompressFileWrapper {
-                compress_file: CompressType::Lz4,
-            },
-            "zst" => CompressFileWrapper {
-                compress_file: CompressType::Zstd,
-            },
-            x => {
-                if !x.is_ascii() {
-                    debug!("{x} format is not compress format");
-                }
-
-                CompressFileWrapper {
-                    compress_file: CompressType::None,
-                }
-            }
-        }
-    }
-}
-
-impl PartialOrd for CompressFileWrapper {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for CompressFileWrapper {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let t = COMPRESSION_ORDER.get_or_init(|| {
-            vec!["zst", "xz", "bz2", "lzma", "gz", "lz4", "uncompressed"]
-                .into_iter()
-                .map(CompressFileWrapper::from)
-                .collect()
-        });
-
-        let self_pos = t.iter().position(|x| x == self).unwrap();
-        let other_pos = t.iter().position(|x| x == other).unwrap();
-
-        other_pos.cmp(&self_pos)
-    }
-}
-
-impl From<CompressType> for CompressFileWrapper {
-    fn from(value: CompressType) -> Self {
-        Self {
-            compress_file: value,
-        }
-    }
-}
+/// Compression formats oma can decode, in oma's preferred order (`zst` first).
+/// Seeds the AOSC default `Acquire::CompressionTypes::Order`, and filters the
+/// `Acquire::CompressionTypes` tree when no Order is configured (like apt
+/// filters by available decompression methods).
+pub(crate) const DECODABLE_COMPRESSION_FORMATS: [&str; 6] =
+    ["zst", "xz", "bz2", "lzma", "gz", "lz4"];
 
 /// IndexTarget config — stores only the enabled target keys and reads
 /// properties directly from [`AptConfig`] on demand.
@@ -90,6 +24,10 @@ pub struct IndexTargetConfig<'a> {
     deb_src_keys: Vec<String>,
     native_arch: &'a str,
     langs: Vec<String>,
+    /// Compression types to try in order, read from
+    /// `Acquire::CompressionTypes::Order`. The uncompressed format (`""`) is
+    /// always appended last, like apt's `pkgAcqIndex`.
+    compression_order: Vec<String>,
 }
 
 impl<'a> IndexTargetConfig<'a> {
@@ -98,12 +36,35 @@ impl<'a> IndexTargetConfig<'a> {
         let locales = sys_locale::get_locales();
         let langs = get_matches_language(locales);
 
+        let mut compression_order: Vec<String> = apt_cfg
+            .keys_under("Acquire::CompressionTypes::Order")
+            .map(str::to_owned)
+            .collect();
+
+        // 显式配置了 `Acquire::CompressionTypes::Order` 就直接使用；为空时才
+        // 遍历整个 `Acquire::CompressionTypes` 树取默认顺序（与 apt 的
+        // `getCompressionTypes` 一致），且只保留 oma 能解码的格式。
+        if compression_order.is_empty() {
+            for ext in apt_cfg.keys_under("Acquire::CompressionTypes") {
+                if ext == "Order" {
+                    continue;
+                }
+                if !DECODABLE_COMPRESSION_FORMATS.contains(&ext) {
+                    continue;
+                }
+                compression_order.push(ext.to_string());
+            }
+        }
+        // apt always tries the uncompressed file last.
+        compression_order.push(String::new());
+
         Self {
             cfg: apt_cfg,
             deb_keys: templates.get_enabled_keys("Acquire::IndexTargets::deb"),
             deb_src_keys: templates.get_enabled_keys("Acquire::IndexTargets::deb-src"),
             native_arch,
             langs,
+            compression_order,
         }
     }
 
@@ -119,7 +80,10 @@ impl<'a> IndexTargetConfig<'a> {
         supported_archs: Option<&[&str]>,
     ) -> Result<Vec<ChecksumDownloadEntry>, RefreshError> {
         let meta_key = if is_flat { "flatMetaKey" } else { "MetaKey" };
-        let mut res_map: AHashMap<String, Vec<ChecksumDownloadEntry>> = AHashMap::new();
+        // Group every compression variant of the same index file together;
+        // each group becomes one `ChecksumDownloadEntry` whose `items` holds
+        // all variants so the downloader can fall back between them.
+        let mut res_map: AHashMap<String, ChecksumDownloadEntry> = AHashMap::new();
         let tree = if is_source {
             &self.deb_src_keys
         } else {
@@ -154,15 +118,12 @@ impl<'a> IndexTargetConfig<'a> {
                     .resolve_targets(name, release, &archs, "", "", "", true)
                     .map_err(|e| RefreshError::InvalidUrl(e.to_string()))?;
                 for m in &matches {
-                    res_map
-                        .entry(name.to_string())
-                        .or_default()
-                        .push(to_download_entry(
-                            c,
-                            self.cfg,
-                            &m.config_key,
-                            &m.description,
-                        ));
+                    let entry = res_map.entry(name.to_string()).or_insert_with(|| {
+                        to_download_entry(self.cfg, &m.config_key, &m.description)
+                    });
+                    if !entry.items.iter().any(|x| x.name == c.name) {
+                        entry.items.push(c.to_owned());
+                    }
                 }
             } else {
                 let comps: Vec<&str> = components.iter().map(|s| s.as_str()).collect();
@@ -195,28 +156,47 @@ impl<'a> IndexTargetConfig<'a> {
                                 self.native_arch,
                             )
                         };
-                        res_map
+                        let entry = res_map
                             .entry(name.to_string())
-                            .or_default()
-                            .push(to_download_entry(c, self.cfg, config_key, &desc));
+                            .or_insert_with(|| to_download_entry(self.cfg, config_key, &desc));
+                        if !entry.items.iter().any(|x| x.name == c.name) {
+                            entry.items.push(c.to_owned());
+                        }
                     }
                 }
             }
         }
 
-        let mut sort_res = vec![];
+        let mut result = vec![];
 
-        for (_, v) in &mut res_map {
-            v.sort_unstable_by(|a, b| {
-                compress_file(&a.item.name).cmp(&compress_file(&b.item.name))
-            });
-            if v[0].item.size == 0 {
+        for (_, mut entry) in res_map {
+            // Sort variants by the configured compression order
+            // (`Acquire::CompressionTypes::Order`), preferred format first:
+            // `Packages.zst` → `Packages.xz` → `Packages.gz`, matching apt.
+            entry
+                .items
+                .sort_unstable_by_key(|a| self.compression_rank(&a.name));
+            if entry.items[0].size == 0 {
                 continue;
             }
-            sort_res.push(v.last().unwrap().to_owned());
+            result.push(entry);
         }
 
-        Ok(fallback_of_filter(sort_res))
+        Ok(fallback_of_filter(result))
+    }
+
+    /// Position of `name`'s compression type in the configured download
+    /// order; smaller means higher priority (tried first). Unknown types sort
+    /// after everything else.
+    fn compression_rank(&self, name: &str) -> usize {
+        let ext = Path::new(name)
+            .extension()
+            .map(|x| x.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        self.compression_order
+            .iter()
+            .position(|x| *x == ext)
+            .unwrap_or(self.compression_order.len())
     }
 }
 
@@ -244,14 +224,9 @@ fn fallback_of_filter(res: Vec<ChecksumDownloadEntry>) -> Vec<ChecksumDownloadEn
         .collect()
 }
 
-fn to_download_entry(
-    c: &ChecksumItem,
-    cfg: &AptConfig,
-    config_key: &str,
-    msg: &str,
-) -> ChecksumDownloadEntry {
+fn to_download_entry(cfg: &AptConfig, config_key: &str, msg: &str) -> ChecksumDownloadEntry {
     ChecksumDownloadEntry {
-        item: c.to_owned(),
+        items: vec![],
         keep_compress: cfg
             .get(&format!("{config_key}::KeepCompressed"), "")
             .parse::<bool>()
@@ -276,7 +251,12 @@ fn to_download_entry(
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChecksumDownloadEntry {
-    pub item: ChecksumItem,
+    /// Every compression variant of the index file, ordered best-first.
+    /// `items[0]` is the preferred (highest-priority) compression format; the
+    /// rest are fallbacks tried in order when it is unavailable, e.g.
+    /// `Packages.zst` → `Packages.xz` → `Packages.gz`, matching apt's
+    /// `Acquire::CompressionTypes::Order` behavior.
+    pub items: Vec<ChecksumItem>,
     pub keep_compress: bool,
     pub msg: String,
     pub optional: bool,
@@ -310,54 +290,8 @@ fn get_matches_language(locales: impl IntoIterator<Item = String>) -> Vec<String
     langs
 }
 
-fn compress_file(name: &str) -> CompressFileWrapper {
-    CompressFileWrapper {
-        compress_file: CompressType::from(
-            Path::new(name)
-                .extension()
-                .map(|x| x.to_string_lossy())
-                .unwrap_or_default()
-                .to_string()
-                .as_str(),
-        ),
-    }
-}
-
 #[test]
 fn test_apt_config() {
-    // Test that compression ordering is correct
-    let mut types: Vec<CompressFileWrapper> = vec![
-        CompressType::None,
-        CompressType::Xz,
-        CompressType::Zstd,
-        CompressType::Gzip,
-        CompressType::Bz2,
-        CompressType::Lz4,
-        CompressType::Lzma,
-    ]
-    .into_iter()
-    .map(|x| x.into())
-    .collect();
-
-    types.sort_unstable();
-    types.reverse();
-
-    assert_eq!(
-        types,
-        vec![
-            CompressType::Zstd,
-            CompressType::Xz,
-            CompressType::Bz2,
-            CompressType::Lzma,
-            CompressType::Gzip,
-            CompressType::Lz4,
-            CompressType::None,
-        ]
-        .into_iter()
-        .map(|x| x.into())
-        .collect::<Vec<CompressFileWrapper>>()
-    );
-
     // Test that IndexTarget tree is correctly parsed from AptConfig
     let mut cfg = AptConfig::new();
     cfg.init_defaults().unwrap();
@@ -365,6 +299,61 @@ fn test_apt_config() {
     let t = templates.get_enabled_keys("Acquire::IndexTargets::deb");
     assert!(t.iter().any(|x| x.contains("::deb::")));
     assert!(t.iter().all(|x| !x.contains("::deb-src::")));
+}
+
+#[test]
+fn test_compression_rank_reads_apt_config() {
+    let mut cfg = AptConfig::new();
+    cfg.init_defaults().unwrap();
+    for c in &["xz", "gz", "zst"] {
+        cfg.set_list("Acquire::CompressionTypes::Order", c);
+    }
+    let config = IndexTargetConfig::new_from_apt_config(&cfg, "amd64");
+
+    // Order read from config: xz first, then gz, then zst, uncompressed last.
+    assert!(config.compression_rank("Packages.xz") < config.compression_rank("Packages.gz"));
+    assert!(config.compression_rank("Packages.gz") < config.compression_rank("Packages.zst"));
+    assert!(
+        config.compression_rank("Packages") > config.compression_rank("Packages.zst"),
+        "uncompressed must sort last"
+    );
+    // Unknown compression types sort after everything else.
+    assert!(
+        config.compression_rank("Packages.unknown") > config.compression_rank("Packages"),
+        "unknown type must sort after uncompressed"
+    );
+}
+
+#[test]
+fn test_compression_rank_default_from_config_tree() {
+    // No Order configured: the default order comes from the
+    // `Acquire::CompressionTypes` tree, uncompressed last.
+    let mut cfg = AptConfig::new();
+    cfg.init_defaults().unwrap();
+    let config = IndexTargetConfig::new_from_apt_config(&cfg, "amd64");
+
+    for f in ["xz", "bz2", "lzma", "gz", "lz4", "zst"] {
+        assert!(
+            config.compression_rank(&format!("Packages.{f}")) < config.compression_rank("Packages"),
+            "{f} must rank before the uncompressed fallback"
+        );
+    }
+}
+
+#[test]
+fn test_compression_rank_partial_config_is_authoritative() {
+    // An explicitly configured Order is used as-is: only the configured
+    // formats rank ahead of the uncompressed fallback.
+    let mut cfg = AptConfig::new();
+    cfg.init_defaults().unwrap();
+    cfg.set_list("Acquire::CompressionTypes::Order", "gz");
+    let config = IndexTargetConfig::new_from_apt_config(&cfg, "amd64");
+
+    assert_eq!(config.compression_rank("Packages.gz"), 0);
+    assert_eq!(config.compression_rank("Packages"), 1);
+    // Not-configured formats sort after the uncompressed fallback.
+    assert!(config.compression_rank("Packages.xz") > config.compression_rank("Packages"));
+    assert!(config.compression_rank("Packages.zst") > config.compression_rank("Packages"));
 }
 
 #[test]
@@ -384,11 +373,11 @@ fn test_get_matches_language() {
 fn test_fallback_of_filter() {
     let entries = vec![
         ChecksumDownloadEntry {
-            item: ChecksumItem {
+            items: vec![ChecksumItem {
                 name: "file1".to_string(),
                 size: 100,
                 checksum: "abc".to_string(),
-            },
+            }],
             keep_compress: false,
             msg: "msg1".to_string(),
             optional: false,
@@ -396,11 +385,11 @@ fn test_fallback_of_filter() {
             fallback_of: None,
         },
         ChecksumDownloadEntry {
-            item: ChecksumItem {
+            items: vec![ChecksumItem {
                 name: "file2".to_string(),
                 size: 100,
                 checksum: "def".to_string(),
-            },
+            }],
             keep_compress: false,
             msg: "msg2".to_string(),
             optional: false,
@@ -408,11 +397,11 @@ fn test_fallback_of_filter() {
             fallback_of: Some("key1".to_string()),
         },
         ChecksumDownloadEntry {
-            item: ChecksumItem {
+            items: vec![ChecksumItem {
                 name: "file3".to_string(),
                 size: 100,
                 checksum: "ghi".to_string(),
-            },
+            }],
             keep_compress: false,
             msg: "msg3".to_string(),
             optional: false,
