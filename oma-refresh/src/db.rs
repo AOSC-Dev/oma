@@ -266,7 +266,11 @@ impl OmaRefresh {
             download_list.insert(i.filename.clone());
         }
 
-        remove_unused_db(&self_arc.download_dir, download_list).ok();
+        // 退出 topic / 移除源时，列表状态的变化可能只是清理掉失效的列表文件
+        // （不涉及任何下载）。记录是否真的删了文件，供下面的 success invoke
+        // 判断使用——否则下游（如 amo 的搜索索引）永远不会得知源集合变了。
+        let removed_unused =
+            remove_unused_db(&self_arc.download_dir, download_list).unwrap_or(false);
 
         let sc2 = self_arc.clone();
         let (tx, rx) = flume::unbounded::<Event>();
@@ -275,8 +279,10 @@ impl OmaRefresh {
                 .await
         })?;
 
-        // 有元数据更新才执行 success invoke
-        let should_run_invoke = res.has_wrote();
+        // 有元数据更新、或清理了失效的列表文件（如退出 topic），
+        // 才执行 success invoke；否则列表状态虽然变了，下游缓存
+        // （如 amo 的搜索索引）却收不到失效通知。
+        let should_run_invoke = res.has_wrote() || removed_unused;
 
         if should_run_invoke {
             callback(Event::RunInvokeScript);
@@ -725,7 +731,9 @@ fn get_all_need_db_from_config(
     }
 }
 
-fn remove_unused_db(download_dir: &Path, download_list: HashSet<String>) -> Result<()> {
+/// Remove lists files no longer produced by any configured source (e.g.
+/// after opting out of a topic), returning whether anything was removed.
+fn remove_unused_db(download_dir: &Path, download_list: HashSet<String>) -> Result<bool> {
     let download_dir = std::fs::read_dir(download_dir)
         .map_err(|e| RefreshError::ReadDownloadDir(download_dir.display().to_string(), e))?;
 
@@ -737,6 +745,7 @@ fn remove_unused_db(download_dir: &Path, download_list: HashSet<String>) -> Resu
         }
     }
 
+    let mut removed = false;
     for x in download_dir {
         if let Ok(x) = x
             && x.path().is_file()
@@ -746,11 +755,13 @@ fn remove_unused_db(download_dir: &Path, download_list: HashSet<String>) -> Resu
             debug!("Removing {:?}", x.file_name());
             if let Err(e) = std::fs::remove_file(x.path()) {
                 debug!("Failed to remove file {:?}: {e}", x.file_name());
+            } else {
+                removed = true;
             }
         }
     }
 
-    Ok(())
+    Ok(removed)
 }
 
 fn collect_flat_repo_no_release(
@@ -930,4 +941,39 @@ where
     result_rx
         .recv()
         .map_err(|_| RefreshError::DownloadFailed(None))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remove_unused_db_reports_and_removes_stale_files() {
+        let dir = std::env::temp_dir().join(format!(
+            "oma-remove-unused-test-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        // 需要保留的（仍在 download_list 里）
+        std::fs::write(dir.join("stable_Packages"), b"x").unwrap();
+        // 需要删除的（不在 download_list 里）
+        std::fs::write(dir.join("core-14-preview_Packages"), b"x").unwrap();
+        // lock 文件永远保留
+        std::fs::write(dir.join("lock"), b"x").unwrap();
+
+        let keep: HashSet<String> = ["stable_Packages".to_string()].into_iter().collect();
+        let removed = remove_unused_db(&dir, keep).unwrap();
+
+        assert!(removed, "should report that stale files were removed");
+        assert!(!dir.join("core-14-preview_Packages").exists());
+        assert!(dir.join("stable_Packages").exists());
+        assert!(dir.join("lock").exists());
+
+        // 再次调用：没有可删的文件了，必须返回 false
+        let keep: HashSet<String> = ["stable_Packages".to_string()].into_iter().collect();
+        let removed_again = remove_unused_db(&dir, keep).unwrap();
+        assert!(!removed_again, "nothing left to remove");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }
