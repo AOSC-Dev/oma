@@ -9,17 +9,17 @@ pub use zbus::Connection;
 #[derive(Debug, thiserror::Error)]
 pub enum OmaDbusError {
     #[error("Failed to connect system dbus")]
-    FailedConnectDbus(zbus::Error),
+    FailedConnectDbus(Box<zbus::Error>),
     #[error("Failed to take wake lock")]
-    FailedTakeWakeLock(zbus::Error),
+    FailedTakeWakeLock(Box<zbus::Error>),
     #[error("Failed to create {0} proxy")]
-    FailedCreateProxy(&'static str, zbus::Error),
+    FailedCreateProxy(&'static str, Box<zbus::Error>),
     #[error("Failed to get battery status")]
-    FailedGetBatteryStatus(zbus::Error),
+    FailedGetBatteryStatus(Box<zbus::Error>),
     #[error("Failed to get another oma status")]
-    FailedGetOmaStatus(zbus::Error),
+    FailedGetOmaStatus(Box<zbus::Error>),
     #[error("Failed to get session state")]
-    SessionState(zbus::Error),
+    SessionState(Box<zbus::Error>),
 }
 
 pub type OmaDbusResult<T> = Result<T, OmaDbusError>;
@@ -47,18 +47,18 @@ trait OmaDbus {
 pub async fn create_dbus_connection() -> OmaDbusResult<Connection> {
     Connection::system()
         .await
-        .map_err(OmaDbusError::FailedConnectDbus)
+        .map_err(|e| OmaDbusError::FailedConnectDbus(Box::new(e)))
 }
 
 pub async fn get_another_oma_status(conn: &Connection) -> OmaDbusResult<String> {
     let proxy = OmaDbusProxy::new(conn)
         .await
-        .map_err(|e| OmaDbusError::FailedCreateProxy("oma1", e))?;
+        .map_err(|e| OmaDbusError::FailedCreateProxy("oma1", Box::new(e)))?;
 
     let s = proxy
         .get_status()
         .await
-        .map_err(OmaDbusError::FailedGetOmaStatus)?;
+        .map_err(|e| OmaDbusError::FailedGetOmaStatus(Box::new(e)))?;
 
     debug!("{}", s);
 
@@ -149,12 +149,12 @@ pub async fn take_wake_lock(
 ) -> OmaDbusResult<OwnedFd> {
     let proxy = Login1Proxy::new(conn)
         .await
-        .map_err(|e| OmaDbusError::FailedCreateProxy("login1", e))?;
+        .map_err(|e| OmaDbusError::FailedCreateProxy("login1", Box::new(e)))?;
 
     let fd = proxy
         .inhibit(&what.to_string(), binary_name, why, "block")
         .await
-        .map_err(OmaDbusError::FailedTakeWakeLock)?;
+        .map_err(|e| OmaDbusError::FailedTakeWakeLock(Box::new(e)))?;
 
     debug!("take wake lock: {:?}", fd);
 
@@ -165,15 +165,15 @@ pub async fn take_wake_lock(
 pub async fn session_name(conn: &Connection) -> OmaDbusResult<String> {
     let session = SessionProxy::builder(conn)
         .path("/org/freedesktop/login1/session/auto")
-        .map_err(|e| OmaDbusError::FailedCreateProxy("login1", e))?
+        .map_err(|e| OmaDbusError::FailedCreateProxy("login1", Box::new(e)))?
         .build()
         .await
-        .map_err(|e| OmaDbusError::FailedCreateProxy("login1", e))?;
+        .map_err(|e| OmaDbusError::FailedCreateProxy("login1", Box::new(e)))?;
 
     let state = session
         .service()
         .await
-        .map_err(OmaDbusError::SessionState)?;
+        .map_err(|e| OmaDbusError::SessionState(Box::new(e)))?;
 
     Ok(state)
 }
@@ -182,10 +182,10 @@ pub async fn session_name(conn: &Connection) -> OmaDbusResult<String> {
 pub async fn is_using_battery(conn: &Connection) -> OmaDbusResult<bool> {
     let proxy = UPowerProxy::new(conn)
         .await
-        .map_err(|e| OmaDbusError::FailedCreateProxy("upower", e))?;
+        .map_err(|e| OmaDbusError::FailedCreateProxy("upower", Box::new(e)))?;
 
     proxy
         .on_battery()
         .await
-        .map_err(OmaDbusError::FailedGetBatteryStatus)
+        .map_err(|e| OmaDbusError::FailedGetBatteryStatus(Box::new(e)))
 }

@@ -103,6 +103,7 @@ clap = { version = "4.6", features = [
 ] }
 humantime = "2.3"
 termtree = "1"
+# spdlog-rs 目前要求 env_filter 版本为 0.1.4，新版本不兼容
 env_filter = "0.1.4"
 clap-i18n-richformatter = "0.3.0"
 terminfo = "0.9.0"
@@ -182,7 +183,7 @@ deb822-fast = { version = "0.2", features = ["derive"] }
 zbus = { version = "5", default-features = false, features = ["tokio"] }
 num_enum = "0.7.3"
 sys-locale = "0.3"
-fancy-regex = "0.18"
+fancy-regex = "0.19"
 sequoia-openpgp = { version = "2", default-features = false }
 sequoia-policy-config = "0.8"
 logos = "0.16"
@@ -230,7 +231,7 @@ oma-pm-operation-type = { version = "0.10.1", path = "./oma-pm-operation-type" }
 oma-apt-pkg = { version = "0.3.0", path = "./oma-apt-pkg", default-features = false }
 oma-apt = "0.13"
 oma-apt-sources-lists = "0.9"
-oma-inquire = "0.3"
+oma-inquire = "0.6"
 tree-sitter-apt-config = { version = "0.1.0", path = "./tree-sitter-apt-config" }
 
 [features]

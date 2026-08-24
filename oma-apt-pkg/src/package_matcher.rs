@@ -309,8 +309,8 @@ mod tests {
         );
         // Leak the database to get a 'static reference for testing.
         let db: &'static AptDb = Box::leak(Box::new(db));
-        let matcher = PackageMatcher::new(db);
-        matcher
+
+        PackageMatcher::new(db)
     }
 
     fn names<'a>(groups: &'a [MatchGroup<'a>]) -> Vec<&'a str> {
@@ -380,7 +380,7 @@ mod tests {
     fn test_match_pkgs_and_versions_dispatch() {
         let m = matcher();
         let (pkgs, no_result) = m
-            .match_pkgs_and_versions(["fish", "apt=2.5.4", "bash/stable", "missing"].into_iter())
+            .match_pkgs_and_versions(["fish", "apt=2.5.4", "bash/stable", "missing"])
             .unwrap();
         assert_eq!(no_result, vec!["missing"]);
         let mut n = names(&pkgs);
@@ -391,9 +391,7 @@ mod tests {
     #[test]
     fn test_match_pkgs_and_versions_arch_dispatch() {
         let m = matcher();
-        let (pkgs, no_result) = m
-            .match_pkgs_and_versions(["apt:amd64", "missing"].into_iter())
-            .unwrap();
+        let (pkgs, no_result) = m.match_pkgs_and_versions(["apt:amd64", "missing"]).unwrap();
         assert_eq!(no_result, vec!["missing"]);
         // Arch-qualified lookup resolves the package and returns only the
         // amd64 build.
@@ -410,7 +408,7 @@ mod tests {
     fn test_match_pkgs_and_versions_combined_qualifiers() {
         let m = matcher();
         let (pkgs, no_result) = m
-            .match_pkgs_and_versions(["apt:amd64=2.5.4", "fish:amd64/stable"].into_iter())
+            .match_pkgs_and_versions(["apt:amd64=2.5.4", "fish:amd64/stable"])
             .unwrap();
         assert!(no_result.is_empty());
 

@@ -816,13 +816,13 @@ mod tests {
     fn test_boolean_values() {
         let mut cfg = AptConfig::new();
         cfg.parse_config(r#"Flag1 "true"; Flag2 "yes"; Flag3 "1";"#, 0);
-        assert_eq!(cfg.get_bool("Flag1", false), true);
-        assert_eq!(cfg.get_bool("Flag2", false), true);
-        assert_eq!(cfg.get_bool("Flag3", false), true);
+        assert!(cfg.get_bool("Flag1", false));
+        assert!(cfg.get_bool("Flag2", false));
+        assert!(cfg.get_bool("Flag3", false));
         cfg.parse_config(r#"Flag4 "false"; Flag5 "no"; Flag6 "0";"#, 0);
-        assert_eq!(cfg.get_bool("Flag4", true), false);
-        assert_eq!(cfg.get_bool("Flag5", true), false);
-        assert_eq!(cfg.get_bool("Flag6", true), false);
+        assert!(!cfg.get_bool("Flag4", true));
+        assert!(!cfg.get_bool("Flag5", true));
+        assert!(!cfg.get_bool("Flag6", true));
     }
 
     #[test]
@@ -966,14 +966,14 @@ mod tests {
             "#,
             0,
         );
-        assert_eq!(cfg.get_bool("SimpleOption", false), true);
+        assert!(cfg.get_bool("SimpleOption", false));
         assert_eq!(cfg.get("Answer::Simple", ""), "42");
         // List::Option values are children of List::Option scope
         assert_eq!(cfg.get("List::Option::In", ""), "In");
         assert_eq!(cfg.get("List::Option::One", ""), "One");
         assert_eq!(cfg.get("List::Option::Line", ""), "Line");
         // Trailing key after scope
-        assert_eq!(cfg.get_bool("Trailing", false), true);
+        assert!(cfg.get_bool("Trailing", false));
         // Commented out should not exist
         assert!(!cfg.exists("Commented::Out"));
     }
@@ -1078,7 +1078,7 @@ mod tests {
     fn test_identifier_with_hyphen() {
         let mut cfg = AptConfig::new();
         cfg.parse_config(r#"APT::Install-Recommends "true";"#, 0);
-        assert_eq!(cfg.get_bool("APT::Install-Recommends", false), true);
+        assert!(cfg.get_bool("APT::Install-Recommends", false));
     }
 
     #[test]

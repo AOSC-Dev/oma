@@ -880,7 +880,7 @@ mod tests {
         std::fs::write(&garbage, b"this is not a cache file").unwrap();
         assert!(ArchivedAptDb::open(&garbage).is_err());
         let truncated = dir.path().join("truncated");
-        std::fs::write(&truncated, &[b'O', b'M', b'A', b'D', b'B']).unwrap();
+        std::fs::write(&truncated, b"OMADB").unwrap();
         assert!(ArchivedAptDb::open(&truncated).is_err());
     }
 
