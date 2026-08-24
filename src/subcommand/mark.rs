@@ -2,15 +2,15 @@ use std::borrow::Cow;
 
 use clap::{Args, ValueEnum};
 use clap_complete::ArgValueCompleter;
-use oma_console::print::Action;
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
 use spdlog::info;
 
+use crate::color::Colorize;
 use crate::{
-    color_formatter, completions::pkgnames_completions, config::OmaConfig, error::OutputError,
+    completions::pkgnames_completions, config::OmaConfig, error::OutputError,
     exit_handle::ExitHandle, root::root, success,
 };
 
@@ -92,9 +92,7 @@ impl CliExecuter for Mark {
         };
 
         for (pkg, is_set) in set {
-            let pkg = color_formatter()
-                .color_str(pkg, Action::Emphasis)
-                .to_string();
+            let pkg = pkg.emphasis_color();
 
             match action {
                 MarkAction::Hold if is_set => {

@@ -5,7 +5,7 @@ use std::io::stdout;
 use std::os::fd::OwnedFd;
 use std::path::Path;
 
-use crate::color_formatter;
+use crate::color::Colorize;
 use crate::dbus::find_another_oma;
 use crate::error::OutputError;
 use crate::fl;
@@ -16,7 +16,6 @@ use crate::utils::get_lists_dir;
 use anyhow::Context;
 use dialoguer::console;
 use indexmap::IndexSet;
-use oma_console::print::Action;
 use oma_contents::searcher::Mode;
 use oma_contents::searcher::search;
 use oma_pm::CustomDownloadMessage;
@@ -57,12 +56,8 @@ pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Resul
                 "{}",
                 fl!(
                     "no-result-bincontents-tips-2",
-                    pkg = color_formatter()
-                        .color_str(pkg, Action::Emphasis)
-                        .to_string(),
-                    cmd = color_formatter()
-                        .color_str(cmd, Action::Secondary)
-                        .to_string()
+                    pkg = pkg.emphasis_color(),
+                    cmd = cmd.secondary_color()
                 )
             );
         }

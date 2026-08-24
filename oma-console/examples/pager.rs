@@ -1,9 +1,6 @@
-use oma_console::{
-    pager::{OmaPager, Pager, PagerUIText},
-    print::OmaColorFormat,
-};
+use oma_console::pager::{OmaPager, Pager, PagerUIText};
 use ratatui::crossterm::style::Stylize;
-use std::{io, time::Duration};
+use std::io;
 
 struct OmaPagerUIText;
 
@@ -30,10 +27,9 @@ impl PagerUIText for OmaPagerUIText {
 }
 
 fn main() -> io::Result<()> {
-    let cf = OmaColorFormat::new(true, Duration::from_millis(100));
     let pager = OmaPager::new(
         Some("QAQ".to_string()),
-        &cf,
+        None,
         Box::new(OmaPagerUIText),
         false,
     );

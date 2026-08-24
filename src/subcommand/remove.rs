@@ -37,7 +37,7 @@ pub struct Remove {
     /// Install package(s) without fsync(2)
     #[arg(
         long,
-        help = fl!("clap-force-unsafe-io-help", dangerous = crate::console::style(format!("{}", fl!("clap-dangerous"))).red().to_string()))]
+        help = fl!("clap-force-unsafe-io-help", dangerous = crate::console::style(format!("{}", fl!("clap-dangerous"))).red()))]
     force_unsafe_io: bool,
     /// Ignore repository and package dependency issues
     #[arg(long, help = fl!("clap-force-yes-help"))]

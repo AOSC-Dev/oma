@@ -86,6 +86,7 @@ oma-apt-pkg = { workspace = true, default-features = false, features = ["search"
 # i18n
 i18n-embed = { workspace = true}
 i18n-embed-fl = { workspace = true }
+fluent-bundle = { workspace = true }
 rust-embed = { workspace = true }
 oma-apt-sources-lists.workspace = true
 
@@ -207,6 +208,7 @@ i18n-embed = { version = "0.16.0", features = [
     "desktop-requester",
 ] }
 i18n-embed-fl = { version = "0.10.0", package = "i18n-embed-fl-no-check-hashmap-on-ra" }
+fluent-bundle = "0.16.0"
 rust-embed = "8.11.0"
 
 

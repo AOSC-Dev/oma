@@ -12,13 +12,12 @@ use anyhow::Chain;
 use oma_console::{
     indicatif::{MultiProgress, ProgressBar as IndicatifProgressBar, ProgressStyle},
     pb::{global_progress_bar_style, progress_bar_style, spinner_style},
-    print::Action,
 };
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
 use crate::{WRITER, fl, install_progress::OSC94, msg, root::is_root};
-use crate::{color_formatter, error::OutputError};
+use crate::{color::Colorize, error::OutputError};
 use oma_refresh::db::Event as RefreshEvent;
 
 use oma_utils::human_bytes::HumanBytes;
@@ -387,15 +386,9 @@ impl ProgressRenderer {
                         "{}",
                         fl!(
                             "unsupported-sources-list",
-                            p = color_formatter()
-                                .color_str(path.to_string_lossy(), Action::Emphasis)
-                                .to_string(),
-                            list = color_formatter()
-                                .color_str(".list", Action::Secondary)
-                                .to_string(),
-                            sources = color_formatter()
-                                .color_str(".sources", Action::Secondary)
-                                .to_string()
+                            p = path.to_string_lossy().emphasis_color(),
+                            list = ".list".secondary_color(),
+                            sources = ".sources".secondary_color()
                         )
                     );
                 }

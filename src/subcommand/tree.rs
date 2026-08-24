@@ -17,6 +17,7 @@ use oma_pm::{
 };
 use spdlog::{debug, trace};
 
+use crate::color::Colorize;
 use crate::{
     CliExecuter, completions::pkgnames_completions, config::OmaConfig, error::OutputError,
     exit_handle::ExitHandle, fl, table::oma_display_with_normal_output,
@@ -103,9 +104,9 @@ impl Display for PkgWrapper<'_> {
         f.write_str(&self.package.fullname(true))?;
 
         if let Some(comp_and_version) = &self.comp_and_version {
-            write!(f, " {}", style(format!("({comp_and_version})")).yellow())?;
+            write!(f, " {}", format!("({comp_and_version})").note_color())?;
         } else if let Some(cand) = self.package.candidate() {
-            write!(f, " {}", style(format!("({})", cand.version())).yellow())?;
+            write!(f, " {}", format!("({})", cand.version()).note_color())?;
         }
 
         Ok(())

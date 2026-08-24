@@ -2,7 +2,6 @@ use std::{borrow::Cow, io::stdout, sync::atomic::Ordering};
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
-use oma_console::print::Action;
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     oma_apt::{PackageSort, PkgCurrentState, PkgSelectedState},
@@ -13,7 +12,7 @@ use crate::{
     NOT_DISPLAY_ABORT, completions::pkgnames_completions, config::OmaConfig,
     exit_handle::ExitHandle, fl,
 };
-use crate::{color_formatter, error::OutputError, table::PagerPrinter};
+use crate::{color::Colorize, error::OutputError, table::PagerPrinter};
 use anyhow::anyhow;
 
 use crate::args::CliExecuter;
@@ -225,13 +224,13 @@ impl CliExecuter for List {
                     printer
                         .println(format!(
                             "{}/{} {} {arch} {s}",
-                            color_formatter().color_str(&name, Action::Emphasis).bold(),
-                            color_formatter().color_str(branches_str, Action::Secondary),
+                            name.as_str().emphasis_color().bold(),
+                            branches_str.secondary_color(),
                             if let Some(new_version) = new_version {
                                 version_str = Cow::Owned(format!("{version_str} -> {new_version}"));
-                                color_formatter().color_str(version_str, Action::WARN)
+                                version_str.warn_color()
                             } else {
-                                color_formatter().color_str(version_str, Action::EmphasisSecondary)
+                                version_str.emphasis_secondary_color()
                             }
                         ))
                         .ok();

@@ -59,7 +59,7 @@ fn other_permission_tools_run_oma(cmd: &str) -> Result<()> {
         .args(std::env::args())
         .spawn()
         .and_then(|x| x.wait_with_output())
-        .map_err(|e| anyhow!(fl!("execute-cmd-fail", cmd = cmd, e = e.to_string())))?;
+        .map_err(|e| anyhow!(fl!("execute-cmd-fail", cmd = cmd, e = e)))?;
 
     exit(out.status.code().unwrap_or(1));
 }
@@ -72,7 +72,7 @@ fn pkexec_oma() -> Result<()> {
         .args(std::env::args())
         .spawn()
         .and_then(|x| x.wait_with_output())
-        .map_err(|e| anyhow!(fl!("execute-cmd-fail", cmd = "pkexec", e = e.to_string())))?;
+        .map_err(|e| anyhow!(fl!("execute-cmd-fail", cmd = "pkexec", e = e)))?;
 
     exit(out.status.code().unwrap_or(1));
 }

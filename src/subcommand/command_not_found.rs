@@ -4,7 +4,6 @@ use std::io::stderr;
 use ahash::AHashMap;
 use anyhow::Context;
 use clap::Args;
-use oma_console::print::Action;
 use oma_contents::OmaContentsError;
 use oma_contents::searcher::{Mode, search};
 use oma_pm::apt::{OmaApt, OmaAptArgs};
@@ -16,7 +15,7 @@ use crate::error::OutputError;
 use crate::exit_handle::{ExitHandle, ExitStatus};
 use crate::table::PagerPrinter;
 use crate::utils::get_lists_dir;
-use crate::{RT, color_formatter, due_to, fl};
+use crate::{RT, color::Colorize, due_to, fl};
 
 use crate::args::CliExecuter;
 
@@ -120,13 +119,8 @@ impl CliExecuter for CommandNotFound {
                     };
 
                     let entry = (
-                        color_formatter()
-                            .color_str(pkg, Action::Emphasis)
-                            .bold()
-                            .to_string(),
-                        color_formatter()
-                            .color_str(file, Action::Secondary)
-                            .to_string(),
+                        pkg.emphasis_color().bold().to_string(),
+                        file.secondary_color().to_string(),
                         desc,
                     );
 
