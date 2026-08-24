@@ -95,8 +95,9 @@ fn parse_comma_date(rest: &str, format: &str) -> Result<Timestamp, ParseDateErro
 /// sensitive comparison apt accepts exactly:
 ///
 ///   - the named zones `GMT`, `UTC` and `Z` (strutl.cc line ~1099), or
-///   - any zone whose integer value is 0 and is fully consumed, i.e.
-///     `+0000`, `-0000`, `0000`, `0`, ... (strutl.cc lines ~1100-1111;
+///   - any zone whose integer value is 0 and is fully consumed, i.e. any
+///     all-zero token with or without a sign — `+0000`, `-0000`, `0000`,
+///     `+0`, `-0`, `+000`, `0`, ... (strutl.cc lines ~1100-1111;
 ///     see also the note in apt-pkg/contrib/strutl.h lines ~61-79).
 ///
 /// We deliberately extend this (as oma's previous rfc2822-based parser did):
@@ -127,6 +128,16 @@ fn parse_zone(token: &str) -> Result<jiff::tz::Offset, ParseDateError> {
             };
         }
     };
+
+    // Like apt (`stoi(zone) == 0` with full consumption), any all-zero token
+    // — signed or not (`+0`, `-0`, `+000`, `+000000`, ...) — is UTC, even
+    // though it does not match the `HH`/`HHMM`/`HH:MM` shapes below. The sign
+    // is discarded, so this is always a zero offset. A lone sign (`+`/`-`)
+    // has no digits to consume and falls through to the shapes to be
+    // rejected, like apt's `stoi("+")` which throws.
+    if !digits.is_empty() && digits.iter().all(|b| *b == b'0') {
+        return Ok(jiff::tz::Offset::UTC);
+    }
 
     // Accept `HH`, `HHMM` and `HH:MM`.
     let (hh, mm) = match digits {
@@ -237,8 +248,8 @@ fn test_whitespace_tolerance() {
 fn test_zone_and_year_edges() {
     // Timezone tokens. apt's accepted set (case-sensitive) is exactly
     // {GMT, UTC, Z} plus anything `stoi`-ing to 0 (`+0000`, `-0000`, `0000`,
-    // `0`, ...). We additionally accept `UT`, lowercase `z` and non-zero
-    // offsets (converted correctly) — see parse_zone.
+    // `0`, `+0`, `+000`, ...). We additionally accept `UT`, lowercase `z`
+    // and non-zero offsets (converted correctly) — see parse_zone.
     let accepted = [
         ("Sun, 06 Nov 1994 08:49:37 GMT", "1994-11-06T08:49:37Z"),
         ("Sun, 06 Nov 1994 08:49:37 UTC", "1994-11-06T08:49:37Z"),
@@ -249,6 +260,13 @@ fn test_zone_and_year_edges() {
         ("Sun, 06 Nov 1994 08:49:37 -0000", "1994-11-06T08:49:37Z"),
         ("Sun, 06 Nov 1994 08:49:37 0000", "1994-11-06T08:49:37Z"),
         ("Sun, 06 Nov 1994 08:49:37 0", "1994-11-06T08:49:37Z"),
+        // Signed all-zero tokens: apt accepts any fully-consumed integer
+        // zero regardless of shape (`stoi("+0") == 0`), so must we.
+        ("Sun, 06 Nov 1994 08:49:37 +0", "1994-11-06T08:49:37Z"),
+        ("Sun, 06 Nov 1994 08:49:37 -0", "1994-11-06T08:49:37Z"),
+        ("Sun, 06 Nov 1994 08:49:37 +000", "1994-11-06T08:49:37Z"),
+        ("Sun, 06 Nov 1994 08:49:37 -000", "1994-11-06T08:49:37Z"),
+        ("Sun, 06 Nov 1994 08:49:37 +000000", "1994-11-06T08:49:37Z"),
         // Deliberate extensions over apt: non-zero offsets are converted.
         ("Sun, 06 Nov 1994 08:49:37 +0530", "1994-11-06T03:19:37Z"),
         ("Sun, 06 Nov 1994 08:49:37 -0500", "1994-11-06T13:49:37Z"),
@@ -269,6 +287,9 @@ fn test_zone_and_year_edges() {
         "Sun, 06 Nov 1994 08:49:37 ut",
         "Sun, 06 Nov 1994 08:49:37 PST",
         "Sun, 06 Nov 1994 08:49:37 0530",
+        // A lone sign has no digits to consume; apt's `stoi("+")` throws.
+        "Sun, 06 Nov 1994 08:49:37 +",
+        "Sun, 06 Nov 1994 08:49:37 -",
     ];
     for input in rejected {
         assert!(parse_date(input).is_err(), "should reject: {input}");
