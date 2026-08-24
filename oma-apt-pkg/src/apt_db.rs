@@ -23,6 +23,7 @@ use crate::apt_lists::{
 use crate::apt_sources::SourceLookup;
 use crate::cache;
 use crate::cache::CacheFile;
+use crate::package::Package;
 use crate::package_matcher::PackageMatcher;
 
 /// Magic for the package-database cache file (`Dir::Cache::oma-aptdb`);
@@ -158,22 +159,25 @@ pub enum QueryError {
     Matcher(#[from] crate::package_matcher::MatcherError),
 }
 
+/// One resolved query: the [`Package`] view of the matched package plus its
+/// version/source filtered versions.
+#[derive(Debug)]
+pub struct ResolvedPackage<'a> {
+    /// The package view, providing package-level info (name, version
+    /// count, installed state) without re-borrowing the database.
+    pub pkg: Package<'a>,
+    /// The (version/source filtered) versions for this query — all
+    /// versions of the package, a single version (`pkg=1.2.3`), one branch
+    /// (`pkg/suite`) or a local `.deb`'s own version. Versions borrowed
+    /// from the database when no filtering needed them owned.
+    pub versions: Vec<Cow<'a, PackageVersion>>,
+}
+
 /// Result of resolving package queries.
 #[derive(Debug)]
 pub struct QueryResolution<'a> {
-    /// Display groups in query order; each group holds the (version/source
-    /// filtered) versions for one query — all versions of a package, a
-    /// single version (`pkg=1.2.3`), one branch (`pkg/suite`) or a local
-    /// `.deb`. Versions borrowed from the database when no filtering needed
-    /// them owned.
-    pub groups: Vec<Vec<Cow<'a, PackageVersion>>>,
-    /// Number of distinct versions each group's package has across the whole
-    /// database (a version shared by several sources counts once). Parallel
-    /// to [`groups`](Self::groups), computed while the database is still
-    /// accessible; the display layer uses it to report "N additional
-    /// versions" even when the group itself is version-filtered (e.g. a
-    /// local `.deb` query resolves to `pkg=<version>`).
-    pub version_counts: Vec<usize>,
+    /// Resolved queries in query order.
+    pub resolved: Vec<ResolvedPackage<'a>>,
     /// Queries that matched no package.
     pub no_match: Vec<String>,
 }
@@ -309,6 +313,21 @@ impl AptDb {
         }
     }
 
+    /// Number of versions of `name` without materializing them — the
+    /// memory-mapped path reads the rkyv vector length directly instead of
+    /// deserializing every version just to count.
+    pub(crate) fn version_count(&self, name: &str) -> usize {
+        if let Some(overlay) = self.overlay.get(name) {
+            return overlay.len();
+        }
+        match &self.repo {
+            Repo::Owned(map) => map.get(name).map_or(0, |v| v.len()),
+            Repo::Archived(archived) => {
+                archived.archived().entries.get(name).map_or(0, |v| v.len())
+            }
+        }
+    }
+
     /// The mutable version list for `name`, copying the repo's versions in
     /// when the repo is memory-mapped (copy-on-write: overlay entries shadow
     /// the repo so merges keep the eager semantics).
@@ -422,20 +441,26 @@ impl AptDb {
 
         let matcher = PackageMatcher::new(self);
         let mut no_match = Vec::new();
-        let mut groups = Vec::new();
-        let mut version_counts = Vec::new();
+        let mut resolved = Vec::new();
 
         // Resolve each `.deb` against its own version directly — the
         // control file's `(name, version)` go straight into
         // `match_from_version` instead of being formatted into a
         // `name=version` pattern and re-parsed. A `.deb` without a
-        // `Version` resolves to all versions.
+        // `Version` resolves to all versions; either way it resolves to
+        // exactly one group.
         for (name, version) in deb_versions {
-            version_counts.push(self.distinct_version_count(&name));
-            match version {
-                Some(v) => groups.extend(matcher.match_from_version(&name, &v)?),
-                None => groups.extend(matcher.match_pkgs_and_versions_from_glob(&name)?),
-            }
+            let versions = match version {
+                Some(v) => matcher.match_from_version(&name, &v)?,
+                None => matcher.match_pkgs_and_versions_from_glob(&name)?,
+            };
+            resolved.push(ResolvedPackage {
+                pkg: Package::new(self, name.clone()),
+                versions: versions
+                    .into_iter()
+                    .next()
+                    .expect("a `.deb` resolves to exactly one group"),
+            });
         }
 
         // Resolve the remaining name/glob/version/branch expressions.
@@ -443,27 +468,25 @@ impl AptDb {
             let (matched, no_result) =
                 matcher.match_pkgs_and_versions(names.iter().map(String::as_str))?;
 
-            for group in matched {
+            for versions in matched {
                 // Groups are never empty (the matcher drops empty matches),
-                // so the first version carries the package name for the
-                // distinct-version count.
-                version_counts.push(
-                    group
-                        .first()
-                        .map_or(0, |v| self.distinct_version_count(&v.entry.package)),
-                );
-
-                groups.push(group);
+                // so the first version carries the package name.
+                let name = versions
+                    .first()
+                    .expect("groups are never empty")
+                    .entry
+                    .package
+                    .clone();
+                resolved.push(ResolvedPackage {
+                    pkg: Package::new(self, name),
+                    versions,
+                });
             }
 
             no_match = no_result.into_iter().map(str::to_owned).collect();
         }
 
-        Ok(QueryResolution {
-            groups,
-            version_counts,
-            no_match,
-        })
+        Ok(QueryResolution { resolved, no_match })
     }
 
     /// Build from entries with parallel source tracking. Test-only: the
@@ -572,44 +595,8 @@ impl AptDb {
     /// for the pretty form.
     ///
     /// See [`PackageEntry::fullname`].
-    pub fn fullname<'a>(&self, entry: &'a PackageEntry, pretty: bool) -> Cow<'a, str> {
+    pub(crate) fn fullname<'a>(&self, entry: &'a PackageEntry, pretty: bool) -> Cow<'a, str> {
         entry.fullname(pretty, &self.native_arch)
-    }
-
-    /// The candidate entry for a package name (highest version), as an
-    /// owned copy (deserialized from the memory map, or cloned from owned
-    /// data).
-    pub fn get_candidate(&self, name: &str) -> Option<PackageEntry> {
-        let versions = self.versions(name);
-        let best = versions.iter().max_by_key(|v| v.parsed_version())?;
-        Some(best.entry.clone())
-    }
-
-    /// Iterate the entries of `name` matching `version` exactly.
-    ///
-    /// Borrowed from the in-memory map when the repo is owned, owned
-    /// (deserialized on the fly) when it comes from the memory map. The
-    /// filter closure captures `version`, so the returned iterator is
-    /// bounded by both `self` and `version`.
-    pub fn get<'a>(
-        &'a self,
-        name: &str,
-        version: &'a str,
-    ) -> Box<dyn Iterator<Item = Cow<'a, PackageEntry>> + 'a> {
-        let versions = self.versions(name);
-        match versions {
-            Cow::Borrowed(slice) => Box::new(
-                slice
-                    .iter()
-                    .filter(move |v| v.entry.version.as_deref().is_some_and(|v| v == version))
-                    .map(|v| Cow::Borrowed(&v.entry)),
-            ),
-            Cow::Owned(vec) => Box::new(
-                vec.into_iter()
-                    .filter(move |v| v.entry.version.as_deref().is_some_and(|v| v == version))
-                    .map(|v| Cow::Owned(v.entry)),
-            ),
-        }
     }
 
     /// Iterate over all package entries (across all names and versions).
@@ -643,33 +630,54 @@ impl AptDb {
         overlay.chain(repo)
     }
 
-    /// Find all entries matching a package name.
-    pub fn get_all(&self, name: &str) -> Box<dyn Iterator<Item = Cow<'_, PackageEntry>> + '_> {
-        match self.versions(name) {
-            Cow::Borrowed(slice) => Box::new(slice.iter().map(|v| Cow::Borrowed(&v.entry))),
-            Cow::Owned(vec) => Box::new(vec.into_iter().map(|v| Cow::Owned(v.entry))),
+    /// The canonical `'a`-borrowed package name for `name`, if the database
+    /// knows it — the overlay or repo map key. Lets [`Package`] handles
+    /// borrow the map key instead of cloning a transient query string.
+    fn canonical_name<'a>(&'a self, name: &str) -> Option<&'a str> {
+        if let Some((key, _)) = self.overlay.get_key_value(name) {
+            return Some(key.as_str());
+        }
+        match &self.repo {
+            Repo::Owned(map) => map.get_key_value(name).map(|(k, _)| k.as_str()),
+            // rkyv `ArchivedHashMap::get_key_value` is a hash lookup, like
+            // the owned map — never scan the archived keys linearly (that
+            // would make per-package lookups O(all packages)).
+            Repo::Archived(archived) => archived
+                .archived()
+                .entries
+                .get_key_value(name)
+                .map(|(k, _)| k.as_str()),
         }
     }
 
-    /// Number of distinct versions of a package across the whole database.
-    /// Versions are already deduplicated (each [`PackageVersion`] is one
-    /// version), so this is simply the version count.
-    pub(crate) fn distinct_version_count(&self, name: &str) -> usize {
-        self.versions(name).len()
+    /// The [`Package`] view of `name`, or `None` if the database knows no
+    /// such package. The name is borrowed from the database's map key, so
+    /// no allocation is needed for a known package.
+    pub fn package(&self, name: &str) -> Option<Package<'_>> {
+        Some(Package::new(self, self.canonical_name(name)?))
     }
 
-    /// All package names known to the database — overlay names first,
-    /// shadowing repo names.
-    pub fn packages(&self) -> Box<dyn Iterator<Item = &str> + '_> {
-        let overlay = self.overlay.keys().map(|s| s.as_str());
-        let repo: Box<dyn Iterator<Item = &str> + '_> = match &self.repo {
-            Repo::Owned(map) => Box::new(map.keys().map(|s| s.as_str())),
-            Repo::Archived(archived) => {
-                Box::new(archived.archived().entries.iter().map(|(k, _)| k.as_str()))
-            }
+    /// Iterate every package in the database as a [`Package`] view — one
+    /// item per package name (overlay names first, shadowing repo names,
+    /// like [`Self::packages`]).
+    pub fn packages_iter(&self) -> impl Iterator<Item = Package<'_>> + '_ {
+        let overlay = self
+            .overlay
+            .keys()
+            .map(|name| Package::new(self, name.as_str()));
+
+        let repo: Box<dyn Iterator<Item = Package<'_>> + '_> = match &self.repo {
+            Repo::Owned(map) => Box::new(map.keys().map(|name| Package::new(self, name.as_str()))),
+            Repo::Archived(archived) => Box::new(
+                archived
+                    .archived()
+                    .entries
+                    .iter()
+                    .map(|(name, _)| Package::new(self, name.as_str())),
+            ),
         };
-        // Overlay names shadow repo names (dedup by name).
-        Box::new(overlay.chain(repo.filter(move |n| !self.overlay.contains_key(*n))))
+
+        overlay.chain(repo.filter(move |p| !self.overlay.contains_key(p.name())))
     }
 }
 
@@ -714,9 +722,12 @@ mod tests {
         db.insert(entry("localpkg", "1.0"));
 
         assert!(db.has_package("localpkg"));
-        let all = db.get_all("localpkg").collect::<Vec<_>>();
-        assert_eq!(all.len(), 1);
-        assert_eq!(all[0].version.as_deref(), Some("1.0"));
+        let pkg = db.package("localpkg").unwrap();
+        assert_eq!(pkg.version_count(), 1);
+        assert_eq!(
+            pkg.candidate().unwrap().entry.version.as_deref(),
+            Some("1.0")
+        );
 
         // Versions inserted without a source have an empty source list.
         let versions = db.versions("localpkg");
@@ -729,8 +740,7 @@ mod tests {
         let mut db = AptDb::from_entries("", vec![entry("localpkg", "1.0")]);
         db.insert(entry("localpkg", "2.0"));
 
-        let all = db.get_all("localpkg").collect::<Vec<_>>();
-        assert_eq!(all.len(), 2);
+        assert_eq!(db.package("localpkg").unwrap().version_count(), 2);
     }
 
     #[test]
@@ -748,12 +758,12 @@ mod tests {
             .resolve_queries(vec!["fish".into(), "nosuchpkg".into()])
             .unwrap();
 
-        assert_eq!(resolution.groups.len(), 1);
-        let versions = &resolution.groups[0];
+        assert_eq!(resolution.resolved.len(), 1);
+        let versions = &resolution.resolved[0].versions;
         assert_eq!(versions.len(), 2);
         assert!(versions.iter().all(|v| v.entry.package == "fish"));
         // two distinct versions (3.6, 3.7)
-        assert_eq!(resolution.version_counts, vec![2]);
+        assert_eq!(resolution.resolved[0].pkg.version_count(), 2);
         assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
     }
 
@@ -771,13 +781,13 @@ mod tests {
             .unwrap();
 
         assert!(resolution.no_match.is_empty());
-        assert_eq!(resolution.groups.len(), 1);
-        let versions = &resolution.groups[0];
+        assert_eq!(resolution.resolved.len(), 1);
+        let versions = &resolution.resolved[0].versions;
         assert_eq!(versions.len(), 1);
         assert_eq!(versions[0].entry.package, "hello");
         assert_eq!(versions[0].entry.version.as_deref(), Some("2.10-2"));
         // only the local `.deb` version exists in the database
-        assert_eq!(resolution.version_counts, vec![1]);
+        assert_eq!(resolution.resolved[0].pkg.version_count(), 1);
 
         // The local `.deb` carries a `file:` URI source.
         assert_eq!(versions[0].sources.len(), 1);
@@ -806,8 +816,8 @@ mod tests {
             .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
             .unwrap();
 
-        assert_eq!(resolution.groups.len(), 1);
-        let versions = &resolution.groups[0];
+        assert_eq!(resolution.resolved.len(), 1);
+        let versions = &resolution.resolved[0].versions;
         // repo (same version) + local `.deb` merge into one version whose
         // source list carries both the `stable` and `file:` entries.
         assert_eq!(versions.len(), 1);
@@ -815,24 +825,7 @@ mod tests {
         assert_eq!(versions[0].sources[0].suite, "stable");
         assert!(versions[0].sources[1].base_url.starts_with("file:"));
         // repo 2.10-2 + local 2.10-2 dedupe to one distinct version
-        assert_eq!(resolution.version_counts, vec![1]);
-    }
-
-    #[test]
-    fn test_distinct_version_count() {
-        let db = AptDb::from_entries(
-            "",
-            vec![
-                entry("fish", "3.6"),
-                entry("fish", "3.7"),
-                entry("fish", "3.7"), // same version from another source
-                entry("apt", "2.5"),
-            ],
-        );
-
-        assert_eq!(db.distinct_version_count("fish"), 2);
-        assert_eq!(db.distinct_version_count("apt"), 1);
-        assert_eq!(db.distinct_version_count("nosuchpkg"), 0);
+        assert_eq!(resolution.resolved[0].pkg.version_count(), 1);
     }
 
     fn stable_source() -> IndexSource {
@@ -938,7 +931,7 @@ mod tests {
         assert_eq!(merged[0].sources.len(), 2);
         assert!(merged[0].sources.iter().any(|s| s.suite == "stable"));
         assert!(merged[0].sources.iter().any(|s| s.suite == "local-deb"));
-        assert_eq!(db.distinct_version_count("hello"), 1);
+        assert_eq!(db.package("hello").unwrap().version_count(), 1);
     }
 
     /// `resolve_queries` works against a memory-mapped repo, matching a
@@ -968,11 +961,61 @@ mod tests {
             .resolve_queries(vec!["fish".into(), "nosuchpkg".into()])
             .unwrap();
 
-        assert_eq!(resolution.groups.len(), 1);
-        let versions = &resolution.groups[0];
+        assert_eq!(resolution.resolved.len(), 1);
+        let versions = &resolution.resolved[0].versions;
         assert_eq!(versions.len(), 2);
         assert!(versions.iter().all(|v| v.entry.package == "fish"));
-        assert_eq!(resolution.version_counts, vec![2]);
+        assert_eq!(resolution.resolved[0].pkg.version_count(), 2);
         assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
+    }
+
+    /// The [`Package`] view works against a memory-mapped repo, exercising
+    /// the owned-deserialize (rkyv) path of `package()`/`packages_iter()`
+    /// and the `Package` accessors.
+    #[test]
+    fn test_package_on_archived_repo() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("oma-aptdb.bincode");
+
+        let data = AptDbData {
+            entries: build_map(
+                vec![
+                    entry("fish", "3.6"),
+                    entry("fish", "3.7"),
+                    entry("apt", "2.5.4"),
+                ],
+                vec![stable_source(), stable_source(), stable_source()],
+            ),
+            native_arch: "amd64".to_string(),
+            files: Vec::new(),
+        };
+        save_aptdb(&path, &data).unwrap();
+
+        let db = AptDb {
+            repo: Repo::Archived(ArchivedAptDb::open(&path).unwrap()),
+            overlay: HashMap::new(),
+            native_arch: "amd64".to_string(),
+        };
+
+        let fish = db.package("fish").expect("fish present");
+        assert_eq!(fish.name(), "fish");
+        assert_eq!(fish.version_count(), 2);
+        assert_eq!(
+            fish.candidate().unwrap().entry.version.as_deref(),
+            Some("3.7")
+        );
+        assert_eq!(
+            fish.get_version("3.6").unwrap().entry.version.as_deref(),
+            Some("3.6")
+        );
+        assert_eq!(fish.fullname(true), "fish");
+        assert!(db.package("nosuchpkg").is_none());
+
+        let mut names = db
+            .packages_iter()
+            .map(|p| p.name().to_string())
+            .collect::<Vec<_>>();
+        names.sort();
+        assert_eq!(names, vec!["apt", "fish"]);
     }
 }

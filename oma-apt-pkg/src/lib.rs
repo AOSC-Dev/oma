@@ -15,6 +15,8 @@ pub use package_matcher::*;
 mod apt_lists;
 #[cfg(feature = "apt-sources")]
 pub mod apt_sources;
+#[cfg(feature = "apt-lists")]
+pub mod package;
 pub use apt_config::*;
 #[cfg(feature = "apt-config")]
 pub(crate) mod config_parser;
@@ -40,6 +42,8 @@ pub use apt_lists::*;
 pub use dpkg::*;
 pub use dpkg_state::*;
 pub use error::*;
+#[cfg(feature = "apt-lists")]
+pub use package::*;
 
 #[cfg(feature = "filename")]
 pub use filename::{AptListFilename, FilenameError, FilenameResult};

@@ -22,6 +22,7 @@ apt-lists = [
     "dep:zstd",
     "dep:liblzma",
     "dep:rayon",
+    "dep:debversion",
 ]
 apt-sources = ["apt-config", "filename", "dep:oma-apt-sources-lists"]
 dpkg-status = []

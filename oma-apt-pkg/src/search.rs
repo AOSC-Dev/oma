@@ -567,8 +567,9 @@ fn is_upgradable(candidate_version: Option<&str>, installed_version: Option<&str
             let inst_ver = debversion::Version::from_str(inst);
             match (cand_ver, inst_ver) {
                 (Ok(cv), Ok(iv)) => cv > iv,
-                // Fall back to string comparison if parsing fails
-                _ => cand != inst,
+                // Directional string fallback: only an unparsable candidate
+                // that sorts above the installed string counts as an upgrade.
+                _ => cand > inst,
             }
         }
         (Some(_), None) => false, // not installed
@@ -628,8 +629,8 @@ impl OmaSearch for StrSimSearch<'_> {
         let mut results: Vec<SearchResult> = scored
             .into_iter()
             .map(|(name, _, installed, upgradable)| {
-                let entry = self.apt_db.get_candidate(&name);
-                let (old_version, new_version) = if let Some(e) = entry.as_ref() {
+                let cand = self.apt_db.package(&name).and_then(|p| p.candidate());
+                let (old_version, new_version) = if let Some(cand) = cand.as_ref() {
                     extract_versions(
                         if upgradable {
                             PackageStatus::Upgrade
@@ -640,22 +641,23 @@ impl OmaSearch for StrSimSearch<'_> {
                         },
                         &self.dpkg.installed_versions,
                         &name,
-                        &e.version,
+                        &cand.entry.version,
                     )
                 } else {
                     (None, "Unknown".to_string())
                 };
 
-                let desc = entry
+                let desc = cand
                     .as_ref()
-                    .and_then(|e| {
-                        e.description
+                    .and_then(|cand| {
+                        cand.entry
+                            .description
                             .as_deref()
                             .map(|d| d.lines().next().unwrap_or(d).to_string())
                     })
                     .unwrap_or_else(|| "No description".to_string());
 
-                let has_dbg = entry
+                let has_dbg = cand
                     .as_ref()
                     .is_some_and(|_| self.apt_db.has_package(&format!("{name}-dbg")));
 
@@ -855,6 +857,18 @@ mod tests {
     #[test]
     fn test_is_upgradable_no_candidate() {
         assert!(!is_upgradable(None, Some("1.0")));
+    }
+
+    #[test]
+    fn test_is_upgradable_malformed_fallback_is_directional() {
+        // An unparsable candidate that sorts below the installed version is
+        // not an upgrade: the string fallback compares directionally instead
+        // of reporting any unequal pair as an upgrade.
+        assert!(!is_upgradable(Some("1.0!"), Some("5.0")));
+        // An unparsable candidate that sorts above → upgradable.
+        assert!(is_upgradable(Some("5.0!"), Some("1.0")));
+        // Identical unparsable strings → not upgradable.
+        assert!(!is_upgradable(Some("1.0!"), Some("1.0!")));
     }
 
     #[test]

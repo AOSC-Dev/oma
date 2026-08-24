@@ -8,6 +8,7 @@ use dialoguer::console::{StyledObject, style};
 use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
     AptConfig, AptDb, AptExtendedStates, DpkgState, IndexSource, PackageEntry, PackageVersion,
+    ResolvedPackage,
 };
 use oma_console::indicatif::HumanBytes;
 use serde::Serialize;
@@ -77,10 +78,10 @@ impl CliExecuter for Show {
 
         let mut stdout = stdout();
 
-        for (i, versions) in resolution.groups.iter().enumerate() {
+        for (i, resolved) in resolution.resolved.iter().enumerate() {
             display_group(
                 &mut stdout,
-                versions,
+                resolved,
                 &dpkg,
                 &ext_states,
                 all,
@@ -88,23 +89,18 @@ impl CliExecuter for Show {
                 apt_cfg,
             )?;
 
-            if i != resolution.groups.len() - 1 {
+            if i != resolution.resolved.len() - 1 {
                 writeln!(stdout).ok();
             }
 
             // Show "N additional versions" hint for a single package without
-            // --all. Use the distinct version count resolved from the whole
-            // database (not entries of the displayed group): a query may be
-            // version-filtered (a local `.deb` resolves to `pkg=<version>`),
-            // yet the hint reports every other available version, matching
-            // `apt` and old oma (`pkg.versions().count() - 1`).
-            let additional = if !all && !json && resolution.groups.len() == 1 {
-                resolution
-                    .version_counts
-                    .first()
-                    .copied()
-                    .unwrap_or(0)
-                    .saturating_sub(1)
+            // --all. The version count comes from the whole database (not the
+            // displayed group): a query may be version-filtered (a local
+            // `.deb` resolves to `pkg=<version>`), yet the hint reports every
+            // other available version, matching `apt` and old oma
+            // (`pkg.versions().count() - 1`).
+            let additional = if !all && !json && resolution.resolved.len() == 1 {
+                resolved.pkg.version_count().saturating_sub(1)
             } else {
                 0
             };
@@ -118,11 +114,10 @@ impl CliExecuter for Show {
     }
 }
 
-/// Display one resolved group, honoring the JSON flag.
-#[allow(clippy::too_many_arguments)]
+/// Display one resolved query, honoring the JSON flag.
 fn display_group(
     stdout: &mut impl Write,
-    versions: &[Cow<'_, PackageVersion>],
+    resolved: &ResolvedPackage<'_>,
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     all: bool,
@@ -130,16 +125,16 @@ fn display_group(
     apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
     if json {
-        display_versions_to_json(stdout, versions, dpkg, apt_cfg)?;
+        display_versions_to_json(stdout, &resolved.versions, dpkg, apt_cfg)?;
     } else {
-        display_versions(stdout, versions, dpkg, ext_states, all, apt_cfg);
+        display_versions(stdout, resolved, dpkg, ext_states, all, apt_cfg);
     }
     Ok(())
 }
 
 fn display_versions(
     stdout: &mut impl Write,
-    versions: &[Cow<'_, PackageVersion>],
+    resolved: &ResolvedPackage<'_>,
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     show_all: bool,
@@ -148,8 +143,9 @@ fn display_versions(
     // Just the highest version without `--all`: a linear scan over the
     // already-parsed versions (the `OnceCell` cache) instead of sorting
     // them all just to keep the last.
-    if !show_all && let Some(version) = versions.iter().max_by_key(|v| v.parsed_version()) {
-        display_version(stdout, version, dpkg, ext_states, apt_cfg);
+    if !show_all && let Some(version) = resolved.versions.iter().max_by_key(|v| v.parsed_version())
+    {
+        display_version(stdout, resolved, version, dpkg, ext_states, apt_cfg);
         return;
     }
 
@@ -157,7 +153,7 @@ fn display_versions(
     // versions instead of re-parsing each version string. Unstable is fine:
     // ties only occur between versions that compare equal (e.g. unparsable
     // version strings), whose display order is meaningless.
-    let mut shown: Vec<&Cow<'_, PackageVersion>> = versions.iter().collect();
+    let mut shown: Vec<&Cow<'_, PackageVersion>> = resolved.versions.iter().collect();
     shown.sort_unstable_by_key(|a| a.parsed_version());
 
     for (idx, version) in shown.iter().enumerate() {
@@ -165,7 +161,7 @@ fn display_versions(
             writeln!(stdout).ok();
         }
 
-        display_version(stdout, version, dpkg, ext_states, apt_cfg);
+        display_version(stdout, resolved, version, dpkg, ext_states, apt_cfg);
     }
 }
 
@@ -195,16 +191,27 @@ fn field_value<'a>(entry: &'a PackageEntry, field: &str) -> Option<Cow<'a, str>>
 }
 
 /// Display one version as a single block, listing every source it is
-/// available from.
+/// available from. The package-level fields (name, installed state) come
+/// from the [`Package`] view, the rest from this specific version.
 fn display_version(
     stdout: &mut impl Write,
+    resolved: &ResolvedPackage<'_>,
     version: &PackageVersion,
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     apt_cfg: &AptConfig,
 ) {
     for (label, field) in DISPLAY_FIELDS {
-        let Some(value) = field_value(&version.entry, field) else {
+        // The package name is this version's fullname (`name:arch`,
+        // omitting the native arch), like apt's `apt show` — taken from
+        // the displayed version so an arch-filtered query (`foo:i386`) or
+        // `--all` labels each block with its own architecture.
+        let value = if *field == "Package" {
+            Some(resolved.pkg.fullname_of(version, true))
+        } else {
+            field_value(&version.entry, field)
+        };
+        let Some(value) = value else {
             continue;
         };
         writeln!(stdout, "{} {value}", key_style(Cow::Borrowed(label))).ok();
@@ -229,14 +236,14 @@ fn display_version(
     }
 
     // APT-Manual-Installed: check dpkg status and auto-installed flag.
-    if version.entry.is_installed(dpkg) {
+    if resolved.pkg.is_installed(dpkg) {
         write!(
             stdout,
             "{}",
             key_style(Cow::Borrowed("APT-Manual-Installed: "))
         )
         .ok();
-        if version.entry.is_auto_installed(dpkg, ext_states) {
+        if resolved.pkg.is_auto_installed(dpkg, ext_states) {
             writeln!(stdout, "no").ok();
         } else {
             writeln!(stdout, "yes").ok();
