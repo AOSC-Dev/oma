@@ -52,7 +52,3 @@ default = ["aosc", "sequoia-nettle-backend", "rustls"]
 flume = { workspace = true }
 oma-utils = { workspace = true, features = ["dpkg"] }
 rustls = { workspace = true }
-
-[[example]]
-name = "update"
-required-features = ["apt"]
