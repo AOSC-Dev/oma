@@ -12,7 +12,8 @@ use std::{
     path::Path,
     str::FromStr,
 };
-use thiserror::Error;
+
+use crate::date::parse_date;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChecksumItem {
@@ -287,105 +288,21 @@ pub(crate) fn file_is_compress(name: &str) -> bool {
     false
 }
 
-#[derive(Debug, Error)]
-enum ParseDateError {
-    #[error(transparent)]
-    ParseError(#[from] jiff::Error),
-    #[error("Could not parse date: {0}")]
-    BadDate(ParseIntError),
-}
-
-fn parse_date(date: &str) -> Result<Timestamp, ParseDateError> {
-    match jiff::fmt::rfc2822::parse(date) {
-        Ok(res) => Ok(res.timestamp()),
-        Err(e) => {
-            debug!("Failed to parse {}: {e}, trying to use date hack ...", date);
-            let hack_date = date_hack(date).map_err(ParseDateError::BadDate)?;
-            Ok(jiff::fmt::rfc2822::parse(&hack_date)?.timestamp())
-        }
-    }
-}
-
-/// Replace RFC 1123/822/2822 non-compliant "UTC" marker with RFC 2822-compliant "+0000" whilst parsing InRelease.
-/// and for non-standard X:YY:ZZ conversion to XX:YY:ZZ.
-///
-/// - Some third-party repositories (such as those generated with Aptly) uses "UTC" to denote the Coordinated Universal
-///   Time, which is not allowed in RFC 1123 or 822/2822 (all calls for "GMT" or "UT", 822 allows "Z", and 2822 allows
-///   "+0000").
-/// - This is used by many commercial software vendors, such as Google, Microsoft, and Spotify.
-/// - This is allowed in APT's RFC 1123 parser. However, as jiff requires full compliance with the
-///   aforementioned RFC documents, "UTC" is considered illegal.
-///
-/// Replace the "UTC" marker at the end of date strings to make it palatable to jiff.
-///
-/// and for non-standard X:YY:ZZ conversion to XX:YY:ZZ to make it palatable to jiff.
-fn date_hack(date: &str) -> Result<String, ParseIntError> {
-    let mut split_time = date
-        .split_ascii_whitespace()
-        .map(|x| x.to_string())
-        .collect::<Vec<_>>();
-
-    for c in split_time.iter_mut() {
-        if c.is_empty() || !c.contains(':') {
-            continue;
-        }
-
-        let mut time_split = c.split(':').map(|x| x.to_string()).collect::<Vec<_>>();
-
-        // X:YY:ZZ conversion to XX:YY:ZZ to make it palatable to jiff
-        for k in time_split.iter_mut() {
-            match k.parse::<u64>()? {
-                0..=9 if k.len() == 1 => {
-                    *k = "0".to_string() + k;
-                }
-                _ => continue,
-            }
-        }
-
-        *c = time_split.join(":");
-    }
-
-    let date = split_time.join(" ");
-
-    Ok(date.replace("UTC", "+0000"))
-}
-
-#[test]
-fn test_date_hack() {
-    let a = "Thu, 02 May 2024  9:58:03 UTC";
-    let hack = date_hack(&a).unwrap();
-    assert_eq!(hack, "Thu, 02 May 2024 09:58:03 +0000");
-    let b = jiff::fmt::rfc2822::parse(&hack);
-    assert!(b.is_ok());
-
-    let a = "Thu, 02 May 2024 09:58:03 +0000";
-    let hack = date_hack(&a).unwrap();
-    assert_eq!(hack, "Thu, 02 May 2024 09:58:03 +0000");
-    let b = jiff::fmt::rfc2822::parse(&hack);
-    assert!(b.is_ok());
-
-    let a = "Thu, 02 May 2024  0:58:03 +0000";
-    let hack = date_hack(&a).unwrap();
-    assert_eq!(hack, "Thu, 02 May 2024 00:58:03 +0000");
-    let b = jiff::fmt::rfc2822::parse(&hack);
-    assert!(b.is_ok());
-}
-
 #[test]
 fn test_split_name_and_ext() {
     let example1 = "main/dep11/icons-128x128.tar.gz";
-    let res = split_ext_and_filename(&example1);
+    let res = split_ext_and_filename(example1);
     assert_eq!(
         res,
         ("gz".into(), "main/dep11/icons-128x128.tar".to_string())
     );
 
     let example2 = "main/i18n/Translation-bg.xz";
-    let res = split_ext_and_filename(&example2);
+    let res = split_ext_and_filename(example2);
     assert_eq!(res, ("xz".into(), "main/i18n/Translation-bg".to_string()));
 
     let example2 = "main/i18n/Translation-bg";
-    let res = split_ext_and_filename(&example2);
+    let res = split_ext_and_filename(example2);
     assert_eq!(res, ("".into(), "main/i18n/Translation-bg".to_string()));
 }
 
