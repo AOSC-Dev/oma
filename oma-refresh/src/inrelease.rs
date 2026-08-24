@@ -291,18 +291,18 @@ pub(crate) fn file_is_compress(name: &str) -> bool {
 #[test]
 fn test_split_name_and_ext() {
     let example1 = "main/dep11/icons-128x128.tar.gz";
-    let res = split_ext_and_filename(&example1);
+    let res = split_ext_and_filename(example1);
     assert_eq!(
         res,
         ("gz".into(), "main/dep11/icons-128x128.tar".to_string())
     );
 
     let example2 = "main/i18n/Translation-bg.xz";
-    let res = split_ext_and_filename(&example2);
+    let res = split_ext_and_filename(example2);
     assert_eq!(res, ("xz".into(), "main/i18n/Translation-bg".to_string()));
 
     let example2 = "main/i18n/Translation-bg";
-    let res = split_ext_and_filename(&example2);
+    let res = split_ext_and_filename(example2);
     assert_eq!(res, ("".into(), "main/i18n/Translation-bg".to_string()));
 }
 
