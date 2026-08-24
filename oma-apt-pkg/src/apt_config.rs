@@ -489,8 +489,8 @@ mod tests {
             cfg.get_file("Dir::Etc::sourcelist", ""),
             "/etc/apt/sources.list"
         );
-        assert_eq!(cfg.get_bool("APT::Install-Recommends", false), true);
-        assert_eq!(cfg.get_bool("APT::Install-Suggests", true), false);
+        assert!(cfg.get_bool("APT::Install-Recommends", false));
+        assert!(!cfg.get_bool("APT::Install-Suggests", true));
     }
 
     #[test]

@@ -5,7 +5,7 @@ use oma_tum::{get_matches_tum, get_tum};
 
 fn main() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let tum = get_tum(&dir.join("examples/tum")).unwrap();
+    let tum = get_tum(dir.join("examples/tum")).unwrap();
     let tum = get_matches_tum(
         &tum,
         &OmaOperation {

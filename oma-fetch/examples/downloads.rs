@@ -40,7 +40,7 @@ async fn main() {
 
     let file_2 = DownloadEntry::builder()
         .source(vec![source_2])
-        .filename("oma_1.27.0~rc.1-1_amd64-deepin23.deb".to_string().into())
+        .filename("oma_1.27.0~rc.1-1_amd64-deepin23.deb".to_string())
         .dir(PathBuf::from("./oma-fetcher-test/partial"))
         .hash(
             Checksum::from_sha256_str(
