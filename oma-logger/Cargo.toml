@@ -2,7 +2,7 @@
 name = "oma-logger"
 version = "0.1.0"
 edition = "2024"
-description = "Logging infrastructure used by oma"
+description = "Logging infrastructure for oma"
 license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

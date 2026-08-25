@@ -1,6 +1,6 @@
 //! # oma-logger
 //!
-//! Centralized logging parts for oma.
+//! Logging infrastructure for oma
 //!
 //! This crate provides the logging macros used across the workspace, backed
 //! by either `spdlog` (the default `spdlog` feature) or the `log` crate (the
