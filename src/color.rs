@@ -9,8 +9,8 @@ use oma_console::{
     console::{self, Color, StyledObject, style},
     print::termbg,
 };
-use rustix::stdio::stdout;
 use oma_logger::debug;
+use rustix::stdio::stdout;
 
 use crate::NO_COLOR;
 use crate::dbus::is_ssh_from_loginctl;

@@ -14,8 +14,8 @@ use ahash::RandomState;
 use debian_control::lossy::Relations;
 #[cfg(any(feature = "search-strsim", feature = "search-text"))]
 use glob_match::glob_match;
-use serde::{Deserialize, Serialize};
 use oma_logger::debug;
+use serde::{Deserialize, Serialize};
 
 use crate::apt_lists::PackageEntry;
 use crate::apt_sources::SourceLookup;

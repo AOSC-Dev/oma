@@ -56,7 +56,7 @@ pub fn ignores(cfg: &AptConfig) -> Vec<Regex> {
         .map(|k| cfg.get(&format!("Dir::Ignore-Files-Silently::{k}"), ""))
         .filter(|s| !s.is_empty());
 
-ignores_lines
+    ignores_lines
         .filter_map(|re| {
             Regex::new(&re).inspect_err(|e| {
                 warn!("Failed to parse regex {re} in ignore rule list (Dir::Ignore-Files-Silently): {e}")
