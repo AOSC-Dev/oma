@@ -80,7 +80,7 @@ impl CliExecuter for CommandNotFound {
                 let mut map: AHashMap<String, String> = AHashMap::new();
                 let handle = RT.handle();
 
-                let amo = if config.amo && !config.no_check_dbus {
+                let amo = if config.amo && !config.no_check_dbus() {
                     handle.block_on(amo_connect()).ok()
                 } else {
                     None

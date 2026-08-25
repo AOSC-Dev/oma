@@ -32,6 +32,42 @@ pub fn is_termux() -> bool {
     std::env::var("TERMUX_VERSION").is_ok_and(|v| !v.is_empty())
 }
 
+/// True values are `y`, `yes`, `t`, `true`, `on`, and `1`; false values are
+/// `n`, `no`, `f`, `false`, `off`, and `0`.
+///
+/// Both lists are clap's `BoolishValueParser` literals verbatim; matching is
+/// case-insensitive. See:
+/// - https://github.com/clap-rs/clap/blob/v4.6.2/clap_builder/src/util/str_to_bool.rs#L2-L24
+///   (the literal lists and `str_to_bool`)
+const TRUE_LITERALS: [&str; 6] = ["y", "yes", "t", "true", "on", "1"];
+const FALSE_LITERALS: [&str; 6] = ["n", "no", "f", "false", "off", "0"];
+
+/// Convert a string literal representation of truth to true or false, like
+/// clap's `str_to_bool` behind [`BoolishValueParser`](https://docs.rs/clap/latest/clap/builder/struct.BoolishValueParser.html).
+///
+/// Treat true/false values as case-insensitive.
+#[inline]
+pub fn str_to_bool(val: impl AsRef<str>) -> Option<bool> {
+    let pat = val.as_ref().to_ascii_lowercase();
+    if TRUE_LITERALS.contains(&pat.as_str()) {
+        Some(true)
+    } else if FALSE_LITERALS.contains(&pat.as_str()) {
+        Some(false)
+    } else {
+        None
+    }
+}
+
+/// Detect if we are running in a CI environment (e.g. GitHub Actions, GitLab
+/// CI).
+#[inline]
+pub fn is_ci() -> bool {
+    std::env::var("CI")
+        .ok()
+        .and_then(str_to_bool)
+        .unwrap_or(false)
+}
+
 #[inline]
 pub fn concat_url(url: &str, path: &str) -> String {
     format!(
@@ -103,4 +139,62 @@ pub fn get_file_lock(lock_path: &Path) -> Result<OwnedFd, GetLockError> {
     }
 
     Ok(fd)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_ci;
+
+    #[test]
+    fn test_is_ci() {
+        let original = std::env::var("CI").ok();
+
+        unsafe {
+            std::env::set_var("CI", "1");
+            assert!(is_ci());
+
+            std::env::set_var("CI", "true");
+            assert!(is_ci());
+
+            std::env::set_var("CI", "True");
+            assert!(is_ci());
+
+            // The remaining BoolishValueParser truthy literals.
+            std::env::set_var("CI", "yes");
+            assert!(is_ci());
+            std::env::set_var("CI", "on");
+            assert!(is_ci());
+            std::env::set_var("CI", "y");
+            assert!(is_ci());
+            std::env::set_var("CI", "t");
+            assert!(is_ci());
+
+            std::env::set_var("CI", "0");
+            assert!(!is_ci());
+
+            std::env::set_var("CI", "false");
+            assert!(!is_ci());
+
+            // Explicit falses beyond "0"/"false" are also not-CI.
+            std::env::set_var("CI", "no");
+            assert!(!is_ci());
+            std::env::set_var("CI", "off");
+            assert!(!is_ci());
+
+            // Unrecognized values are strict: not-CI.
+            std::env::set_var("CI", "2");
+            assert!(!is_ci());
+
+            std::env::set_var("CI", "");
+            assert!(!is_ci());
+
+            std::env::remove_var("CI");
+            assert!(!is_ci());
+
+            match original {
+                Some(v) => std::env::set_var("CI", v),
+                None => std::env::remove_var("CI"),
+            }
+        }
+    }
 }

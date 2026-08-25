@@ -35,7 +35,7 @@ use error::OutputError;
 use i18n_embed::{DesktopLanguageRequester, Localizer};
 use lang::LANGUAGE_LOADER;
 use oma_console::{terminal::wrap_content, writer::Writer};
-use oma_utils::{OsRelease, is_termux};
+use oma_utils::{OsRelease, is_ci, is_termux};
 use spdlog::{debug, info, prelude::error as log_error, warn};
 use tokio::runtime::Runtime;
 use tui::Tui;
@@ -270,7 +270,7 @@ fn init_localizer() {
 
 fn try_main(mut config: OmaConfig, matches: ArgMatches) -> Result<ExitHandle, OutputError> {
     crate::color::init_color(
-        config.color == ColorChoice::Never,
+        config.color == ColorChoice::Never || is_ci(),
         config.follow_terminal_color,
     );
 

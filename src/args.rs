@@ -6,6 +6,7 @@ use clap::{
 use enum_dispatch::enum_dispatch;
 use itertools::Itertools;
 use oma_console::OmaFormatter;
+use oma_utils::is_ci;
 
 use crate::{
     GlobalOptions,
@@ -117,8 +118,10 @@ impl OhManagerAilurus {
 
     #[inline]
     pub fn enable_ansi(&self) -> bool {
-        (self.global.color != ColorChoice::Never && is_terminal())
-            || self.global.color == ColorChoice::Always
+        // 在 CI 环境中禁用 ANSI，避免日志被转义序列污染。
+        !is_ci()
+            && ((self.global.color != ColorChoice::Never && is_terminal())
+                || self.global.color == ColorChoice::Always)
     }
 }
 

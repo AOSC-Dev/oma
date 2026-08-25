@@ -172,7 +172,7 @@ pub fn search(
         SearchEngine::Indicium(f) => {
             let query = keywords.join(" ");
 
-            if config.amo && !config.no_check_dbus {
+            if config.amo && !config.no_check_dbus() {
                 match RT.block_on(amo_search(&query)) {
                     Ok(r) => Ok(r),
                     Err(_) => local_indicium_search(config.apt_config(), f, query),
