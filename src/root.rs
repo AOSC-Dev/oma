@@ -77,9 +77,34 @@ fn pkexec_oma() -> Result<()> {
     exit(out.status.code().unwrap_or(1));
 }
 
+/// Environment variables that oma reads and should be forwarded to the
+/// elevated process when using `systemd-run` (which starts services with a
+/// minimal environment). All `OMA_*` variables are forwarded automatically.
+const OMA_KNOWN_ENVS: &[&str] = &[
+    // logging
+    "RUST_LOG",
+    // history "Requested-By" logging
+    "SUDO_USER",
+    "SUDO_UID",
+    // platform detection
+    "TERMUX_VERSION",
+    "CI",
+    // color / terminal detection
+    "NO_COLOR",
+    "SSH_CONNECTION",
+    "TERM",
+    "DISPLAY",
+    "WAYLAND_DISPLAY",
+    // i18n (sys-locale)
+    "LANGUAGE",
+    "LC_ALL",
+    "LC_MESSAGES",
+    "LANG",
+];
+
 fn systemd_run_oma() -> Result<()> {
-    let oma_envs_args = std::env::vars()
-        .filter(|(k, _)| k.starts_with("OMA_"))
+    let envs_args = std::env::vars()
+        .filter(|(k, _)| k.starts_with("OMA_") || OMA_KNOWN_ENVS.contains(&k.as_str()))
         .map(|(k, v)| format!("--setenv={k}={v}"));
 
     let out = Command::new("systemd-run")
@@ -88,7 +113,7 @@ fn systemd_run_oma() -> Result<()> {
         .arg("--pty")
         .arg("--quiet")
         .arg("--unit=oma")
-        .args(oma_envs_args)
+        .args(envs_args)
         .arg("--collect")
         .args(std::env::args())
         .spawn()
