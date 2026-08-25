@@ -45,9 +45,7 @@ const FALSE_LITERALS: [&str; 6] = ["n", "no", "f", "false", "off", "0"];
 /// Convert a string literal representation of truth to true or false, like
 /// clap's `str_to_bool` behind [`BoolishValueParser`](https://docs.rs/clap/latest/clap/builder/struct.BoolishValueParser.html).
 ///
-/// `true` values are `y`, `yes`, `t`, `true`, `on`, and `1`; `false` values
-/// are `n`, `no`, `f`, `false`, `off`, and `0` (case-insensitive). Any other
-/// value is `None`.
+/// Treat true/false values as case-insensitive.
 #[inline]
 pub fn str_to_bool(val: impl AsRef<str>) -> Option<bool> {
     let pat = val.as_ref().to_ascii_lowercase();
@@ -62,11 +60,6 @@ pub fn str_to_bool(val: impl AsRef<str>) -> Option<bool> {
 
 /// Detect if we are running in a CI environment (e.g. GitHub Actions, GitLab
 /// CI).
-///
-/// The `CI` environment variable counts as set only when [`str_to_bool`]
-/// accepts its value as truthy (`"1"`, `"true"`, `"yes"`, `"on"`, `"y"`,
-/// `"t"`, case-insensitive). Explicit falses (`"0"`, `"false"`, `"no"`, ...)
-/// and unrecognized values are both treated as not-CI.
 #[inline]
 pub fn is_ci() -> bool {
     std::env::var("CI")
