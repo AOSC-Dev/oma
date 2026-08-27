@@ -281,7 +281,7 @@ impl SingleDownloader {
                 let mut validator = hash.get_validator();
 
                 if let Ok(mut f) = tokio::fs::File::open(&local_file_in_formal).await {
-                    let (_, finish) =
+                    let (read, finish) =
                         crate::download::checksum(callback, &mut f, &mut validator).await;
 
                     if finish {
@@ -297,6 +297,12 @@ impl SingleDownloader {
                             index: self.download_list_index,
                             wrote: false,
                         });
+                    }
+
+                    // The checksum helper already reported the stale file's
+                    // bytes; undo them so the bar only counts the re-download.
+                    if read != 0 {
+                        callback(Event::GlobalProgressSub(read)).await;
                     }
                 }
             }
