@@ -1,8 +1,7 @@
 use std::time::Duration;
 
 use oma_fetch::{
-    CompressType, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event,
-    checksum::Checksum,
+    DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType, Event, checksum::Checksum,
 };
 use reqwest::ClientBuilder;
 use sha2::{Digest, Sha256};
@@ -57,7 +56,6 @@ async fn global_progress_not_inflated_by_stale_final_file() {
     let source = DownloadSource {
         url: format!("http://127.0.0.1:{port}/pkg"),
         source_type: DownloadSourceType::Http,
-        file_type: CompressType::None,
     };
     let entry = DownloadEntry::builder()
         .source(vec![source])
