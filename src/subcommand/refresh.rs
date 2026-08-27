@@ -21,7 +21,7 @@ impl CliExecuter for Refresh {
             return Ok(ExitHandle::default());
         }
 
-        root()?;
+        root(config.no_check_dbus)?;
 
         RefreshInner::builder().config(&config).build().run()?;
 

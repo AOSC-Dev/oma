@@ -123,7 +123,7 @@ impl CliExecuter for Install {
         config.update_from_cli_no_refresh_topics(no_refresh_topics);
 
         let _lock_fd = if !config.dry_run {
-            root()?;
+            root(config.no_check_dbus)?;
             Some(lock_oma(&config.sysroot)?)
         } else {
             None
