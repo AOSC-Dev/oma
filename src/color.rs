@@ -4,13 +4,10 @@ use std::sync::OnceLock;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use oma_console::print::termbg::Theme;
-use oma_console::{
-    console::{self, Color, StyledObject, style},
-    print::termbg,
-};
+use oma_console::console::{self, Color, StyledObject, style};
 use oma_logger::debug;
 use rustix::stdio::stdout;
+use termbg::Theme;
 
 use crate::NO_COLOR;
 use crate::dbus::is_ssh_from_loginctl;

@@ -30,9 +30,6 @@ pub mod writer;
 pub mod terminal;
 
 #[cfg(feature = "print")]
-pub mod print;
-
-#[cfg(feature = "print")]
 pub use console;
 
 #[cfg(feature = "progress_bar_style")]

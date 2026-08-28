@@ -64,6 +64,7 @@ digest-io = { workspace = true }
 reqwest-middleware = { workspace = true }
 tui-input = { workspace = true }
 zbus = { workspace = true }
+termbg = { workspace = true }
 
 # oma crates
 oma-utils = { workspace = true }
