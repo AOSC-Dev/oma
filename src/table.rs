@@ -13,8 +13,8 @@ use ahash::HashMap;
 use ahash::HashSet;
 use dialoguer::console;
 use oma_console::indicatif::HumanBytes;
-use oma_console::pager::{Pager, PagerExit, PagerUIText};
 use oma_history::{InstallHistoryEntry, RemoveHistoryEntry};
+use oma_pager::{Pager, PagerExit, PagerUIText};
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 
 #[cfg(feature = "aosc")]
@@ -216,7 +216,7 @@ pub fn oma_display_with_normal_output(is_question: bool, len: usize) -> Result<P
                 download_and_install_size: None,
             }),
             None,
-            crate::color::color_theme(),
+            crate::color::pager_theme(),
             false,
         )
         .map_err(|e| OutputError::with_source("Failed to get pager", e))?
@@ -409,7 +409,7 @@ pub fn table_for_install_pending(
                 download_and_install_size: Some((total_download_size, disk_size)),
             }),
             Some(fl!("pending-op")),
-            crate::color::color_theme(),
+            crate::color::pager_theme(),
             yn_mode,
         )
         .map_err(|e| OutputError::with_source("Failed to get pager", e))?
@@ -485,7 +485,7 @@ pub fn table_for_history_pending(
             download_and_install_size: Some((total_download_size, disk_size)),
         }),
         Some(fl!("pending-op")),
-        crate::color::color_theme(),
+        crate::color::pager_theme(),
         false,
     )
     .map_err(|e| OutputError::with_source("Failed to get pager", e))?;

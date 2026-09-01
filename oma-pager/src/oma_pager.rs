@@ -1,116 +1,27 @@
 use std::{
-    io::{self, BufRead, IsTerminal, Write, stderr, stdin, stdout},
+    io::{self, BufRead, Write},
     time::{Duration, Instant},
 };
 
-use aho_corasick::{AhoCorasick, BuildError};
 use ansi_to_tui::IntoText;
+use oma_console::writer::Writer;
+use oma_logger::debug;
+use ratatui::crossterm::{
+    self,
+    event::{self, Event},
+};
 use ratatui::{
     Frame, Terminal,
-    backend::{Backend, CrosstermBackend},
+    backend::Backend,
     layout::{Alignment, Constraint, Layout},
-    restore,
     style::{Color, Stylize},
-    widgets::{Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
-use ratatui::{
-    crossterm::{
-        self,
-        event::{self, Event, KeyCode, KeyModifiers},
-        execute,
-        terminal::{EnterAlternateScreen, enable_raw_mode},
-    },
-    widgets::Borders,
-};
-use spdlog::debug;
-use termbg::Theme;
 use tui_input::Input;
 
-use crate::writer::Writer;
-
-const HIGHLIGHT_START: &str = "\x1b[7m";
-const HIGHLIGHT_END: &str = "\x1b[0m";
-
-pub enum Pager {
-    Plain,
-    External(Box<OmaPager>),
-}
-
-impl Pager {
-    pub fn plain() -> Self {
-        Self::Plain
-    }
-
-    pub fn external(
-        ui_text: Box<dyn PagerUIText>,
-        title: Option<String>,
-        theme: Option<Theme>,
-        yn_mode: bool,
-    ) -> io::Result<Self> {
-        if !stdout().is_terminal() || !stderr().is_terminal() || !stdin().is_terminal() {
-            return Ok(Pager::Plain);
-        }
-
-        let app = OmaPager::new(title, theme, ui_text, yn_mode);
-        let res = Pager::External(Box::new(app));
-
-        Ok(res)
-    }
-
-    /// Get writer to writer something to pager
-    pub fn get_writer(&mut self) -> io::Result<Box<dyn Write + '_>> {
-        let res = match self {
-            Pager::Plain => Writer::new_stdout().get_writer(),
-            Pager::External(app) => {
-                let res: Box<dyn Write> = Box::new(app);
-                res
-            }
-        };
-
-        Ok(res)
-    }
-
-    /// Wait for the pager to exit
-    /// Use this function to start the pager
-    pub fn wait_for_exit(self) -> io::Result<PagerExit> {
-        let success = if let Pager::External(app) = self {
-            let mut terminal = prepare_create_tui()?;
-            let res = app.run(&mut terminal, Duration::from_millis(250))?;
-            exit_tui(&mut terminal)?;
-
-            res
-        } else {
-            PagerExit::NormalExit
-        };
-
-        Ok(success)
-    }
-}
-
-pub fn exit_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
-    restore();
-    terminal.show_cursor()?;
-
-    Ok(())
-}
-
-pub fn prepare_create_tui() -> io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
-    let hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
-        restore();
-        hook(info);
-    }));
-
-    execute!(stdout(), EnterAlternateScreen)?;
-    enable_raw_mode()?;
-
-    let backend = CrosstermBackend::new(stdout());
-    let mut terminal = Terminal::new(backend)?;
-
-    terminal.clear()?;
-
-    Ok(terminal)
-}
+use crate::highlight::{ClearHighlight, Highlight};
+use crate::key_binding::Control;
+use crate::traits::{PagerExit, PagerTheme, PagerUIText};
 
 enum PagerInner {
     Working(Vec<u8>),
@@ -134,27 +45,27 @@ pub struct OmaPager {
     /// The maximum width of the display area.
     max_width: u16,
     /// A string containing tips to be displayed in the pager at the bottom.
-    tips: String,
+    pub(crate) tips: String,
     /// An optional title for the pager.
     title: Option<String>,
     /// The length of the inner content.
     inner_len: usize,
-    /// The detected terminal theme (dark/light) used for the pager's theme.
-    theme: Option<Theme>,
+    /// The user-provided theme used to customize the pager's colors.
+    theme: Option<Box<dyn PagerTheme>>,
     /// A vector containing the indices of search results.
-    search_results: Vec<usize>,
+    pub(crate) search_results: Vec<usize>,
     /// The index of the current search result being displayed.
-    current_result_index: usize,
+    pub(crate) current_result_index: usize,
     /// The current mode of the pager, which can be either `Normal`, `Search` and `SearchInputText`.
-    mode: TuiMode,
+    pub(crate) mode: TuiMode,
     /// A reference to a trait object that provides UI text for the pager.
-    ui_text: Box<dyn PagerUIText>,
+    pub(crate) ui_text: Box<dyn PagerUIText>,
     /// A terminal writer to print oma-style message
     writer: Writer,
     /// Use y/n to replace 'q' to confirm/cancel if is question mode
-    yn_mode: bool,
+    pub(crate) yn_mode: bool,
     /// For search query editing.
-    search_input: Input,
+    pub(crate) search_input: Input,
 }
 
 impl Write for OmaPager {
@@ -174,41 +85,17 @@ impl Write for OmaPager {
     }
 }
 
-pub trait PagerUIText {
-    fn normal_tips(&self, yn_mode: bool) -> String;
-    fn search_tips_with_result(&self) -> String;
-    fn searct_tips_with_query(&self, query: &str) -> String;
-    fn search_tips_with_empty(&self) -> String;
-    fn search_tips_not_found(&self) -> String;
-}
-
 #[derive(PartialEq, Eq)]
-enum TuiMode {
+pub(crate) enum TuiMode {
     Search,
     SearchInputText,
     Normal,
 }
 
-pub enum PagerExit {
-    NormalExit,
-    Sigint,
-    DryRun,
-}
-
-impl From<PagerExit> for i32 {
-    fn from(value: PagerExit) -> Self {
-        match value {
-            PagerExit::NormalExit => 0,
-            PagerExit::Sigint => 130,
-            PagerExit::DryRun => 0,
-        }
-    }
-}
-
 impl OmaPager {
     pub fn new(
         title: Option<String>,
-        theme: Option<Theme>,
+        theme: Option<Box<dyn PagerTheme>>,
         ui_text: Box<dyn PagerUIText>,
         yn_mode: bool,
     ) -> Self {
@@ -279,139 +166,10 @@ impl OmaPager {
             let timeout = tick_rate.saturating_sub(last_tick.elapsed());
             if crossterm::event::poll(timeout)? {
                 match event::read()? {
-                    Event::Key(key) => {
-                        if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('c')
-                        {
-                            return Ok(PagerExit::Sigint);
-                        }
-
-                        if self.mode == TuiMode::SearchInputText {
-                            match key.code {
-                                KeyCode::Esc => {
-                                    self.exit_search_mode();
-                                }
-                                KeyCode::Enter => {
-                                    let query = self.search_input.value().to_string();
-                                    if query.trim().is_empty() {
-                                        self.tips = self.ui_text.search_tips_with_empty();
-                                    } else {
-                                        self.perform_search(&query);
-                                    }
-                                    self.mode = TuiMode::Search;
-                                }
-                                _ => {
-                                    use tui_input::InputRequest;
-                                    match key.code {
-                                        KeyCode::Char(c) => {
-                                            self.search_input.handle(InputRequest::InsertChar(c));
-                                        }
-                                        KeyCode::Backspace => {
-                                            self.search_input.handle(InputRequest::DeletePrevChar);
-                                        }
-                                        KeyCode::Delete => {
-                                            self.search_input.handle(InputRequest::DeleteNextChar);
-                                        }
-                                        KeyCode::Left => {
-                                            self.search_input.handle(InputRequest::GoToPrevChar);
-                                        }
-                                        KeyCode::Right => {
-                                            self.search_input.handle(InputRequest::GoToNextChar);
-                                        }
-                                        KeyCode::Home => {
-                                            self.search_input.handle(InputRequest::GoToStart);
-                                        }
-                                        KeyCode::End => {
-                                            self.search_input.handle(InputRequest::GoToEnd);
-                                        }
-                                        _ => {}
-                                    }
-                                    self.tips = self
-                                        .ui_text
-                                        .searct_tips_with_query(self.search_input.value());
-                                }
-                            }
-                            continue;
-                        }
-
-                        if key.modifiers == KeyModifiers::CONTROL {
-                            match key.code {
-                                KeyCode::Char('c') => return Ok(PagerExit::Sigint),
-                                KeyCode::Char('p') => self.up(),
-                                KeyCode::Char('n') => self.down(),
-                                _ => {}
-                            }
-                        }
-
-                        match key.code {
-                            KeyCode::Char('/') => {
-                                self.clear_highlight();
-                                self.mode = TuiMode::SearchInputText;
-                                self.tips = self
-                                    .ui_text
-                                    .searct_tips_with_query(self.search_input.value());
-                            }
-                            KeyCode::Esc => {
-                                if self.mode != TuiMode::Normal {
-                                    self.exit_search_mode();
-                                }
-                            }
-                            KeyCode::Enter => {
-                                self.down();
-                            }
-                            KeyCode::Down | KeyCode::Char('j') => self.down(),
-                            KeyCode::Up | KeyCode::Char('k') => self.up(),
-                            KeyCode::Left | KeyCode::Char('h') => self.left(),
-                            KeyCode::Right | KeyCode::Char('l') => self.right(),
-                            KeyCode::PageUp
-                            | KeyCode::Char('u')
-                            | KeyCode::Char('U')
-                            | KeyCode::Char('b')
-                            | KeyCode::Char('B') => self.page_up(),
-                            KeyCode::PageDown
-                            | KeyCode::Char('d')
-                            | KeyCode::Char('D')
-                            | KeyCode::Char(' ')
-                            | KeyCode::Char('f')
-                            | KeyCode::Char('F') => self.page_down(),
-                            KeyCode::Home | KeyCode::Char('g') => self.goto_begin(),
-                            KeyCode::End | KeyCode::Char('G') => self.goto_end(),
-                            KeyCode::Char('n') => {
-                                if self.yn_mode {
-                                    return Ok(PagerExit::Sigint);
-                                }
-                                if self.mode == TuiMode::Search && !self.search_results.is_empty() {
-                                    self.current_result_index =
-                                        (self.current_result_index + 1) % self.search_results.len();
-                                    self.jump_to(self.search_results[self.current_result_index]);
-                                }
-                            }
-                            KeyCode::Char('N') => {
-                                if self.mode == TuiMode::Search && !self.search_results.is_empty() {
-                                    if self.current_result_index == 0 {
-                                        self.current_result_index = self.search_results.len() - 1;
-                                    } else {
-                                        self.current_result_index -= 1;
-                                    }
-                                    self.jump_to(self.search_results[self.current_result_index]);
-                                }
-                            }
-                            KeyCode::Char(c) if c == 'q' || c == 'Q' => {
-                                if !self.yn_mode {
-                                    return Ok(PagerExit::NormalExit);
-                                } else {
-                                    return Ok(PagerExit::Sigint);
-                                }
-                            }
-                            KeyCode::Char('y') => {
-                                if self.yn_mode {
-                                    return Ok(PagerExit::NormalExit);
-                                } else {
-                                    self.up();
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
+                    Event::Key(key) => match self.handle_key_binding(key) {
+                        Control::Continue => continue,
+                        Control::Exit(exit) => return Ok(exit),
+                    },
                     _ => continue,
                 }
             }
@@ -421,7 +179,7 @@ impl OmaPager {
         }
     }
 
-    fn page_down(&mut self) {
+    pub(crate) fn page_down(&mut self) {
         let pos = self
             .vertical_scroll
             .saturating_add(self.area_height as usize);
@@ -433,24 +191,24 @@ impl OmaPager {
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
     }
 
-    fn page_up(&mut self) {
+    pub(crate) fn page_up(&mut self) {
         self.vertical_scroll = self
             .vertical_scroll
             .saturating_sub(self.area_height as usize);
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
     }
 
-    fn goto_end(&mut self) {
+    pub(crate) fn goto_end(&mut self) {
         self.vertical_scroll = self.inner_len.saturating_sub(self.area_height.into());
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
     }
 
-    fn goto_begin(&mut self) {
+    pub(crate) fn goto_begin(&mut self) {
         self.vertical_scroll = 0;
         self.vertical_scroll_state = self.vertical_scroll_state.position(0);
     }
 
-    fn right(&mut self) {
+    pub(crate) fn right(&mut self) {
         let width = self.writer.get_length();
 
         if self.max_width <= self.horizontal_scroll as u16 + width {
@@ -463,7 +221,7 @@ impl OmaPager {
             .position(self.horizontal_scroll);
     }
 
-    fn left(&mut self) {
+    pub(crate) fn left(&mut self) {
         let width = self.writer.get_length();
         self.horizontal_scroll = self.horizontal_scroll.saturating_sub((width / 4).into());
         self.horizontal_scroll_state = self
@@ -471,12 +229,12 @@ impl OmaPager {
             .position(self.horizontal_scroll);
     }
 
-    fn up(&mut self) {
+    pub(crate) fn up(&mut self) {
         self.vertical_scroll = self.vertical_scroll.saturating_sub(1);
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
     }
 
-    fn down(&mut self) {
+    pub(crate) fn down(&mut self) {
         if self
             .vertical_scroll
             .saturating_add(self.area_height as usize)
@@ -513,13 +271,13 @@ impl OmaPager {
         result
     }
 
-    fn exit_search_mode(&mut self) {
+    pub(crate) fn exit_search_mode(&mut self) {
         self.mode = TuiMode::Normal;
         self.clear_highlight();
         self.tips = self.ui_text.normal_tips(self.yn_mode);
     }
 
-    fn perform_search(&mut self, pattern: &str) {
+    pub(crate) fn perform_search(&mut self, pattern: &str) {
         self.search_results = self.search(pattern);
         if self.search_results.is_empty() {
             self.tips = self.ui_text.search_tips_not_found();
@@ -531,12 +289,12 @@ impl OmaPager {
     }
 
     /// Jump to line
-    fn jump_to(&mut self, line: usize) {
+    pub(crate) fn jump_to(&mut self, line: usize) {
         self.vertical_scroll = line;
         self.vertical_scroll_state = self.vertical_scroll_state.position(self.vertical_scroll);
     }
 
-    fn clear_highlight(&mut self) {
+    pub(crate) fn clear_highlight(&mut self) {
         if let PagerInner::Finished(ref mut text) = self.inner {
             let clear_highlighter = ClearHighlight::new();
             for line_index in &self.search_results {
@@ -564,19 +322,16 @@ impl OmaPager {
 
         let chunks = Layout::vertical(layout).split(area);
 
-        let color = self.theme;
-
-        let title_bg_color = match color {
-            Some(Theme::Dark) => Color::Indexed(25),
-            Some(Theme::Light) => Color::Indexed(189),
-            None => Color::Indexed(25),
-        };
-
-        let title_fg_color = match color {
-            Some(Theme::Dark) => Color::White,
-            Some(Theme::Light) => Color::Black,
-            None => Color::White,
-        };
+        let title_bg_color = self
+            .theme
+            .as_ref()
+            .map(|t| t.title_bg_color())
+            .unwrap_or(Color::Indexed(25));
+        let title_fg_color = self
+            .theme
+            .as_ref()
+            .map(|t| t.title_fg_color())
+            .unwrap_or(Color::White);
 
         if let Some(title) = &self.title {
             let title = Block::new()
@@ -682,41 +437,5 @@ impl OmaPager {
                 if has_title { chunks[2] } else { chunks[1] },
             );
         }
-    }
-}
-
-struct Highlight<'a> {
-    pattern: &'a str,
-    ac: AhoCorasick,
-}
-
-impl<'a> Highlight<'a> {
-    fn new(pattern: &'a str) -> Result<Self, BuildError> {
-        Ok(Self {
-            ac: AhoCorasick::new([pattern])?,
-            pattern,
-        })
-    }
-
-    fn replace(&self, input: &str) -> String {
-        self.ac.replace_all(
-            input,
-            &[format!(
-                "{}{}{}",
-                HIGHLIGHT_START, self.pattern, HIGHLIGHT_END
-            )],
-        )
-    }
-}
-
-struct ClearHighlight(AhoCorasick);
-
-impl ClearHighlight {
-    fn new() -> Self {
-        Self(AhoCorasick::new([HIGHLIGHT_START, HIGHLIGHT_END]).unwrap())
-    }
-
-    fn replace(&self, input: &str) -> String {
-        self.0.replace_all(input, &["", ""])
     }
 }

@@ -6,6 +6,8 @@ use std::time::Duration;
 
 use oma_console::console::{self, Color, StyledObject, style};
 use oma_logger::debug;
+use oma_pager::PagerTheme;
+use ratatui::style::Color as TuiColor;
 use rustix::stdio::stdout;
 use termbg::Theme;
 
@@ -149,6 +151,30 @@ fn should_follow_terminal(no_color: bool, follow_terminal_color: bool) -> bool {
 /// The resolved terminal theme (dark/light), if a theme was detected.
 pub fn color_theme() -> Option<Theme> {
     *TERM_THEME.get().unwrap_or(&None)
+}
+
+/// Adapter that maps oma's detected terminal theme to the pager's theme trait.
+pub(crate) struct PagerThemeAdapter(Theme);
+
+impl PagerTheme for PagerThemeAdapter {
+    fn title_bg_color(&self) -> TuiColor {
+        match self.0 {
+            Theme::Dark => TuiColor::Indexed(25),
+            Theme::Light => TuiColor::Indexed(189),
+        }
+    }
+
+    fn title_fg_color(&self) -> TuiColor {
+        match self.0 {
+            Theme::Dark => TuiColor::White,
+            Theme::Light => TuiColor::Black,
+        }
+    }
+}
+
+/// The pager theme resolved from the detected terminal theme.
+pub(crate) fn pager_theme() -> Option<Box<dyn PagerTheme>> {
+    color_theme().map(|t| Box::new(PagerThemeAdapter(t)) as Box<dyn PagerTheme>)
 }
 
 /// Style `input` with the color palette of the resolved terminal theme.

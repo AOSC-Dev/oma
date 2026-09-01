@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use clap::Args;
 use dialoguer::console::style;
 use oma_console::indicatif::HumanBytes;
-use oma_console::pager::{exit_tui, prepare_create_tui};
+use oma_pager::{exit_tui, prepare_create_tui};
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 use oma_pm::oma_apt::{Package, PackageSort};
 use oma_pm::pkginfo::OmaPackageWithoutVersion;

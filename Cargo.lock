@@ -3409,6 +3409,7 @@ dependencies = [
  "oma-inquire",
  "oma-logger",
  "oma-mirror",
+ "oma-pager",
  "oma-pm",
  "oma-refresh",
  "oma-repo-verify",
@@ -3500,15 +3501,9 @@ dependencies = [
 name = "oma-console"
 version = "0.31.0"
 dependencies = [
- "aho-corasick",
- "ansi-to-tui",
  "console",
  "indicatif",
- "ratatui",
- "spdlog-rs",
- "termbg-with-async-stdin",
  "textwrap",
- "tui-input",
 ]
 
 [[package]]
@@ -3605,6 +3600,19 @@ dependencies = [
  "serde_json",
  "snafu",
  "toml 1.1.4+spec-1.1.0",
+]
+
+[[package]]
+name = "oma-pager"
+version = "0.1.0"
+dependencies = [
+ "aho-corasick",
+ "ansi-to-tui",
+ "console",
+ "oma-console",
+ "oma-logger",
+ "ratatui",
+ "tui-input",
 ]
 
 [[package]]
