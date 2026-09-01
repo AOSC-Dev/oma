@@ -14,4 +14,4 @@ console = { workspace = true }
 aho-corasick = { workspace = true }
 tui-input = { workspace = true }
 oma-logger = { workspace = true }
-oma-console = { workspace = true, features = ["print"] }
+oma-console = { workspace = true }

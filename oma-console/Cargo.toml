@@ -8,9 +8,5 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-console = { workspace = true, optional = true }
-textwrap = { workspace = true, optional = true }
-
-[features]
-print = ["dep:textwrap", "dep:console"]
-default = ["print"]
+console = { workspace = true }
+textwrap = { workspace = true }

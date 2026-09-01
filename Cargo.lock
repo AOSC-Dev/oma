@@ -3701,7 +3701,6 @@ dependencies = [
  "ahash",
  "flume",
  "futures",
- "oma-console",
  "oma-inquire",
  "oma-logger",
  "oma-mirror",
