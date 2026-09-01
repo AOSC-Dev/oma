@@ -4,7 +4,7 @@ use std::{
 };
 
 use ansi_to_tui::IntoText;
-use oma_console::writer::Writer;
+use oma_console::{console, writer::Writer};
 use oma_logger::debug;
 use ratatui::crossterm::{
     self,

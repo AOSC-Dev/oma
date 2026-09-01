@@ -10,7 +10,6 @@ license = "MIT"
 [dependencies]
 ratatui = { workspace = true }
 ansi-to-tui = { workspace = true }
-console = { workspace = true }
 aho-corasick = { workspace = true }
 tui-input = { workspace = true }
 oma-logger = { workspace = true }
