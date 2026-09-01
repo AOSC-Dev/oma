@@ -11,8 +11,8 @@ use crate::success;
 use clap::Args;
 use fs_extra::dir::get_size;
 use oma_logger::{debug, error, info};
-use oma_utils::human_bytes::HumanBytes;
 use oma_pm::apt::{OmaApt, OmaAptArgs};
+use oma_utils::human_bytes::HumanBytes;
 
 use crate::{error::OutputError, root::root};
 

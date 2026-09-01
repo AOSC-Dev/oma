@@ -10,9 +10,7 @@ use std::{
 
 use ahash::{HashMap, RandomState};
 use anyhow::Chain;
-use indicatif::{
-    MultiProgress, ProgressBar as IndicatifProgressBar, ProgressState, ProgressStyle,
-};
+use indicatif::{MultiProgress, ProgressBar as IndicatifProgressBar, ProgressState, ProgressStyle};
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
@@ -113,12 +111,9 @@ fn oma_global_bar_template(state: &ProgressState, w: &mut dyn fmt::Write) {
     write!(
         w,
         "{}",
-        console::style(format!(
-            " @ {}/s",
-            HumanBytes(state.per_sec() as u64)
-        ))
-        .green()
-        .bold()
+        console::style(format!(" @ {}/s", HumanBytes(state.per_sec() as u64)))
+            .green()
+            .bold()
     )
     .unwrap();
 }
