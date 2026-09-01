@@ -12,10 +12,10 @@ use crate::{NO_COLOR, NOT_DISPLAY_ABORT, WRITER, fl};
 use ahash::HashMap;
 use ahash::HashSet;
 use dialoguer::console;
-use oma_console::indicatif::HumanBytes;
 use oma_history::{InstallHistoryEntry, RemoveHistoryEntry};
 use oma_pager::{Pager, PagerExit, PagerUIText};
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
+use oma_utils::human_bytes::HumanBytes;
 
 #[cfg(feature = "aosc")]
 use oma_tum::TopicUpdateEntryRef;

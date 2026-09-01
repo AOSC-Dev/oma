@@ -10,8 +10,8 @@ use oma_apt_pkg::{
     AptConfig, AptDb, AptExtendedStates, DpkgState, IndexSource, PackageEntry, PackageVersion,
     ResolvedPackage,
 };
-use oma_console::indicatif::HumanBytes;
 use oma_logger::info;
+use oma_utils::human_bytes::HumanBytes;
 use serde::Serialize;
 
 use crate::{

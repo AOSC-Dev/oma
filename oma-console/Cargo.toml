@@ -9,10 +9,8 @@ license = "MIT"
 
 [dependencies]
 console = { workspace = true, optional = true }
-indicatif = { workspace = true, optional = true }
 textwrap = { workspace = true, optional = true }
 
 [features]
 print = ["dep:textwrap", "dep:console"]
-progress_bar_style = ["dep:indicatif"]
-default = ["print", "progress_bar_style"]
+default = ["print"]

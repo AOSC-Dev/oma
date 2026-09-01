@@ -3379,6 +3379,7 @@ dependencies = [
  "clap_complete",
  "clap_lex",
  "clap_mangen",
+ "console",
  "console-subscriber",
  "ctrlc",
  "debversion",
@@ -3397,6 +3398,7 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl-no-check-hashmap-on-ra",
  "indexmap",
+ "indicatif",
  "itertools 0.15.0",
  "jiff",
  "libc",
@@ -3502,7 +3504,6 @@ name = "oma-console"
 version = "0.31.0"
 dependencies = [
  "console",
- "indicatif",
  "textwrap",
 ]
 

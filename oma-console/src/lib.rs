@@ -10,13 +10,9 @@
 //!
 //! ## Modules
 //!
-//! - `pb`: Implements numerous styles of progress bars with the `indicatif` crate.
 //! - `writer`: Implements a formatted message writer to the terminal.
 //! - `print`: Implements a formatted message logger with support for different logging levels (normal, debug, error, etc.).
 //!
-
-#[cfg(feature = "progress_bar_style")]
-pub mod pb;
 
 #[cfg(feature = "print")]
 pub mod writer;
@@ -26,6 +22,3 @@ pub mod terminal;
 
 #[cfg(feature = "print")]
 pub use console;
-
-#[cfg(feature = "progress_bar_style")]
-pub use indicatif;

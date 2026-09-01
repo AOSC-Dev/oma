@@ -65,9 +65,11 @@ reqwest-middleware = { workspace = true }
 tui-input = { workspace = true }
 zbus = { workspace = true }
 termbg = { workspace = true }
+console = { workspace = true }
+indicatif = { workspace = true }
 
 # oma crates
-oma-utils = { workspace = true }
+oma-utils = { workspace = true, features = ["human-bytes"] }
 oma-console = { workspace = true }
 oma-pager = { workspace = true }
 oma-pm = { workspace = true }
