@@ -8,6 +8,7 @@ use std::{
 use anyhow::bail;
 use jiff::civil::date;
 use oma_apt_sources_lists::Signature;
+use oma_logger::{debug, warn};
 use sequoia_openpgp::{
     Cert, KeyHandle,
     cert::CertParser,
@@ -23,7 +24,6 @@ use sequoia_openpgp::{
     types::HashAlgorithm,
 };
 use sequoia_policy_config::ConfiguredStandardPolicy;
-use spdlog::{debug, warn};
 
 static POLICY: OnceLock<StandardPolicy<'static>> = OnceLock::new();
 

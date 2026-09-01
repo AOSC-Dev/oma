@@ -13,10 +13,10 @@ use oma_apt::{
     util::{apt_lock_inner, apt_unlock, apt_unlock_inner},
 };
 use oma_fetch::{Event, Summary};
+use oma_logger::debug;
 use oma_pm_operation_type::{InstallEntry, OmaOperation};
 use oma_utils::get_file_lock;
 use reqwest_middleware::ClientWithMiddleware;
-use spdlog::debug;
 use std::io::Write;
 
 use crate::{

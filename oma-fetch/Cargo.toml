@@ -34,7 +34,7 @@ async-compression = { workspace = true, features = [
 # even with older liblzma (Ubuntu 22.04 uses 5.2.x). Be mindful, however, that
 # async-compression depends on a different liblzma-rs than what is specified here.
 liblzma = { workspace = true, features = ["uncheck_liblzma_version"] }
-spdlog-rs = { workspace = true }
+oma-logger = { workspace = true }
 tokio-util = { workspace = true, features = ["compat"] }
 md-5 = { workspace = true }
 bon = { workspace = true }

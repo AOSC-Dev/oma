@@ -35,8 +35,8 @@ pub fn wrap_content<'a>(
 #[derive(Clone)]
 pub struct Terminal {
     term: Term,
-    pub(crate) limit_max_len: Option<u16>,
-    pub(crate) prefix_len: u16,
+    pub limit_max_len: Option<u16>,
+    pub prefix_len: u16,
 }
 
 impl Terminal {

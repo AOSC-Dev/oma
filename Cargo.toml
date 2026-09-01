@@ -29,11 +29,7 @@ rustls = { workspace = true, default-features = false, features = [
     "ring",
     "tls12",
 ], optional = true }
-spdlog-rs = { workspace = true, features = [
-    "multi-thread",
-    "source-location",
-    "log",
-] }
+oma-logger = { workspace = true, features = ["formatter"] }
 console-subscriber = { workspace = true, optional = true }
 ratatui = { workspace = true }
 ansi-to-tui = { workspace = true }
@@ -68,6 +64,7 @@ digest-io = { workspace = true }
 reqwest-middleware = { workspace = true }
 tui-input = { workspace = true }
 zbus = { workspace = true }
+termbg = { workspace = true }
 
 # oma crates
 oma-utils = { workspace = true }
@@ -125,6 +122,7 @@ rustix = { version = "1", features = ["process", "stdio"] }
 libc = "0.2.159"
 reqwest = { version = "0.13", default-features = false, features = ["http2"] }
 spdlog-rs = "0.5.2"
+log = "0.4"
 ratatui = "0.30.0"
 glob-match = "0.2.1"
 strsim = "0.11.1"
@@ -217,6 +215,7 @@ rust-embed = "8.11.0"
 # oma crates
 oma-utils = { version = "0.13.1", path = "./oma-utils", default-features = false }
 oma-console = { version = "0.31.0", path = "./oma-console" }
+oma-logger = { version = "0.1.0", path = "./oma-logger" }
 oma-pm = { version = "0.64.0", path = "./oma-pm" }
 oma-refresh = { version = "0.56.2", path = "./oma-refresh", default-features = false }
 oma-contents = { version = "0.19.1", path = "./oma-contents" }
@@ -271,6 +270,7 @@ members = [
     "oma-apt-pkg",
     "oma-contents",
     "oma-console",
+    "oma-logger",
     "oma-topics",
     "oma-fetch",
     "oma-refresh",

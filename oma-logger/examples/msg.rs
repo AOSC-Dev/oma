@@ -1,4 +1,4 @@
-use oma_console::OmaFormatter;
+use oma_logger::OmaFormatter;
 
 fn main() {
     spdlog::default_logger()

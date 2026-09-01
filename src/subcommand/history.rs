@@ -1,6 +1,7 @@
 use anyhow::Context;
 use clap::Args;
 use oma_history::DATABASE_PATH;
+use oma_logger::warn;
 use oma_pm::apt::{InstallOperation, OmaAptArgs};
 use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use oma_pm::oma_apt::PackageSort;
@@ -8,7 +9,6 @@ use oma_pm::pkginfo::PtrIsNone;
 use oma_pm::{apt::OmaApt, pkginfo::OmaPackage};
 use ratatui::crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use ratatui::{TerminalOptions, Viewport};
-use spdlog::warn;
 use std::time::Duration;
 
 use crate::WRITER;
@@ -238,7 +238,7 @@ impl CliExecuter for Undo {
         #[cfg(feature = "aosc")]
         if exit.get_status() == ExitStatus::Success && (!opt_in.is_empty() || !opt_out.is_empty()) {
             use crate::fl;
-            use spdlog::warn;
+            use oma_logger::warn;
 
             let arch = oma_utils::dpkg::dpkg_arch(&config.sysroot)?;
             let mut tm = oma_topics::TopicManager::new(

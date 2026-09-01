@@ -30,9 +30,9 @@ use oma_utils::GetLockError;
 use oma_utils::dbus::OmaDbusError;
 use oma_utils::dpkg::DpkgError;
 
+use oma_logger::{debug, error, info};
 #[cfg(feature = "aosc")]
 use oma_topics::OmaTopicsError;
-use spdlog::{debug, error, info};
 
 use crate::{due_to, fl, msg};
 

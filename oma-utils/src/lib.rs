@@ -14,7 +14,7 @@ pub use os_release::OsRelease;
 
 #[cfg(feature = "dbus")]
 pub mod dbus;
-use spdlog::debug;
+use oma_logger::debug;
 use sysinfo::{Pid, System};
 
 #[cfg(feature = "dbus")]

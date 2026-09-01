@@ -1,6 +1,6 @@
 use clap::Args;
+use oma_logger::info;
 use oma_pm::apt::{OmaApt, OmaAptArgs};
-use spdlog::info;
 
 use crate::args::CliExecuter;
 use crate::config::OmaConfig;

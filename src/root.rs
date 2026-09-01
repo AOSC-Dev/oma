@@ -5,9 +5,9 @@ use std::{
 };
 
 use anyhow::anyhow;
+use oma_logger::info;
 use oma_utils::is_termux;
 use rustix::process;
-use spdlog::info;
 
 use crate::{NOT_ALLOW_CTRLC, error::OutputError, fl};
 

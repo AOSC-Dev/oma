@@ -27,7 +27,7 @@ use tokio::{
     time::timeout,
 };
 
-use spdlog::{debug, trace};
+use oma_logger::{debug, trace};
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 use crate::{DownloadEntry, DownloadSourceType};

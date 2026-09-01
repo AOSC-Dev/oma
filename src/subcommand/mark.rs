@@ -2,11 +2,11 @@ use std::borrow::Cow;
 
 use clap::{Args, ValueEnum};
 use clap_complete::ArgValueCompleter;
+use oma_logger::info;
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
 };
-use spdlog::info;
 
 use crate::color::Colorize;
 use crate::{

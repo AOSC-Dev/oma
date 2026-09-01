@@ -18,10 +18,10 @@ use dialoguer::console;
 use indexmap::IndexSet;
 use oma_contents::searcher::Mode;
 use oma_contents::searcher::search;
+use oma_logger::{debug, error, info};
 use oma_pm::CustomDownloadMessage;
 use oma_utils::GetLockError;
 use oma_utils::get_file_lock;
-use spdlog::{debug, error, info};
 
 pub(crate) fn handle_no_result(no_result: Vec<&str>, no_progress: bool) -> Result<(), OutputError> {
     if no_result.is_empty() {

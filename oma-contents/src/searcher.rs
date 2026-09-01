@@ -13,8 +13,8 @@ use std::{
 use flate2::bufread::GzDecoder;
 use lzzzz::lz4f::BufReadDecompressor;
 use memchr::memmem;
+use oma_logger::{debug, trace};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use spdlog::{debug, trace};
 use zstd::Decoder;
 
 use crate::{OmaContentsError, parser::parse_contents_single_line};

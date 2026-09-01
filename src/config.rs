@@ -4,12 +4,12 @@ use std::{borrow::Cow, path::PathBuf};
 use apt_auth_config::AuthConfig;
 use clap::ColorChoice;
 use oma_apt_pkg::AptConfig;
+use oma_logger::debug;
 use oma_pm::oma_apt;
 use oma_utils::{is_ci, is_termux};
 use once_cell::sync::OnceCell;
 use reqwest::Client;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
-use spdlog::debug;
 
 use crate::{
     GlobalOptions,

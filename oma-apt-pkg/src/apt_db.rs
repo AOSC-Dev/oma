@@ -11,9 +11,9 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use memmap2::{Mmap, MmapOptions};
+use oma_logger::debug;
 use rayon::prelude::*;
 use rkyv::vec::ArchivedVec;
-use spdlog::debug;
 
 use crate::AptConfig;
 use crate::apt_lists::{

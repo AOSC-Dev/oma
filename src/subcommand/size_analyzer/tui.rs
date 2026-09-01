@@ -6,6 +6,7 @@ use std::{
 };
 
 use dialoguer::console;
+use oma_logger::debug;
 use oma_pm::apt::OmaApt;
 use ratatui::{
     Frame, Terminal,
@@ -18,7 +19,6 @@ use ratatui::{
         Block, Borders, Clear, List, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
     },
 };
-use spdlog::debug;
 use terminfo::{Database, capability::MaxColors};
 
 use crate::{

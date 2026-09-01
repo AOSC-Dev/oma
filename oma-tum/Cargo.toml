@@ -11,6 +11,6 @@ snafu = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 ahash = { workspace = true }
-spdlog-rs = { workspace = true }
+oma-logger = { workspace = true }
 logos = { workspace = true }
 debversion = { workspace = true }

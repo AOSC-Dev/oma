@@ -13,7 +13,7 @@ number_prefix = { workspace = true, optional = true }
 os-release = { workspace = true }
 zbus = { workspace = true, optional = true }
 url-escape = { workspace = true, optional = true }
-spdlog-rs =  { workspace = true }
+oma-logger = { workspace = true }
 logind-zbus = { workspace = true, optional = true }
 nix = { workspace = true, features = ["fs"] }
 sysinfo = { workspace = true }

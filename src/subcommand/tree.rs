@@ -9,13 +9,13 @@ use std::{
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
+use oma_logger::{debug, trace};
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     matches::{GetArchMethod, PackagesMatcher},
     oma_apt::{BaseDep, Package, Version},
     pkginfo::OmaDepType,
 };
-use spdlog::{debug, trace};
 
 use crate::color::Colorize;
 use crate::{

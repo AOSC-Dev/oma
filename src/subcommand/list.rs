@@ -2,11 +2,11 @@ use std::{borrow::Cow, io::stdout, sync::atomic::Ordering};
 
 use clap::Args;
 use clap_complete::ArgValueCompleter;
+use oma_logger::info;
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     oma_apt::{PackageSort, PkgCurrentState, PkgSelectedState},
 };
-use spdlog::info;
 
 use crate::{
     NOT_DISPLAY_ABORT, completions::pkgnames_completions, config::OmaConfig,

@@ -6,11 +6,9 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use oma_console::OmaFormatter;
-use spdlog::{
-    Level, LevelFilter, Logger, debug,
-    error::SendToChannelError,
-    init_log_crate_proxy, log_crate_proxy, set_default_logger,
+use oma_logger::{
+    Level, LevelFilter, Logger, OmaFormatter, SendToChannelError, debug, init_log_crate_proxy,
+    log_crate_proxy, set_default_logger,
     sink::{AsyncPoolSink, FileSink, WriteSink},
     warn,
 };
@@ -76,7 +74,7 @@ pub fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
         Ok(file_sink) => Some(
             AsyncPoolSink::builder()
                 .sink(Arc::new(file_sink))
-                .overflow_policy(spdlog::sink::OverflowPolicy::DropIncoming)
+                .overflow_policy(oma_logger::sink::OverflowPolicy::DropIncoming)
                 .build()
                 .unwrap(),
         ),
@@ -100,10 +98,10 @@ pub fn init_logger(oma: &OhManagerAilurus) -> anyhow::Result<PathBuf> {
         .flush_level_filter(LevelFilter::All)
         .error_handler(|err| {
             match err {
-                spdlog::Error::SendToChannel(SendToChannelError::Full, _) => {
+                oma_logger::Error::SendToChannel(SendToChannelError::Full, _) => {
                     // Ignore, the async pool sink is dropping logs
                 }
-                err => spdlog::ErrorHandler::default().call(err),
+                err => oma_logger::ErrorHandler::default().call(err),
             }
         })
         .sink(Arc::new(stream_sink));

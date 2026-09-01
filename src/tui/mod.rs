@@ -4,9 +4,9 @@ use clap::Args;
 use oma_apt_pkg::AptConfig;
 use oma_apt_pkg::search::{IndiciumSearch, OmaSearch, SearchResult, SearchType};
 use oma_console::pager::{exit_tui, prepare_create_tui};
+use oma_logger::{debug, info};
 use oma_pm::apt::{OmaApt, OmaAptArgs, Upgrade};
 use render::{Task, Tui as TuiInner};
-use spdlog::{debug, info};
 use zbus::Connection;
 
 use crate::{

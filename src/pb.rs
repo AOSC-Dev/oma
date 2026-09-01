@@ -20,8 +20,8 @@ use crate::{WRITER, fl, install_progress::OSC94, msg, root::is_root};
 use crate::{color::Colorize, error::OutputError};
 use oma_refresh::db::Event as RefreshEvent;
 
+use oma_logger::{debug, error, info, warn};
 use oma_utils::human_bytes::HumanBytes;
-use spdlog::{debug, error, info, warn};
 
 /// The global `MultiProgress` every progress bar is attached to. When no bar
 /// is active, [`MultiProgress::println`] falls back to printing the line
@@ -464,7 +464,7 @@ impl ProgressRenderer {
                 }
             }
             Event::DownloadDone { index, msg } => {
-                spdlog::debug!("Downloaded {msg}");
+                oma_logger::debug!("Downloaded {msg}");
                 self.sink.done(index);
             }
             Event::AllDone => {

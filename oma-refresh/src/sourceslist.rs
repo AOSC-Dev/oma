@@ -10,10 +10,10 @@ use oma_fetch::{
     reqwest::{Method, Response, StatusCode},
     send_request_with_url_and_method,
 };
+use oma_logger::{debug, warn};
 use oma_utils::concat_url;
 use once_cell::sync::OnceCell;
 use reqwest_middleware::ClientWithMiddleware;
-use spdlog::{debug, warn};
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,

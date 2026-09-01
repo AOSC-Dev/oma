@@ -30,10 +30,10 @@ use oma_topics::TopicManager;
 #[cfg(feature = "aosc")]
 use oma_fetch::reqwest::StatusCode;
 
+use oma_logger::{debug, warn};
 use oma_utils::{GetLockError, get_file_lock, is_termux};
 use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize};
-use spdlog::{debug, warn};
 use url::Url;
 
 use oma_apt_pkg::apt_sources::{SourceLookup, scan_sources_list_paths};

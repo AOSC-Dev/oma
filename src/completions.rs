@@ -5,12 +5,12 @@ use std::ffi::OsStr;
 use clap_complete::{CompletionCandidate, engine::ValueCompleter};
 use clap_lex::OsStrExt;
 use dirs::home_dir;
+use oma_logger::debug;
 use oma_pm::{
     apt::{OmaApt, OmaAptArgs},
     oma_apt::PackageSort,
 };
 use rustix::path::Arg;
-use spdlog::debug;
 
 /// Complete a value as a [`std::path::Path`]
 ///

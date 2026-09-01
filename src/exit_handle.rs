@@ -5,7 +5,7 @@ use std::{
 };
 
 use oma_console::pager::PagerExit;
-use spdlog::info;
+use oma_logger::info;
 
 use crate::{NOT_ALLOW_CTRLC, NOT_DISPLAY_ABORT, WRITER, fl, install_progress::OSC94};
 

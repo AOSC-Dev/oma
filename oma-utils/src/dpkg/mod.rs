@@ -4,7 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use spdlog::debug;
+use oma_logger::debug;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DpkgError {

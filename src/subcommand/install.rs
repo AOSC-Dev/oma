@@ -1,10 +1,10 @@
 use clap::Args;
 use clap_complete::ArgValueCompleter;
+use oma_logger::{info, warn};
 use oma_pm::apt::OmaApt;
 use oma_pm::apt::OmaAptArgs;
 use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
-use spdlog::{info, warn};
 
 use crate::args::ARG_HELP_HEADING;
 use crate::completions::pkgnames_and_path_completions;

@@ -2,8 +2,8 @@ use std::path::Path;
 
 use fs_extra::dir::get_size as get_dir_size;
 use oma_console::indicatif::HumanBytes;
+use oma_logger::warn;
 use oma_pm::apt::OmaApt;
-use spdlog::warn;
 
 use crate::{color::Colorize, fl};
 

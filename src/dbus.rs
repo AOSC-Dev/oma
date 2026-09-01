@@ -1,6 +1,7 @@
 use std::{io::ErrorKind, process::exit};
 
 use dialoguer::{Confirm, theme::ColorfulTheme};
+use oma_logger::{debug, error, info, warn};
 use oma_utils::{
     dbus::{
         InhibitTypeUnion, create_dbus_connection, get_another_oma_status, is_using_battery,
@@ -9,7 +10,6 @@ use oma_utils::{
     is_termux,
     zbus::{Connection, zvariant::OwnedFd},
 };
-use spdlog::{debug, error, info, warn};
 
 use crate::{
     RT,

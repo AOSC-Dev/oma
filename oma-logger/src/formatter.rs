@@ -2,11 +2,9 @@ use std::fmt::{self, Write};
 use std::sync::LazyLock;
 
 use jiff::Timestamp;
-use spdlog::{Level, formatter::Formatter};
-
-pub use termbg;
-
-use crate::terminal::Terminal;
+use oma_console::terminal::Terminal;
+use spdlog::formatter::Formatter;
+use spdlog::{Level, Record, StringBuf};
 
 static PREFIX_DEBUG: LazyLock<String> = LazyLock::new(|| console::style("DEBUG").dim().to_string());
 static PREFIX_INFO: LazyLock<String> =
@@ -27,7 +25,7 @@ const TIME_RFC3339_LEN: u16 = "1970-01-01T00:00:00.000Z".len() as u16 + 1;
 /// # Example:
 /// ```
 /// use spdlog::{info, sink::StdStreamSink, Logger, Result};
-/// use oma_console::OmaFormatter;
+/// use oma_logger::OmaFormatter;
 ///
 /// use std::sync::Arc;
 ///
@@ -132,8 +130,8 @@ impl OmaFormatter {
 
     fn format_impl(
         &self,
-        record: &spdlog::Record,
-        dest: &mut spdlog::StringBuf,
+        record: &Record,
+        dest: &mut StringBuf,
         _: &mut spdlog::formatter::FormatterContext,
     ) -> fmt::Result {
         let level = record.level();
@@ -224,8 +222,8 @@ impl OmaFormatter {
 impl Formatter for OmaFormatter {
     fn format(
         &self,
-        record: &spdlog::Record,
-        dest: &mut spdlog::StringBuf,
+        record: &Record,
+        dest: &mut StringBuf,
         ctx: &mut spdlog::formatter::FormatterContext,
     ) -> spdlog::Result<()> {
         self.format_impl(record, dest, ctx)

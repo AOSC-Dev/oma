@@ -1,9 +1,9 @@
 use deb822_fast::{FromDeb822, FromDeb822Paragraph, Paragraph};
 use jiff::Timestamp;
 use oma_apt_sources_lists::Signature;
+use oma_logger::{debug, trace};
 use oma_repo_verify::verify_release_by_sysroot;
 use once_cell::sync::OnceCell;
-use spdlog::{debug, trace};
 use std::{
     borrow::Cow,
     fs,
