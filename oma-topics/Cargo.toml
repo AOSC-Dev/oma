@@ -34,7 +34,6 @@ flume = { workspace = true }
 
 [dev-dependencies]
 oma-inquire = { workspace = true }
-oma-console = { workspace = true }
 
 [features]
 rustls = ["reqwest/rustls-no-provider", "dep:rustls"]

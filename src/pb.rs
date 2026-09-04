@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     cell::OnceCell,
+    fmt,
     io::{self, IsTerminal, Write},
     ops::Deref,
     sync::LazyLock,
@@ -9,10 +10,7 @@ use std::{
 
 use ahash::{HashMap, RandomState};
 use anyhow::Chain;
-use oma_console::{
-    indicatif::{MultiProgress, ProgressBar as IndicatifProgressBar, ProgressStyle},
-    pb::{global_progress_bar_style, progress_bar_style, spinner_style},
-};
+use indicatif::{MultiProgress, ProgressBar as IndicatifProgressBar, ProgressState, ProgressStyle};
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
@@ -22,6 +20,113 @@ use oma_refresh::db::Event as RefreshEvent;
 
 use oma_logger::{debug, error, info, warn};
 use oma_utils::human_bytes::HumanBytes;
+
+const SPINNER_ANIME: &[&str] = &[
+    "( ●    )",
+    "(  ●   )",
+    "(   ●  )",
+    "(    ● )",
+    "(     ●)",
+    "(    ● )",
+    "(   ●  )",
+    "(  ●   )",
+    "( ●    )",
+    "(●     )",
+];
+const GLOBAL_BAR_SMALL_TEMPLATE: &str = " {progress_msg:<59}";
+const GLOBAL_BAR_TEMPLATE: &str =
+    " {progress_msg:<59} {eta_precise:<11.blue.bold} [{wide_bar:.cyan/blue}] {percent:>4}";
+const NORMAL_BAR_SMALL_TEMPLATE: &str = " {msg} {percent:>3}";
+const NORMAL_BAR_TEMPLATE: &str =
+    " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>4}";
+const SPINNER_TEMPLATE: &str = " {msg:<59} {spinner}";
+
+/// Progress Bar Style
+/// Returns a 'ProgressStyle' object that defines the style of the progress bar.
+///
+/// # Arguments
+///
+/// * `term_length` - The length of the terminal.
+pub fn progress_bar_style(term_length: u16) -> ProgressStyle {
+    let template = if term_length < 100 {
+        NORMAL_BAR_SMALL_TEMPLATE
+    } else {
+        NORMAL_BAR_TEMPLATE
+    };
+
+    ProgressStyle::default_bar()
+        .template(template)
+        .unwrap()
+        .progress_chars("=>-")
+        .with_key(
+            "percent",
+            |state: &ProgressState, w: &mut dyn fmt::Write| {
+                write!(w, "{:.*}%", 0, state.fraction() * 100f32).unwrap()
+            },
+        )
+}
+
+/// Global Progress Bar Style
+/// Returns a 'ProgressStyle' object that defines the style of the progress bar.
+///
+/// # Arguments
+///
+/// * `term_length` - The length of the terminal.
+pub fn global_progress_bar_style(term_length: u16) -> ProgressStyle {
+    let template = if term_length < 100 {
+        GLOBAL_BAR_SMALL_TEMPLATE
+    } else {
+        GLOBAL_BAR_TEMPLATE
+    };
+
+    ProgressStyle::default_bar()
+        .template(template)
+        .unwrap()
+        .progress_chars("=>-")
+        .with_key(
+            "percent",
+            |state: &ProgressState, w: &mut dyn fmt::Write| {
+                write!(w, "{:.*}%", 0, state.fraction() * 100f32).unwrap()
+            },
+        )
+        .with_key("progress_msg", oma_global_bar_template)
+}
+
+fn oma_global_bar_template(state: &ProgressState, w: &mut dyn fmt::Write) {
+    write!(w, "{}  ", console::style("Progress").blue().bold()).unwrap();
+
+    write!(
+        w,
+        "{}",
+        console::style(format!(
+            "{} / {}",
+            HumanBytes(state.pos()),
+            HumanBytes(state.len().unwrap_or(0))
+        ))
+        .green()
+        .bold()
+    )
+    .unwrap();
+
+    write!(
+        w,
+        "{}",
+        console::style(format!(" @ {}/s", HumanBytes(state.per_sec() as u64)))
+            .green()
+            .bold()
+    )
+    .unwrap();
+}
+
+pub fn spinner_style() -> (ProgressStyle, Duration) {
+    let (template, inv) = (SPINNER_ANIME, 80);
+
+    let style = ProgressStyle::with_template(SPINNER_TEMPLATE)
+        .unwrap()
+        .tick_strings(template);
+
+    (style, Duration::from_millis(inv))
+}
 
 /// The global `MultiProgress` every progress bar is attached to. When no bar
 /// is active, [`MultiProgress::println`] falls back to printing the line

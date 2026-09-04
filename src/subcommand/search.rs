@@ -7,8 +7,9 @@ use oma_apt_pkg::search::{
     TextSearch,
 };
 use oma_apt_pkg::{AptConfig, AptDb, DpkgState};
-use oma_console::{pager::Pager, terminal::gen_prefix};
+use oma_console::terminal::gen_prefix;
 use oma_logger::debug;
+use oma_pager::Pager;
 use oma_pm::matches::SearchEngine;
 use oma_utils::zbus::proxy;
 use zbus::Connection;

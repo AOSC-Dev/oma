@@ -4,8 +4,8 @@ use std::{
     sync::atomic::Ordering,
 };
 
-use oma_console::pager::PagerExit;
 use oma_logger::info;
+use oma_pager::PagerExit;
 
 use crate::{NOT_ALLOW_CTRLC, NOT_DISPLAY_ABORT, WRITER, fl, install_progress::OSC94};
 

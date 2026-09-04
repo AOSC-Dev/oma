@@ -1,0 +1,16 @@
+[package]
+name = "oma-pager"
+version = "0.1.0"
+edition = "2024"
+description = "Terminal pager library used by oma"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ratatui = { workspace = true }
+ansi-to-tui = { workspace = true }
+aho-corasick = { workspace = true }
+tui-input = { workspace = true }
+oma-logger = { workspace = true }
+oma-console = { workspace = true }

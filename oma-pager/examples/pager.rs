@@ -1,4 +1,4 @@
-use oma_console::pager::{OmaPager, Pager, PagerUIText};
+use oma_pager::{OmaPager, Pager, PagerUIText};
 use ratatui::crossterm::style::Stylize;
 use std::io;
 

@@ -65,10 +65,13 @@ reqwest-middleware = { workspace = true }
 tui-input = { workspace = true }
 zbus = { workspace = true }
 termbg = { workspace = true }
+console = { workspace = true }
+indicatif = { workspace = true }
 
 # oma crates
-oma-utils = { workspace = true }
+oma-utils = { workspace = true, features = ["human-bytes"] }
 oma-console = { workspace = true }
+oma-pager = { workspace = true }
 oma-pm = { workspace = true }
 oma-refresh = { workspace = true, default-features = false }
 oma-contents = { workspace = true }
@@ -215,6 +218,7 @@ rust-embed = "8.11.0"
 # oma crates
 oma-utils = { version = "0.13.1", path = "./oma-utils", default-features = false }
 oma-console = { version = "0.31.0", path = "./oma-console" }
+oma-pager = { version = "0.1.0", path = "./oma-pager" }
 oma-logger = { version = "0.1.0", path = "./oma-logger" }
 oma-pm = { version = "0.64.0", path = "./oma-pm" }
 oma-refresh = { version = "0.56.2", path = "./oma-refresh", default-features = false }
@@ -270,6 +274,7 @@ members = [
     "oma-apt-pkg",
     "oma-contents",
     "oma-console",
+    "oma-pager",
     "oma-logger",
     "oma-topics",
     "oma-fetch",

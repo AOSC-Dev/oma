@@ -3379,6 +3379,7 @@ dependencies = [
  "clap_complete",
  "clap_lex",
  "clap_mangen",
+ "console",
  "console-subscriber",
  "ctrlc",
  "debversion",
@@ -3397,6 +3398,7 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl-no-check-hashmap-on-ra",
  "indexmap",
+ "indicatif",
  "itertools 0.15.0",
  "jiff",
  "libc",
@@ -3409,6 +3411,7 @@ dependencies = [
  "oma-inquire",
  "oma-logger",
  "oma-mirror",
+ "oma-pager",
  "oma-pm",
  "oma-refresh",
  "oma-repo-verify",
@@ -3500,15 +3503,8 @@ dependencies = [
 name = "oma-console"
 version = "0.31.0"
 dependencies = [
- "aho-corasick",
- "ansi-to-tui",
  "console",
- "indicatif",
- "ratatui",
- "spdlog-rs",
- "termbg-with-async-stdin",
  "textwrap",
- "tui-input",
 ]
 
 [[package]]
@@ -3608,6 +3604,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-pager"
+version = "0.1.0"
+dependencies = [
+ "aho-corasick",
+ "ansi-to-tui",
+ "oma-console",
+ "oma-logger",
+ "ratatui",
+ "tui-input",
+]
+
+[[package]]
 name = "oma-pm"
 version = "0.64.1"
 dependencies = [
@@ -3692,7 +3700,6 @@ dependencies = [
  "ahash",
  "flume",
  "futures",
- "oma-console",
  "oma-inquire",
  "oma-logger",
  "oma-mirror",

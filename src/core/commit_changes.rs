@@ -5,15 +5,16 @@ use bon::Builder;
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use flume::unbounded;
 use jiff::Timestamp;
-use oma_console::{indicatif::HumanBytes, pager::PagerExit};
 use oma_history::{DATABASE_PATH, HistoryInfo};
 use oma_logger::{debug, error, info, warn};
+use oma_pager::PagerExit;
 use oma_pm::{
     CommitConfig,
     apt::{InstallEntry, InstallProgressOpt, OmaApt, OmaAptArgs, OmaAptError, RemoveEntry},
     oma_apt::{self, PackageSort},
     sort::SummarySort,
 };
+use oma_utils::human_bytes::HumanBytes;
 
 use crate::color::Colorize;
 #[cfg(feature = "aosc")]
