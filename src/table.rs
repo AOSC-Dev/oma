@@ -935,13 +935,13 @@ fn version_diff_equal_length(old_version: &str, new_version: &str) -> Option<usi
     let mut boundary_pos = None;
     let new_version_chars = new_version.chars().collect::<Vec<_>>();
     for (i, c) in old_version.chars().enumerate() {
-        // find version boundaries to get the position for small chunks of the version string
-        if BOUNDARIES.contains(&c) {
-            boundary_pos = Some(i + 1);
-        }
         let c2 = new_version_chars[i];
         if c != c2 {
             return boundary_pos.or(Some(i));
+        }
+        // find version boundaries to get the position for small chunks of the version string
+        if BOUNDARIES.contains(&c) {
+            boundary_pos = Some(i + 1);
         }
     }
 
@@ -983,4 +983,19 @@ fn test_version_diff() {
 
     let diff = version_diff(ver1, ver2);
     assert_eq!(diff, (Some(2), Some(2)));
+
+    // 组件长度不同导致分隔符错位时，高亮应从真正变化的组件开始（回归测试）
+    let ver1 = "4.1.1.4";
+    let ver2 = "4.1.13.9";
+
+    let diff = version_diff(ver1, ver2);
+    assert_eq!(diff, (Some(4), Some(4)));
+    assert_eq!(&ver1[diff.0.unwrap()..], "1.4");
+    assert_eq!(&ver2[diff.1.unwrap()..], "13.9");
+
+    // 与上面的反向应保持对称
+    let diff = version_diff(ver2, ver1);
+    assert_eq!(diff, (Some(4), Some(4)));
+    assert_eq!(&ver2[diff.0.unwrap()..], "13.9");
+    assert_eq!(&ver1[diff.1.unwrap()..], "1.4");
 }
