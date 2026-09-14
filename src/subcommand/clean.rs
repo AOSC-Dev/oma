@@ -41,6 +41,8 @@ impl CliExecuter for Clean {
 
         let no_progress = config.no_progress();
 
+        let no_check_dbus = config.no_check_dbus();
+
         let OmaConfig {
             sysroot,
             apt_options,
@@ -53,7 +55,7 @@ impl CliExecuter for Clean {
             return Ok(ExitHandle::default());
         }
 
-        root()?;
+        root(no_check_dbus)?;
 
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
