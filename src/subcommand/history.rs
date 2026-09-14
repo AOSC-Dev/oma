@@ -105,7 +105,7 @@ pub struct Undo {
 
 impl CliExecuter for Undo {
     fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
-        root(config.no_check_dbus)?;
+        root(config.no_check_dbus())?;
 
         let Undo {
             no_fixbroken,
