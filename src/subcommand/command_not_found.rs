@@ -113,17 +113,18 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
 
                 // 相似命令只是被筛过的一部分，提示查看完整匹配
                 blank_line();
-                write_wrapped(&fl!("cnf-more-matches", query = keyword), 0, None, |s| {
-                    s.to_string()
-                });
+                write_wrapped_cmd(
+                    &fl!("cnf-more-matches", query = keyword),
+                    &format!("oma provides --bin {keyword}"),
+                    0,
+                );
 
                 // 列表里排在最前面的软件包往往就是用户想找的，顺带给出安装提示
                 if let Some((pkg, _)) = pkgs.first() {
-                    write_wrapped(
+                    write_wrapped_cmd(
                         &fl!("cnf-install-tip-similar", pkg = pkg.as_str()),
+                        &format!("oma install {pkg}"),
                         0,
-                        None,
-                        |s| s.to_string(),
                     );
                 }
             } else {
@@ -158,10 +159,10 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                         s.note_color().bold().to_string()
                     });
                 }
-            }
 
-            // 有结果时，整个输出以空行收尾
-            blank_line();
+                // 结果列表以空行收尾，与 shell 提示行隔开
+                blank_line();
+            }
         }
         Err(e) => {
             if let OmaContentsError::NoResult = e {
@@ -412,6 +413,60 @@ fn write_wrapped(text: &str, col: usize, label: Option<&str>, style: impl Fn(&st
         };
 
         let _ = writeln!(out, "{lead}{}", style(body.trim_end()));
+    }
+}
+
+/// 输出文本，并把其中形如 `oma install foo` 的命令以命令高亮色标出
+///
+/// 折行仍然交给 Writer，再逐行把内容对回原文：折行只会在边界处丢弃空白字符，
+/// 对位成功后即可知道每行里哪一段是命令，按行着色（命令跨行时两行各自着色）。
+fn write_wrapped_cmd(text: &str, cmd: &str, col: usize) {
+    let Some(cmd_start) = text.find(cmd) else {
+        // 消息里找不到命令，按普通文本输出
+        write_wrapped(text, col, None, |s| s.to_string());
+        return;
+    };
+
+    let cmd_end = cmd_start + cmd.len();
+    let writer = Writer::new(col as u16);
+    let term = writer.get_terminal();
+    let mut out = writer.get_writer();
+    let lead = match col {
+        0 => String::new(),
+        _ => term.gen_prefix(""),
+    };
+
+    // 原文中已经输出到的位置，用于把每一行对回原文
+    let mut cursor = 0;
+
+    for (_, body) in term.wrap_content("", text) {
+        let line = body.trim_end();
+        let rest = &text[cursor..];
+        let start = cursor + (rest.len() - rest.trim_start().len());
+        let end = start + line.len();
+
+        // 行内容能对回原文时才有着色把握；对不上就按普通文本输出
+        if text.get(start..end) != Some(line) {
+            let _ = writeln!(out, "{lead}{line}");
+            continue;
+        }
+
+        cursor = end;
+
+        let highlight_start = cmd_start.max(start);
+        let highlight_end = cmd_end.min(end);
+
+        if highlight_start < highlight_end {
+            let (before, cmd_part, after) = (
+                &line[..highlight_start - start],
+                &line[highlight_start - start..highlight_end - start],
+                &line[highlight_end - start..],
+            );
+
+            let _ = writeln!(out, "{lead}{before}{}{after}", cmd_part.note_color().bold());
+        } else {
+            let _ = writeln!(out, "{lead}{line}");
+        }
     }
 }
 
