@@ -119,13 +119,11 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                     0,
                 );
 
-                // 列表里排在最前面的软件包往往就是用户想找的，顺带给出安装提示
-                if let Some((pkg, _)) = pkgs.first() {
-                    write_wrapped_cmd(
-                        &fl!("cnf-install-tip-similar", pkg = pkg.as_str()),
-                        &format!("oma install {pkg}"),
-                        0,
-                    );
+                // 相似命令并非完全匹配，不点名具体软件包，只给出安装命令的形式
+                if !pkgs.is_empty() {
+                    let tip = fl!("cnf-install-tip-similar");
+
+                    write_wrapped_cmd(&tip, install_cmd_span(&tip), 0);
                 }
             } else {
                 print_section(&fl!("cnf-exact-match"));
@@ -467,6 +465,23 @@ fn write_wrapped_cmd(text: &str, cmd: &str, col: usize) {
         } else {
             let _ = writeln!(out, "{lead}{line}");
         }
+    }
+}
+
+/// 从安装提示里取出待着色的命令形式，即 `oma install <软件包名称>`（含占位符）
+///
+/// 占位符文本随翻译变化，这里取「oma install」到其后第一个 `>` 的范围；
+/// 找不到时退化为只着色 `oma install`。
+fn install_cmd_span(text: &str) -> &str {
+    let Some(start) = text.find("oma install") else {
+        return "oma install";
+    };
+
+    let command = &text[start..];
+
+    match command.find('>') {
+        Some(end) => &command[..=end],
+        None => "oma install",
     }
 }
 
