@@ -61,6 +61,7 @@ command-not-found = { $kw }: command not found.
 cnf-exact-match = oma has found a package that provides this command:
 cnf-similar-match = The following packages provides similarly named commands:
 cnf-command-list = (command: { $cmds })
+cnf-command-separator = { ", " }
 cnf-install-tip = To use { $kw }, run:
 cnf-install-tip-multi = To use { $kw }, pick the package you want to install from the list above:
 clean-successfully = Successfully cleaned oma database and cache, freeing up { $size } in storage space.

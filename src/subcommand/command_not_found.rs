@@ -335,15 +335,18 @@ fn pkg_label(pkg: &str, col: usize) -> String {
 
 /// 拼接软件包内的相似命令，超出 `MAX_DISPLAY_CMD` 的部分以省略号略去
 fn cmds_str(cmds: &[(String, u8)]) -> String {
+    // 命令列表是 ASCII 命令名，分隔符用半角逗号（不与其它界面的 `comma` 共用）
+    let separator = fl!("cnf-command-separator");
+
     let mut list = cmds
         .iter()
         .take(MAX_DISPLAY_CMD)
         .map(|(cmd, _)| cmd.as_str())
         .collect::<Vec<_>>()
-        .join(&fl!("comma"));
+        .join(&separator);
 
     if cmds.len() > MAX_DISPLAY_CMD {
-        list.push_str(&fl!("comma"));
+        list.push_str(&separator);
         list.push_str("...");
     }
 
