@@ -132,13 +132,15 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 blank_line();
                 print_section(&tip);
 
-                for pkg in &exact {
-                    write_wrapped(
-                        &format!("oma install {pkg}"),
-                        DETAIL_INDENT.len(),
-                        None,
-                        |s| s.note_color().bold().to_string(),
-                    );
+                // 多个软件包时给安装命令编号，突出「任选一条」
+                for (i, pkg) in exact.iter().enumerate() {
+                    let label = (exact.len() > 1).then(|| format!("{}.", i + 1));
+                    let col =
+                        DETAIL_INDENT.len() + label.as_ref().map_or(0, |label| label.len() + 1);
+
+                    write_wrapped(&format!("oma install {pkg}"), col, label.as_deref(), |s| {
+                        s.note_color().bold().to_string()
+                    });
                 }
             }
 
