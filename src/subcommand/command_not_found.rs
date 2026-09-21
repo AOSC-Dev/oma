@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::io::Write;
 
-use ahash::AHashMap;
 use anyhow::Context;
 use clap::Args;
 use oma_console::writer::Writer;
@@ -103,8 +102,6 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 None
             };
 
-            let mut desc_cache: AHashMap<&str, String> = AHashMap::new();
-
             print_not_found(&fl!("command-not-found", kw = keyword));
             // 提示行与后续内容之间留一个空行
             blank_line();
@@ -113,9 +110,9 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 print_section(&fl!("cnf-similar-match"));
 
                 for (pkg, cmds) in pkgs.iter().take(MAX_DISPLAY_PKG) {
-                    let desc = get_desc(pkg, amo.as_ref(), &apt, &mut desc_cache)?;
+                    let desc = get_desc(pkg, amo.as_ref(), &apt)?;
 
-                    print_similar_match(pkg, cmds, desc);
+                    print_similar_match(pkg, cmds, desc.as_deref());
                 }
 
                 // 相似命令只是被筛过的一部分，安装建议与查看完整匹配合并成一句提示
@@ -139,9 +136,9 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 let col = detail_col(exact.iter().copied());
 
                 for pkg in exact.iter().copied() {
-                    let desc = get_desc(pkg, amo.as_ref(), &apt, &mut desc_cache)?;
+                    let desc = get_desc(pkg, amo.as_ref(), &apt)?;
 
-                    print_exact_match(pkg, desc, col);
+                    print_exact_match(pkg, desc.as_deref(), col);
                 }
 
                 // 多个软件包都能提供该命令时，提示从列出的结果里挑一个
@@ -238,44 +235,32 @@ fn group_by_pkg(entries: Vec<(String, String, u8)>) -> IndexMap<String, Vec<(Str
     pkgs
 }
 
-/// 查询软件包描述，优先使用 amo 提供的描述，并按需缓存结果
-///
-/// 描述以借出的形式返回：命中缓存时不再复制，未命中时把新描述交给缓存持有。
-fn get_desc<'pkg, 'cache>(
-    pkg: &'pkg str,
+/// 查询软件包描述：优先使用 amo 提供的描述，没有时回退到 apt 里的摘要
+fn get_desc(
+    pkg: &str,
     amo: Option<&AmoProxy<'static>>,
     apt: &OmaApt,
-    cache: &'cache mut AHashMap<&'pkg str, String>,
-) -> Result<Option<&'cache str>, OutputError> {
-    // 已缓存的描述只需在最后借出；未命中时才查询并交给缓存持有
-    if !cache.contains_key(pkg) {
-        let desc = match amo {
-            Some(amo) => {
-                let desc = RT
-                    .handle()
-                    .block_on(amo.get_description(pkg))
-                    .context("Failed to get description on amo server")?;
+) -> Result<Option<String>, OutputError> {
+    let desc = match amo {
+        Some(amo) => {
+            let desc = RT
+                .handle()
+                .block_on(amo.get_description(pkg))
+                .context("Failed to get description on amo server")?;
 
-                (!desc.is_empty()).then_some(desc)
-            }
-            None => None,
-        };
-
-        let desc = desc
-            .or_else(|| {
-                apt.cache
-                    .get(pkg)
-                    .and_then(|pkg| pkg.candidate())
-                    .and_then(|candidate| candidate.summary())
-            })
-            .filter(|desc| !desc.is_empty());
-
-        if let Some(desc) = desc {
-            cache.insert(pkg, desc);
+            (!desc.is_empty()).then_some(desc)
         }
-    }
+        None => None,
+    };
 
-    Ok(cache.get(pkg).map(String::as_str))
+    Ok(desc
+        .or_else(|| {
+            apt.cache
+                .get(pkg)
+                .and_then(|pkg| pkg.candidate())
+                .and_then(|candidate| candidate.summary())
+        })
+        .filter(|desc| !desc.is_empty()))
 }
 
 /// 输出顶格的「找不到命令」提示行（红色加粗）
