@@ -11,7 +11,7 @@ use oma_logger::{debug, error};
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 use zbus::{Connection, proxy};
 
-use crate::color::{Action, Colorize, color_style};
+use crate::color::{Action, color_style};
 use crate::config::OmaConfig;
 use crate::console::measure_text_width;
 use crate::error::OutputError;
@@ -77,20 +77,16 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
             print_not_found(&fl!("command-not-found", kw = keyword));
         }
         Ok(()) => {
-            // 按软件包聚合匹配到的命令，保持相似度从高到低的顺序
             let pkgs = group_by_pkg(jaro_nums(res, keyword));
 
-            // 所有匹配项的相似度都低于阈值时，按「找不到命令」处理，不输出空的结果区
             if pkgs.is_empty() {
                 print_not_found(&fl!("command-not-found", kw = keyword));
-
                 return Ok(());
             }
 
             let oma_apt_args = OmaAptArgs::builder().build();
             let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-            // 提供该命令的软件包（借用分组结果，不再复制包名）
             let exact = pkgs
                 .iter()
                 .filter(|(_, cmds)| cmds.iter().any(|(_, score)| *score == u8::MAX))
@@ -104,7 +100,7 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
             };
 
             print_not_found(&fl!("command-not-found", kw = keyword));
-            // 提示行与后续内容之间留一个空行
+
             blank_line();
 
             if exact.is_empty() {
@@ -116,8 +112,6 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                     print_similar_match(pkg, cmds, desc.as_deref());
                 }
 
-                // 相似命令只是被筛过的一部分，安装建议与查看完整匹配合并成一句提示
-                // 配色参考 autoremove 的提示：安装建议用 note，查询命令用 secondary
                 blank_line();
                 let tip = fl!("cnf-install-tip-similar", query = keyword);
                 let provides_cmd = format!("oma provides --bin {keyword}");
@@ -133,7 +127,6 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
             } else {
                 print_section(&fl!("cnf-exact-match"));
 
-                // 各软件包共用一列，使描述成列对齐
                 let col = detail_col(exact.iter().copied());
 
                 for pkg in exact.iter().copied() {
@@ -142,7 +135,6 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                     print_exact_match(pkg, desc.as_deref(), col);
                 }
 
-                // 多个软件包都能提供该命令时，提示从列出的结果里挑一个
                 let tip = if exact.len() > 1 {
                     fl!("cnf-install-tip-multi", kw = keyword)
                 } else {
@@ -152,21 +144,20 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 blank_line();
                 print_section(&tip);
 
-                // 多个软件包时给安装命令编号，突出「任选一条」
                 for (i, pkg) in exact.iter().enumerate() {
-                    let label = (exact.len() > 1).then(|| format!("{}.", i + 1));
-                    let col =
-                        DETAIL_INDENT.len() + label.as_ref().map_or(0, |label| label.len() + 1);
+                    let number = (exact.len() > 1).then(|| format!("{}.", i + 1));
+                    let label = number.as_deref().map(|number| (number, Style::new()));
+                    let col = DETAIL_INDENT.len()
+                        + label.as_ref().map_or(0, |(label, _)| label.len() + 1);
 
                     write_wrapped(
                         &format!("oma install {pkg}"),
                         col,
-                        label.as_deref(),
+                        label,
                         color_style(&Action::Note).bold(),
                     );
                 }
 
-                // 结果列表以空行收尾，与 shell 提示行隔开
                 blank_line();
             }
         }
@@ -219,7 +210,7 @@ fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, Str
     output
 }
 
-/// 按软件包聚合相似命令，软件包及包内命令均保持相似度从高到低的顺序
+/// 按软件包集合相似命令，软件包及包内命令均保持相似度从高到低的顺序
 fn group_by_pkg(entries: Vec<(String, String, u8)>) -> IndexMap<String, Vec<(String, u8)>> {
     let mut pkgs: IndexMap<String, Vec<(String, u8)>> =
         IndexMap::with_hasher(ahash::RandomState::new());
@@ -239,7 +230,7 @@ fn group_by_pkg(entries: Vec<(String, String, u8)>) -> IndexMap<String, Vec<(Str
     pkgs
 }
 
-/// 查询软件包描述：优先使用 amo 提供的描述，没有时回退到 apt 里的摘要
+/// 查询软件包描述
 fn get_desc(
     pkg: &str,
     amo: Option<&AmoProxy<'static>>,
@@ -267,12 +258,12 @@ fn get_desc(
         .filter(|desc| !desc.is_empty()))
 }
 
-/// 输出顶格的「找不到命令」提示行（红色加粗）
+/// 输出顶格的「找不到命令」提示行
 fn print_not_found(text: &str) {
     write_wrapped(text, 0, None, color_style(&Action::Error).bold());
 }
 
-/// 输出提供该命令的软件包：描述接在软件包名之后，续行与描述起始列对齐
+/// 输出提供该命令的软件包
 fn print_exact_match(pkg: &str, desc: Option<&str>, col: Option<usize>) {
     let Some(desc) = desc else {
         print_pkg_name(pkg);
@@ -284,7 +275,7 @@ fn print_exact_match(pkg: &str, desc: Option<&str>, col: Option<usize>) {
         Some(col) => write_wrapped(
             desc,
             col,
-            Some(&pkg_label(pkg, col)),
+            Some((&pkg_label(pkg, col), color_style(&Action::Emphasis).bold())),
             color_style(&Action::Secondary),
         ),
         // 包名过长时描述另起一行
@@ -309,7 +300,7 @@ fn print_similar_match(pkg: &str, cmds: &[(String, u8)], desc: Option<&str>) {
         Some(col) => write_wrapped(
             &cmd_list,
             col,
-            Some(&colored_pkg_name(pkg)),
+            Some((pkg, color_style(&Action::Emphasis).bold())),
             color_style(&Action::Note),
         ),
         // 包名过长时命令列表另起一行
@@ -360,7 +351,7 @@ fn detail_col<'a>(pkgs: impl Iterator<Item = &'a str>) -> Option<usize> {
 fn pkg_label(pkg: &str, col: usize) -> String {
     let padding = col - DETAIL_INDENT.len() - 1 - measure_text_width(pkg);
 
-    format!("{}{}", colored_pkg_name(pkg), " ".repeat(padding))
+    format!("{pkg}{}", " ".repeat(padding))
 }
 
 /// 拼接软件包内的相似命令，超出 `MAX_DISPLAY_CMD` 的部分以省略号略去
@@ -381,11 +372,6 @@ fn cmds_str(cmds: &[(String, u8)]) -> String {
     }
 
     list
-}
-
-/// 软件包名：加粗高亮
-fn colored_pkg_name(pkg: &str) -> String {
-    pkg.emphasis_color().bold().to_string()
 }
 
 /// 单独一行输出加粗高亮的软件包名
@@ -414,21 +400,27 @@ fn blank_line() {
 ///
 /// `col` 是正文起始列：文本自该列起排布，超出「80 列或终端宽度」时自动换行，
 /// 续行与正文对齐；`label` 给定时用 Writer 的 `gen_prefix` 补齐首行该列之前的
-/// 空白（如包名，显示宽度须小于 `col`），`style` 应用到正文的每一行。
-fn write_wrapped(text: &str, col: usize, label: Option<&str>, style: Style) {
+/// 空白（如包名，显示宽度须小于 `col`），并以其自带的样式着色；`style` 应用到
+/// 正文的每一行。
+fn write_wrapped(text: &str, col: usize, label: Option<(&str, Style)>, style: Style) {
     let writer = Writer::new(col as u16);
     let term = writer.get_terminal();
     let mut out = writer.get_writer();
 
     for (i, (prefix, body)) in term.wrap_content("", text).into_iter().enumerate() {
-        let lead = match (i, label) {
-            (0, Some(label)) => term.gen_prefix(label),
+        match (i, label.as_ref()) {
+            // 标签按自带样式着色；`gen_prefix` 按纯文本宽度补位，补位不受着色影响
+            (0, Some((label, label_style))) => {
+                let _ = write!(out, "{}", label_style.apply_to(term.gen_prefix(label)));
+            }
             // `gen_prefix` 在列宽为 0 时会下溢，顶格输出时不做填充
-            _ if col == 0 => String::new(),
-            _ => term.gen_prefix(prefix),
-        };
+            _ if col == 0 => {}
+            _ => {
+                let _ = write!(out, "{}", term.gen_prefix(prefix));
+            }
+        }
 
-        let _ = writeln!(out, "{lead}{}", style.apply_to(body.trim_end()));
+        let _ = writeln!(out, "{}", style.apply_to(body.trim_end()));
     }
 }
 
