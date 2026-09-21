@@ -3,6 +3,7 @@ use std::io::Write;
 
 use anyhow::Context;
 use clap::Args;
+use oma_console::console::Style;
 use oma_console::writer::Writer;
 use oma_contents::OmaContentsError;
 use oma_contents::searcher::{Mode, search};
@@ -10,7 +11,7 @@ use oma_logger::{debug, error};
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 use zbus::{Connection, proxy};
 
-use crate::color::{Action, Colorize};
+use crate::color::{Action, Colorize, color_style};
 use crate::config::OmaConfig;
 use crate::console::measure_text_width;
 use crate::error::OutputError;
@@ -124,8 +125,8 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 write_wrapped_cmd(
                     &tip,
                     &[
-                        (install_cmd_span(&tip), Action::Note),
-                        (provides_cmd.as_str(), Action::Secondary),
+                        (install_cmd_span(&tip), color_style(&Action::Note)),
+                        (provides_cmd.as_str(), color_style(&Action::Secondary)),
                     ],
                     0,
                 );
@@ -157,9 +158,12 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                     let col =
                         DETAIL_INDENT.len() + label.as_ref().map_or(0, |label| label.len() + 1);
 
-                    write_wrapped(&format!("oma install {pkg}"), col, label.as_deref(), |s| {
-                        s.note_color().bold().to_string()
-                    });
+                    write_wrapped(
+                        &format!("oma install {pkg}"),
+                        col,
+                        label.as_deref(),
+                        color_style(&Action::Note).bold(),
+                    );
                 }
 
                 // 结果列表以空行收尾，与 shell 提示行隔开
@@ -265,7 +269,7 @@ fn get_desc(
 
 /// 输出顶格的「找不到命令」提示行（红色加粗）
 fn print_not_found(text: &str) {
-    write_wrapped(text, 0, None, |s| s.error_color().bold().to_string());
+    write_wrapped(text, 0, None, color_style(&Action::Error).bold());
 }
 
 /// 输出提供该命令的软件包：描述接在软件包名之后，续行与描述起始列对齐
@@ -277,15 +281,21 @@ fn print_exact_match(pkg: &str, desc: Option<&str>, col: Option<usize>) {
 
     match col {
         // 描述接在包名之后
-        Some(col) => write_wrapped(desc, col, Some(&pkg_label(pkg, col)), |s| {
-            s.secondary_color().to_string()
-        }),
+        Some(col) => write_wrapped(
+            desc,
+            col,
+            Some(&pkg_label(pkg, col)),
+            color_style(&Action::Secondary),
+        ),
         // 包名过长时描述另起一行
         None => {
             print_pkg_name(pkg);
-            write_wrapped(desc, DETAIL_INDENT.len() * 2, None, |s| {
-                s.secondary_color().to_string()
-            });
+            write_wrapped(
+                desc,
+                DETAIL_INDENT.len() * 2,
+                None,
+                color_style(&Action::Secondary),
+            );
         }
     }
 }
@@ -296,22 +306,31 @@ fn print_similar_match(pkg: &str, cmds: &[(String, u8)], desc: Option<&str>) {
 
     match pkg_detail_col(pkg) {
         // 命令列表接在包名之后
-        Some(col) => write_wrapped(&cmd_list, col, Some(&colored_pkg_name(pkg)), |s| {
-            s.note_color().to_string()
-        }),
+        Some(col) => write_wrapped(
+            &cmd_list,
+            col,
+            Some(&colored_pkg_name(pkg)),
+            color_style(&Action::Note),
+        ),
         // 包名过长时命令列表另起一行
         None => {
             print_pkg_name(pkg);
-            write_wrapped(&cmd_list, DETAIL_INDENT.len() * 2, None, |s| {
-                s.note_color().to_string()
-            });
+            write_wrapped(
+                &cmd_list,
+                DETAIL_INDENT.len() * 2,
+                None,
+                color_style(&Action::Note),
+            );
         }
     }
 
     if let Some(desc) = desc {
-        write_wrapped(desc, DETAIL_INDENT.len() * 2, None, |s| {
-            s.secondary_color().to_string()
-        });
+        write_wrapped(
+            desc,
+            DETAIL_INDENT.len() * 2,
+            None,
+            color_style(&Action::Secondary),
+        );
     }
 }
 
@@ -371,14 +390,17 @@ fn colored_pkg_name(pkg: &str) -> String {
 
 /// 单独一行输出加粗高亮的软件包名
 fn print_pkg_name(pkg: &str) {
-    write_wrapped(pkg, DETAIL_INDENT.len(), None, |s| {
-        s.emphasis_color().bold().to_string()
-    });
+    write_wrapped(
+        pkg,
+        DETAIL_INDENT.len(),
+        None,
+        color_style(&Action::Emphasis).bold(),
+    );
 }
 
 /// 输出顶格的段落标题，并在其后留一个空行
 fn print_section(title: &str) {
-    write_wrapped(title, 0, None, |s| s.to_string());
+    write_wrapped(title, 0, None, Style::new());
 
     blank_line();
 }
@@ -392,8 +414,8 @@ fn blank_line() {
 ///
 /// `col` 是正文起始列：文本自该列起排布，超出「80 列或终端宽度」时自动换行，
 /// 续行与正文对齐；`label` 给定时用 Writer 的 `gen_prefix` 补齐首行该列之前的
-/// 空白（如包名，显示宽度须小于 `col`），`style` 负责对正文逐行着色。
-fn write_wrapped(text: &str, col: usize, label: Option<&str>, style: impl Fn(&str) -> String) {
+/// 空白（如包名，显示宽度须小于 `col`），`style` 应用到正文的每一行。
+fn write_wrapped(text: &str, col: usize, label: Option<&str>, style: Style) {
     let writer = Writer::new(col as u16);
     let term = writer.get_terminal();
     let mut out = writer.get_writer();
@@ -406,28 +428,28 @@ fn write_wrapped(text: &str, col: usize, label: Option<&str>, style: impl Fn(&st
             _ => term.gen_prefix(prefix),
         };
 
-        let _ = writeln!(out, "{lead}{}", style(body.trim_end()));
+        let _ = writeln!(out, "{lead}{}", style.apply_to(body.trim_end()));
     }
 }
 
-/// 输出文本，并把其中给定的各个命令按各自的配色标出
+/// 输出文本，并把其中给定的各个命令按各自的样式标出
 ///
-/// `cmds` 给出命令文本与配色（目前用到 `Note` 与 `Secondary`）；折行仍然交给
-/// Writer，再逐行把内容对回原文：折行只会在边界处丢弃空白字符，对位成功后即可
-/// 知道每行里哪些片段是命令，按行着色（命令跨行时两行各自着色）。
-fn write_wrapped_cmd(text: &str, cmds: &[(&str, Action)], col: usize) {
+/// `cmds` 给出命令文本与 `console` 样式（一般用 note 与 secondary 两种颜色）；
+/// 折行仍然交给 Writer，再逐行把内容对回原文：折行只会在边界处丢弃空白字符，
+/// 对位成功后即可知道每行里哪些片段是命令，按行着色（命令跨行时两行各自着色）。
+fn write_wrapped_cmd(text: &str, cmds: &[(&str, Style)], col: usize) {
     // 各命令在原文中的范围，按位置排序
     let mut spans = cmds
         .iter()
-        .filter_map(|(cmd, action)| {
+        .filter_map(|(cmd, style)| {
             text.find(*cmd)
-                .map(|start| (start, start + cmd.len(), action))
+                .map(|start| (start, start + cmd.len(), style))
         })
         .collect::<Vec<_>>();
 
     if spans.is_empty() {
         // 消息里找不到命令，按普通文本输出
-        write_wrapped(text, col, None, |s| s.to_string());
+        write_wrapped(text, col, None, Style::new());
         return;
     }
 
@@ -460,10 +482,10 @@ fn write_wrapped_cmd(text: &str, cmds: &[(&str, Action)], col: usize) {
 
         let _ = write!(out, "{lead}");
 
-        // 本行内逐段输出：命令段着色，其余按普通文本
+        // 本行内逐段输出：命令段按各自样式着色，其余按普通文本
         let mut pos = start;
 
-        for (span_start, span_end, action) in &spans {
+        for (span_start, span_end, style) in &spans {
             let lo = (*span_start).max(start).max(pos);
             let hi = (*span_end).min(end);
 
@@ -471,14 +493,8 @@ fn write_wrapped_cmd(text: &str, cmds: &[(&str, Action)], col: usize) {
                 continue;
             }
 
-            let command = &text[lo..hi];
-            let styled = match action {
-                Action::Note => command.note_color().to_string(),
-                Action::Secondary => command.secondary_color().to_string(),
-                _ => command.to_string(),
-            };
-
-            let _ = write!(out, "{}{}", &text[pos..lo], styled);
+            let _ = write!(out, "{}", &text[pos..lo]);
+            let _ = write!(out, "{}", style.apply_to(&text[lo..hi]));
             pos = hi;
         }
 

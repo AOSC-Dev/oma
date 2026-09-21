@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use oma_console::console::{self, Color, StyledObject, style};
+use oma_console::console::{self, Color, Style, StyledObject};
 use oma_logger::debug;
 use oma_pager::PagerTheme;
 use ratatui::style::Color as TuiColor;
@@ -177,31 +177,35 @@ pub(crate) fn pager_theme() -> Option<Box<dyn PagerTheme>> {
     color_theme().map(|t| Box::new(PagerThemeAdapter(t)) as Box<dyn PagerTheme>)
 }
 
-/// Style `input` with the color palette of the resolved terminal theme.
-pub(crate) fn color_str<D>(input: D, color: Action) -> StyledObject<D> {
+/// The theme-resolved console style for a semantic color role.
+///
+/// Unlike [`color_str`], no value is attached, so the caller can apply the same
+/// style to any number of strings (e.g. painting wrapped output line by line).
+pub(crate) fn color_style(color: &Action) -> Style {
     match color_theme() {
         Some(theme) => match color {
-            x @ Action::PendingBg => style(input).bg(Color::Color256(x.palette(theme))).bold(),
-            x => style(input).color256(x.palette(theme)),
+            x @ Action::PendingBg => Style::new().bg(Color::Color256(x.palette(theme))).bold(),
+            x => Style::new().color256(x.palette(theme)),
         },
-        None => term_color(input, color),
+        // Fallback styling using the terminal's default (named) colors.
+        None => match color {
+            Action::Emphasis => Style::new().green(),
+            Action::Secondary => Style::new().dim(),
+            Action::EmphasisSecondary => Style::new().cyan(),
+            Action::Warn => Style::new().yellow().bold(),
+            Action::Purple => Style::new().magenta(),
+            Action::Note => Style::new().yellow(),
+            Action::Foreground => Style::new().cyan().bold(),
+            Action::UpgradeTips => Style::new().blue().bold(),
+            Action::Error => Style::new().red().bold(),
+            Action::PendingBg => Style::new().bg(Color::Blue).bold(),
+        },
     }
 }
 
-/// Fallback styling using the terminal's default (named) colors.
-fn term_color<D>(input: D, color: Action) -> StyledObject<D> {
-    match color {
-        Action::Emphasis => style(input).green(),
-        Action::Secondary => style(input).dim(),
-        Action::EmphasisSecondary => style(input).cyan(),
-        Action::Warn => style(input).yellow().bold(),
-        Action::Purple => style(input).magenta(),
-        Action::Note => style(input).yellow(),
-        Action::Foreground => style(input).cyan().bold(),
-        Action::UpgradeTips => style(input).blue().bold(),
-        Action::Error => style(input).red().bold(),
-        Action::PendingBg => style(input).bg(Color::Blue).bold(),
-    }
+/// Style `input` with the color palette of the resolved terminal theme.
+pub(crate) fn color_str<D>(input: D, color: Action) -> StyledObject<D> {
+    color_style(&color).apply_to(input)
 }
 
 /// Extension trait providing semantic color methods on any value, e.g.
