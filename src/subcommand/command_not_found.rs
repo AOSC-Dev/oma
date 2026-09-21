@@ -159,6 +159,9 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
 }
 
 /// 计算查询命令与软件包中各个命令的相似度（完全一致记为 `u8::MAX`），并按相似度从高到低排序
+///
+/// 相似度相同时按包名、命令名排序：搜索结果的到达顺序（`rg` 的输出顺序、多线程收集顺序）
+/// 并不稳定，不额外定序的话，并列项（例如多个完全匹配的软件包）的先后会在每次运行时漂移。
 fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, String, u8)> {
     let mut output = vec![];
 
@@ -174,7 +177,11 @@ fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, Str
         output.push((pkg, binary_name.to_string(), num));
     }
 
-    output.sort_unstable_by_key(|b| std::cmp::Reverse(b.2));
+    output.sort_by(|a, b| {
+        b.2.cmp(&a.2)
+            .then_with(|| a.0.cmp(&b.0))
+            .then_with(|| a.1.cmp(&b.1))
+    });
 
     output
 }
@@ -427,6 +434,22 @@ mod tests {
             cmds_str(&cmds(&["ffplay", "ffplay2", "ffplay3", "ffplay4"])),
             "ffplay, ffplay2, ffplay3, ..."
         );
+    }
+
+    #[test]
+    fn test_jaro_nums_tie_break_by_name() {
+        // 并列（完全匹配）时按包名排序，避免搜索结果的到达顺序影响输出
+        let mut set = IndexSet::with_hasher(ahash::RandomState::new());
+        set.insert((
+            "yakuake-trinity".to_string(),
+            "/usr/bin/yakuake".to_string(),
+        ));
+        set.insert(("yakuake".to_string(), "/usr/bin/yakuake".to_string()));
+
+        let res = jaro_nums(set, "yakuake");
+
+        assert_eq!(res[0].0, "yakuake");
+        assert_eq!(res[1].0, "yakuake-trinity");
     }
 
     #[test]
