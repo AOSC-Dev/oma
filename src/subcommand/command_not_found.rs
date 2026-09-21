@@ -54,12 +54,7 @@ impl CliExecuter for CommandNotFound {
     fn execute(self, config: OmaConfig) -> Result<ExitHandle, OutputError> {
         let CommandNotFound { keyword } = self;
 
-        let res = print_command_not_found(&keyword, &config);
-
-        // 输出结束后留一个空行
-        blank_line();
-
-        res?;
+        print_command_not_found(&keyword, &config)?;
 
         Ok(ExitHandle::default().status(ExitStatus::Other(127)))
     }
@@ -127,8 +122,15 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                     print_exact_match(pkg, desc.as_deref(), col);
                 }
 
+                // 多个软件包都能提供该命令时，提示从列出的结果里挑一个
+                let tip = if exact.len() > 1 {
+                    fl!("cnf-install-tip-multi", kw = keyword)
+                } else {
+                    fl!("cnf-install-tip", kw = keyword)
+                };
+
                 blank_line();
-                print_section(&fl!("cnf-install-tip"));
+                print_section(&tip);
 
                 for pkg in &exact {
                     write_wrapped(
@@ -139,6 +141,9 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                     );
                 }
             }
+
+            // 有结果时，整个输出以空行收尾
+            blank_line();
         }
         Err(e) => {
             if let OmaContentsError::NoResult = e {
