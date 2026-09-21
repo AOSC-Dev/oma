@@ -116,6 +116,16 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 write_wrapped(&fl!("cnf-more-matches", query = keyword), 0, None, |s| {
                     s.to_string()
                 });
+
+                // 列表里排在最前面的软件包往往就是用户想找的，顺带给出安装提示
+                if let Some((pkg, _)) = pkgs.first() {
+                    write_wrapped(
+                        &fl!("cnf-install-tip-similar", pkg = pkg.as_str()),
+                        0,
+                        None,
+                        |s| s.to_string(),
+                    );
+                }
             } else {
                 print_section(&fl!("cnf-exact-match"));
 

@@ -65,6 +65,7 @@ cnf-command-separator = { ", " }
 cnf-more-matches = 查看所有匹配命令：oma provides --bin { $query }
 cnf-install-tip = 要使用 { $kw }，请运行：
 cnf-install-tip-multi = 要使用 { $kw }，请从以上软件包中选择您想安装的一个：
+cnf-install-tip-similar = 提示：您可以使用 oma install { $pkg } 命令安装上面列出的 { $pkg } 软件包
 clean-successfully = 成功清理 oma 本机数据库和缓存，已释放 { $size } 空间。
 clean-zero = 没有需要清理的缓存数据。
 dpkg-configure-a-non-zero = 无法修正软件包数据库。
