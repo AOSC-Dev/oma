@@ -77,11 +77,18 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
             print_not_found(&fl!("command-not-found", kw = keyword));
         }
         Ok(()) => {
-            let oma_apt_args = OmaAptArgs::builder().build();
-            let apt = OmaApt::new(vec![], oma_apt_args, false)?;
-
             // 按软件包聚合匹配到的命令，保持相似度从高到低的顺序
             let pkgs = group_by_pkg(jaro_nums(res, keyword));
+
+            // 所有匹配项的相似度都低于阈值时，按「找不到命令」处理，不输出空的结果区
+            if pkgs.is_empty() {
+                print_not_found(&fl!("command-not-found", kw = keyword));
+
+                return Ok(());
+            }
+
+            let oma_apt_args = OmaAptArgs::builder().build();
+            let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
             // 提供该命令的软件包
             let exact = pkgs
@@ -114,19 +121,17 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 // 相似命令只是被筛过的一部分，安装建议与查看完整匹配合并成一句提示
                 // 配色参考 autoremove 的提示：安装建议用 note，查询命令用 secondary
                 blank_line();
-                if !pkgs.is_empty() {
-                    let tip = fl!("cnf-install-tip-similar", query = keyword);
-                    let provides_cmd = format!("oma provides --bin {keyword}");
+                let tip = fl!("cnf-install-tip-similar", query = keyword);
+                let provides_cmd = format!("oma provides --bin {keyword}");
 
-                    write_wrapped_cmd(
-                        &tip,
-                        &[
-                            (install_cmd_span(&tip), Action::Note),
-                            (provides_cmd.as_str(), Action::Secondary),
-                        ],
-                        0,
-                    );
-                }
+                write_wrapped_cmd(
+                    &tip,
+                    &[
+                        (install_cmd_span(&tip), Action::Note),
+                        (provides_cmd.as_str(), Action::Secondary),
+                    ],
+                    0,
+                );
             } else {
                 print_section(&fl!("cnf-exact-match"));
 
