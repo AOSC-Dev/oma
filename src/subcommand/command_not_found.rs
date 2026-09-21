@@ -90,11 +90,11 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
             let oma_apt_args = OmaAptArgs::builder().build();
             let apt = OmaApt::new(vec![], oma_apt_args, false)?;
 
-            // 提供该命令的软件包
+            // 提供该命令的软件包（借用分组结果，不再复制包名）
             let exact = pkgs
                 .iter()
                 .filter(|(_, cmds)| cmds.iter().any(|(_, score)| *score == u8::MAX))
-                .map(|(pkg, _)| pkg.clone())
+                .map(|(pkg, _)| pkg.as_str())
                 .collect::<Vec<_>>();
 
             let amo = if config.amo && !config.no_check_dbus() {
@@ -103,7 +103,7 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 None
             };
 
-            let mut desc_cache: AHashMap<String, String> = AHashMap::new();
+            let mut desc_cache: AHashMap<&str, String> = AHashMap::new();
 
             print_not_found(&fl!("command-not-found", kw = keyword));
             // 提示行与后续内容之间留一个空行
@@ -115,7 +115,7 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 for (pkg, cmds) in pkgs.iter().take(MAX_DISPLAY_PKG) {
                     let desc = get_desc(pkg, amo.as_ref(), &apt, &mut desc_cache)?;
 
-                    print_similar_match(pkg, cmds, desc.as_deref());
+                    print_similar_match(pkg, cmds, desc);
                 }
 
                 // 相似命令只是被筛过的一部分，安装建议与查看完整匹配合并成一句提示
@@ -136,12 +136,12 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 print_section(&fl!("cnf-exact-match"));
 
                 // 各软件包共用一列，使描述成列对齐
-                let col = detail_col(exact.iter());
+                let col = detail_col(exact.iter().copied());
 
-                for pkg in &exact {
+                for pkg in exact.iter().copied() {
                     let desc = get_desc(pkg, amo.as_ref(), &apt, &mut desc_cache)?;
 
-                    print_exact_match(pkg, desc.as_deref(), col);
+                    print_exact_match(pkg, desc, col);
                 }
 
                 // 多个软件包都能提供该命令时，提示从列出的结果里挑一个
@@ -194,7 +194,7 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
 fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, String, u8)> {
     let mut output = vec![];
 
-    for (pkg, file) in input {
+    for (pkg, mut file) in input {
         let binary_name = file.split('/').next_back().unwrap_or(&file);
 
         let num = if pkg == query || binary_name == query {
@@ -203,7 +203,10 @@ fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, Str
             (strsim::jaro_winkler(query, binary_name) * 255.0) as u8
         };
 
-        output.push((pkg, binary_name.to_string(), num));
+        // 只保留末段的命令名：把路径前缀就地删掉，省去复制一份字符串
+        file.replace_range(..file.len() - binary_name.len(), "");
+
+        output.push((pkg, file, num));
     }
 
     output.sort_by(|a, b| {
@@ -236,42 +239,43 @@ fn group_by_pkg(entries: Vec<(String, String, u8)>) -> IndexMap<String, Vec<(Str
 }
 
 /// 查询软件包描述，优先使用 amo 提供的描述，并按需缓存结果
-fn get_desc(
-    pkg: &str,
+///
+/// 描述以借出的形式返回：命中缓存时不再复制，未命中时把新描述交给缓存持有。
+fn get_desc<'pkg, 'cache>(
+    pkg: &'pkg str,
     amo: Option<&AmoProxy<'static>>,
     apt: &OmaApt,
-    cache: &mut AHashMap<String, String>,
-) -> Result<Option<String>, OutputError> {
-    if let Some(desc) = cache.get(pkg) {
-        return Ok(Some(desc.to_string()));
-    }
+    cache: &'cache mut AHashMap<&'pkg str, String>,
+) -> Result<Option<&'cache str>, OutputError> {
+    // 已缓存的描述只需在最后借出；未命中时才查询并交给缓存持有
+    if !cache.contains_key(pkg) {
+        let desc = match amo {
+            Some(amo) => {
+                let desc = RT
+                    .handle()
+                    .block_on(amo.get_description(pkg))
+                    .context("Failed to get description on amo server")?;
 
-    let desc = match amo {
-        Some(amo) => {
-            let desc = RT
-                .handle()
-                .block_on(amo.get_description(pkg))
-                .context("Failed to get description on amo server")?;
+                (!desc.is_empty()).then_some(desc)
+            }
+            None => None,
+        };
 
-            (!desc.is_empty()).then_some(desc)
+        let desc = desc
+            .or_else(|| {
+                apt.cache
+                    .get(pkg)
+                    .and_then(|pkg| pkg.candidate())
+                    .and_then(|candidate| candidate.summary())
+            })
+            .filter(|desc| !desc.is_empty());
+
+        if let Some(desc) = desc {
+            cache.insert(pkg, desc);
         }
-        None => None,
-    };
-
-    let desc = desc
-        .or_else(|| {
-            apt.cache
-                .get(pkg)
-                .and_then(|pkg| pkg.candidate())
-                .and_then(|candidate| candidate.summary())
-        })
-        .filter(|desc| !desc.is_empty());
-
-    if let Some(ref desc) = desc {
-        cache.insert(pkg.to_string(), desc.to_string());
     }
 
-    Ok(desc)
+    Ok(cache.get(pkg).map(String::as_str))
 }
 
 /// 输出顶格的「找不到命令」提示行（红色加粗）
@@ -338,8 +342,8 @@ fn pkg_detail_col(pkg: &str) -> Option<usize> {
 /// 一组软件包共用的正文起始列：按最长的包名取列，使各条目的正文成列对齐
 ///
 /// 包名占掉半行时返回 `None`，此时正文另起一行。
-fn detail_col<'a>(pkgs: impl Iterator<Item = &'a String>) -> Option<usize> {
-    let max_name_width = pkgs.map(|pkg| measure_text_width(pkg)).max()?;
+fn detail_col<'a>(pkgs: impl Iterator<Item = &'a str>) -> Option<usize> {
+    let max_name_width = pkgs.map(measure_text_width).max()?;
     let col = DETAIL_INDENT.len() + max_name_width + LABEL_GAP;
 
     (col * 2 <= max_line_len()).then_some(col)
