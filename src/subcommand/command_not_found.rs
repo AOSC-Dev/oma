@@ -111,19 +111,13 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                     print_similar_match(pkg, cmds, desc.as_deref());
                 }
 
-                // 相似命令只是被筛过的一部分，提示查看完整匹配
+                // 相似命令只是被筛过的一部分，安装建议与查看完整匹配合并成一句提示
                 blank_line();
-                write_wrapped_cmd(
-                    &fl!("cnf-more-matches", query = keyword),
-                    &format!("oma provides --bin {keyword}"),
-                    0,
-                );
-
-                // 相似命令并非完全匹配，不点名具体软件包，只给出安装命令的形式
                 if !pkgs.is_empty() {
-                    let tip = fl!("cnf-install-tip-similar");
+                    let tip = fl!("cnf-install-tip-similar", query = keyword);
+                    let provides_cmd = format!("oma provides --bin {keyword}");
 
-                    write_wrapped_cmd(&tip, install_cmd_span(&tip), 0);
+                    write_wrapped_cmd(&tip, &[install_cmd_span(&tip), &provides_cmd], 0);
                 }
             } else {
                 print_section(&fl!("cnf-exact-match"));
@@ -414,18 +408,25 @@ fn write_wrapped(text: &str, col: usize, label: Option<&str>, style: impl Fn(&st
     }
 }
 
-/// 输出文本，并把其中形如 `oma install foo` 的命令以命令高亮色标出
+/// 输出文本，并把其中给定的各个命令以命令高亮色标出
 ///
 /// 折行仍然交给 Writer，再逐行把内容对回原文：折行只会在边界处丢弃空白字符，
-/// 对位成功后即可知道每行里哪一段是命令，按行着色（命令跨行时两行各自着色）。
-fn write_wrapped_cmd(text: &str, cmd: &str, col: usize) {
-    let Some(cmd_start) = text.find(cmd) else {
+/// 对位成功后即可知道每行里哪些片段是命令，按行着色（命令跨行时两行各自着色）。
+fn write_wrapped_cmd(text: &str, cmds: &[&str], col: usize) {
+    // 各命令在原文中的范围，按位置排序
+    let mut spans = cmds
+        .iter()
+        .filter_map(|cmd| text.find(cmd).map(|start| (start, start + cmd.len())))
+        .collect::<Vec<_>>();
+
+    if spans.is_empty() {
         // 消息里找不到命令，按普通文本输出
         write_wrapped(text, col, None, |s| s.to_string());
         return;
-    };
+    }
 
-    let cmd_end = cmd_start + cmd.len();
+    spans.sort_unstable();
+
     let writer = Writer::new(col as u16);
     let term = writer.get_terminal();
     let mut out = writer.get_writer();
@@ -451,20 +452,29 @@ fn write_wrapped_cmd(text: &str, cmd: &str, col: usize) {
 
         cursor = end;
 
-        let highlight_start = cmd_start.max(start);
-        let highlight_end = cmd_end.min(end);
+        let _ = write!(out, "{lead}");
 
-        if highlight_start < highlight_end {
-            let (before, cmd_part, after) = (
-                &line[..highlight_start - start],
-                &line[highlight_start - start..highlight_end - start],
-                &line[highlight_end - start..],
+        // 本行内逐段输出：命令段着色，其余按普通文本
+        let mut pos = start;
+
+        for (span_start, span_end) in &spans {
+            let lo = (*span_start).max(start).max(pos);
+            let hi = (*span_end).min(end);
+
+            if lo >= hi {
+                continue;
+            }
+
+            let _ = write!(
+                out,
+                "{}{}",
+                &text[pos..lo],
+                text[lo..hi].note_color().bold()
             );
-
-            let _ = writeln!(out, "{lead}{before}{}{after}", cmd_part.note_color().bold());
-        } else {
-            let _ = writeln!(out, "{lead}{line}");
+            pos = hi;
         }
+
+        let _ = writeln!(out, "{}", &text[pos..end]);
     }
 }
 
