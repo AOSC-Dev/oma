@@ -62,6 +62,7 @@ cnf-exact-match = oma has found a package that provides this command:
 cnf-similar-match = The following packages provides similarly named commands:
 cnf-command-list = (similar commands: { $cmds })
 cnf-command-separator = { ", " }
+cnf-more-matches = See all matches: oma provides --bin { $query }
 cnf-install-tip = To use { $kw }, run:
 cnf-install-tip-multi = To use { $kw }, pick the package you want to install from the list above:
 clean-successfully = Successfully cleaned oma database and cache, freeing up { $size } in storage space.

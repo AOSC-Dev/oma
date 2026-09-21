@@ -110,6 +110,12 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
 
                     print_similar_match(pkg, cmds, desc.as_deref());
                 }
+
+                // 相似命令只是被筛过的一部分，提示查看完整匹配
+                blank_line();
+                write_wrapped(&fl!("cnf-more-matches", query = keyword), 0, None, |s| {
+                    s.to_string()
+                });
             } else {
                 print_section(&fl!("cnf-exact-match"));
 

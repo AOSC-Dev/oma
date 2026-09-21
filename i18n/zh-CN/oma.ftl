@@ -62,6 +62,7 @@ cnf-exact-match = oma 找到了提供该命令的软件包：
 cnf-similar-match = 如下软件包提供了名称相似的命令：
 cnf-command-list = (相似命令：{ $cmds })
 cnf-command-separator = { ", " }
+cnf-more-matches = 查看所有匹配命令：oma provides --bin { $query }
 cnf-install-tip = 要使用 { $kw }，请运行：
 cnf-install-tip-multi = 要使用 { $kw }，请从以上软件包中选择您想安装的一个：
 clean-successfully = 成功清理 oma 本机数据库和缓存，已释放 { $size } 空间。
