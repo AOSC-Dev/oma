@@ -11,7 +11,7 @@ use oma_logger::{debug, error};
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 use zbus::{Connection, proxy};
 
-use crate::color::Colorize;
+use crate::color::{Action, Colorize};
 use crate::config::OmaConfig;
 use crate::console::measure_text_width;
 use crate::error::OutputError;
@@ -112,12 +112,20 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 }
 
                 // 相似命令只是被筛过的一部分，安装建议与查看完整匹配合并成一句提示
+                // 配色参考 autoremove 的提示：安装建议用 note，查询命令用 secondary
                 blank_line();
                 if !pkgs.is_empty() {
                     let tip = fl!("cnf-install-tip-similar", query = keyword);
                     let provides_cmd = format!("oma provides --bin {keyword}");
 
-                    write_wrapped_cmd(&tip, &[install_cmd_span(&tip), &provides_cmd], 0);
+                    write_wrapped_cmd(
+                        &tip,
+                        &[
+                            (install_cmd_span(&tip), Action::Note),
+                            (provides_cmd.as_str(), Action::Secondary),
+                        ],
+                        0,
+                    );
                 }
             } else {
                 print_section(&fl!("cnf-exact-match"));
@@ -408,15 +416,19 @@ fn write_wrapped(text: &str, col: usize, label: Option<&str>, style: impl Fn(&st
     }
 }
 
-/// 输出文本，并把其中给定的各个命令以命令高亮色标出
+/// 输出文本，并把其中给定的各个命令按各自的配色标出
 ///
-/// 折行仍然交给 Writer，再逐行把内容对回原文：折行只会在边界处丢弃空白字符，
-/// 对位成功后即可知道每行里哪些片段是命令，按行着色（命令跨行时两行各自着色）。
-fn write_wrapped_cmd(text: &str, cmds: &[&str], col: usize) {
+/// `cmds` 给出命令文本与配色（目前用到 `Note` 与 `Secondary`）；折行仍然交给
+/// Writer，再逐行把内容对回原文：折行只会在边界处丢弃空白字符，对位成功后即可
+/// 知道每行里哪些片段是命令，按行着色（命令跨行时两行各自着色）。
+fn write_wrapped_cmd(text: &str, cmds: &[(&str, Action)], col: usize) {
     // 各命令在原文中的范围，按位置排序
     let mut spans = cmds
         .iter()
-        .filter_map(|cmd| text.find(cmd).map(|start| (start, start + cmd.len())))
+        .filter_map(|(cmd, action)| {
+            text.find(*cmd)
+                .map(|start| (start, start + cmd.len(), action))
+        })
         .collect::<Vec<_>>();
 
     if spans.is_empty() {
@@ -425,7 +437,7 @@ fn write_wrapped_cmd(text: &str, cmds: &[&str], col: usize) {
         return;
     }
 
-    spans.sort_unstable();
+    spans.sort_unstable_by_key(|(start, _, _)| *start);
 
     let writer = Writer::new(col as u16);
     let term = writer.get_terminal();
@@ -457,7 +469,7 @@ fn write_wrapped_cmd(text: &str, cmds: &[&str], col: usize) {
         // 本行内逐段输出：命令段着色，其余按普通文本
         let mut pos = start;
 
-        for (span_start, span_end) in &spans {
+        for (span_start, span_end, action) in &spans {
             let lo = (*span_start).max(start).max(pos);
             let hi = (*span_end).min(end);
 
@@ -465,12 +477,14 @@ fn write_wrapped_cmd(text: &str, cmds: &[&str], col: usize) {
                 continue;
             }
 
-            let _ = write!(
-                out,
-                "{}{}",
-                &text[pos..lo],
-                text[lo..hi].note_color().bold()
-            );
+            let command = &text[lo..hi];
+            let styled = match action {
+                Action::Note => command.note_color().to_string(),
+                Action::Secondary => command.secondary_color().to_string(),
+                _ => command.to_string(),
+            };
+
+            let _ = write!(out, "{}{}", &text[pos..lo], styled);
             pos = hi;
         }
 
