@@ -84,17 +84,21 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 return Ok(());
             }
 
-            let oma_apt_args = OmaAptArgs::builder().build();
-            let apt = OmaApt::new(vec![], oma_apt_args, false)?;
-
             let exact = pkgs
                 .iter()
                 .filter(|(_, cmds)| cmds.iter().any(|(_, score)| *score == u8::MAX))
                 .map(|(pkg, _)| pkg.as_str())
                 .collect::<Vec<_>>();
 
+            // 描述来源二选一：amo 可用时不再初始化用不到的 apt
             let amo = if config.amo && !config.no_check_dbus() {
                 RT.handle().block_on(amo_connect()).ok()
+            } else {
+                None
+            };
+
+            let apt = if amo.is_none() {
+                Some(OmaApt::new(vec![], OmaAptArgs::builder().build(), false)?)
             } else {
                 None
             };
@@ -107,7 +111,7 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 print_section(&fl!("cnf-similar-match"));
 
                 for (pkg, cmds) in pkgs.iter().take(MAX_DISPLAY_PKG) {
-                    let desc = get_desc(pkg, amo.as_ref(), &apt)?;
+                    let desc = get_desc(pkg, amo.as_ref(), apt.as_ref())?;
 
                     print_similar_match(pkg, cmds, desc.as_deref());
                 }
@@ -130,7 +134,7 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 let col = detail_col(exact.iter().copied());
 
                 for pkg in exact.iter().copied() {
-                    let desc = get_desc(pkg, amo.as_ref(), &apt)?;
+                    let desc = get_desc(pkg, amo.as_ref(), apt.as_ref())?;
 
                     print_exact_match(pkg, desc.as_deref(), col);
                 }
@@ -234,7 +238,7 @@ fn group_by_pkg(entries: Vec<(String, String, u8)>) -> IndexMap<String, Vec<(Str
 fn get_desc(
     pkg: &str,
     amo: Option<&AmoProxy<'static>>,
-    apt: &OmaApt,
+    apt: Option<&OmaApt>,
 ) -> Result<Option<String>, OutputError> {
     let desc = match amo {
         Some(amo) => {
@@ -250,10 +254,12 @@ fn get_desc(
 
     Ok(desc
         .or_else(|| {
-            apt.cache
-                .get(pkg)
-                .and_then(|pkg| pkg.candidate())
-                .and_then(|candidate| candidate.summary())
+            apt.and_then(|apt| {
+                apt.cache
+                    .get(pkg)
+                    .and_then(|pkg| pkg.candidate())
+                    .and_then(|candidate| candidate.summary())
+            })
         })
         .filter(|desc| !desc.is_empty()))
 }
