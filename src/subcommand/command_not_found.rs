@@ -21,7 +21,8 @@ use crate::{RT, WRITER, due_to, fl};
 
 use crate::args::CliExecuter;
 
-const FILTER_JARO_NUM: u8 = 204;
+/// Jaro-Winkler 距离，1 为完全匹配，0 不匹配，使用 u8 定义相似度（204 为相似度阈值）
+const FILTER_JARO_DISTANCE_INDEX: u8 = 204;
 /// 部分匹配时最多展示的软件包数量
 const MAX_DISPLAY_PKG: usize = 3;
 /// 单个软件包内最多展示的相似命令数量，超出部分以省略号略去
@@ -194,6 +195,7 @@ fn jaro_nums(input: IndexSet<(String, String)>, query: &str) -> Vec<(String, Str
         let binary_name = file.split('/').next_back().unwrap_or(&file);
 
         let num = if pkg == query || binary_name == query {
+            // 如果完全匹配则定义最大 Jaro-Winkler 值，即完全匹配
             u8::MAX
         } else {
             (strsim::jaro_winkler(query, binary_name) * 255.0) as u8
@@ -220,7 +222,7 @@ fn group_by_pkg(entries: Vec<(String, String, u8)>) -> IndexMap<String, Vec<(Str
         IndexMap::with_hasher(ahash::RandomState::new());
 
     for (pkg, cmd, score) in entries {
-        if score < FILTER_JARO_NUM {
+        if score < FILTER_JARO_DISTANCE_INDEX {
             break;
         }
 
@@ -592,7 +594,7 @@ mod tests {
             (
                 "too-low".to_string(),
                 "unrelated".to_string(),
-                FILTER_JARO_NUM - 1,
+                FILTER_JARO_DISTANCE_INDEX - 1,
             ),
         ];
 
