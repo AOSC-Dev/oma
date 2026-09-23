@@ -166,6 +166,10 @@ impl ProgressBar {
     /// Create a determinate progress bar with a custom style and attach it to
     /// the global `MultiProgress`. When `enabled` is false a hidden no-op bar
     /// is returned instead.
+    ///
+    /// Only the aosc-gated `oma mirror` command creates an ad-hoc bar, so this
+    /// constructor is gated with the same feature.
+    #[cfg(feature = "aosc")]
     pub fn new(len: u64, style: ProgressStyle, enabled: bool) -> Self {
         if !enabled {
             return Self::hidden();
