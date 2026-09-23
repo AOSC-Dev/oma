@@ -216,22 +216,22 @@ rust-embed = "8.11.0"
 
 
 # oma crates
-oma-utils = { version = "0.13.1", path = "./oma-utils", default-features = false }
-oma-console = { version = "0.31.0", path = "./oma-console" }
+oma-utils = { version = "0.14.0", path = "./oma-utils", default-features = false }
+oma-console = { version = "0.32.0", path = "./oma-console" }
 oma-pager = { version = "0.1.0", path = "./oma-pager" }
 oma-logger = { version = "0.1.0", path = "./oma-logger" }
-oma-pm = { version = "0.64.0", path = "./oma-pm" }
-oma-refresh = { version = "0.56.2", path = "./oma-refresh", default-features = false }
-oma-contents = { version = "0.19.1", path = "./oma-contents" }
-oma-fetch = { version = "0.39.0", path = "./oma-fetch", default-features = false }
-oma-topics = { version = "0.28.0", path = "./oma-topics", default-features = false }
-oma-history = { version = "0.11.0", path = "./oma-history" }
-oma-repo-verify = { version = "0.10.0", path = "./oma-repo-verify", default-features = false }
-oma-mirror = { version = "0.8.2", path = "./oma-mirror" }
-apt-auth-config = { version = "0.6.0", path = "./apt-auth-config" }
-oma-tum = { version = "0.6.1", path = "./oma-tum" }
-oma-pm-operation-type = { version = "0.10.1", path = "./oma-pm-operation-type" }
-oma-apt-pkg = { version = "0.3.0", path = "./oma-apt-pkg", default-features = false }
+oma-pm = { version = "0.64.3", path = "./oma-pm" }
+oma-refresh = { version = "0.57.0", path = "./oma-refresh", default-features = false }
+oma-contents = { version = "0.19.2", path = "./oma-contents" }
+oma-fetch = { version = "0.40.0", path = "./oma-fetch", default-features = false }
+oma-topics = { version = "0.28.1", path = "./oma-topics", default-features = false }
+oma-history = { version = "0.11.1", path = "./oma-history" }
+oma-repo-verify = { version = "0.10.1", path = "./oma-repo-verify", default-features = false }
+oma-mirror = { version = "0.8.3", path = "./oma-mirror" }
+apt-auth-config = { version = "0.6.1", path = "./apt-auth-config" }
+oma-tum = { version = "0.6.2", path = "./oma-tum" }
+oma-pm-operation-type = { version = "0.10.2", path = "./oma-pm-operation-type" }
+oma-apt-pkg = { version = "0.3.2", path = "./oma-apt-pkg", default-features = false }
 oma-apt = "0.13"
 oma-apt-sources-lists = "0.9"
 oma-inquire = "0.6"

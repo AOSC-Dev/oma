@@ -154,7 +154,7 @@ dependencies = [
 
 [[package]]
 name = "apt-auth-config"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "http",
  "reqwest",
@@ -3475,7 +3475,7 @@ dependencies = [
 
 [[package]]
 name = "oma-apt-pkg"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3518,7 +3518,7 @@ dependencies = [
 
 [[package]]
 name = "oma-console"
-version = "0.31.0"
+version = "0.32.0"
 dependencies = [
  "console",
  "textwrap",
@@ -3526,7 +3526,7 @@ dependencies = [
 
 [[package]]
 name = "oma-contents"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "flate2",
  "lzzzz",
@@ -3542,7 +3542,7 @@ dependencies = [
 
 [[package]]
 name = "oma-fetch"
-version = "0.39.1"
+version = "0.40.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -3568,7 +3568,7 @@ dependencies = [
 
 [[package]]
 name = "oma-history"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "jiff",
  "oma-logger",
@@ -3608,7 +3608,7 @@ dependencies = [
 
 [[package]]
 name = "oma-mirror"
-version = "0.8.2"
+version = "0.8.3"
 dependencies = [
  "ahash",
  "indexmap",
@@ -3634,7 +3634,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.64.2"
+version = "0.64.3"
 dependencies = [
  "ahash",
  "anyhow",
@@ -3661,7 +3661,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm-operation-type"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "bon",
  "num_enum",
@@ -3671,7 +3671,7 @@ dependencies = [
 
 [[package]]
 name = "oma-refresh"
-version = "0.56.3"
+version = "0.57.0"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3699,7 +3699,7 @@ dependencies = [
 
 [[package]]
 name = "oma-repo-verify"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "anyhow",
  "jiff",
@@ -3712,7 +3712,7 @@ dependencies = [
 
 [[package]]
 name = "oma-topics"
-version = "0.28.0"
+version = "0.28.1"
 dependencies = [
  "ahash",
  "flume",
@@ -3732,7 +3732,7 @@ dependencies = [
 
 [[package]]
 name = "oma-tum"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "ahash",
  "debversion",
@@ -3746,7 +3746,7 @@ dependencies = [
 
 [[package]]
 name = "oma-utils"
-version = "0.13.1"
+version = "0.14.0"
 dependencies = [
  "logind-zbus-tokio",
  "nix 0.31.3",
