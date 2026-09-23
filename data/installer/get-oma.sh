@@ -26,14 +26,7 @@ _parse_os_release() {
 
 	# Check for codename.
 	if [ "$ID" = 'debian' -a \
-	     "$VERSION_ID" = '11' ]; then
-		_oma_codename='bullseye'
-		echo "
->>> 探测到 Debian ${VERSION_ID} ...
->>> Detected Debian ${VERSION_ID} ...
-"
-	elif [ "$ID" = 'debian' -a \
-	       "$VERSION_ID" = '12' ]; then
+	     "$VERSION_ID" = '12' ]; then
 		_oma_codename='bookworm'
 		echo "
 >>> 探测到 Debian ${VERSION_ID} ...

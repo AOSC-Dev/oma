@@ -15,7 +15,6 @@ jobs:
             "arm64v8/ubuntu:22.04",
             "arm64v8/ubuntu:24.04",
             "arm64v8/ubuntu:26.04",
-            "arm64v8/debian:11",
             "arm64v8/debian:12",
             "arm64v8/debian:13",
             "arm64v8/debian:forky",
@@ -72,9 +71,6 @@ jobs:
           VER_SUFFIX="${TARGET_DISTRO/:/}"
           VER_SUFFIX="${VER_SUFFIX##*\/}"
           case "${TARGET_DISTRO}" in
-              'arm64v8/debian:11')
-                  CODENAME='bullseye'
-                  ;;
               'arm64v8/debian:12')
                   CODENAME='bookworm'
                   ;;
