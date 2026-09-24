@@ -94,9 +94,34 @@ pub enum RefreshError {
     DownloadManagerBuilderError(BuilderError),
     #[error("No metadata file to download")]
     NoMetadataToDownload,
+    #[error("Refresh was canceled")]
+    Canceled,
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
+
+/// 取消通道的句柄：需要取消的一方持有它，调用 [`CancelHandle::cancel`]
+/// 即可中止对应的刷新。句柄与令牌通过 [`cancel_channel`] 一起创建。
+#[derive(Clone)]
+pub struct CancelHandle(flume::Sender<()>);
+
+impl CancelHandle {
+    /// 请求取消刷新；重复调用无副作用。
+    pub fn cancel(&self) {
+        let _ = self.0.try_send(());
+    }
+}
+
+/// 取消通道的令牌：交给 `OmaRefresh` 构建器的 `cancel_token`，刷新收到
+/// 取消信号后会立即中止并返回 [`RefreshError::Canceled`]。句柄被丢弃但
+/// 未发出信号时，刷新照常进行。
+pub struct CancelToken(flume::Receiver<()>);
+
+/// 创建一对取消句柄与令牌：句柄留给需要取消的一方，令牌交给刷新。
+pub fn cancel_channel() -> (CancelHandle, CancelToken) {
+    let (tx, rx) = flume::bounded(1);
+    (CancelHandle(tx), CancelToken(rx))
+}
 
 #[derive(Builder)]
 pub struct OmaRefresh {
@@ -115,6 +140,10 @@ pub struct OmaRefresh {
     /// omitted, a fresh one is built from the system defaults inside
     /// [`OmaRefresh`].
     apt_config: Option<Arc<AptConfig>>,
+    /// 可选的取消令牌（见 [`cancel_channel`]）：一旦收到取消信号，正在
+    /// 进行的刷新会立即中止（尚未完成的下载被丢弃）并返回
+    /// [`RefreshError::Canceled`]。句柄被丢弃但未发出信号时刷新照常进行。
+    cancel_token: Option<CancelToken>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -135,6 +164,10 @@ impl OmaRefresh {
     ) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
+        }
+
+        if is_canceled(self.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
         }
 
         let apt_cfg = self.init_apt_config();
@@ -210,12 +243,19 @@ impl OmaRefresh {
         };
 
         let mirror_sources = MirrorSources::from_sourcelist(&sourcelist)?;
-        let (mut mirror_sources, not_found) =
-            run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
-                sc.download_releases(mirror_sources, tx).await
-            })?;
+        let (mut mirror_sources, not_found) = run_task_with_pump(
+            &async_rt_handle,
+            &rx,
+            &mut callback,
+            self_arc.cancel_token.as_ref(),
+            async move { sc.download_releases(mirror_sources, tx).await },
+        )?;
 
         self_arc.refresh_topics(not_found, &mut mirror_sources, &mut callback)?;
+
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
 
         download_list.extend(
             mirror_sources
@@ -228,6 +268,10 @@ impl OmaRefresh {
             self_arc.collect_all_release_entry(&apt_cfg, mirror_sources)?;
 
         debug!("oma will download source metadata: {tasks:#?}");
+
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
 
         if tasks.is_empty() {
             return Err(RefreshError::NoMetadataToDownload);
@@ -245,10 +289,16 @@ impl OmaRefresh {
 
         let sc2 = self_arc.clone();
         let (tx, rx) = flume::unbounded::<Event>();
-        let res = run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
-            sc2.download_release_data(tx, tasks, total, optional_index_files)
-                .await
-        })?;
+        let res = run_task_with_pump(
+            &async_rt_handle,
+            &rx,
+            &mut callback,
+            self_arc.cancel_token.as_ref(),
+            async move {
+                sc2.download_release_data(tx, tasks, total, optional_index_files)
+                    .await
+            },
+        )?;
 
         // 有元数据更新、或清理了失效的列表文件（如退出 topic），
         // 才执行 success invoke；否则列表状态虽然变了，下游缓存
@@ -941,24 +991,65 @@ fn compress_type_of(name: &str) -> CompressType {
     }
 }
 
+/// 令牌是否已收到取消信号；`None` 表示调用方没有提供令牌，永远不取消。
+/// 句柄已断开但未发送信号的令牌不算取消。
+fn is_canceled(cancel_token: Option<&CancelToken>) -> bool {
+    cancel_token.is_some_and(|token| matches!(token.0.try_recv(), Ok(())))
+}
+
 fn run_task_with_pump<Fut, T>(
     handle: &tokio::runtime::Handle,
     rx: &flume::Receiver<Event>,
     callback: &mut (impl FnMut(Event) + 'static),
+    cancel_token: Option<&CancelToken>,
     task: Fut,
 ) -> Result<T>
 where
     Fut: std::future::Future<Output = Result<T>> + Send + 'static,
     T: Send + 'static,
 {
+    // 事件泵可被唤醒的事件。
+    enum Pumped {
+        Event(Event),
+        // 事件发送端已全部断开：下载任务结束，等待其结果。
+        EventsDone,
+        // 收到取消信号。
+        Canceled,
+        // 取消通道断开但未发送信号：之后只泵事件。
+        CancelGone,
+    }
+
     let (result_tx, result_rx) = flume::bounded(1);
-    handle.spawn(async move {
+    let task_handle = handle.spawn(async move {
         let res = task.await;
         let _ = result_tx.send(res);
     });
 
-    while let Ok(event) = rx.recv() {
-        callback(event);
+    let mut cancel_token = cancel_token;
+    loop {
+        // 在事件和取消信号之间阻塞等待：任意一个到达都会唤醒，无需轮询。
+        // 取消时 abort 丢弃包装 future，oma-fetch 放在 `JoinSet` 里的下载
+        // 任务随之取消。
+        let mut selector = flume::Selector::new().recv(rx, |result| match result {
+            Ok(event) => Pumped::Event(event),
+            Err(_) => Pumped::EventsDone,
+        });
+        if let Some(token) = cancel_token {
+            selector = selector.recv(&token.0, |result| match result {
+                Ok(()) => Pumped::Canceled,
+                Err(_) => Pumped::CancelGone,
+            });
+        }
+
+        match selector.wait() {
+            Pumped::Event(event) => callback(event),
+            Pumped::EventsDone => break,
+            Pumped::Canceled => {
+                task_handle.abort();
+                return Err(RefreshError::Canceled);
+            }
+            Pumped::CancelGone => cancel_token = None,
+        }
     }
 
     result_rx
@@ -969,6 +1060,71 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    #[test]
+    fn cancel_handle_aborts_pump() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            handle_for_thread.cancel();
+        });
+
+        // 任务永不完成、也不发事件：只有取消句柄能中止事件泵。
+        let mut callback = |_event: Event| {};
+        let result: Result<()> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            async {
+                std::future::pending::<()>().await;
+                Ok(())
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        drop(tx);
+    }
+
+    #[test]
+    fn dropped_cancel_handle_does_not_cancel() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+        // 句柄直接断开：不算取消，事件照常泵完、结果照常返回。
+        drop(cancel_handle);
+
+        let seen = Arc::new(AtomicUsize::new(0));
+        let seen_in_callback = seen.clone();
+        let mut callback = move |_event: Event| {
+            seen_in_callback.fetch_add(1, Ordering::Relaxed);
+        };
+        let result: Result<u32> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            async move {
+                tx.send(Event::Done).unwrap();
+                Ok(42)
+            },
+        );
+
+        assert!(matches!(result, Ok(42)));
+        assert_eq!(seen.load(Ordering::Relaxed), 1);
+    }
 
     #[test]
     fn remove_unused_db_reports_and_removes_stale_files() {
