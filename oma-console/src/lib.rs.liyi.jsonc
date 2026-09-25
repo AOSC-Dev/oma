@@ -1,0 +1,31 @@
+// liyi v0.1 spec file
+{
+  "version": "0.1",
+  "source": "lib.rs",
+  "specs": [
+    {
+      "item": "writer",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        13,
+        13
+      ],
+      "tree_path": "mod.writer",
+      "source_hash": "sha256:65304867289d19c360405febe79e8d66716d7b95d62154db2552fa515e6d22d5",
+      "source_anchor": "pub mod writer;"
+    },
+    {
+      "item": "terminal",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        15,
+        15
+      ],
+      "tree_path": "mod.terminal",
+      "source_hash": "sha256:80d1ee56fd76cc2433d90d67d09fe6af1a408c38ec795f007fa2d9eee67df98e",
+      "source_anchor": "pub mod terminal;"
+    }
+  ]
+}

@@ -1,0 +1,355 @@
+// liyi v0.1 spec file
+{
+  "version": "0.1",
+  "source": "lib.rs",
+  "specs": [
+    {
+      "item": "Result",
+      "reviewed": false,
+      "intent": "=self-doc",
+      "source_span": [
+        17,
+        17
+      ],
+      "tree_path": "type.Result",
+      "source_hash": "sha256:e9f8251f8a79cd0111f01166f8fa159e8587aa665dccd110643dd400cbfa584e",
+      "source_anchor": "pub type Result<T> = std::result::Result<T, OmaTopicsError>;"
+    },
+    {
+      "item": "OmaTopicsError",
+      "reviewed": false,
+      "intent": "Error type for topic management: filesystem and JSON I/O, URL parsing, unknown or illegal topics, transparently wrapped reqwest-middleware and oma-mirror errors, and tokio runtime setup or misuse.",
+      "source_span": [
+        20,
+        57
+      ],
+      "tree_path": "enum.OmaTopicsError",
+      "source_hash": "sha256:e38481c01edc0a1bd868ad4bc888e9b920a6f6b002e8320bc2bd37d389ebb0ea",
+      "source_anchor": "pub enum OmaTopicsError {"
+    },
+    {
+      "item": "Topic",
+      "reviewed": false,
+      "intent": "One topic as declared in a repository topics manifest: name, description, archive and update dates, supported architectures (not serialized), package list, and draft flag (not serialized).",
+      "source_span": [
+        60,
+        70
+      ],
+      "tree_path": "struct.Topic",
+      "source_hash": "sha256:34731e5303a138c8f351fc9fb6c56b894bda9e1ac700299977ec4404745cdd3f",
+      "source_anchor": "pub struct Topic {"
+    },
+    {
+      "item": "PartialEq for Topic",
+      "reviewed": false,
+      "intent": "Topic identity is its name: equality ignores every other field.",
+      "source_span": [
+        72,
+        76
+      ],
+      "tree_path": "impl.\"PartialEq for Topic\"",
+      "source_hash": "sha256:242889c09aeedb85687a91b95a9de8ea8501ed2a4e7898a247d709de5d52546a",
+      "source_anchor": "impl PartialEq for Topic {"
+    },
+    {
+      "item": "PartialEq for Topic::eq",
+      "reviewed": false,
+      "intent": "Return whether both topics have the same name.",
+      "source_span": [
+        73,
+        75
+      ],
+      "tree_path": "impl.\"PartialEq for Topic\"::fn.eq",
+      "source_hash": "sha256:b281c6c35f239aad97b9b380d77750a84d910fda7913735d44ab0c30e25d9255",
+      "source_anchor": "    fn eq(&self, other: &Self) -> bool {"
+    },
+    {
+      "item": "Eq for Topic",
+      "reviewed": false,
+      "intent": "=self-doc",
+      "source_span": [
+        78,
+        78
+      ],
+      "tree_path": "impl.\"Eq for Topic\"",
+      "source_hash": "sha256:bc8bd768b34469cfb985027ae7cec31477fc3424ff99d5cd7e4d395bfc629db7",
+      "source_anchor": "impl Eq for Topic {}"
+    },
+    {
+      "item": "Hash for Topic",
+      "reviewed": false,
+      "intent": "Hashing follows name-based equality: only the topic name is hashed, so equal topics hash identically.",
+      "source_span": [
+        80,
+        84
+      ],
+      "tree_path": "impl.\"Hash for Topic\"",
+      "source_hash": "sha256:f37846727438f9f4f859c19a7a35fe33031e838aed2be6c20a0a81126188b87f",
+      "source_anchor": "impl Hash for Topic {"
+    },
+    {
+      "item": "Hash for Topic::hash",
+      "reviewed": false,
+      "intent": "Feed only the topic's name into the hasher.",
+      "source_span": [
+        81,
+        83
+      ],
+      "tree_path": "impl.\"Hash for Topic\"::fn.hash",
+      "source_hash": "sha256:931e3a8ce9cfb1fe47bd26cd7d03360967bafe148bfa3c2ec9b4f036d1d8e67e",
+      "source_anchor": "    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {"
+    },
+    {
+      "item": "TopicManager",
+      "reviewed": false,
+      "intent": "Coordinates topics for the oma CLI: locally enabled topics, the latest per-mirror topic data, architecture filter, ATM state and sources.list paths, dry-run flag, the pre-session state used for revert, plus the mirror manager and template path.",
+      "source_span": [
+        86,
+        98
+      ],
+      "tree_path": "struct.TopicManager",
+      "source_hash": "sha256:9406e71a497d0cd3ffe56f8b58f3e117bedb15ffacaa9a781249b577bb69cb01",
+      "source_anchor": "pub struct TopicManager {"
+    },
+    {
+      "item": "TopicManager",
+      "reviewed": false,
+      "intent": "TopicManager's API: construction from a sysroot with state recovery, fetching and deduplicating available topics, enabling/disabling, state serialization and persistence, sources list rendering and writing, and pruning of closed topics.",
+      "source_span": [
+        100,
+        426
+      ],
+      "tree_path": "impl.TopicManager",
+      "source_hash": "sha256:49494777ba9531e4c6b8320acaca32c986b5b9c9ed2f459f84fb155070b771b8",
+      "source_anchor": "impl TopicManager {"
+    },
+    {
+      "item": "TopicManager::ATM_STATE_PATH_SUFFIX",
+      "reviewed": false,
+      "intent": "Sysroot-relative path of the ATM enabled-topics state file.",
+      "source_span": [
+        101,
+        101
+      ],
+      "tree_path": "impl.TopicManager::const.ATM_STATE_PATH_SUFFIX",
+      "source_hash": "sha256:8a2b5360cf0c5adebf4883f48f35616e8f4ddbf42d649494d294cb867ef56842",
+      "source_anchor": "    const ATM_STATE_PATH_SUFFIX: &str = \"var/lib/atm/state\";"
+    },
+    {
+      "item": "TopicManager::ATM_SOURCE_LIST_PATH_SUFFIX",
+      "reviewed": false,
+      "intent": "Sysroot-relative path of the legacy ATM sources list (atm.list).",
+      "source_span": [
+        102,
+        102
+      ],
+      "tree_path": "impl.TopicManager::const.ATM_SOURCE_LIST_PATH_SUFFIX",
+      "source_hash": "sha256:63f96c74e4c53bcb66c6a0f607782fcb1fae0f86a83fc11403596c0cc6d60efb",
+      "source_anchor": "    const ATM_SOURCE_LIST_PATH_SUFFIX: &str = \"etc/apt/sources.list.d/atm.list\";"
+    },
+    {
+      "item": "TopicManager::ATM_SOURCE_LIST_PATH_NEW_SUFFIX",
+      "reviewed": false,
+      "intent": "Sysroot-relative path of the deb822 ATM sources file (atm.sources).",
+      "source_span": [
+        103,
+        103
+      ],
+      "tree_path": "impl.TopicManager::const.ATM_SOURCE_LIST_PATH_NEW_SUFFIX",
+      "source_hash": "sha256:85b9ad9a793b424a17121102e3346bbc5cde8a090c144880271d7f33df501258",
+      "source_anchor": "    const ATM_SOURCE_LIST_PATH_NEW_SUFFIX: &str = \"etc/apt/sources.list.d/atm.sources\";"
+    },
+    {
+      "item": "TopicManager::new",
+      "reviewed": false,
+      "intent": "Create a manager for a sysroot: resolve the ATM state and sources list paths, ensure the state directory exists, load enabled topics from JSON (missing or corrupted state is replaced by a fresh empty file with a warning), and initialize the mirror manager and template path.",
+      "source_span": [
+        105,
+        160
+      ],
+      "tree_path": "impl.TopicManager::fn.new",
+      "source_hash": "sha256:edd41c9004ec6ab937ebeedd77bdcd98a9844e14c3f372226ad57223fb0c06dd",
+      "source_anchor": "    pub fn new("
+    },
+    {
+      "item": "TopicManager::available_topics",
+      "reviewed": false,
+      "intent": "Latest-known topics: deduplicate topics from all mirrors by name, preferring the entry with the newest date.",
+      "source_span": [
+        162,
+        177
+      ],
+      "tree_path": "impl.TopicManager::fn.available_topics",
+      "source_hash": "sha256:ca240c48744cdaa807a48f14b00823e5132b7501e8f8341160c2436198fc09b4",
+      "source_anchor": "    pub fn available_topics(&self) -> Vec<&Topic> {"
+    },
+    {
+      "item": "TopicManager::enabled_topics",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        179,
+        181
+      ],
+      "tree_path": "impl.TopicManager::fn.enabled_topics",
+      "source_hash": "sha256:d857800b4991b062028f3b38bdf1cd3260252c71a2c0b12ad5617c4de7b4cbde",
+      "source_anchor": "    pub fn enabled_topics(&self) -> &[Topic] {"
+    },
+    {
+      "item": "TopicManager::refresh",
+      "reviewed": false,
+      "intent": "Fetch debs/manifest/topics.json from every enabled mirror concurrently and replace the known topic data; runs on the current tokio runtime when one exists, otherwise spins up a multi-thread runtime.",
+      "source_span": [
+        183,
+        219
+      ],
+      "tree_path": "impl.TopicManager::fn.refresh",
+      "source_hash": "sha256:b026977ef0acf47abffcfc8e1384b0fb99db1aa0685904d7712408314fdb6fcd",
+      "source_anchor": "    pub fn refresh(&mut self) -> Result<()> {"
+    },
+    {
+      "item": "TopicManager::add",
+      "reviewed": false,
+      "intent": "Enable a topic by name (case-insensitive): reject names containing control characters, keep repeated enables idempotent, and fail with CanNotFindTopic when no such topic is available.",
+      "source_span": [
+        222,
+        249
+      ],
+      "tree_path": "impl.TopicManager::fn.add",
+      "source_hash": "sha256:4829bdb023fb0ab01417cb3cf4bcd9b23f641870f00b51b08c0ec33a99558909",
+      "source_anchor": "    pub fn add(&mut self, topic: &str) -> Result<()> {"
+    },
+    {
+      "item": "TopicManager::remove",
+      "reviewed": false,
+      "intent": "Disable an enabled topic by name (case-insensitive) and return the removed entry; fails with FailedToDisableTopic when it was not enabled.",
+      "source_span": [
+        252,
+        269
+      ],
+      "tree_path": "impl.TopicManager::fn.remove",
+      "source_hash": "sha256:dcc5087656d06b7126770f7f5bb3cf770c0868877f238ce75be56884a4f95011",
+      "source_anchor": "    pub fn remove(&mut self, topic: &str) -> Result<Topic> {"
+    },
+    {
+      "item": "TopicManager::serialize_state",
+      "reviewed": false,
+      "intent": "Serialize the enabled topics to JSON bytes for the ATM state file, upgrading each entry to the newest available metadata; when `revert` is set, restore the pre-session enabled set first.",
+      "source_span": [
+        271,
+        296
+      ],
+      "tree_path": "impl.TopicManager::fn.serialize_state",
+      "source_hash": "sha256:7b02742a32f2f5911d34055783cccd7bbd8e021ce425b0ac41b90a29e8d8fee1",
+      "source_anchor": "    pub fn serialize_state(&mut self, revert: bool) -> Result<Vec<u8>> {"
+    },
+    {
+      "item": "TopicManager::write_enabled",
+      "reviewed": false,
+      "intent": "Persist the ATM enabled-topic state (see serialize_state, honoring `revert`); in dry-run mode only log the would-be contents.",
+      "source_span": [
+        299,
+        312
+      ],
+      "tree_path": "impl.TopicManager::fn.write_enabled",
+      "source_hash": "sha256:7845d7551ee4839d276d7ceba58c83f3135cdcf25de39ef3fb9aa6a2ef3683d4",
+      "source_anchor": "    pub fn write_enabled(&mut self, revert: bool) -> Result<()> {"
+    },
+    {
+      "item": "TopicManager::render_sources_list",
+      "reviewed": false,
+      "intent": "Render the ATM sources list as text: comment header, then for each enabled topic and enabled mirror the templated source stanza(s) in deb822 or one-line deb format; mirrors that do not carry the topic are reported through message_cb and skipped; `revert` renders the pre-session set.",
+      "source_span": [
+        314,
+        353
+      ],
+      "tree_path": "impl.TopicManager::fn.render_sources_list",
+      "source_hash": "sha256:a69e19c4ae80c29d7361755965e8d5065cfc893d2ddce7d256c42cdf64f21d39",
+      "source_anchor": "    pub fn render_sources_list("
+    },
+    {
+      "item": "TopicManager::write_sources_list",
+      "reviewed": false,
+      "intent": "Write the rendered ATM sources list, preferring the deb822 path when atm.sources already exists (removing the legacy atm.list in that case); no-op in dry-run mode.",
+      "source_span": [
+        355,
+        393
+      ],
+      "tree_path": "impl.TopicManager::fn.write_sources_list",
+      "source_hash": "sha256:64c68f0379217f75c8a19343ef2d78e8bcc372bbad828ce284ac448482ce48ed",
+      "source_anchor": "    pub fn write_sources_list("
+    },
+    {
+      "item": "TopicManager::remove_closed_topics",
+      "reviewed": false,
+      "intent": "Disable currently enabled topics that are no longer offered upstream, returning their names.",
+      "source_span": [
+        395,
+        415
+      ],
+      "tree_path": "impl.TopicManager::fn.remove_closed_topics",
+      "source_hash": "sha256:8c233efbffe60cbdd783dca10395680517558494a8952a95516f5e87fe752fe2",
+      "source_anchor": "    pub fn remove_closed_topics(&mut self) -> Result<Vec<String>> {"
+    },
+    {
+      "item": "TopicManager::url_is_enabled_topic",
+      "reviewed": false,
+      "intent": "Check whether an archive URL belongs to an enabled topic by comparing its second-to-last path segment against enabled topic names.",
+      "source_span": [
+        417,
+        425
+      ],
+      "tree_path": "impl.TopicManager::fn.url_is_enabled_topic",
+      "source_hash": "sha256:b50bfadee3dbd8b1b587b83df8a6ac6a6ec0152ed0c6308470e5c0d01d046fad",
+      "source_anchor": "    pub fn url_is_enabled_topic(&self, url: &str) -> bool {"
+    },
+    {
+      "item": "create_empty_state_sync",
+      "reviewed": false,
+      "intent": "Create or overwrite the ATM state file with an empty topic list and return that empty list.",
+      "source_span": [
+        428,
+        436
+      ],
+      "tree_path": "fn.create_empty_state_sync",
+      "source_hash": "sha256:20e3e4b1596a5ecf1b54bcb46a899c32b5e13b66482cb8598d7fedaafd156929",
+      "source_anchor": "fn create_empty_state_sync(atm_state_path: &Path) -> Result<Vec<Topic>> {"
+    },
+    {
+      "item": "get",
+      "reviewed": false,
+      "intent": "Fetch and deserialize JSON from a URL: file URLs are read from disk, http(s) goes through the middleware client with error-for-status; other schemes fail with UnsupportedProtocol.",
+      "source_span": [
+        438,
+        464
+      ],
+      "tree_path": "fn.get",
+      "source_hash": "sha256:a9394c29d653d1e60ce46d33d9c34b40322389dd180a529aad9f490e1ef18589",
+      "source_anchor": "async fn get<T: DeserializeOwned>(client: &ClientWithMiddleware, url: Url) -> Result<T> {"
+    },
+    {
+      "item": "refresh_inner",
+      "reviewed": false,
+      "intent": "Fetch and filter one mirror's topics.json: resolve debs/manifest/topics.json against the trailing-slash-normalized mirror URL and keep only topics that support the requested architecture (or `all`) and have control-character-free names.",
+      "source_span": [
+        466,
+        492
+      ],
+      "tree_path": "fn.refresh_inner",
+      "source_hash": "sha256:9a2ba1f0873e42a121b2d1209cb1db1e366774d78f89572fef51e3c98ecf8669",
+      "source_anchor": "async fn refresh_inner<'a>("
+    },
+    {
+      "item": "run_task_with_pump",
+      "reviewed": false,
+      "intent": "Run a future to completion on an existing tokio handle while blocking the calling thread for the result; used so refresh() also works when called from inside a runtime, failing with RecvError if the task never delivers a result.",
+      "source_span": [
+        494,
+        506
+      ],
+      "tree_path": "fn.run_task_with_pump",
+      "source_hash": "sha256:0b69cd84b25d4bb0965fbc5028f7e5a6872fc04eaa549b3f8ac453d3ab591575",
+      "source_anchor": "fn run_task_with_pump<Fut, T>(handle: &tokio::runtime::Handle, task: Fut) -> Result<T>"
+    }
+  ]
+}

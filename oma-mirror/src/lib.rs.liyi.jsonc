@@ -1,0 +1,223 @@
+// liyi v0.1 spec file
+{
+  "version": "0.1",
+  "source": "lib.rs",
+  "specs": [
+    {
+      "item": "parser",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        1,
+        1
+      ],
+      "tree_path": "mod.parser",
+      "source_hash": "sha256:f8f66738af5c094c9ec72cc8b72e011a69d17a7a4f92496d34619961276dc967",
+      "source_anchor": "pub mod parser;"
+    },
+    {
+      "item": "Status",
+      "reviewed": false,
+      "intent": "Persisted mirror selection state (status.json): an insertion-ordered map from mirror name to its repository base URL.",
+      "source_span": [
+        21,
+        23
+      ],
+      "tree_path": "struct.Status",
+      "source_hash": "sha256:e73482efd8d378d8457ac52532a219295857ccd310016664c6472af0a6cdc7f2",
+      "source_anchor": "struct Status {"
+    },
+    {
+      "item": "Default for Status",
+      "reviewed": false,
+      "intent": "The built-in default selection: only the `origin` mirror (https://repo.aosc.io/).",
+      "source_span": [
+        25,
+        31
+      ],
+      "tree_path": "impl.\"Default for Status\"",
+      "source_hash": "sha256:25f204c1f252b8d88e8ddc05b86a3a6fc9a604d69186bbe146e91db2ac80c7f5",
+      "source_anchor": "impl Default for Status {"
+    },
+    {
+      "item": "Default for Status::default",
+      "reviewed": false,
+      "intent": "Return the default status containing only the `origin` mirror.",
+      "source_span": [
+        26,
+        30
+      ],
+      "tree_path": "impl.\"Default for Status\"::fn.default",
+      "source_hash": "sha256:b623ec117591a1cb5c76763c46ede03c7f30bd6cb08f5c7aa444049e42746d9e",
+      "source_anchor": "    fn default() -> Self {"
+    },
+    {
+      "item": "MirrorError",
+      "reviewed": false,
+      "intent": "Error type for mirror handling: file I/O, JSON parse/serialize, unknown mirror names, rejected empty selections, and TOML template parse errors (via TemplateParseError).",
+      "source_span": [
+        34,
+        54
+      ],
+      "tree_path": "enum.MirrorError",
+      "source_hash": "sha256:d93ff33061d7bf5343f6dec814ca215d81d360c4f70cbe0610d93d66e50ff8cd",
+      "source_anchor": "pub enum MirrorError {"
+    },
+    {
+      "item": "MirrorManager",
+      "reviewed": false,
+      "intent": "Manages mirror configuration and selection for a sysroot: caches the parsed mirrors.toml (merged with an optional custom mirrors.toml), remembers the enabled status, and locates status.json, sources.list(.d), and template.toml.",
+      "source_span": [
+        56,
+        65
+      ],
+      "tree_path": "struct.MirrorManager",
+      "source_hash": "sha256:2bcd7b2f184e294b4543cc8e891e6b6c6a95c4783cc005c1c2f1da2862124a27",
+      "source_anchor": "pub struct MirrorManager {"
+    },
+    {
+      "item": "MirrorManager",
+      "reviewed": false,
+      "intent": "MirrorManager's API: construction from a sysroot (loading or recreating status.json), mirror listing/set/add/remove/ordering, and persisting status.json plus the apt sources list in deb list or deb822 format.",
+      "source_span": [
+        67,
+        260
+      ],
+      "tree_path": "impl.MirrorManager",
+      "source_hash": "sha256:3bf4a32dc00b5d613e29b6fb0359de6266b9d780315996d30e79b65180b0e16d",
+      "source_anchor": "impl MirrorManager {"
+    },
+    {
+      "item": "MirrorManager::new",
+      "reviewed": false,
+      "intent": "Bind the manager to a sysroot: resolve the status.json, mirrors.toml, custom mirrors.toml, sources.list variants, and template paths; load status.json when valid, otherwise recreate it with the default status.",
+      "source_span": [
+        68,
+        107
+      ],
+      "tree_path": "impl.MirrorManager::fn.new",
+      "source_hash": "sha256:f01bfa2443d52b891d0c5fbde2041455e1ea6d7815d930e7b0f142cb0ff9a55a",
+      "source_anchor": "    pub fn new(rootfs: impl AsRef<Path>) -> Result<Self, MirrorError> {"
+    },
+    {
+      "item": "MirrorManager::try_mirrors",
+      "reviewed": false,
+      "intent": "Lazily load and cache mirrors.toml; when a custom mirrors.toml exists it is merged in, and mirror names that collide with built-in ones are rejected (ConflictName).",
+      "source_span": [
+        109,
+        134
+      ],
+      "tree_path": "impl.MirrorManager::fn.try_mirrors",
+      "source_hash": "sha256:ddc8f7d2c385b4cd120e6fad779be6b9c92032ba15738a59fcc5446000b99b4c",
+      "source_anchor": "    fn try_mirrors(&self) -> Result<&MirrorsConfig, MirrorError> {"
+    },
+    {
+      "item": "MirrorManager::set",
+      "reviewed": false,
+      "intent": "Replace the enabled mirror set: reject an empty list (ApplyEmptySettings), validate every name first (MirrorNotExist), then clear and re-add in the given order.",
+      "source_span": [
+        136,
+        157
+      ],
+      "tree_path": "impl.MirrorManager::fn.set",
+      "source_hash": "sha256:8fbf945c325f08c6b6a4239213f6cf75873b4e1da8252576107b5237b5d30955",
+      "source_anchor": "    pub fn set(&mut self, mirror_names: &[&str]) -> Result<(), MirrorError> {"
+    },
+    {
+      "item": "MirrorManager::add",
+      "reviewed": false,
+      "intent": "Enable a mirror by name: return false when already enabled, fail with MirrorNotExist for unknown names, otherwise insert its URL and return true.",
+      "source_span": [
+        159,
+        177
+      ],
+      "tree_path": "impl.MirrorManager::fn.add",
+      "source_hash": "sha256:0b6244999ca3d3608fb51068daf1efa3a5fdcb0d32ed4b3c6cb5a3c77de1671b",
+      "source_anchor": "    pub fn add(&mut self, mirror_name: &str) -> Result<bool, MirrorError> {"
+    },
+    {
+      "item": "MirrorManager::remove",
+      "reviewed": false,
+      "intent": "Disable a mirror by name: fail with ApplyEmptySettings when it is the last enabled mirror, return false when it is not enabled, otherwise remove it and return true.",
+      "source_span": [
+        179,
+        191
+      ],
+      "tree_path": "impl.MirrorManager::fn.remove",
+      "source_hash": "sha256:e7ba2a648b0f3d9249446c89ceb1c4d6471c472bdc350bc38ba1de7900cbaf8d",
+      "source_anchor": "    pub fn remove(&mut self, mirror_name: &str) -> Result<bool, MirrorError> {"
+    },
+    {
+      "item": "MirrorManager::mirrors_iter",
+      "reviewed": false,
+      "intent": "Iterate all known mirrors from mirrors.toml as (name, config) pairs.",
+      "source_span": [
+        193,
+        198
+      ],
+      "tree_path": "impl.MirrorManager::fn.mirrors_iter",
+      "source_hash": "sha256:36b975c4332f731d6c8225c2eb1aff8695c70a75ada28f4140069264de83b0e5",
+      "source_anchor": "    pub fn mirrors_iter(&self) -> Result<impl Iterator<Item = (&str, &MirrorConfig)>, MirrorError> {"
+    },
+    {
+      "item": "MirrorManager::enabled_mirrors",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        200,
+        202
+      ],
+      "tree_path": "impl.MirrorManager::fn.enabled_mirrors",
+      "source_hash": "sha256:e01f6f19eb4443067af2be1a7f9c37943d03e77e69318f971a3fe829f57556c5",
+      "source_anchor": "    pub fn enabled_mirrors(&self) -> &IndexMap<Box<str>, Box<str>> {"
+    },
+    {
+      "item": "MirrorManager::set_order",
+      "reviewed": false,
+      "intent": "Reorder the enabled mirrors according to the given indices; every index must be valid (out-of-range indices panic).",
+      "source_span": [
+        204,
+        212
+      ],
+      "tree_path": "impl.MirrorManager::fn.set_order",
+      "source_hash": "sha256:644b6e9fd6419aaea78c245421e7b8d3e741cf40465f7c9766e00239cf19a590",
+      "source_anchor": "    pub fn set_order(&mut self, order: &[usize]) {"
+    },
+    {
+      "item": "MirrorManager::write_status",
+      "reviewed": false,
+      "intent": "Persist status.json and regenerate the apt source file from the status plus template.toml: prepend the tips comment, switch to deb822 when aosc.sources exists (moving the legacy sources.list to sources.list.bak), and emit each mirror × template config with the `stable` branch.",
+      "source_span": [
+        214,
+        259
+      ],
+      "tree_path": "impl.MirrorManager::fn.write_status",
+      "source_hash": "sha256:63dd0a811c7b3b1010a3f24846d0340136340709ce2f185c77278836cf82ac7d",
+      "source_anchor": "    pub fn write_status(&self, custom_mirror_tips: Option<&str>) -> Result<(), MirrorError> {"
+    },
+    {
+      "item": "write_sources_inner",
+      "reviewed": false,
+      "intent": "Append one mirror's source stanza(s) for a template config: skip disabled configs, normalize the URL's trailing slash, and emit either a one-line deb entry with [trusted/signed-by/arch] options or deb822 fields (Types, URIs, Suites, Components, Signed-By, Trusted, Architectures).",
+      "source_span": [
+        262,
+        338
+      ],
+      "tree_path": "fn.write_sources_inner",
+      "source_hash": "sha256:9a454882af07075ba120bb84a1e6ccc1f5f207f4aafc0cd42b6360795739a75f",
+      "source_anchor": "pub fn write_sources_inner("
+    },
+    {
+      "item": "create_default_status",
+      "reviewed": false,
+      "intent": "Create the status file's parent directories and write the default status (origin mirror), returning it.",
+      "source_span": [
+        340,
+        354
+      ],
+      "tree_path": "fn.create_default_status",
+      "source_hash": "sha256:be9a39a03446d309dcda4df0014a8b5fa4e5170767d00aa82c74101d832de981",
+      "source_anchor": "fn create_default_status(path: &Path) -> Result<Status, MirrorError> {"
+    }
+  ]
+}

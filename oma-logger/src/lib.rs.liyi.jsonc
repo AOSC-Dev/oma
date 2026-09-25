@@ -1,0 +1,103 @@
+// liyi v0.1 spec file
+{
+  "version": "0.1",
+  "source": "lib.rs",
+  "specs": [
+    {
+      "item": "formatter",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        28,
+        28
+      ],
+      "tree_path": "mod.formatter",
+      "source_hash": "sha256:fdfbffccb97f9bda4356775a338189624c1f5e0a95305aa3f13a37a757575611",
+      "source_anchor": "mod formatter;"
+    },
+    {
+      "item": "trace",
+      "reviewed": false,
+      "intent": "=doc",
+      "source_span": [
+        44,
+        53
+      ],
+      "tree_path": "macro.trace",
+      "source_hash": "sha256:2c1d74b6b128bfaf6f374b511b2fdedef9a03aa3bb879726c3ad4c7cdad52e23",
+      "source_anchor": "macro_rules! trace {"
+    },
+    {
+      "item": "debug",
+      "reviewed": false,
+      "intent": "spdlog-backed `debug!` macro (Debug level, default logger); same positional-only form and hygiene rationale as `trace!`.",
+      "source_span": [
+        57,
+        66
+      ],
+      "tree_path": "macro.debug",
+      "source_hash": "sha256:ed84158b344f093d0667b0ebb658f8021dd6b073fd8f1b58df7bb2de519b8d31",
+      "source_anchor": "macro_rules! debug {"
+    },
+    {
+      "item": "info",
+      "reviewed": false,
+      "intent": "spdlog-backed `info!` macro (Info level, default logger; see `trace!` for form and hygiene notes).",
+      "source_span": [
+        70,
+        79
+      ],
+      "tree_path": "macro.info",
+      "source_hash": "sha256:a78dc336324c87840c3862329124127b9dad137ecc191a17a8315c68ac12cf01",
+      "source_anchor": "macro_rules! info {"
+    },
+    {
+      "item": "warn",
+      "reviewed": false,
+      "intent": "spdlog-backed `warn!` macro (Warn level, default logger; see `trace!` for form and hygiene notes).",
+      "source_span": [
+        83,
+        92
+      ],
+      "tree_path": "macro.warn",
+      "source_hash": "sha256:08542c072a0dd02a36421805bead773c687e2dafc3fb306fed3744c9d09fd410",
+      "source_anchor": "macro_rules! warn {"
+    },
+    {
+      "item": "error",
+      "reviewed": false,
+      "intent": "spdlog-backed `error!` macro (Error level, default logger; see `trace!` for form and hygiene notes).",
+      "source_span": [
+        96,
+        105
+      ],
+      "tree_path": "macro.error",
+      "source_hash": "sha256:2d161d29b9dbad0a1ad13518588592cc86f11a065117e2a73f1142edcae12eb0",
+      "source_anchor": "macro_rules! error {"
+    },
+    {
+      "item": "critical",
+      "reviewed": false,
+      "intent": "spdlog-backed `critical!` macro (Critical level, default logger; see `trace!` for form and hygiene notes).",
+      "source_span": [
+        109,
+        118
+      ],
+      "tree_path": "macro.critical",
+      "source_hash": "sha256:3a505d8e80a307d6d40535b7307ebe59e44016816d9dbb712c35b72d4cc4a26a",
+      "source_anchor": "macro_rules! critical {"
+    },
+    {
+      "item": "critical",
+      "reviewed": false,
+      "intent": "Fallback `critical!` for `log`-feature builds: the `log` crate has no critical level, so it forwards to `error!`.",
+      "source_span": [
+        128,
+        132
+      ],
+      "tree_path": "macro.critical",
+      "source_hash": "sha256:6f053071b26ac777bb03803753da06faff99c99b3d0471128746b9091af869f6",
+      "source_anchor": "macro_rules! critical {"
+    }
+  ]
+}

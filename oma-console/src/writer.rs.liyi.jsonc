@@ -1,0 +1,211 @@
+// liyi v0.1 spec file
+{
+  "version": "0.1",
+  "source": "writer.rs",
+  "specs": [
+    {
+      "item": "Writeln",
+      "reviewed": false,
+      "intent": "Abstraction for emitting one oma-style, prefix-aligned message to a terminal: implementations wrap `msg` to the terminal width, write it out, and propagate I/O errors.",
+      "source_span": [
+        5,
+        7
+      ],
+      "tree_path": "trait.Writeln",
+      "source_hash": "sha256:0757c642051f6031c58e84f0c250cb63b986bb6301ba576c79fa750bca4bd548",
+      "source_anchor": "pub trait Writeln {"
+    },
+    {
+      "item": "Writeln for Writer",
+      "reviewed": false,
+      "intent": "Implement Writeln for Writer: lay out each message through the writer's Terminal configuration (wrap, then padded prefix plus body per line).",
+      "source_span": [
+        9,
+        18
+      ],
+      "tree_path": "impl.\"Writeln for Writer\"",
+      "source_hash": "sha256:65968ac050300f4aba81383735c4102fcae399b61e8f6a8e89735145a41fc529",
+      "source_anchor": "impl Writeln for Writer {"
+    },
+    {
+      "item": "Writeln for Writer::writeln",
+      "reviewed": false,
+      "intent": "Write `msg` as prefix-aligned wrapped lines: the first line carries the oma-style `prefix`, continuation lines keep the prefix area as blank padding, every line ends with a newline, and the first I/O error aborts the write.",
+      "source_span": [
+        10,
+        17
+      ],
+      "tree_path": "impl.\"Writeln for Writer\"::fn.writeln",
+      "source_hash": "sha256:a9d34650161ee0b9f3f34b08d9c90376e0df4ac6b21068d2cfaf5932658363b3",
+      "source_anchor": "    fn writeln(&self, prefix: &str, msg: &str) -> io::Result<()> {"
+    },
+    {
+      "item": "Writer",
+      "reviewed": false,
+      "intent": "=self-doc",
+      "source_span": [
+        21,
+        23
+      ],
+      "tree_path": "struct.Writer",
+      "source_hash": "sha256:857f909b3cd172dd041da850c84e0610a039d59406b1fb40e4d6ebc0aad4b545",
+      "source_anchor": "pub struct Writer {"
+    },
+    {
+      "item": "Writer",
+      "reviewed": false,
+      "intent": "Provide Writer's inherent API: stderr/stdout constructors with or without the 80-column width cap, terminal queries delegated to the wrapped Terminal, and prefix-writing helpers.",
+      "source_span": [
+        25,
+        93
+      ],
+      "tree_path": "impl.Writer",
+      "source_hash": "sha256:a7541939a7d0d95ab6788e3ccde81ba28e5aae8dade3bb36fd9ebd86f8ae0c0a",
+      "source_anchor": "impl Writer {"
+    },
+    {
+      "item": "Writer::new",
+      "reviewed": false,
+      "intent": "Create a stderr Writer with the given prefix width and the default 80-column width cap.",
+      "source_span": [
+        26,
+        32
+      ],
+      "tree_path": "impl.Writer::fn.new",
+      "source_hash": "sha256:588f273dcae4b7b8a1f85d9322f5a3fcb5088708af44f1bf926dfbeb30dcc737",
+      "source_anchor": "    pub fn new(prefix_len: u16) -> Self {"
+    },
+    {
+      "item": "Writer::new_no_limit_length",
+      "reviewed": false,
+      "intent": "Create a stderr Writer with the given prefix width and no width cap (wrap to the actual terminal width).",
+      "source_span": [
+        34,
+        40
+      ],
+      "tree_path": "impl.Writer::fn.new_no_limit_length",
+      "source_hash": "sha256:f5c3ed6a576a83769908ae918cb51027213772c586ee7ba88b801572aba7a128",
+      "source_anchor": "    pub fn new_no_limit_length(prefix_len: u16) -> Self {"
+    },
+    {
+      "item": "Writer::new_stdout",
+      "reviewed": false,
+      "intent": "Create a stdout Writer with the default width cap (80 columns) and prefix width (10 columns).",
+      "source_span": [
+        42,
+        46
+      ],
+      "tree_path": "impl.Writer::fn.new_stdout",
+      "source_hash": "sha256:ac8b42239c0997834df1c5a91373f2a696a94c96f38ff395bf20b93628585f3e",
+      "source_anchor": "    pub fn new_stdout() -> Self {"
+    },
+    {
+      "item": "Writer::is_terminal",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        49,
+        51
+      ],
+      "tree_path": "impl.Writer::fn.is_terminal",
+      "source_hash": "sha256:24c0ce3cef22847f2d211a93cb3964203888d7d55d927f49f1b7d6f1bb6e089b",
+      "source_anchor": "    pub fn is_terminal(&self) -> bool {"
+    },
+    {
+      "item": "Writer::show_cursor",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        54,
+        57
+      ],
+      "tree_path": "impl.Writer::fn.show_cursor",
+      "source_hash": "sha256:1f694e6da96a4ab106044473f50dadae810607b413ee3b27d8acd1bae09a5012",
+      "source_anchor": "    pub fn show_cursor(&self) -> io::Result<()> {"
+    },
+    {
+      "item": "Writer::get_max_len",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        60,
+        62
+      ],
+      "tree_path": "impl.Writer::fn.get_max_len",
+      "source_hash": "sha256:3e1008c1034d6c4262a75efa8161035e6ea1d1c239a6b93fc58b23814bb970c2",
+      "source_anchor": "    pub fn get_max_len(&self) -> u16 {"
+    },
+    {
+      "item": "Writer::get_height",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        65,
+        67
+      ],
+      "tree_path": "impl.Writer::fn.get_height",
+      "source_hash": "sha256:082e142bec0769cd25933884af74253b6db47b399a72c36e6e4d0e70ee4973a1",
+      "source_anchor": "    pub fn get_height(&self) -> u16 {"
+    },
+    {
+      "item": "Writer::get_length",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        70,
+        72
+      ],
+      "tree_path": "impl.Writer::fn.get_length",
+      "source_hash": "sha256:d8485c29ad1554f380bf698b29442b5bf476891d98c8e4981a3ae58cc03142e0",
+      "source_anchor": "    pub fn get_length(&self) -> u16 {"
+    },
+    {
+      "item": "Writer::get_writer",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        75,
+        77
+      ],
+      "tree_path": "impl.Writer::fn.get_writer",
+      "source_hash": "sha256:cabb3c6d852f275fa77f42aa2064fc1da0827b17795a77303d58d146244e1d47",
+      "source_anchor": "    pub fn get_writer(&self) -> Box<dyn Write> {"
+    },
+    {
+      "item": "Writer::write_prefix",
+      "reviewed": false,
+      "intent": "Write `prefix` padded to the prefix area width (see `gen_prefix`; panics if it cannot fit), returning I/O errors from the terminal.",
+      "source_span": [
+        80,
+        84
+      ],
+      "tree_path": "impl.Writer::fn.write_prefix",
+      "source_hash": "sha256:82f01632265e98258b21e214d3fe0d3e88ac3f35c2f00a4ef6ab55452348dda8",
+      "source_anchor": "    pub fn write_prefix(&self, prefix: &str) -> io::Result<()> {"
+    },
+    {
+      "item": "Writer::get_prefix_len",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        86,
+        88
+      ],
+      "tree_path": "impl.Writer::fn.get_prefix_len",
+      "source_hash": "sha256:9c8cb64fc15ec7ad33bb9411cd18bea2fd67e84afb08451286039f6a8f5fa21f",
+      "source_anchor": "    pub fn get_prefix_len(&self) -> u16 {"
+    },
+    {
+      "item": "Writer::get_terminal",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        90,
+        92
+      ],
+      "tree_path": "impl.Writer::fn.get_terminal",
+      "source_hash": "sha256:ccb360da077355b363ff1a6e5060c3662d143a8d46604bc275a2f68a3ea66e4a",
+      "source_anchor": "    pub fn get_terminal(&self) -> &Terminal {"
+    }
+  ]
+}

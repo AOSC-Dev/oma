@@ -1,0 +1,151 @@
+// liyi v0.1 spec file
+{
+  "version": "0.1",
+  "source": "parser.rs",
+  "specs": [
+    {
+      "item": "MirrorsConfigTemplate",
+      "reviewed": false,
+      "intent": "Top-level shape of template.toml: the list of mirror config templates.",
+      "source_span": [
+        11,
+        13
+      ],
+      "tree_path": "struct.MirrorsConfigTemplate",
+      "source_hash": "sha256:283d5fc56ce4b3668ba3e13485873e3863e7e772ecfca91b5068486266499c35",
+      "source_anchor": "pub struct MirrorsConfigTemplate {"
+    },
+    {
+      "item": "MirrorConfigTemplate",
+      "reviewed": false,
+      "intent": "One template entry describing how to render apt sources for a mirror: components, signing keys (signed-by), architectures, always-trusted flag, and enabled toggle (default true).",
+      "source_span": [
+        16,
+        26
+      ],
+      "tree_path": "struct.MirrorConfigTemplate",
+      "source_hash": "sha256:3bdb5d6b3687bb71445159881ecbef0f7cabf8d8a29e2ea29ca2565c0dac9ffe",
+      "source_anchor": "pub struct MirrorConfigTemplate {"
+    },
+    {
+      "item": "TemplateParseError",
+      "reviewed": false,
+      "intent": "Errors when parsing mirror configuration or templates: file read, TOML syntax (transparent), and custom mirror name conflicts.",
+      "source_span": [
+        29,
+        36
+      ],
+      "tree_path": "enum.TemplateParseError",
+      "source_hash": "sha256:cd4f343ffad756df9436b1f05ae6aa083829e734c5b5bc345918183ba928b83c",
+      "source_anchor": "pub enum TemplateParseError {"
+    },
+    {
+      "item": "MirrorsConfigTemplate",
+      "reviewed": false,
+      "intent": "MirrorsConfigTemplate parsing helpers (file or slice) plus the serde default for `enabled`.",
+      "source_span": [
+        38,
+        54
+      ],
+      "tree_path": "impl.MirrorsConfigTemplate",
+      "source_hash": "sha256:7896c070e626b309df3d3d8fc3de85c2d7f977dde8692e3d1cdcb3b4a4ddbf1a",
+      "source_anchor": "impl MirrorsConfigTemplate {"
+    },
+    {
+      "item": "MirrorsConfigTemplate::default_enabled",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        39,
+        41
+      ],
+      "tree_path": "impl.MirrorsConfigTemplate::fn.default_enabled",
+      "source_hash": "sha256:bc489a4e1350b7317fc7f504ce88ecb66cf276dfa8b28ff81df61536dcf45293",
+      "source_anchor": "    const fn default_enabled() -> bool {"
+    },
+    {
+      "item": "MirrorsConfigTemplate::parse_from_file",
+      "reviewed": false,
+      "intent": "Read and parse a template.toml from disk into MirrorsConfigTemplate (ReadFile error carries the path).",
+      "source_span": [
+        43,
+        49
+      ],
+      "tree_path": "impl.MirrorsConfigTemplate::fn.parse_from_file",
+      "source_hash": "sha256:cd9d87e61589a0e8d83fdf6cf3fa8d72ddc131a8acdc542d8aeaf09c4db98448",
+      "source_anchor": "    pub fn parse_from_file(path: impl AsRef<Path>) -> Result<Self, TemplateParseError> {"
+    },
+    {
+      "item": "MirrorsConfigTemplate::parse_from_slice",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        51,
+        53
+      ],
+      "tree_path": "impl.MirrorsConfigTemplate::fn.parse_from_slice",
+      "source_hash": "sha256:540eca259d635f3f7e7c9edfe7c748fc3a8bbf8f064842224f686da8b4d14f88",
+      "source_anchor": "    pub fn parse_from_slice(slice: &[u8]) -> Result<Self, TemplateParseError> {"
+    },
+    {
+      "item": "MirrorsConfig",
+      "reviewed": false,
+      "intent": "Parsed mirrors.toml: a map from mirror name to its config.",
+      "source_span": [
+        57,
+        57
+      ],
+      "tree_path": "struct.MirrorsConfig",
+      "source_hash": "sha256:18caa3687277b1469c7d91b2c8598d44b4adaa29f1ee68680c365e201580e3de",
+      "source_anchor": "pub struct MirrorsConfig(pub HashMap<Box<str>, MirrorConfig>);"
+    },
+    {
+      "item": "MirrorConfig",
+      "reviewed": false,
+      "intent": "One mirror entry: localized description strings (language to text) and the repository base URL.",
+      "source_span": [
+        60,
+        63
+      ],
+      "tree_path": "struct.MirrorConfig",
+      "source_hash": "sha256:b63df2fda2c6e0f4b5698b10e3b05ce44f31f38e62a5fa4b09a1f8293809f2af",
+      "source_anchor": "pub struct MirrorConfig {"
+    },
+    {
+      "item": "MirrorsConfig",
+      "reviewed": false,
+      "intent": "MirrorsConfig parsing helpers (file or slice).",
+      "source_span": [
+        65,
+        77
+      ],
+      "tree_path": "impl.MirrorsConfig",
+      "source_hash": "sha256:fe5abd2382ca3e9502e05681de3b60d10e65964820d9230d69b222fa0cff5ab6",
+      "source_anchor": "impl MirrorsConfig {"
+    },
+    {
+      "item": "MirrorsConfig::parse_from_file",
+      "reviewed": false,
+      "intent": "Read and parse a mirrors.toml from disk into MirrorsConfig (ReadFile error carries the path).",
+      "source_span": [
+        66,
+        72
+      ],
+      "tree_path": "impl.MirrorsConfig::fn.parse_from_file",
+      "source_hash": "sha256:cd9d87e61589a0e8d83fdf6cf3fa8d72ddc131a8acdc542d8aeaf09c4db98448",
+      "source_anchor": "    pub fn parse_from_file(path: impl AsRef<Path>) -> Result<Self, TemplateParseError> {"
+    },
+    {
+      "item": "MirrorsConfig::parse_from_slice",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        74,
+        76
+      ],
+      "tree_path": "impl.MirrorsConfig::fn.parse_from_slice",
+      "source_hash": "sha256:540eca259d635f3f7e7c9edfe7c748fc3a8bbf8f064842224f686da8b4d14f88",
+      "source_anchor": "    pub fn parse_from_slice(slice: &[u8]) -> Result<Self, TemplateParseError> {"
+    }
+  ]
+}

@@ -1,0 +1,391 @@
+// liyi v0.1 spec file
+{
+  "version": "0.1",
+  "source": "lib.rs",
+  "specs": [
+    {
+      "item": "OmaOperation",
+      "reviewed": false,
+      "intent": "A complete transaction report: packages to install, packages to remove, disk size delta, autoremovable counts, total download size, and suggested/recommended package name pairs.",
+      "source_span": [
+        9,
+        17
+      ],
+      "tree_path": "struct.OmaOperation",
+      "source_hash": "sha256:b2c5b4fe2db530043a3144568b6030799e0c4956aae4b0d3abbadd3dffeef936",
+      "source_anchor": "pub struct OmaOperation {"
+    },
+    {
+      "item": "Display for OmaOperation",
+      "reviewed": false,
+      "intent": "Render the transaction as an oma-style human-readable summary: one line per action group plus a signed, human-readable size delta.",
+      "source_span": [
+        19,
+        109
+      ],
+      "tree_path": "impl.\"Display for OmaOperation\"",
+      "source_hash": "sha256:a3647ef7b0e886d7b13e539cbe16c22c3fd8a0a0a3895a904b34d9b4bd82ed69",
+      "source_anchor": "impl Display for OmaOperation {"
+    },
+    {
+      "item": "Display for OmaOperation::fmt",
+      "reviewed": false,
+      "intent": "Format the operation summary: group installs by operation kind (upgrades show old and new version; automatic installs are annotated), split removals into Remove/Purge by tag, skip empty groups, and print Size-delta with sign and human bytes; install entries carrying the placeholder Default/Download operation are ruled out as unreachable.",
+      "source_span": [
+        20,
+        108
+      ],
+      "tree_path": "impl.\"Display for OmaOperation\"::fn.fmt",
+      "source_hash": "sha256:502937254291bfb0d34c05c8a94c9c00068dd5758a9aabea189a0986abbab9c9",
+      "source_anchor": "    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {"
+    },
+    {
+      "item": "InstallEntry",
+      "reviewed": false,
+      "intent": "One package scheduled for installation or upgrade: identity (name, name without arch, arch), versions (old optional, new), sizes (old optional, new), download metadata (package URLs, hashes, download size), operation kind, automatic flag, and index.",
+      "source_span": [
+        112,
+        129
+      ],
+      "tree_path": "struct.InstallEntry",
+      "source_hash": "sha256:5d0b435fcc97f7a54dbc3b3ba786b7bb1c4e8049da9d2d6e88a221521fd35d85",
+      "source_anchor": "pub struct InstallEntry {"
+    },
+    {
+      "item": "PackageUrl",
+      "reviewed": false,
+      "intent": "=self-doc",
+      "source_span": [
+        132,
+        135
+      ],
+      "tree_path": "struct.PackageUrl",
+      "source_hash": "sha256:ccf67a6102f409bcde786e2d3e9506f32e26fd732670a7375515bbc39c5aad35",
+      "source_anchor": "pub struct PackageUrl {"
+    },
+    {
+      "item": "RemoveEntry",
+      "reviewed": false,
+      "intent": "One package scheduled for removal: name, optional version, size, removal tags, arch, and index.",
+      "source_span": [
+        138,
+        145
+      ],
+      "tree_path": "struct.RemoveEntry",
+      "source_hash": "sha256:c34ac8099685b71c05fd138391fed0cd363e69b255d691709ee0a147f8dcdff6",
+      "source_anchor": "pub struct RemoveEntry {"
+    },
+    {
+      "item": "RemoveTag",
+      "reviewed": false,
+      "intent": "Why a package is scheduled for removal: explicit Purge, AutoRemove, or Resolver (pulled in as a dependency).",
+      "source_span": [
+        148,
+        152
+      ],
+      "tree_path": "enum.RemoveTag",
+      "source_hash": "sha256:14b503a68aae0d3468891c3f830f027f736a4e504e8ec7208a3c894e8b0f13f8",
+      "source_anchor": "pub enum RemoveTag {"
+    },
+    {
+      "item": "InstallOperation",
+      "reviewed": false,
+      "intent": "Operation kind of an install entry, repr(u8) for numeric compatibility; Default and Download are placeholder states not expected in a finalized transaction.",
+      "source_span": [
+        168,
+        176
+      ],
+      "tree_path": "enum.InstallOperation",
+      "source_hash": "sha256:4c41a71586dc9990e8c8831e4950c04974d5115c57d9d6dbfa9a56bf188265be",
+      "source_anchor": "pub enum InstallOperation {"
+    },
+    {
+      "item": "InstallEntry",
+      "reviewed": false,
+      "intent": "Read-only accessors for every InstallEntry field.",
+      "source_span": [
+        178,
+        238
+      ],
+      "tree_path": "impl.InstallEntry",
+      "source_hash": "sha256:e1f1e25d68e7d45000e2c1a01b340e532dafcd5ce237332879afddb4bb0ef640",
+      "source_anchor": "impl InstallEntry {"
+    },
+    {
+      "item": "InstallEntry::name",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        179,
+        181
+      ],
+      "tree_path": "impl.InstallEntry::fn.name",
+      "source_hash": "sha256:8b68be65ca11816e6767769634e9d11ced1839c09c5dcc09b47fe6bbf9284e8f",
+      "source_anchor": "    pub fn name(&self) -> &str {"
+    },
+    {
+      "item": "InstallEntry::name_without_arch",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        183,
+        185
+      ],
+      "tree_path": "impl.InstallEntry::fn.name_without_arch",
+      "source_hash": "sha256:c712170096190a8aa74cfdce4852b1ac7fd10175d0808abf5e735b2b6c0c1e91",
+      "source_anchor": "    pub fn name_without_arch(&self) -> &str {"
+    },
+    {
+      "item": "InstallEntry::old_size",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        187,
+        189
+      ],
+      "tree_path": "impl.InstallEntry::fn.old_size",
+      "source_hash": "sha256:41503822ba1cca1d2ca9c0d958eeadc926a1c7127fa38a8bede11523ac511070",
+      "source_anchor": "    pub fn old_size(&self) -> Option<u64> {"
+    },
+    {
+      "item": "InstallEntry::new_size",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        191,
+        193
+      ],
+      "tree_path": "impl.InstallEntry::fn.new_size",
+      "source_hash": "sha256:f0216fad20ea29b7fbdb27ac584bf141e3185615ed415f91f3432c8410afdf91",
+      "source_anchor": "    pub fn new_size(&self) -> u64 {"
+    },
+    {
+      "item": "InstallEntry::old_version",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        195,
+        197
+      ],
+      "tree_path": "impl.InstallEntry::fn.old_version",
+      "source_hash": "sha256:fb445989749f9d03a9d94c2dec924750a1a885ef52510dd5958693d1a9e7ec26",
+      "source_anchor": "    pub fn old_version(&self) -> Option<&str> {"
+    },
+    {
+      "item": "InstallEntry::new_version",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        199,
+        201
+      ],
+      "tree_path": "impl.InstallEntry::fn.new_version",
+      "source_hash": "sha256:0deb2c31efa2f9eab76adc22ed69ded4e40943075ac503472e875328ed76d973",
+      "source_anchor": "    pub fn new_version(&self) -> &str {"
+    },
+    {
+      "item": "InstallEntry::pkg_urls",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        203,
+        205
+      ],
+      "tree_path": "impl.InstallEntry::fn.pkg_urls",
+      "source_hash": "sha256:fa1a3fa180a395a0511f08595c6415b278d874f35a3bb948ef388f366d3f78af",
+      "source_anchor": "    pub fn pkg_urls(&self) -> &[PackageUrl] {"
+    },
+    {
+      "item": "InstallEntry::sha256",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        207,
+        209
+      ],
+      "tree_path": "impl.InstallEntry::fn.sha256",
+      "source_hash": "sha256:f4d6666e5b0070c4446e126669b21bac20e7fbe77bd7e4ceda1cacce327ce031",
+      "source_anchor": "    pub fn sha256(&self) -> Option<&str> {"
+    },
+    {
+      "item": "InstallEntry::md5",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        211,
+        213
+      ],
+      "tree_path": "impl.InstallEntry::fn.md5",
+      "source_hash": "sha256:944103e83867f26cd31eeac47a4ff83a257eac2df4ebeae5c063d70c4479e72a",
+      "source_anchor": "    pub fn md5(&self) -> Option<&str> {"
+    },
+    {
+      "item": "InstallEntry::sha512",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        215,
+        217
+      ],
+      "tree_path": "impl.InstallEntry::fn.sha512",
+      "source_hash": "sha256:9d7e4c22a41f30d5706d713baa0d88170a526a86f0c9d53945ed9d32bb12f5b4",
+      "source_anchor": "    pub fn sha512(&self) -> Option<&str> {"
+    },
+    {
+      "item": "InstallEntry::arch",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        219,
+        221
+      ],
+      "tree_path": "impl.InstallEntry::fn.arch",
+      "source_hash": "sha256:e109261270d735e94d2379e1cb25e8b0d2b679697ce770597ce653c909b02a72",
+      "source_anchor": "    pub fn arch(&self) -> &str {"
+    },
+    {
+      "item": "InstallEntry::download_size",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        223,
+        225
+      ],
+      "tree_path": "impl.InstallEntry::fn.download_size",
+      "source_hash": "sha256:d6098216f56d9df61c506b79abe3116278efedebacfab110a419c1893b669f37",
+      "source_anchor": "    pub fn download_size(&self) -> u64 {"
+    },
+    {
+      "item": "InstallEntry::op",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        227,
+        229
+      ],
+      "tree_path": "impl.InstallEntry::fn.op",
+      "source_hash": "sha256:2d407dbd0ba2858b62f47b8eb37e2f463e5a100285bdaea89437f39b0261e0eb",
+      "source_anchor": "    pub fn op(&self) -> &InstallOperation {"
+    },
+    {
+      "item": "InstallEntry::automatic",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        231,
+        233
+      ],
+      "tree_path": "impl.InstallEntry::fn.automatic",
+      "source_hash": "sha256:c25b464af7d6cdf85de948931cc2eb31d34a81cf0ac542de4124604ea4125360",
+      "source_anchor": "    pub fn automatic(&self) -> bool {"
+    },
+    {
+      "item": "InstallEntry::index",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        235,
+        237
+      ],
+      "tree_path": "impl.InstallEntry::fn.index",
+      "source_hash": "sha256:0673398e6a404aedbab6fe80837b16d6339b3c9c33f397ceaec40dbbf5402bf8",
+      "source_anchor": "    pub fn index(&self) -> usize {"
+    },
+    {
+      "item": "RemoveEntry",
+      "reviewed": false,
+      "intent": "Provide RemoveEntry construction and read-only accessors.",
+      "source_span": [
+        240,
+        282
+      ],
+      "tree_path": "impl.RemoveEntry",
+      "source_hash": "sha256:36f56302cf7e0af2a0670e9fb2ecc19070939eb603f96600bcfebc9a15595ec3",
+      "source_anchor": "impl RemoveEntry {"
+    },
+    {
+      "item": "RemoveEntry::new",
+      "reviewed": false,
+      "intent": "Assemble a RemoveEntry from its parts verbatim (no validation or normalization).",
+      "source_span": [
+        241,
+        257
+      ],
+      "tree_path": "impl.RemoveEntry::fn.new",
+      "source_hash": "sha256:46f46a5067000cef8372968f9760ce84dfef8d438d37aaa6e274cf854ff9643c",
+      "source_anchor": "    pub fn new("
+    },
+    {
+      "item": "RemoveEntry::name",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        259,
+        261
+      ],
+      "tree_path": "impl.RemoveEntry::fn.name",
+      "source_hash": "sha256:8b68be65ca11816e6767769634e9d11ced1839c09c5dcc09b47fe6bbf9284e8f",
+      "source_anchor": "    pub fn name(&self) -> &str {"
+    },
+    {
+      "item": "RemoveEntry::version",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        263,
+        265
+      ],
+      "tree_path": "impl.RemoveEntry::fn.version",
+      "source_hash": "sha256:b8fdef3aa89a6a0d81f596b27575a0af4e0c49b91766948040bca05c84f0c75b",
+      "source_anchor": "    pub fn version(&self) -> Option<&str> {"
+    },
+    {
+      "item": "RemoveEntry::size",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        267,
+        269
+      ],
+      "tree_path": "impl.RemoveEntry::fn.size",
+      "source_hash": "sha256:6b78e1c5e4573e719acc99af2a734788c02a6dbd6b09267b9d723d7915ce72ea",
+      "source_anchor": "    pub fn size(&self) -> u64 {"
+    },
+    {
+      "item": "RemoveEntry::details",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        271,
+        273
+      ],
+      "tree_path": "impl.RemoveEntry::fn.details",
+      "source_hash": "sha256:41379e7162635d478b0f6fc2a3be6485f5337ef954f9ddbccb0e91f3ddba3d3a",
+      "source_anchor": "    pub fn details(&self) -> &[RemoveTag] {"
+    },
+    {
+      "item": "RemoveEntry::arch",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        275,
+        277
+      ],
+      "tree_path": "impl.RemoveEntry::fn.arch",
+      "source_hash": "sha256:e109261270d735e94d2379e1cb25e8b0d2b679697ce770597ce653c909b02a72",
+      "source_anchor": "    pub fn arch(&self) -> &str {"
+    },
+    {
+      "item": "RemoveEntry::index",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        279,
+        281
+      ],
+      "tree_path": "impl.RemoveEntry::fn.index",
+      "source_hash": "sha256:0673398e6a404aedbab6fe80837b16d6339b3c9c33f397ceaec40dbbf5402bf8",
+      "source_anchor": "    pub fn index(&self) -> usize {"
+    }
+  ]
+}

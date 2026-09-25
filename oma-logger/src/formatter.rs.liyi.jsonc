@@ -1,0 +1,295 @@
+// liyi v0.1 spec file
+{
+  "version": "0.1",
+  "source": "formatter.rs",
+  "specs": [
+    {
+      "item": "PREFIX_DEBUG",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        9,
+        9
+      ],
+      "tree_path": "static.PREFIX_DEBUG",
+      "source_hash": "sha256:16f576bf8c9d9fd4240f5f808134fb56630afd062b43fbb330557d1457a592ca",
+      "source_anchor": "static PREFIX_DEBUG: LazyLock<String> = LazyLock::new(|| console::style(\"DEBUG\").dim().to_string());"
+    },
+    {
+      "item": "PREFIX_INFO",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        10,
+        11
+      ],
+      "tree_path": "static.PREFIX_INFO",
+      "source_hash": "sha256:7ffb3baaff4b86937d938653cb5c7c81b3c3f9c642cdef1ac4ddc213364ac293",
+      "source_anchor": "static PREFIX_INFO: LazyLock<String> ="
+    },
+    {
+      "item": "PREFIX_WARN",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        12,
+        13
+      ],
+      "tree_path": "static.PREFIX_WARN",
+      "source_hash": "sha256:d68ab3fc1f713a74ab632c2b1bc2e05300b5c2e66decda8b16006d2bbff4bd55",
+      "source_anchor": "static PREFIX_WARN: LazyLock<String> ="
+    },
+    {
+      "item": "PREFIX_ERROR",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        14,
+        15
+      ],
+      "tree_path": "static.PREFIX_ERROR",
+      "source_hash": "sha256:8bf95aa89c581f855e980d1a194325b31c581ca45b996c4ac8d00f0b43dfe2e6",
+      "source_anchor": "static PREFIX_ERROR: LazyLock<String> ="
+    },
+    {
+      "item": "PREFIX_TRACE",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        16,
+        16
+      ],
+      "tree_path": "static.PREFIX_TRACE",
+      "source_hash": "sha256:ed4b2ef2eb503fb996f50b98d25ce86878c6010bd59d252983d747c395055f44",
+      "source_anchor": "static PREFIX_TRACE: LazyLock<String> = LazyLock::new(|| console::style(\"TRACE\").dim().to_string());"
+    },
+    {
+      "item": "PREFIX_CRITICAL",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        17,
+        18
+      ],
+      "tree_path": "static.PREFIX_CRITICAL",
+      "source_hash": "sha256:a958795f3f762be2b56d78d1f18473ae5cf28d9464746125b4c1da319f6d47b0",
+      "source_anchor": "static PREFIX_CRITICAL: LazyLock<String> ="
+    },
+    {
+      "item": "TIME_RFC3339_LEN",
+      "reviewed": false,
+      "intent": "Display width reserved for the timestamp part of a log prefix: RFC 3339 with millisecond precision plus one space.",
+      "source_span": [
+        20,
+        20
+      ],
+      "tree_path": "const.TIME_RFC3339_LEN",
+      "source_hash": "sha256:58bf2581b91b314be5149446a553fde01746b6accdfb2da95cc30822f816afae",
+      "source_anchor": "const TIME_RFC3339_LEN: u16 = \"1970-01-01T00:00:00.000Z\".len() as u16 + 1;"
+    },
+    {
+      "item": "OmaFormatter",
+      "reviewed": false,
+      "intent": "oma-style spdlog formatter state: which optional parts to render (ANSI colors, timestamp, source file, kv — currently unused) plus the Terminal used for wrapping; `debug` switches to single-line output for debugging the formatter itself.",
+      "source_span": [
+        48,
+        57
+      ],
+      "tree_path": "struct.OmaFormatter",
+      "source_hash": "sha256:d8355b5bc865f9a862077e99ca6a3608dad2ed686930a1fd5cd99a46222a281f",
+      "source_anchor": "pub struct OmaFormatter {"
+    },
+    {
+      "item": "Default for OmaFormatter",
+      "reviewed": false,
+      "intent": "Default formatter configuration: ANSI colors on, no timestamp/file/kv, debug off, default Terminal.",
+      "source_span": [
+        59,
+        70
+      ],
+      "tree_path": "impl.\"Default for OmaFormatter\"",
+      "source_hash": "sha256:9a5b6be56637123240df575b67f37a2615a073743a285d7c06af7d82ebdb8444",
+      "source_anchor": "impl Default for OmaFormatter {"
+    },
+    {
+      "item": "Default for OmaFormatter::default",
+      "reviewed": false,
+      "intent": "Produce the default OmaFormatter (ANSI on; no timestamp, file, or kv; default Terminal).",
+      "source_span": [
+        60,
+        69
+      ],
+      "tree_path": "impl.\"Default for OmaFormatter\"::fn.default",
+      "source_hash": "sha256:b7fda891180b7aba5ed07b306a0b1b05c2698811cac32b7401866d049871365f",
+      "source_anchor": "    fn default() -> Self {"
+    },
+    {
+      "item": "OmaFormatter",
+      "reviewed": false,
+      "intent": "Builder-style configuration for OmaFormatter (ANSI, file, time, kv, max length, debug, prefix length, terminal) plus the core format_impl rendering routine.",
+      "source_span": [
+        72,
+        220
+      ],
+      "tree_path": "impl.OmaFormatter",
+      "source_hash": "sha256:d67adf0b0e45481ffa6adec1abf5b93eb000b943f08f66cf76e44b8e48f25a97",
+      "source_anchor": "impl OmaFormatter {"
+    },
+    {
+      "item": "OmaFormatter::new",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        73,
+        75
+      ],
+      "tree_path": "impl.OmaFormatter::fn.new",
+      "source_hash": "sha256:416dd684e2fa1b4dcd67815d85816174e0737aa9e54d101246091c58899c1e16",
+      "source_anchor": "    pub fn new() -> Self {"
+    },
+    {
+      "item": "OmaFormatter::with_ansi",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        80,
+        83
+      ],
+      "tree_path": "impl.OmaFormatter::fn.with_ansi",
+      "source_hash": "sha256:3c04282c55f180a5207cc7d34edf0664753874569de31982282eec372e1536b9",
+      "source_anchor": "    pub fn with_ansi(mut self, with_ansi: bool) -> Self {"
+    },
+    {
+      "item": "OmaFormatter::with_file",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        85,
+        88
+      ],
+      "tree_path": "impl.OmaFormatter::fn.with_file",
+      "source_hash": "sha256:c04adcfa73071f946ccbfe984811d680ad1af003586fdf3ac56ff0bda17ab165",
+      "source_anchor": "    pub fn with_file(mut self, with_file: bool) -> Self {"
+    },
+    {
+      "item": "OmaFormatter::with_time",
+      "reviewed": false,
+      "intent": "Enable timestamps and reserve their width by growing the terminal prefix area (TIME_RFC3339_LEN) so wrapped lines stay aligned.",
+      "source_span": [
+        90,
+        94
+      ],
+      "tree_path": "impl.OmaFormatter::fn.with_time",
+      "source_hash": "sha256:ce1418709a4ebac6deddcc2cd3ac6621a9df1bf746fdfaab451e7b2fc0a61fe0",
+      "source_anchor": "    pub fn with_time(mut self, with_time: bool) -> Self {"
+    },
+    {
+      "item": "OmaFormatter::with_kv",
+      "reviewed": false,
+      "intent": "Compatibility placeholder: records the kv flag that the formatter currently ignores (key-value output is unimplemented).",
+      "source_span": [
+        97,
+        100
+      ],
+      "tree_path": "impl.OmaFormatter::fn.with_kv",
+      "source_hash": "sha256:0371c541f0c353c9a1cd2da2c6a16480a11d2161226dafae60233bf558188102",
+      "source_anchor": "    pub fn with_kv(mut self, with_kv: bool) -> Self {"
+    },
+    {
+      "item": "OmaFormatter::with_max_len",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        102,
+        105
+      ],
+      "tree_path": "impl.OmaFormatter::fn.with_max_len",
+      "source_hash": "sha256:012aa93ece07570fbc90eec1a22b6e8ba55ba1b696f6c61c3b728c7f4aeb8357",
+      "source_anchor": "    pub fn with_max_len(mut self, max_len: Option<u16>) -> Self {"
+    },
+    {
+      "item": "OmaFormatter::with_debug",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        107,
+        110
+      ],
+      "tree_path": "impl.OmaFormatter::fn.with_debug",
+      "source_hash": "sha256:0e06c6c8eb17364a34d4ce40f54096835849734db2b50cf48431f24fccf54e9e",
+      "source_anchor": "    pub fn with_debug(mut self, debug: bool) -> Self {"
+    },
+    {
+      "item": "OmaFormatter::with_prefix_len",
+      "reviewed": false,
+      "intent": "Set the width reserved for the level prefix, adding TIME_RFC3339_LEN when timestamps are enabled so time and prefix stay aligned.",
+      "source_span": [
+        112,
+        120
+      ],
+      "tree_path": "impl.OmaFormatter::fn.with_prefix_len",
+      "source_hash": "sha256:5ec9927a323d4706589262c91ce7ba9590aedf3003b0629c973e8b10adaabdcb",
+      "source_anchor": "    pub fn with_prefix_len(mut self, prefix_len: u16) -> Self {"
+    },
+    {
+      "item": "OmaFormatter::with_term",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        122,
+        125
+      ],
+      "tree_path": "impl.OmaFormatter::fn.with_term",
+      "source_hash": "sha256:54e7fc273aa0514e8256946e8af4122f82713407b2b732d2e7c46afba4b85b94",
+      "source_anchor": "    pub fn with_term(mut self, term: Terminal) -> Self {"
+    },
+    {
+      "item": "OmaFormatter::get_term",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        127,
+        129
+      ],
+      "tree_path": "impl.OmaFormatter::fn.get_term",
+      "source_hash": "sha256:c32d31e322c870811b75f204bffa892f9a1d540870d73f68ade0f936ebd33eb2",
+      "source_anchor": "    pub fn get_term(&self) -> &Terminal {"
+    },
+    {
+      "item": "OmaFormatter::format_impl",
+      "reviewed": false,
+      "intent": "Render one record into `dest`: build the prefix (optional dim timestamp plus ANSI-styled or plain level tag) and body (optional dim `module: file:` location plus payload, ANSI-stripped when ansi is off); in debug mode emit a single `prefix body` line, otherwise wrap the body to the terminal width and write each line with the oma-style padded prefix.",
+      "source_span": [
+        131,
+        219
+      ],
+      "tree_path": "impl.OmaFormatter::fn.format_impl",
+      "source_hash": "sha256:624094fc1d6598294ea4520201c0fdb2055f879f8bd60fd865f3febea8ef2b1a",
+      "source_anchor": "    fn format_impl("
+    },
+    {
+      "item": "Formatter for OmaFormatter",
+      "reviewed": false,
+      "intent": "Adapt OmaFormatter to spdlog's Formatter trait, reporting layout failures as spdlog::Error::FormatRecord.",
+      "source_span": [
+        222,
+        232
+      ],
+      "tree_path": "impl.\"Formatter for OmaFormatter\"",
+      "source_hash": "sha256:5ece57628b2335e995c896e23499a8c66415f40484a0fc29700a3d83135c62ef",
+      "source_anchor": "impl Formatter for OmaFormatter {"
+    },
+    {
+      "item": "Formatter for OmaFormatter::format",
+      "reviewed": false,
+      "intent": "Format a record through format_impl, mapping fmt::Error into spdlog::Error::FormatRecord.",
+      "source_span": [
+        223,
+        231
+      ],
+      "tree_path": "impl.\"Formatter for OmaFormatter\"::fn.format",
+      "source_hash": "sha256:6bc39c062a2faf7a21331a51b641de41b48f06d7cee6fe4f7384735acb9486f6",
+      "source_anchor": "    fn format("
+    }
+  ]
+}

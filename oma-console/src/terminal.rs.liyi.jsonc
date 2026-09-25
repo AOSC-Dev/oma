@@ -1,0 +1,259 @@
+// liyi v0.1 spec file
+{
+  "version": "0.1",
+  "source": "terminal.rs",
+  "specs": [
+    {
+      "item": "gen_prefix",
+      "reviewed": false,
+      "intent": "Render an oma-style message prefix occupying exactly `prefix_len` terminal columns: left-pad `prefix` to `prefix_len - 1` display columns (unicode-aware width) plus one trailing space. Panics when the prefix is too wide to fit; requires `prefix_len >= 1`.",
+      "source_span": [
+        6,
+        17
+      ],
+      "tree_path": "fn.gen_prefix",
+      "source_hash": "sha256:bec3f0637def476aafc09ed07093f3efc514a2df1747398803338208e6db96a6",
+      "source_anchor": "pub fn gen_prefix(prefix: &str, prefix_len: u16) -> String {"
+    },
+    {
+      "item": "wrap_content",
+      "reviewed": false,
+      "intent": "Wrap `msg` to `max_len - prefix_len` columns (textwrap), returning `(prefix, body)` pairs where only the first line carries `prefix` and every body already ends with a trailing newline. Assumes `max_len >= prefix_len`.",
+      "source_span": [
+        19,
+        32
+      ],
+      "tree_path": "fn.wrap_content",
+      "source_hash": "sha256:61fa9068fc83a01d6a5a56e66ba76fec372afabef2e6848d3acd1abc65087832",
+      "source_anchor": "pub fn wrap_content<'a>("
+    },
+    {
+      "item": "Terminal",
+      "reviewed": false,
+      "intent": "A `console::Term` plus oma's display policy: an optional cap on the usable width (`limit_max_len`, `None` = uncapped) and the number of columns reserved for line prefixes (`prefix_len`).",
+      "source_span": [
+        36,
+        40
+      ],
+      "tree_path": "struct.Terminal",
+      "source_hash": "sha256:b4d91a2193b6f432500633e74211e86c7123504945a96783f60ea8b308ed7a0b",
+      "source_anchor": "pub struct Terminal {"
+    },
+    {
+      "item": "Terminal",
+      "reviewed": false,
+      "intent": "Provide Terminal's inherent API: constructors (stderr by default, or stdout), builder-style setters for term / width cap / prefix width, terminal queries (`is_terminal`, size with (25, 80) fallback), oma-style prefix rendering and wrapping, and raw write access.",
+      "source_span": [
+        42,
+        117
+      ],
+      "tree_path": "impl.Terminal",
+      "source_hash": "sha256:c100e9c06067f30617b79610134286fe776e30347bc73771afda211a6cbe5870",
+      "source_anchor": "impl Terminal {"
+    },
+    {
+      "item": "Terminal::new",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        43,
+        45
+      ],
+      "tree_path": "impl.Terminal::fn.new",
+      "source_hash": "sha256:f7e1310208f6ecea113f2995b9dca34bbbe7e57b2bd4e6b2296bc0db771fca5f",
+      "source_anchor": "    pub fn new() -> Self {"
+    },
+    {
+      "item": "Terminal::new_stdout",
+      "reviewed": false,
+      "intent": "Create a Terminal writing to stdout, keeping the defaults for width cap (80 columns) and prefix width (10 columns).",
+      "source_span": [
+        47,
+        52
+      ],
+      "tree_path": "impl.Terminal::fn.new_stdout",
+      "source_hash": "sha256:9f23e69c87ebc4986cce7f0b8db3e317724e0597ec0647e332f044b2dca7e004",
+      "source_anchor": "    pub fn new_stdout() -> Self {"
+    },
+    {
+      "item": "Terminal::with_max_len",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        54,
+        56
+      ],
+      "tree_path": "impl.Terminal::fn.with_max_len",
+      "source_hash": "sha256:e9fde4c1767001d5d472eedeb2cdd7c3e06d3cfb3861c84cb8ce64761e398d12",
+      "source_anchor": "    pub fn with_max_len(&mut self, max_len: Option<u16>) {"
+    },
+    {
+      "item": "Terminal::with_term",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        58,
+        60
+      ],
+      "tree_path": "impl.Terminal::fn.with_term",
+      "source_hash": "sha256:98da9387712def082cc3320ac02fb0cb4c78b9dfbc06a1d8900d9a19f7f1cbb7",
+      "source_anchor": "    pub fn with_term(&mut self, term: Term) {"
+    },
+    {
+      "item": "Terminal::with_prefix_len",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        62,
+        64
+      ],
+      "tree_path": "impl.Terminal::fn.with_prefix_len",
+      "source_hash": "sha256:cad7f96d5c559b1e655afc0576f9242ffcd7fe5004c51f292bce8e359fa9c8ca",
+      "source_anchor": "    pub fn with_prefix_len(&mut self, prefix_len: u16) {"
+    },
+    {
+      "item": "Terminal::is_terminal",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        66,
+        68
+      ],
+      "tree_path": "impl.Terminal::fn.is_terminal",
+      "source_hash": "sha256:4f79263883380c749b37b2f1d5d942c701e690c55929ef3df7acbf406bee57b0",
+      "source_anchor": "    pub fn is_terminal(&self) -> bool {"
+    },
+    {
+      "item": "Terminal::show_cursor",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        71,
+        74
+      ],
+      "tree_path": "impl.Terminal::fn.show_cursor",
+      "source_hash": "sha256:1f694e6da96a4ab106044473f50dadae810607b413ee3b27d8acd1bae09a5012",
+      "source_anchor": "    pub fn show_cursor(&self) -> io::Result<()> {"
+    },
+    {
+      "item": "Terminal::get_max_len",
+      "reviewed": false,
+      "intent": "Return the width available for message text: the terminal width in columns (falling back to 80) clamped by `limit_max_len` when set.",
+      "source_span": [
+        77,
+        85
+      ],
+      "tree_path": "impl.Terminal::fn.get_max_len",
+      "source_hash": "sha256:626acee1902888d25d33bcd3c6d6ba3a87db51fa53830bd96763ba639153ed51",
+      "source_anchor": "    pub fn get_max_len(&self) -> u16 {"
+    },
+    {
+      "item": "Terminal::get_prefix_len",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        87,
+        89
+      ],
+      "tree_path": "impl.Terminal::fn.get_prefix_len",
+      "source_hash": "sha256:80a79cc4a8e4a00c9e4c8aeec92d331ecfa6247aef6105460e3190ce08db2720",
+      "source_anchor": "    pub fn get_prefix_len(&self) -> u16 {"
+    },
+    {
+      "item": "Terminal::gen_prefix",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        91,
+        93
+      ],
+      "tree_path": "impl.Terminal::fn.gen_prefix",
+      "source_hash": "sha256:949067da70a016f728ebf796251b5239497fa761c048113757902c98a70501e1",
+      "source_anchor": "    pub fn gen_prefix(&self, prefix: &str) -> String {"
+    },
+    {
+      "item": "Terminal::get_height",
+      "reviewed": false,
+      "intent": "Return the terminal height in rows, falling back to 25 when the size cannot be queried.",
+      "source_span": [
+        96,
+        98
+      ],
+      "tree_path": "impl.Terminal::fn.get_height",
+      "source_hash": "sha256:6505478ad9d144f35e13651f9a0303cdca88a33d032dea822e409908a4efb69e",
+      "source_anchor": "    pub fn get_height(&self) -> u16 {"
+    },
+    {
+      "item": "Terminal::get_length",
+      "reviewed": false,
+      "intent": "Return the terminal width in columns, falling back to 80 when the size cannot be queried.",
+      "source_span": [
+        101,
+        103
+      ],
+      "tree_path": "impl.Terminal::fn.get_length",
+      "source_hash": "sha256:cb6a6cb62a6fa2c665e461992ca9257474104112495801db809ea1b9a55b3c7e",
+      "source_anchor": "    pub fn get_length(&self) -> u16 {"
+    },
+    {
+      "item": "Terminal::get_writer",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        106,
+        108
+      ],
+      "tree_path": "impl.Terminal::fn.get_writer",
+      "source_hash": "sha256:6ddafd7763145a652d76824b9b162cc3aaa1dc92c7a67fdd86221524bd6705a6",
+      "source_anchor": "    pub fn get_writer(&self) -> Box<dyn Write> {"
+    },
+    {
+      "item": "Terminal::wrap_content",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        110,
+        112
+      ],
+      "tree_path": "impl.Terminal::fn.wrap_content",
+      "source_hash": "sha256:bbadf803f074d9bd74d682f989897ba8d6bd6ce916b269347ef79555ab5398a9",
+      "source_anchor": "    pub fn wrap_content<'a>(&self, prefix: &'a str, msg: &str) -> Vec<(&'a str, String)> {"
+    },
+    {
+      "item": "Terminal::write_str",
+      "reviewed": false,
+      "intent": "=trivial",
+      "source_span": [
+        114,
+        116
+      ],
+      "tree_path": "impl.Terminal::fn.write_str",
+      "source_hash": "sha256:a951c70830f807194c942579d1be3ae86c1bf400ffafb44124f80dabe1991906",
+      "source_anchor": "    pub(crate) fn write_str(&self, str: &str) -> io::Result<()> {"
+    },
+    {
+      "item": "Default for Terminal",
+      "reviewed": false,
+      "intent": "Define Terminal's default output policy: write to stderr, cap the width at 80 columns, and reserve 10 columns for prefixes.",
+      "source_span": [
+        119,
+        127
+      ],
+      "tree_path": "impl.\"Default for Terminal\"",
+      "source_hash": "sha256:9204972daaece0dea3899cfa871c75eceaf61e34ad12c4bfe2a4677d46f3f2ab",
+      "source_anchor": "impl Default for Terminal {"
+    },
+    {
+      "item": "Default for Terminal::default",
+      "reviewed": false,
+      "intent": "Produce the default Terminal: stderr, width cap 80 columns, prefix width 10 columns.",
+      "source_span": [
+        120,
+        126
+      ],
+      "tree_path": "impl.\"Default for Terminal\"::fn.default",
+      "source_hash": "sha256:1b57a42bab907403ad167683263aa68f108323a47a0bf3de79ce07ab100bc2ae",
+      "source_anchor": "    fn default() -> Self {"
+    }
+  ]
+}
