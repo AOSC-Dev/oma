@@ -280,7 +280,7 @@ impl OmaRefresh {
 
         let sc_topic = self_arc.clone();
         let (tx, rx) = flume::unbounded::<Event>();
-        let mirror_sources = run_task_with_pump(
+        let (mirror_sources, topics_committed) = run_task_with_pump(
             &async_rt_handle,
             &rx,
             &mut callback,
@@ -289,7 +289,10 @@ impl OmaRefresh {
             async move { sc_topic.refresh_topics(not_found, mirror_sources, tx).await },
         )?;
 
-        if is_canceled(self_arc.cancel_token.as_ref()) {
+        // 主题文件写入已提交时，取消不在这里退出：下面的旧列表清理是这次
+        // 提交的收尾，必须做完再上报取消，否则会留下「主题已关、旧列表和
+        // 依赖钩子的索引没更新」的中间状态。
+        if is_canceled(self_arc.cancel_token.as_ref()) && !topics_committed {
             return Err(RefreshError::Canceled);
         }
 
@@ -305,7 +308,7 @@ impl OmaRefresh {
 
         debug!("oma will download source metadata: {tasks:#?}");
 
-        if is_canceled(self_arc.cancel_token.as_ref()) {
+        if is_canceled(self_arc.cancel_token.as_ref()) && !topics_committed {
             return Err(RefreshError::Canceled);
         }
 
@@ -322,6 +325,13 @@ impl OmaRefresh {
         // 判断使用——否则下游（如 amo 的搜索索引）永远不会得知源集合变了。
         let removed_unused =
             remove_unused_db(&self_arc.download_dir, download_list).unwrap_or(false);
+
+        // 提交过主题写入时，这次取消到这里才上报：收尾（旧列表清理）已经
+        // 完成；未提交时在上面两个检查点已经退出了。这里仍然跳过下载和
+        // 成功钩子，与在其它位置取消的行为一致（下载与通知留给下次刷新）。
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
 
         let sc2 = self_arc.clone();
         let tracker_for_data = tracker.clone();
@@ -528,15 +538,17 @@ impl OmaRefresh {
         Ok((mirror_sources, not_found))
     }
 
+    /// 刷新主题；返回 `(sources, 本次是否写了主题文件)`——写过的提交需要
+    /// 外层先做完收尾（清理旧列表）再上报可能已到达的取消。
     #[cfg(feature = "aosc")]
     async fn refresh_topics(
         &self,
         not_found: Vec<url::Url>,
         mut sources: MirrorSources,
         tx: Sender<Event>,
-    ) -> Result<MirrorSources> {
+    ) -> Result<(MirrorSources, bool)> {
         if !self.refresh_topics || not_found.is_empty() {
-            return Ok(sources);
+            return Ok((sources, false));
         }
 
         let mut tm = TopicManager::new(
@@ -577,10 +589,11 @@ impl OmaRefresh {
             let _ = tx.send(Event::ClosingTopic(suite));
         }
 
-        // atm 状态和 apt 实际使用的源列表必须成对更新：两者之间若检查
-        // 取消并提前返回，会留下「状态已改、源列表还是旧的」的不一致。
-        // `run_coupled` 进入前、跑完后各看一次取消：已取消就整段跳过，
-        // 写入中途收到的取消等两处都写完后才报告。
+        // atm 状态和 apt 实际使用的源列表必须成对更新：两者之间不能有
+        // 检查点，否则会留下「状态已改、源列表还是旧的」的不一致。
+        // `run_coupled` 只在进入整段前看一次取消；写入期间收到的取消不在
+        // 这里上报——这次提交的收尾（清理旧列表）必须做完，取消由 `start`
+        // 在收尾之后统一上报。
         let tx_cb = tx.clone();
         run_coupled(self.cancel_token.as_ref(), || {
             tm.write_enabled(false)?;
@@ -595,7 +608,7 @@ impl OmaRefresh {
 
         let _ = tx.send(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
 
-        Ok(sources)
+        Ok((sources, true))
     }
 
     #[cfg(not(feature = "aosc"))]
@@ -604,8 +617,8 @@ impl OmaRefresh {
         _not_found: Vec<url::Url>,
         sources: MirrorSources,
         _tx: Sender<Event>,
-    ) -> Result<MirrorSources> {
-        Ok(sources)
+    ) -> Result<(MirrorSources, bool)> {
+        Ok((sources, false))
     }
 
     fn collect_all_release_entry(
@@ -1052,8 +1065,10 @@ fn is_canceled(cancel_token: Option<&CancelToken>) -> bool {
 }
 
 /// 执行一段「要么全做、要么全不做」的同步写入（例如 atm 状态文件和 apt
-/// 源列表必须成对更新）：进入前先看取消、已取消就整段跳过；整段跑完再
-/// 报告写入期间收到的取消，中途的取消不会把成对的写入截成一半。
+/// 源列表必须成对更新）：进入前先看取消，已取消就整段跳过、返回取消
+/// 错误让外层直接退出；一旦开始写就整段写完，写入期间收到的取消不在
+/// 这里上报——主题写入一旦提交，它的收尾（清理旧列表）就不能再因取消
+/// 被跳过，取消由外层在收尾完成后统一上报（见 `start`）。
 fn run_coupled(
     cancel_token: Option<&CancelToken>,
     writes: impl FnOnce() -> Result<()>,
@@ -1062,13 +1077,7 @@ fn run_coupled(
         return Err(RefreshError::Canceled);
     }
 
-    writes()?;
-
-    if is_canceled(cancel_token) {
-        return Err(RefreshError::Canceled);
-    }
-
-    Ok(())
+    writes()
 }
 
 /// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前钩子的整个进程组、
@@ -1662,9 +1671,10 @@ mod tests {
     }
 
     #[test]
-    fn run_coupled_defers_cancel_until_both_writes_done() {
-        // 写入中途才收到取消：成对的写入必须整段跑完（不能只写一半），
-        // 取消在跑完后才报告。
+    fn run_coupled_finishes_writes_and_defers_the_cancel_report() {
+        // 写入中途才收到取消：成对的写入必须整段跑完（不能只写一半）；
+        // 取消不在这里上报，由外层在做完提交的收尾（清理旧列表）之后
+        // 统一上报。
         let (cancel_handle, cancel_token) = cancel_channel();
 
         let ran = Arc::new(AtomicUsize::new(0));
@@ -1678,12 +1688,14 @@ mod tests {
             Ok(())
         });
 
-        assert!(matches!(result, Err(RefreshError::Canceled)));
+        assert!(matches!(result, Ok(())), "取消不在这一层上报");
         assert_eq!(
             ran.load(Ordering::Relaxed),
             2,
             "写入中途的取消不能把成对写入截成一半"
         );
+        // 取消已经置位：外层可以在收尾之后照常查询、上报。
+        assert!(is_canceled(Some(&cancel_token)));
 
         // 没有取消：正常返回。
         let (_handle, cancel_token) = cancel_channel();
