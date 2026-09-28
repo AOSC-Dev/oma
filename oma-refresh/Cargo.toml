@@ -38,6 +38,7 @@ fancy-regex = { workspace = true }
 oma-utils = { workspace = true, default-features = false }
 reqwest-middleware = { workspace = true }
 flume = { workspace = true }
+futures = { workspace = true }
 serde = { workspace = true }
 
 [features]

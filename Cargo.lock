@@ -3679,6 +3679,7 @@ dependencies = [
  "deb822-fast",
  "fancy-regex 0.19.2",
  "flume",
+ "futures",
  "jiff",
  "oma-apt-pkg",
  "oma-apt-sources-lists",

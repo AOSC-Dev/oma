@@ -1046,6 +1046,15 @@ where
             Pumped::EventsDone => break,
             Pumped::Canceled => {
                 task_handle.abort();
+                // 取消不是立即生效的：`abort` 只发出信号，运行时要到下一次
+                // 调度才会丢弃包装任务。若在这里直接返回，`start` 会先释放
+                // `download_dir/lock`，而任务 future 里 `JoinSet` 持有的下载
+                // 子任务可能还没收到取消信号，已经下载完成的文件仍会被
+                // rename 进列表目录，覆盖随后启动的新刷新写入的元数据。
+                // 这里是同步上下文，用 `futures::executor::block_on` 等
+                // JoinHandle 结束：tokio 保证此时任务析构已完成、子任务的
+                // 取消信号已全部发出，锁就不会在收尾完成前被释放。
+                let _ = futures::executor::block_on(task_handle);
                 return Err(RefreshError::Canceled);
             }
             Pumped::CancelGone => cancel_token = None,
@@ -1060,7 +1069,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::time::Duration;
 
     #[test]
@@ -1092,6 +1101,54 @@ mod tests {
         );
 
         assert!(matches!(result, Err(RefreshError::Canceled)));
+        drop(tx);
+    }
+
+    #[test]
+    fn cancel_waits_for_task_shutdown() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            handle_for_thread.cancel();
+        });
+
+        // 任务永不完成、也不发事件，但带一个析构标记。
+        struct SetOnDrop(Arc<AtomicBool>);
+        impl Drop for SetOnDrop {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let dropped = Arc::new(AtomicBool::new(false));
+        let dropped_in_task = dropped.clone();
+
+        let mut callback = |_event: Event| {};
+        let result: Result<()> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            async move {
+                let _guard = SetOnDrop(dropped_in_task);
+                std::future::pending::<()>().await;
+                Ok(())
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        // 返回时必须已完成任务析构，锁的释放才不会早于取消收尾。
+        assert!(
+            dropped.load(Ordering::SeqCst),
+            "run_task_with_pump returned before the task finished dropping"
+        );
         drop(tx);
     }
 
