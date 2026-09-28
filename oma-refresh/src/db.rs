@@ -272,27 +272,27 @@ impl OmaRefresh {
             },
         )?;
 
-        // topic 刷新会联网、写 atm 状态与源列表文件：先检查一次取消，
-        // 再放进和下载一样的可取消事件泵里，取消能中断网络请求。
+        // topic 抓取会联网（可能还会初始化空的 atm 状态文件）：先检查一次
+        // 取消，再放进和下载一样的可取消事件泵里。取消能中断网络请求，
+        // 也不会留下写了一半的主题文件——真正的写入在下面的提交收尾里做。
         if is_canceled(self_arc.cancel_token.as_ref()) {
             return Err(RefreshError::Canceled);
         }
 
+        // 阶段 1（可取消）：联网抓取主题、算出调整后的源集合；不写盘。
+        // 取消发生在联网或纯计算里都只会丢掉计算结果，不会留下半提交状态。
         let sc_topic = self_arc.clone();
         let (tx, rx) = flume::unbounded::<Event>();
-        let (mirror_sources, topics_committed) = run_task_with_pump(
+        let (mirror_sources, topics) = run_task_with_pump(
             &async_rt_handle,
             &rx,
             &mut callback,
             self_arc.cancel_token.as_ref(),
             None,
-            async move { sc_topic.refresh_topics(not_found, mirror_sources, tx).await },
+            async move { sc_topic.fetch_topics(not_found, mirror_sources, tx).await },
         )?;
 
-        // 主题文件写入已提交时，取消不在这里退出：下面的旧列表清理是这次
-        // 提交的收尾，必须做完再上报取消，否则会留下「主题已关、旧列表和
-        // 依赖钩子的索引没更新」的中间状态。
-        if is_canceled(self_arc.cancel_token.as_ref()) && !topics_committed {
+        if is_canceled(self_arc.cancel_token.as_ref()) {
             return Err(RefreshError::Canceled);
         }
 
@@ -308,12 +308,12 @@ impl OmaRefresh {
 
         debug!("oma will download source metadata: {tasks:#?}");
 
-        if is_canceled(self_arc.cancel_token.as_ref()) && !topics_committed {
+        // 提交边界：跨过去之后到列表清理完成都不再观察取消——主题写入、
+        // 旧列表清理、（必要时）通知要么整段做完、要么整段不做；半提交的
+        // 磁盘状态比多花几毫秒做完收尾危险得多。进入前若已取消就直接退出，
+        // 此时还没有任何写盘。
+        if is_canceled(self_arc.cancel_token.as_ref()) {
             return Err(RefreshError::Canceled);
-        }
-
-        if tasks.is_empty() {
-            return Err(RefreshError::NoMetadataToDownload);
         }
 
         for i in &tasks {
@@ -321,16 +321,25 @@ impl OmaRefresh {
         }
 
         // 退出 topic / 移除源时，列表状态的变化可能只是清理掉失效的列表文件
-        // （不涉及任何下载）。记录是否真的删了文件，供下面的 success invoke
-        // 判断使用——否则下游（如 amo 的搜索索引）永远不会得知源集合变了。
-        let removed_unused =
-            remove_unused_db(&self_arc.download_dir, download_list).unwrap_or(false);
+        // （不涉及任何下载）。`removed_unused` 记录是否真的删了文件，供
+        // 下面的 success invoke 判断使用——否则下游（如 amo 的搜索索引）
+        // 永远不会得知源集合变了。
+        //
+        // 阶段 2（不可中断的提交收尾）。`tasks.is_empty()` 的检查放在收尾
+        // 之后：关闭最后一个主题仓库时，失效列表照样要清干净。
+        let removed_unused = finish_commit(
+            self_arc.cancel_token.as_ref(),
+            &self_arc.download_dir,
+            download_list,
+            topics.is_some(),
+            || self_arc.write_topic_files(topics, &mut callback),
+            || {
+                let _ = self_arc.run_success_post_invoke(&apt_cfg, None);
+            },
+        )?;
 
-        // 提交过主题写入时，这次取消到这里才上报：收尾（旧列表清理）已经
-        // 完成；未提交时在上面两个检查点已经退出了。这里仍然跳过下载和
-        // 成功钩子，与在其它位置取消的行为一致（下载与通知留给下次刷新）。
-        if is_canceled(self_arc.cancel_token.as_ref()) {
-            return Err(RefreshError::Canceled);
+        if tasks.is_empty() {
+            return Err(RefreshError::NoMetadataToDownload);
         }
 
         let sc2 = self_arc.clone();
@@ -364,7 +373,7 @@ impl OmaRefresh {
 
             // 钩子执行期间会盯着取消信号（必要时终止整个进程组）；被
             // 取消就不再继续收尾。
-            if !self_arc.run_success_post_invoke(&apt_cfg) {
+            if !self_arc.run_success_post_invoke(&apt_cfg, self_arc.cancel_token.as_ref()) {
                 return Err(RefreshError::Canceled);
             }
         }
@@ -474,7 +483,8 @@ impl OmaRefresh {
     /// 执行 `APT::Update::Post-Invoke-Success` 里的钩子（失败只告警）。
     ///
     /// 返回 `false` 表示执行期间收到了取消信号（当前钩子的进程组已被终止）。
-    fn run_success_post_invoke(&self, cfg: &AptConfig) -> bool {
+    /// `cancel_token` 为 `None` 时不观察取消（提交收尾里的通知必须跑完）。
+    fn run_success_post_invoke(&self, cfg: &AptConfig, cancel_token: Option<&CancelToken>) -> bool {
         // 本 crate 的配置解析器把列表项存为 `KEY::{item}`（见
         // `config_parser::handle_list_value`），不是 apt 的 `KEY#N` 约定，
         // 因此要像 `sourceslist::ignores` 一样用 `keys_under` + `get(KEY::{k})`
@@ -485,7 +495,7 @@ impl OmaRefresh {
             .filter(|s| !s.is_empty())
             .collect();
 
-        run_post_invoke_commands(&cmds, self.cancel_token.as_ref())
+        run_post_invoke_commands(&cmds, cancel_token)
     }
 
     async fn download_releases(
@@ -538,19 +548,24 @@ impl OmaRefresh {
         Ok((mirror_sources, not_found))
     }
 
-    /// 刷新主题；返回 `(sources, 本次是否写了主题文件)`——写过的提交需要
-    /// 外层先做完收尾（清理旧列表）再上报可能已到达的取消。
+    /// 阶段 1（可取消）：联网抓取主题、算出调整后的源集合；**不写盘**。
+    ///
+    /// 真正的写入（atm 状态与源列表）在 `start` 的提交收尾里做——那里不
+    /// 可中断，确保不会留下写了一半的文件；取消发生在这里只会丢掉计算
+    /// 结果，不会留下任何半提交状态。
     #[cfg(feature = "aosc")]
-    async fn refresh_topics(
+    async fn fetch_topics(
         &self,
         not_found: Vec<url::Url>,
         mut sources: MirrorSources,
         tx: Sender<Event>,
-    ) -> Result<(MirrorSources, bool)> {
+    ) -> Result<(MirrorSources, Option<TopicManager>)> {
         if !self.refresh_topics || not_found.is_empty() {
-            return Ok((sources, false));
+            return Ok((sources, None));
         }
 
+        // `TopicManager::new` 在状态文件缺失时会顺手建一个空的（与「文件
+        // 不存在」语义相同），这不构成提交。
         let mut tm = TopicManager::new(
             self.client.clone(),
             &self.source,
@@ -559,13 +574,6 @@ impl OmaRefresh {
         )?;
 
         tm.refresh_async().await?;
-
-        // 之后直到返回都是同步代码、不会再让出：`abort` 要到下一个让出点
-        // 才生效，所以这里必须自己检查取消，否则取消后仍会继续渲染、
-        // 把 atm 状态和源列表写掉。
-        if is_canceled(self.cancel_token.as_ref()) {
-            return Err(RefreshError::Canceled);
-        }
 
         let removed_suites = tm.remove_closed_topics()?;
 
@@ -589,36 +597,53 @@ impl OmaRefresh {
             let _ = tx.send(Event::ClosingTopic(suite));
         }
 
-        // atm 状态和 apt 实际使用的源列表必须成对更新：两者之间不能有
-        // 检查点，否则会留下「状态已改、源列表还是旧的」的不一致。
-        // `run_coupled` 只在进入整段前看一次取消；写入期间收到的取消不在
-        // 这里上报——这次提交的收尾（清理旧列表）必须做完，取消由 `start`
-        // 在收尾之后统一上报。
-        let tx_cb = tx.clone();
-        run_coupled(self.cancel_token.as_ref(), || {
-            tm.write_enabled(false)?;
-
-            // 函数跑在事件泵的任务里，事件经 flume 通道交给 `start` 的回调。
-            tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
-                let _ = tx_cb.send(Event::TopicNotInMirror { topic, mirror });
-            })?;
-
-            Ok(())
-        })?;
-
-        let _ = tx.send(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
-
-        Ok((sources, true))
+        Ok((sources, Some(tm)))
     }
 
     #[cfg(not(feature = "aosc"))]
-    async fn refresh_topics(
+    async fn fetch_topics(
         &self,
         _not_found: Vec<url::Url>,
         sources: MirrorSources,
         _tx: Sender<Event>,
-    ) -> Result<(MirrorSources, bool)> {
-        Ok((sources, false))
+    ) -> Result<(MirrorSources, Option<()>)> {
+        Ok((sources, None))
+    }
+
+    /// 阶段 2 的主题写入部分：把抓取阶段算好的结果写进 atm 状态与源列表。
+    ///
+    /// 这段不可中断（在 `finish_commit` 里整体跑完），事件因此不经事件泵、
+    /// 直接交给回调。
+    #[cfg(feature = "aosc")]
+    fn write_topic_files(
+        &self,
+        topics: Option<TopicManager>,
+        callback: &mut (impl FnMut(Event) + 'static),
+    ) -> Result<()> {
+        let Some(mut tm) = topics else {
+            return Ok(());
+        };
+
+        let not_in_mirror = std::cell::RefCell::new(Vec::new());
+        tm.write_enabled(false)?;
+        tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
+            not_in_mirror.borrow_mut().push((topic, mirror));
+        })?;
+        for (topic, mirror) in not_in_mirror.into_inner() {
+            callback(Event::TopicNotInMirror { topic, mirror });
+        }
+        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
+
+        Ok(())
+    }
+
+    #[cfg(not(feature = "aosc"))]
+    fn write_topic_files(
+        &self,
+        _topics: Option<()>,
+        _callback: &mut (impl FnMut(Event) + 'static),
+    ) -> Result<()> {
+        Ok(())
     }
 
     fn collect_all_release_entry(
@@ -1064,20 +1089,31 @@ fn is_canceled(cancel_token: Option<&CancelToken>) -> bool {
     cancel_token.is_some_and(|token| token.1.load(Ordering::SeqCst))
 }
 
-/// 执行一段「要么全做、要么全不做」的同步写入（例如 atm 状态文件和 apt
-/// 源列表必须成对更新）：进入前先看取消，已取消就整段跳过、返回取消
-/// 错误让外层直接退出；一旦开始写就整段写完，写入期间收到的取消不在
-/// 这里上报——主题写入一旦提交，它的收尾（清理旧列表）就不能再因取消
-/// 被跳过，取消由外层在收尾完成后统一上报（见 `start`）。
-fn run_coupled(
+/// 提交收尾（不可中断）：主题写入 → 清理旧列表 →（必要时）通知。
+///
+/// 调用方进入前必须先检查一次取消——一旦进入，整段都要跑完：写到一半才
+/// 发现取消时，先补上通知（提交已经发生，依赖钩子的下游索引必须失效），
+/// 再返回 `Err(Canceled)`。返回 `true` 表示清理掉了失效的列表文件。
+fn finish_commit(
     cancel_token: Option<&CancelToken>,
-    writes: impl FnOnce() -> Result<()>,
-) -> Result<()> {
+    download_dir: &Path,
+    download_list: HashSet<String>,
+    topics_committed: bool,
+    write_topics: impl FnOnce() -> Result<()>,
+    notify: impl FnOnce(),
+) -> Result<bool> {
+    write_topics()?;
+
+    let removed_unused = remove_unused_db(download_dir, download_list).unwrap_or(false);
+
     if is_canceled(cancel_token) {
+        if topics_committed || removed_unused {
+            notify();
+        }
         return Err(RefreshError::Canceled);
     }
 
-    writes()
+    Ok(removed_unused)
 }
 
 /// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前钩子的整个进程组、
@@ -1655,52 +1691,124 @@ mod tests {
     }
 
     #[test]
-    fn run_coupled_skips_writes_when_already_canceled() {
-        let (cancel_handle, cancel_token) = cancel_channel();
-        cancel_handle.cancel();
+    fn finish_commit_completes_cleanup_and_notifies_when_canceled() {
+        let dir =
+            std::env::temp_dir().join(format!("oma-finish-commit-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // 仍在列表里的、失效的、以及永远保留的 lock 文件。
+        std::fs::write(dir.join("stable_Packages"), b"x").unwrap();
+        std::fs::write(dir.join("stale_Packages"), b"x").unwrap();
+        std::fs::write(dir.join("lock"), b"x").unwrap();
 
-        let ran = Arc::new(AtomicUsize::new(0));
-        let ran_in_writes = ran.clone();
-        let result = run_coupled(Some(&cancel_token), || {
-            ran_in_writes.fetch_add(1, Ordering::Relaxed);
-            Ok(())
-        });
+        let (cancel_handle, cancel_token) = cancel_channel();
+        let wrote = Arc::new(AtomicBool::new(false));
+        let notified = Arc::new(AtomicBool::new(false));
+        let wrote_in_commit = wrote.clone();
+        let notified_in_commit = notified.clone();
+
+        let keep: HashSet<String> = ["stable_Packages".to_string()].into_iter().collect();
+        let result = finish_commit(
+            Some(&cancel_token),
+            &dir,
+            keep,
+            true,
+            || {
+                // 主题写入进行中（或刚写完）时收到取消：整段收尾仍要跑完。
+                wrote_in_commit.store(true, Ordering::Relaxed);
+                cancel_handle.cancel();
+                Ok(())
+            },
+            || {
+                notified_in_commit.store(true, Ordering::Relaxed);
+            },
+        );
 
         assert!(matches!(result, Err(RefreshError::Canceled)));
-        assert_eq!(ran.load(Ordering::Relaxed), 0, "已取消时不应开始写");
+        assert!(wrote.load(Ordering::Relaxed), "主题写入不能被截断");
+        assert!(
+            notified.load(Ordering::Relaxed),
+            "提交后的取消必须补上通知：下游索引依赖它失效"
+        );
+        assert!(
+            !dir.join("stale_Packages").exists(),
+            "取消上报前必须把失效列表清理完"
+        );
+        assert!(dir.join("stable_Packages").exists());
+        assert!(dir.join("lock").exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn run_coupled_finishes_writes_and_defers_the_cancel_report() {
-        // 写入中途才收到取消：成对的写入必须整段跑完（不能只写一半）；
-        // 取消不在这里上报，由外层在做完提交的收尾（清理旧列表）之后
-        // 统一上报。
-        let (cancel_handle, cancel_token) = cancel_channel();
+    fn finish_commit_without_cancel_reports_removed() {
+        let dir =
+            std::env::temp_dir().join(format!("oma-finish-commit-ok-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("stale_Packages"), b"x").unwrap();
+        std::fs::write(dir.join("lock"), b"x").unwrap();
 
-        let ran = Arc::new(AtomicUsize::new(0));
-        let ran_in_writes = ran.clone();
-        let handle_in_writes = cancel_handle.clone();
-        let result = run_coupled(Some(&cancel_token), || {
-            // 第一处写入进行中（或刚写完）时收到取消。
-            ran_in_writes.fetch_add(1, Ordering::Relaxed);
-            handle_in_writes.cancel();
-            ran_in_writes.fetch_add(1, Ordering::Relaxed);
-            Ok(())
-        });
-
-        assert!(matches!(result, Ok(())), "取消不在这一层上报");
-        assert_eq!(
-            ran.load(Ordering::Relaxed),
-            2,
-            "写入中途的取消不能把成对写入截成一半"
-        );
-        // 取消已经置位：外层可以在收尾之后照常查询、上报。
-        assert!(is_canceled(Some(&cancel_token)));
-
-        // 没有取消：正常返回。
         let (_handle, cancel_token) = cancel_channel();
-        let result = run_coupled(Some(&cancel_token), || Ok(()));
-        assert!(matches!(result, Ok(())));
+        let notified = Arc::new(AtomicBool::new(false));
+        let notified_in_commit = notified.clone();
+
+        // 空 keep 集合：最后一个主题仓库被关闭时的路径。
+        let keep: HashSet<String> = HashSet::new();
+        let result = finish_commit(
+            Some(&cancel_token),
+            &dir,
+            keep,
+            true,
+            || Ok(()),
+            || {
+                notified_in_commit.store(true, Ordering::Relaxed);
+            },
+        );
+
+        assert!(matches!(result, Ok(true)), "清理掉失效列表要如实返回");
+        assert!(
+            !notified.load(Ordering::Relaxed),
+            "没取消时通知照旧走成功路径"
+        );
+        assert!(!dir.join("stale_Packages").exists());
+        assert!(dir.join("lock").exists(), "lock 永远保留");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn finish_commit_skips_notify_when_nothing_changed() {
+        // 取消到位，但既没有主题提交也没有清理掉任何东西：无须通知。
+        let dir = std::env::temp_dir().join(format!(
+            "oma-finish-commit-noop-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("stable_Packages"), b"x").unwrap();
+
+        let (cancel_handle, cancel_token) = cancel_channel();
+        cancel_handle.cancel();
+        let notified = Arc::new(AtomicBool::new(false));
+        let notified_in_commit = notified.clone();
+
+        let keep: HashSet<String> = ["stable_Packages".to_string()].into_iter().collect();
+        let result = finish_commit(
+            Some(&cancel_token),
+            &dir,
+            keep,
+            false,
+            || Ok(()),
+            || {
+                notified_in_commit.store(true, Ordering::Relaxed);
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        assert!(
+            !notified.load(Ordering::Relaxed),
+            "没发生过提交就不应打扰下游索引"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
