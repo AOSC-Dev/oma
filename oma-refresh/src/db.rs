@@ -1056,8 +1056,9 @@ fn is_canceled(cancel_token: Option<&CancelToken>) -> bool {
 /// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前钩子的整个进程组、
 /// 不再跑后续命令并返回 `false`；全部跑完返回 `true`。
 ///
-/// 命令的输出与原来的 `Command::output()` 一样不落地；不用 `output()`
-/// 是因为它阻塞等待、看不到取消信号，慢的或卡死的钩子会把取消卡住。
+/// 命令的 stdin/stdout/stderr 与原来的 `Command::output()` 一样不落到
+/// 终端、也不接输入（stdin 是空的）；不用 `output()` 是因为它阻塞等待、
+/// 看不到取消信号，慢的或卡死的钩子会把取消卡住。
 fn run_post_invoke_commands(cmds: &[String], cancel_token: Option<&CancelToken>) -> bool {
     use std::{
         os::unix::process::CommandExt,
@@ -1075,6 +1076,9 @@ fn run_post_invoke_commands(cmds: &[String], cancel_token: Option<&CancelToken>)
         let mut child = match Command::new("sh")
             .arg("-c")
             .arg(cmd)
+            // stdin 同 `Command::output()` 一样关闭：不让钩子读到刷新
+            // 进程的输入，也避免它在没有数据的 stdin 上一直等。
+            .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             // 让钩子自成进程组（组长 pid 就是子进程 pid）：取消时才能连
@@ -1464,6 +1468,29 @@ mod tests {
             seen.load(Ordering::Relaxed),
             50,
             "the pump must deliver every queued event before returning the result"
+        );
+    }
+
+    #[test]
+    fn post_invoke_hook_stdin_is_closed() {
+        let out =
+            std::env::temp_dir().join(format!("oma-post-invoke-stdin-{}", std::process::id()));
+        let _ = std::fs::remove_file(&out);
+
+        // 钩子把 stdin 指向哪里记下来：必须和 `Command::output()` 一样是
+        // 关闭的（/dev/null），而不是继承刷新进程的 stdin——否则钩子可能
+        // 吃掉终端输入，或在没有数据的 stdin 上永远等下去。
+        let cmds = vec![format!("readlink /proc/self/fd/0 > {}", out.display())];
+        let completed = run_post_invoke_commands(&cmds, None);
+        assert!(completed);
+
+        let target = std::fs::read_to_string(&out)
+            .expect("the hook should have recorded where its stdin points to");
+        let _ = std::fs::remove_file(&out);
+        assert_eq!(
+            target.trim(),
+            "/dev/null",
+            "the hook must not inherit the refresh's stdin"
         );
     }
 
