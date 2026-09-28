@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    future::Future,
     hash::Hash,
     io,
     path::{Path, PathBuf},
@@ -181,27 +182,7 @@ impl TopicManager {
     }
 
     pub fn refresh(&mut self) -> Result<()> {
-        let mirrors: Vec<_> = self
-            .mm
-            .enabled_mirrors()
-            .iter()
-            .map(|(_, url)| url.to_owned())
-            .collect();
-
-        let client = self.client.clone();
-        let arch = Arc::from(self.arch.to_string().as_str());
-
-        let future = async move {
-            let tasks = mirrors.iter().map(|url| refresh_inner(&client, url, &arch));
-            let res = try_join_all(tasks).await?;
-
-            let hash_map = res
-                .into_iter()
-                .map(|(x, y)| (Box::from(x), y))
-                .collect::<HashMap<Box<str>, _>>();
-
-            Ok(hash_map)
-        };
+        let future = self.fetch_all_topics_future();
 
         let all_topics = if let Ok(handle) = tokio::runtime::Handle::try_current() {
             run_task_with_pump(&handle, future)?
@@ -216,6 +197,44 @@ impl TopicManager {
         self.all = all_topics;
 
         Ok(())
+    }
+
+    /// 刷新全部主题数据；与 [`Self::refresh`] 的区别是不自建（借用）
+    /// 运行时，由调用方在 async 上下文里驱动，因此可以放进可取消的
+    /// 任务里执行（如需要中途取消的刷新流程）。
+    pub async fn refresh_async(&mut self) -> Result<()> {
+        let all_topics = self.fetch_all_topics_future().await?;
+        self.all = all_topics;
+
+        Ok(())
+    }
+
+    /// 把各镜像的抓取组成一个不借用 `self` 的 future：同步接口需要把
+    /// 它交给别的运行时代跑，异步接口则直接 await。
+    fn fetch_all_topics_future(
+        &self,
+    ) -> impl Future<Output = Result<HashMap<Box<str>, Vec<Topic>>>> + Send + 'static {
+        let mirrors: Vec<_> = self
+            .mm
+            .enabled_mirrors()
+            .iter()
+            .map(|(_, url)| url.to_owned())
+            .collect();
+
+        let client = self.client.clone();
+        let arch = Arc::from(self.arch.to_string().as_str());
+
+        async move {
+            let tasks = mirrors.iter().map(|url| refresh_inner(&client, url, &arch));
+            let res = try_join_all(tasks).await?;
+
+            let hash_map = res
+                .into_iter()
+                .map(|(x, y)| (Box::from(x), y))
+                .collect::<HashMap<Box<str>, _>>();
+
+            Ok(hash_map)
+        }
     }
 
     /// Enable select topic
