@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Debug, path::Path, sync::Arc};
+use std::{borrow::Cow, fmt::Debug, io::Write, path::Path, sync::Arc};
 
 use ahash::{AHashMap, HashMap};
 use fancy_regex::Regex;
@@ -14,7 +14,7 @@ use oma_logger::{debug, warn};
 use oma_utils::concat_url;
 use once_cell::sync::OnceCell;
 use reqwest_middleware::ClientWithMiddleware;
-use tokio::{fs::File, io::AsyncWriteExt, sync::Semaphore, task::JoinSet};
+use tokio::{sync::Semaphore, task::JoinSet};
 use url::Url;
 
 use crate::{
@@ -403,17 +403,18 @@ impl MirrorSource {
             }))
             .await;
 
+        // 建目录、创建文件、写入都用同步系统调用：`tokio::fs` 的操作在
+        // spawn_blocking 里执行，子任务被取消丢弃后也拦不住已派发的操作，
+        // 它们可能在列表锁释放后继续写 partial 目录。
         if !tmp_dir.is_dir() {
-            tokio::fs::create_dir_all(tmp_dir)
-                .await
+            std::fs::create_dir_all(tmp_dir)
                 .map_err(|e| SingleDownloadError::Create { source: e })?;
         }
 
         let tmp = tmp_dir.join(file_name);
 
-        let mut f = File::create(&tmp)
-            .await
-            .map_err(|e| SingleDownloadError::Create { source: e })?;
+        let mut f =
+            std::fs::File::create(&tmp).map_err(|e| SingleDownloadError::Create { source: e })?;
 
         while let Some(chunk) = resp
             .chunk()
@@ -427,14 +428,13 @@ impl MirrorSource {
                 }))
                 .await;
 
+            // 同步写入：取消只能在 await 点（网络读取）生效，不会在任务
+            // 被丢弃后还留着后台写操作。
             f.write_all(&chunk)
-                .await
                 .map_err(|e| SingleDownloadError::Write { source: e })?;
         }
 
-        f.shutdown()
-            .await
-            .map_err(|e| SingleDownloadError::Flush { source: e })?;
+        // 数据已同步交给内核，无需（也不可能再有）等后台写完的 shutdown。
 
         debug!(
             "Rename release metadata from {} to {}",
