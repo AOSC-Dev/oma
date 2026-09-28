@@ -352,8 +352,8 @@ impl OmaRefresh {
         if should_run_invoke {
             callback(Event::RunInvokeScript);
 
-            // 钩子执行期间会盯着取消信号（必要时终止子进程）；被取消
-            // 就不再继续收尾。
+            // 钩子执行期间会盯着取消信号（必要时终止整个进程组）；被
+            // 取消就不再继续收尾。
             if !self_arc.run_success_post_invoke(&apt_cfg) {
                 return Err(RefreshError::Canceled);
             }
@@ -463,7 +463,7 @@ impl OmaRefresh {
 
     /// 执行 `APT::Update::Post-Invoke-Success` 里的钩子（失败只告警）。
     ///
-    /// 返回 `false` 表示执行期间收到了取消信号（当前子进程已被终止）。
+    /// 返回 `false` 表示执行期间收到了取消信号（当前钩子的进程组已被终止）。
     fn run_success_post_invoke(&self, cfg: &AptConfig) -> bool {
         // 本 crate 的配置解析器把列表项存为 `KEY::{item}`（见
         // `config_parser::handle_list_value`），不是 apt 的 `KEY#N` 约定，
@@ -1053,13 +1053,14 @@ fn is_canceled(cancel_token: Option<&CancelToken>) -> bool {
     cancel_token.is_some_and(|token| token.1.load(Ordering::SeqCst))
 }
 
-/// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前子进程、不再跑
-/// 后续命令并返回 `false`；全部跑完返回 `true`。
+/// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前钩子的整个进程组、
+/// 不再跑后续命令并返回 `false`；全部跑完返回 `true`。
 ///
 /// 命令的输出与原来的 `Command::output()` 一样不落地；不用 `output()`
 /// 是因为它阻塞等待、看不到取消信号，慢的或卡死的钩子会把取消卡住。
 fn run_post_invoke_commands(cmds: &[String], cancel_token: Option<&CancelToken>) -> bool {
     use std::{
+        os::unix::process::CommandExt,
         process::{Command, Stdio},
         time::Duration,
     };
@@ -1076,6 +1077,9 @@ fn run_post_invoke_commands(cmds: &[String], cancel_token: Option<&CancelToken>)
             .arg(cmd)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
+            // 让钩子自成进程组（组长 pid 就是子进程 pid）：取消时才能连
+            // 它拉起的子进程一起终止，只杀 sh 会留下后台进程继续跑。
+            .process_group(0)
             .spawn()
         {
             Ok(child) => child,
@@ -1087,7 +1091,18 @@ fn run_post_invoke_commands(cmds: &[String], cancel_token: Option<&CancelToken>)
 
         let canceled = loop {
             if is_canceled(cancel_token) {
-                debug!("Command {cmd} canceled, terminating it");
+                debug!("Command {cmd} canceled, terminating it and its process group");
+                // 终止整个进程组，避免钩子拉起的子进程留在后台继续
+                // 更新缓存之类的东西。
+                let pgid = child.id() as libc::pid_t;
+                // Safety: 子进程由 `process_group(0)` 启动，它的进程组
+                // 只包含自己和后代（不含本进程）；killpg 失败（如组已空）
+                // 也只是返回错误码。
+                unsafe {
+                    libc::killpg(pgid, libc::SIGKILL);
+                }
+                // 兜底：万一整组信号没生效，至少保证 sh 退出，后面的
+                // `wait` 不会把取消卡住。
                 let _ = child.kill();
                 let _ = child.wait();
                 break true;
@@ -1444,6 +1459,60 @@ mod tests {
         assert!(
             !marker.exists(),
             "commands after a canceled hook should not run"
+        );
+    }
+
+    #[test]
+    fn post_invoke_cancel_kills_whole_process_group() {
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(200));
+            handle_for_thread.cancel();
+        });
+
+        // 钩子把自己和它拉起的后台子进程的 pid 记下来，然后挂着等。
+        // 取消时必须终止整个进程组：只杀 sh 的话，后台的 sleep 会留下。
+        let pids_file =
+            std::env::temp_dir().join(format!("oma-post-invoke-pgids-{}", std::process::id()));
+        let _ = std::fs::remove_file(&pids_file);
+        let cmd = format!(
+            "echo $$ > {f}; sleep 30 & echo $! >> {f}; wait",
+            f = pids_file.display()
+        );
+
+        let completed = run_post_invoke_commands(&[cmd], Some(&cancel_token));
+        assert!(!completed, "post-invoke should report cancellation");
+
+        let pids: Vec<u32> = std::fs::read_to_string(&pids_file)
+            .expect("the hook should have recorded its pids")
+            .lines()
+            .filter_map(|line| line.trim().parse().ok())
+            .collect();
+        assert_eq!(
+            pids.len(),
+            2,
+            "expected the sh and sleep pids, got {pids:?}"
+        );
+
+        // SIGKILL 的送达与 init 的回收都是异步的：留出一点观察时间。
+        let all_gone = || {
+            pids.iter()
+                .all(|pid| !std::path::Path::new(&format!("/proc/{pid}")).exists())
+        };
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !all_gone() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        let _ = std::fs::remove_file(&pids_file);
+        assert!(
+            all_gone(),
+            "the whole process group should be terminated, still alive: {:?}",
+            pids.iter()
+                .filter(|pid| std::path::Path::new(&format!("/proc/{pid}")).exists())
+                .collect::<Vec<_>>()
         );
     }
 

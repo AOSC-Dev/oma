@@ -3681,6 +3681,7 @@ dependencies = [
  "flume",
  "futures",
  "jiff",
+ "libc",
  "oma-apt-pkg",
  "oma-apt-sources-lists",
  "oma-fetch",
