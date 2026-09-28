@@ -1199,6 +1199,10 @@ where
         match selector.wait() {
             Pumped::Event(event) => callback(event),
             // 事件流结束：继续等结果（或等取消）。
+            //
+            // 走到这里说明事件一定已经排空：flume 会先把队列里的消息全部
+            // 取完，只有队列为空且发送端全部断开才报 `Disconnected`，之后
+            // 也不会再有新事件。结果阶段因此不会丢下仍在排队的事件。
             Pumped::EventsDone => events_done = true,
             Pumped::TaskDone(result) => return result,
             Pumped::TaskResultGone => return Err(RefreshError::DownloadFailed(None)),
@@ -1426,6 +1430,41 @@ mod tests {
         );
 
         assert!(matches!(result, Err(RefreshError::Canceled)));
+    }
+
+    #[test]
+    fn queued_events_are_delivered_before_the_result() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+
+        // 慢回调：任务早已结束、结果就绪时，事件还在队列里排着。结果阶段
+        // 只有在事件通道排空（且发送端断开）之后才会被进入，队列里的事件
+        // 一个都不能少。
+        let seen = Arc::new(AtomicUsize::new(0));
+        let seen_in_callback = seen.clone();
+        let mut callback = move |_event: Event| {
+            std::thread::sleep(Duration::from_millis(1));
+            seen_in_callback.fetch_add(1, Ordering::Relaxed);
+        };
+
+        let result: Result<u32> =
+            run_task_with_pump(rt.handle(), &rx, &mut callback, None, None, async move {
+                for _ in 0..50 {
+                    tx.send(Event::Done).unwrap();
+                }
+                // 事件发完立刻返回：结果先于事件泵就绪。
+                Ok(42)
+            });
+
+        assert!(matches!(result, Ok(42)));
+        assert_eq!(
+            seen.load(Ordering::Relaxed),
+            50,
+            "the pump must deliver every queued event before returning the result"
+        );
     }
 
     #[test]
