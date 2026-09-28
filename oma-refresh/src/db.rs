@@ -243,7 +243,7 @@ impl OmaRefresh {
         };
 
         let mirror_sources = MirrorSources::from_sourcelist(&sourcelist)?;
-        let (mut mirror_sources, not_found) = run_task_with_pump(
+        let (mirror_sources, not_found) = run_task_with_pump(
             &async_rt_handle,
             &rx,
             &mut callback,
@@ -251,7 +251,21 @@ impl OmaRefresh {
             async move { sc.download_releases(mirror_sources, tx).await },
         )?;
 
-        self_arc.refresh_topics(not_found, &mut mirror_sources, &mut callback)?;
+        // topic 刷新会联网、写 atm 状态与源列表文件：先检查一次取消，
+        // 再放进和下载一样的可取消事件泵里，取消能中断网络请求。
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
+
+        let sc_topic = self_arc.clone();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let mirror_sources = run_task_with_pump(
+            &async_rt_handle,
+            &rx,
+            &mut callback,
+            self_arc.cancel_token.as_ref(),
+            async move { sc_topic.refresh_topics(not_found, mirror_sources, tx).await },
+        )?;
 
         if is_canceled(self_arc.cancel_token.as_ref()) {
             return Err(RefreshError::Canceled);
@@ -489,16 +503,14 @@ impl OmaRefresh {
     }
 
     #[cfg(feature = "aosc")]
-    fn refresh_topics(
+    async fn refresh_topics(
         &self,
         not_found: Vec<url::Url>,
-        sources: &mut MirrorSources,
-        callback: &mut (impl FnMut(Event) + 'static),
-    ) -> Result<()> {
-        use std::cell::RefCell;
-
+        mut sources: MirrorSources,
+        tx: Sender<Event>,
+    ) -> Result<MirrorSources> {
         if !self.refresh_topics || not_found.is_empty() {
-            return Ok(());
+            return Ok(sources);
         }
 
         let mut tm = TopicManager::new(
@@ -508,7 +520,7 @@ impl OmaRefresh {
             false,
         )?;
 
-        tm.refresh()?;
+        tm.refresh_async().await?;
         let removed_suites = tm.remove_closed_topics()?;
 
         debug!("Removed suites: {:?}", removed_suites);
@@ -528,31 +540,30 @@ impl OmaRefresh {
             let pos = sources.0.iter().position(|x| x.suite() == suite).unwrap();
             sources.0.remove(pos);
 
-            callback(Event::ClosingTopic(suite));
+            let _ = tx.send(Event::ClosingTopic(suite));
         }
 
         tm.write_enabled(false)?;
 
-        let cb_cell = RefCell::new(&mut *callback);
-
+        // 函数跑在事件泵的任务里，事件经 flume 通道交给 `start` 的回调。
+        let tx_cb = tx.clone();
         tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
-            let mut cb = cb_cell.borrow_mut();
-            cb(Event::TopicNotInMirror { topic, mirror });
+            let _ = tx_cb.send(Event::TopicNotInMirror { topic, mirror });
         })?;
 
-        callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
+        let _ = tx.send(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
 
-        Ok(())
+        Ok(sources)
     }
 
     #[cfg(not(feature = "aosc"))]
-    fn refresh_topics(
+    async fn refresh_topics(
         &self,
         _not_found: Vec<url::Url>,
-        _sources: &mut MirrorSources,
-        _callback: &mut (impl FnMut(Event) + 'static),
-    ) -> Result<()> {
-        Ok(())
+        sources: MirrorSources,
+        _tx: Sender<Event>,
+    ) -> Result<MirrorSources> {
+        Ok(sources)
     }
 
     fn collect_all_release_entry(
