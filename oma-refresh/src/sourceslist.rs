@@ -6,7 +6,7 @@ use flume::Sender;
 use oma_apt_pkg::AptConfig;
 use oma_apt_sources_lists::{Signature, SourceEntry};
 use oma_fetch::{
-    SingleDownloadError,
+    SingleDownloadError, TaskTracker,
     reqwest::{Method, Response, StatusCode},
     send_request_with_url_and_method,
 };
@@ -14,12 +14,7 @@ use oma_logger::{debug, warn};
 use oma_utils::concat_url;
 use once_cell::sync::OnceCell;
 use reqwest_middleware::ClientWithMiddleware;
-use tokio::{
-    fs::{self, File},
-    io::AsyncWriteExt,
-    sync::Semaphore,
-    task::JoinSet,
-};
+use tokio::{fs::File, io::AsyncWriteExt, sync::Semaphore, task::JoinSet};
 use url::Url;
 
 use crate::{
@@ -446,8 +441,10 @@ impl MirrorSource {
             tmp.display(),
             download_dir.display()
         );
-        tokio::fs::rename(&tmp, &download_dir.join(file_name))
-            .await
+        // 同步 rename：子任务被取消丢弃后不会留下仍在落盘的后台操作
+        // （`tokio::fs` 的 rename 走 spawn_blocking，丢弃 future 也
+        // 取消不掉）。
+        std::fs::rename(&tmp, download_dir.join(file_name))
             .map_err(|e| SingleDownloadError::Write { source: e })?;
 
         let _ = tx
@@ -492,14 +489,14 @@ impl MirrorSource {
             if p.exists() {
                 if dst.exists() {
                     debug!("get_release_file: Removing {} ...", dst.display());
-                    fs::remove_file(&dst)
-                        .await
+                    // 同 rename：用同步系统调用，子任务被取消丢弃后不会
+                    // 留下仍会落盘（或删文件）的后台操作。
+                    std::fs::remove_file(&dst)
                         .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
                 }
 
                 debug!("get_release_file: Symlinking {} ...", dst.display());
-                fs::symlink(p, &dst)
-                    .await
+                std::os::unix::fs::symlink(p, &dst)
                     .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
 
                 if index == 1 {
@@ -523,13 +520,11 @@ impl MirrorSource {
 
             if p.exists() {
                 if dst.exists() {
-                    fs::remove_file(&dst)
-                        .await
+                    std::fs::remove_file(&dst)
                         .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
                 }
 
-                fs::symlink(p, download_dir.join(file_name))
-                    .await
+                std::os::unix::fs::symlink(p, download_dir.join(file_name))
                     .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
             }
         }
@@ -572,13 +567,17 @@ impl MirrorSources {
         Ok(Self(res))
     }
 
+    /// 下载所有镜像的 release 文件。
+    ///
+    /// 每个子任务都会在 `tracker` 上登记，future 被丢弃（正常结束或
+    /// 被取消）时自动注销；取消方可在释放列表目录锁之前等它归零。
     pub async fn fetch_all_release(
         &mut self,
         client: ClientWithMiddleware,
-
         download_dir: Arc<Path>,
         threads: usize,
         sender: Sender<Event>,
+        tracker: TaskTracker,
     ) -> Vec<Result<(), RefreshError>> {
         let total_len = self.0.len();
         let sources = std::mem::take(&mut self.0);
@@ -591,6 +590,7 @@ impl MirrorSources {
             let client = client.clone();
             let tmp_dir = tmp_dir.clone();
             let sender = sender.clone();
+            let guard = tracker.guard();
 
             let source_key = if let Ok(url) = Url::parse(m.dist_path()) {
                 format!("{}://{}", url.scheme(), url.host_str().unwrap_or("unknown"))
@@ -605,6 +605,7 @@ impl MirrorSources {
 
             let download_dir = download_dir.clone();
             set.spawn(async move {
+                let _guard = guard;
                 let _permit = match source_sem.acquire_owned().await {
                     Ok(p) => Some(p),
                     Err(_) => return (m, Err(RefreshError::DownloadFailed(None))),

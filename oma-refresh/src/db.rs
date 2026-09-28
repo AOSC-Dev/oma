@@ -23,7 +23,7 @@ use oma_fetch::{
     },
 };
 
-use oma_fetch::{SingleDownloadError, Summary};
+use oma_fetch::{SingleDownloadError, Summary, TaskTracker};
 #[cfg(feature = "aosc")]
 use oma_topics::TopicManager;
 
@@ -242,13 +242,22 @@ impl OmaRefresh {
             h
         };
 
+        // 下载子任务的追踪器（见 `run_task_with_pump` 的取消分支）：取消时
+        // 要等所有子任务真正退出，列表目录锁的释放才不会早于子任务落盘。
+        let tracker = TaskTracker::new();
+
         let mirror_sources = MirrorSources::from_sourcelist(&sourcelist)?;
+        let tracker_for_release = tracker.clone();
         let (mirror_sources, not_found) = run_task_with_pump(
             &async_rt_handle,
             &rx,
             &mut callback,
             self_arc.cancel_token.as_ref(),
-            async move { sc.download_releases(mirror_sources, tx).await },
+            Some(&tracker),
+            async move {
+                sc.download_releases(mirror_sources, tx, tracker_for_release)
+                    .await
+            },
         )?;
 
         // topic 刷新会联网、写 atm 状态与源列表文件：先检查一次取消，
@@ -264,6 +273,7 @@ impl OmaRefresh {
             &rx,
             &mut callback,
             self_arc.cancel_token.as_ref(),
+            None,
             async move { sc_topic.refresh_topics(not_found, mirror_sources, tx).await },
         )?;
 
@@ -302,14 +312,16 @@ impl OmaRefresh {
             remove_unused_db(&self_arc.download_dir, download_list).unwrap_or(false);
 
         let sc2 = self_arc.clone();
+        let tracker_for_data = tracker.clone();
         let (tx, rx) = flume::unbounded::<Event>();
         let res = run_task_with_pump(
             &async_rt_handle,
             &rx,
             &mut callback,
             self_arc.cancel_token.as_ref(),
+            Some(&tracker),
             async move {
-                sc2.download_release_data(tx, tasks, total, optional_index_files)
+                sc2.download_release_data(tx, tasks, total, optional_index_files, tracker_for_data)
                     .await
             },
         )?;
@@ -370,12 +382,14 @@ impl OmaRefresh {
         tasks: Vec<DownloadEntry>,
         total: u64,
         optional_index_files: HashSet<String>,
+        tracker: TaskTracker,
     ) -> Result<Summary> {
         let dm = DownloadManager::builder()
             .client(self.client.clone())
             .download_list(tasks.into())
             .threads(self.threads)
             .total_size(total)
+            .tracker(tracker)
             .build();
 
         let optional_index_files = Arc::new(optional_index_files);
@@ -458,6 +472,7 @@ impl OmaRefresh {
         &self,
         mut mirror_sources: MirrorSources,
         sender: Sender<Event>,
+        tracker: TaskTracker,
     ) -> Result<(MirrorSources, Vec<Url>)> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
@@ -471,6 +486,7 @@ impl OmaRefresh {
                 Arc::from(self.download_dir.as_ref()),
                 self.threads,
                 sender.clone(),
+                tracker,
             )
             .await;
 
@@ -1013,6 +1029,7 @@ fn run_task_with_pump<Fut, T>(
     rx: &flume::Receiver<Event>,
     callback: &mut (impl FnMut(Event) + 'static),
     cancel_token: Option<&CancelToken>,
+    tracker: Option<&TaskTracker>,
     task: Fut,
 ) -> Result<T>
 where
@@ -1064,8 +1081,16 @@ where
                 // rename 进列表目录，覆盖随后启动的新刷新写入的元数据。
                 // 这里是同步上下文，用 `futures::executor::block_on` 等
                 // JoinHandle 结束：tokio 保证此时任务析构已完成、子任务的
-                // 取消信号已全部发出，锁就不会在收尾完成前被释放。
+                // 取消信号已全部发出。
                 let _ = futures::executor::block_on(task_handle);
+                // 但 `JoinSet` 析构只是给子任务发取消信号、不等它们退出，
+                // 还要等 tracker 归零；子任务对列表目录的写入（rename /
+                // symlink / 删除）都是同步系统调用，不会变成在途的后台
+                // 操作，因此 tracker 归零后，锁的释放就不会早于子任务的
+                // 收尾。
+                if let Some(tracker) = tracker {
+                    tracker.wait();
+                }
                 return Err(RefreshError::Canceled);
             }
             Pumped::CancelGone => cancel_token = None,
@@ -1105,6 +1130,7 @@ mod tests {
             &rx,
             &mut callback,
             Some(&cancel_token),
+            None,
             async {
                 std::future::pending::<()>().await;
                 Ok(())
@@ -1147,6 +1173,7 @@ mod tests {
             &rx,
             &mut callback,
             Some(&cancel_token),
+            None,
             async move {
                 let _guard = SetOnDrop(dropped_in_task);
                 std::future::pending::<()>().await;
@@ -1160,6 +1187,78 @@ mod tests {
             dropped.load(Ordering::SeqCst),
             "run_task_with_pump returned before the task finished dropping"
         );
+        drop(tx);
+    }
+
+    #[test]
+    fn cancel_waits_for_tracked_children() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+        let tracker = TaskTracker::new();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            handle_for_thread.cancel();
+        });
+
+        // 子任务永不完成；每个子任务析构时打一个标记。字段声明顺序保证
+        // 先打标记、后注销（guard 最后被丢弃）。
+        struct MarkedChild {
+            _mark: MarkOnDrop,
+            _guard: oma_fetch::TaskGuard,
+        }
+
+        struct MarkOnDrop(Arc<AtomicUsize>);
+
+        impl Drop for MarkOnDrop {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        const CHILDREN: usize = 4;
+
+        let marked = Arc::new(AtomicUsize::new(0));
+        let marked_in_task = marked.clone();
+        let tracker_in_task = tracker.clone();
+
+        let mut callback = |_event: Event| {};
+        let result: Result<()> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            Some(&tracker),
+            async move {
+                let mut set = tokio::task::JoinSet::new();
+
+                for _ in 0..CHILDREN {
+                    let guard = tracker_in_task.guard();
+                    let mark = MarkOnDrop(marked_in_task.clone());
+
+                    set.spawn(async move {
+                        let _child = MarkedChild {
+                            _mark: mark,
+                            _guard: guard,
+                        };
+                        std::future::pending::<()>().await;
+                    });
+                }
+
+                while set.join_next().await.is_some() {}
+                Ok(())
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        // 返回时所有子任务都必须已析构（标记全部落地），否则它们还可能
+        // 在锁释放后继续落盘。
+        assert_eq!(marked.load(Ordering::SeqCst), CHILDREN);
         drop(tx);
     }
 
@@ -1184,6 +1283,7 @@ mod tests {
             &rx,
             &mut callback,
             Some(&cancel_token),
+            None,
             async move {
                 tx.send(Event::Done).unwrap();
                 Ok(42)
