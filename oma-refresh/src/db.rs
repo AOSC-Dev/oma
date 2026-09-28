@@ -2,7 +2,10 @@ use std::{
     borrow::Cow,
     fs::DirEntry,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use ahash::{AHashMap, HashSet, HashSetExt};
@@ -103,11 +106,15 @@ type Result<T> = std::result::Result<T, RefreshError>;
 /// 取消通道的句柄：需要取消的一方持有它，调用 [`CancelHandle::cancel`]
 /// 即可中止对应的刷新。句柄与令牌通过 [`cancel_channel`] 一起创建。
 #[derive(Clone)]
-pub struct CancelHandle(flume::Sender<()>);
+pub struct CancelHandle(flume::Sender<()>, Arc<AtomicBool>);
 
 impl CancelHandle {
     /// 请求取消刷新；重复调用无副作用。
     pub fn cancel(&self) {
+        // 先置位标志再发消息：标志只置位、不清除，谁先“看到”取消都不会
+        // 丢（消息可能被事件泵或刷新任务先取走）；消息只负责唤醒等待中
+        // 的 selector。
+        self.1.store(true, Ordering::SeqCst);
         let _ = self.0.try_send(());
     }
 }
@@ -115,12 +122,17 @@ impl CancelHandle {
 /// 取消通道的令牌：交给 `OmaRefresh` 构建器的 `cancel_token`，刷新收到
 /// 取消信号后会立即中止并返回 [`RefreshError::Canceled`]。句柄被丢弃但
 /// 未发出信号时，刷新照常进行。
-pub struct CancelToken(flume::Receiver<()>);
+pub struct CancelToken(flume::Receiver<()>, Arc<AtomicBool>);
 
 /// 创建一对取消句柄与令牌：句柄留给需要取消的一方，令牌交给刷新。
 pub fn cancel_channel() -> (CancelHandle, CancelToken) {
     let (tx, rx) = flume::bounded(1);
-    (CancelHandle(tx), CancelToken(rx))
+    let canceled = Arc::new(AtomicBool::new(false));
+
+    (
+        CancelHandle(tx, canceled.clone()),
+        CancelToken(rx, canceled),
+    )
 }
 
 #[derive(Builder)]
@@ -535,6 +547,14 @@ impl OmaRefresh {
         )?;
 
         tm.refresh_async().await?;
+
+        // 之后直到返回都是同步代码、不会再让出：`abort` 要到下一个让出点
+        // 才生效，所以这里必须自己检查取消，否则取消后仍会继续渲染、
+        // 把 atm 状态和源列表写掉。
+        if is_canceled(self.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
+
         let removed_suites = tm.remove_closed_topics()?;
 
         debug!("Removed suites: {:?}", removed_suites);
@@ -557,7 +577,17 @@ impl OmaRefresh {
             let _ = tx.send(Event::ClosingTopic(suite));
         }
 
+        // 两处写入之前各再确认一次取消（写入全同步，中途到达的取消
+        // 只能靠检查点拦下）。
+        if is_canceled(self.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
+
         tm.write_enabled(false)?;
+
+        if is_canceled(self.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
 
         // 函数跑在事件泵的任务里，事件经 flume 通道交给 `start` 的回调。
         let tx_cb = tx.clone();
@@ -1017,9 +1047,10 @@ fn compress_type_of(name: &str) -> CompressType {
 }
 
 /// 令牌是否已收到取消信号；`None` 表示调用方没有提供令牌，永远不取消。
-/// 句柄已断开但未发送信号的令牌不算取消。
+/// 句柄已断开但未发送信号的令牌不算取消；标志只置位、不清除，可以反复
+/// 查询（唤醒消息留给事件泵用）。
 fn is_canceled(cancel_token: Option<&CancelToken>) -> bool {
-    cancel_token.is_some_and(|token| matches!(token.0.try_recv(), Ok(())))
+    cancel_token.is_some_and(|token| token.1.load(Ordering::SeqCst))
 }
 
 /// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前子进程、不再跑
@@ -1446,6 +1477,19 @@ mod tests {
 
         assert!(matches!(result, Ok(42)));
         assert_eq!(seen.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn cancel_flag_persists_after_message_consumed() {
+        let (cancel_handle, cancel_token) = cancel_channel();
+        cancel_handle.cancel();
+
+        // 模拟唤醒消息被事件泵先取走：标志不受影响，可以反复查询，
+        // 刷新任务内部的取消检查点因此不会漏。
+        let _ = cancel_token.0.try_recv();
+
+        assert!(is_canceled(Some(&cancel_token)));
+        assert!(is_canceled(Some(&cancel_token)));
     }
 
     #[test]
