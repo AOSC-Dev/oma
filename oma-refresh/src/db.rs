@@ -339,7 +339,17 @@ impl OmaRefresh {
 
         if should_run_invoke {
             callback(Event::RunInvokeScript);
-            self_arc.run_success_post_invoke(&apt_cfg);
+
+            // 钩子执行期间会盯着取消信号（必要时终止子进程）；被取消
+            // 就不再继续收尾。
+            if !self_arc.run_success_post_invoke(&apt_cfg) {
+                return Err(RefreshError::Canceled);
+            }
+        }
+
+        // 报告完成前最后再确认一次取消（比如信号恰好在钩子收尾时到达）。
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
         }
 
         callback(Event::Done);
@@ -439,7 +449,10 @@ impl OmaRefresh {
         Ok(res)
     }
 
-    fn run_success_post_invoke(&self, cfg: &AptConfig) {
+    /// 执行 `APT::Update::Post-Invoke-Success` 里的钩子（失败只告警）。
+    ///
+    /// 返回 `false` 表示执行期间收到了取消信号（当前子进程已被终止）。
+    fn run_success_post_invoke(&self, cfg: &AptConfig) -> bool {
         // 本 crate 的配置解析器把列表项存为 `KEY::{item}`（见
         // `config_parser::handle_list_value`），不是 apt 的 `KEY#N` 约定，
         // 因此要像 `sourceslist::ignores` 一样用 `keys_under` + `get(KEY::{k})`
@@ -450,28 +463,7 @@ impl OmaRefresh {
             .filter(|s| !s.is_empty())
             .collect();
 
-        for cmd in &cmds {
-            use std::process::Command;
-
-            debug!("Running post-invoke script: {cmd}");
-            let output = Command::new("sh").arg("-c").arg(cmd).output();
-
-            match output {
-                Ok(output) => {
-                    if !output.status.success() {
-                        warn!(
-                            "Command {cmd} returned non-zero exit code: {}",
-                            output.status.code().unwrap_or(1)
-                        );
-                        continue;
-                    }
-                    debug!("Command {cmd} completed successfully.");
-                }
-                Err(e) => {
-                    warn!("Command {cmd} exited with error: {e}");
-                }
-            }
-        }
+        run_post_invoke_commands(&cmds, self.cancel_token.as_ref())
     }
 
     async fn download_releases(
@@ -1030,6 +1022,74 @@ fn is_canceled(cancel_token: Option<&CancelToken>) -> bool {
     cancel_token.is_some_and(|token| matches!(token.0.try_recv(), Ok(())))
 }
 
+/// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前子进程、不再跑
+/// 后续命令并返回 `false`；全部跑完返回 `true`。
+///
+/// 命令的输出与原来的 `Command::output()` 一样不落地；不用 `output()`
+/// 是因为它阻塞等待、看不到取消信号，慢的或卡死的钩子会把取消卡住。
+fn run_post_invoke_commands(cmds: &[String], cancel_token: Option<&CancelToken>) -> bool {
+    use std::{
+        process::{Command, Stdio},
+        time::Duration,
+    };
+
+    for cmd in cmds {
+        if is_canceled(cancel_token) {
+            return false;
+        }
+
+        debug!("Running post-invoke script: {cmd}");
+
+        let mut child = match Command::new("sh")
+            .arg("-c")
+            .arg(cmd)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(e) => {
+                warn!("Command {cmd} exited with error: {e}");
+                continue;
+            }
+        };
+
+        let canceled = loop {
+            if is_canceled(cancel_token) {
+                debug!("Command {cmd} canceled, terminating it");
+                let _ = child.kill();
+                let _ = child.wait();
+                break true;
+            }
+
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    if status.success() {
+                        debug!("Command {cmd} completed successfully.");
+                    } else {
+                        warn!(
+                            "Command {cmd} returned non-zero exit code: {}",
+                            status.code().unwrap_or(1)
+                        );
+                    }
+                    break false;
+                }
+                Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+                Err(e) => {
+                    warn!("Command {cmd} exited with error: {e}");
+                    break false;
+                }
+            }
+        };
+
+        if canceled {
+            return false;
+        }
+    }
+
+    true
+}
+
 fn run_task_with_pump<Fut, T>(
     handle: &tokio::runtime::Handle,
     rx: &flume::Receiver<Event>,
@@ -1320,6 +1380,40 @@ mod tests {
         );
 
         assert!(matches!(result, Err(RefreshError::Canceled)));
+    }
+
+    #[test]
+    fn post_invoke_stops_on_cancel() {
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            handle_for_thread.cancel();
+        });
+
+        // 慢钩子（sleep 5）：取消到达时应把它终止，而不是等它跑完；
+        // 后面的命令也不应再执行。
+        let marker = std::env::temp_dir().join(format!(
+            "oma-post-invoke-test-marker-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&marker);
+        let cmds = vec!["sleep 5".to_string(), format!("touch {}", marker.display())];
+
+        let start = std::time::Instant::now();
+        let completed = run_post_invoke_commands(&cmds, Some(&cancel_token));
+        let elapsed = start.elapsed();
+
+        assert!(!completed, "post-invoke should report cancellation");
+        assert!(
+            elapsed < Duration::from_secs(3),
+            "the running hook should be terminated on cancel, took {elapsed:?}"
+        );
+        assert!(
+            !marker.exists(),
+            "commands after a canceled hook should not run"
+        );
     }
 
     #[test]
