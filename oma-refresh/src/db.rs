@@ -577,22 +577,20 @@ impl OmaRefresh {
             let _ = tx.send(Event::ClosingTopic(suite));
         }
 
-        // 两处写入之前各再确认一次取消（写入全同步，中途到达的取消
-        // 只能靠检查点拦下）。
-        if is_canceled(self.cancel_token.as_ref()) {
-            return Err(RefreshError::Canceled);
-        }
-
-        tm.write_enabled(false)?;
-
-        if is_canceled(self.cancel_token.as_ref()) {
-            return Err(RefreshError::Canceled);
-        }
-
-        // 函数跑在事件泵的任务里，事件经 flume 通道交给 `start` 的回调。
+        // atm 状态和 apt 实际使用的源列表必须成对更新：两者之间若检查
+        // 取消并提前返回，会留下「状态已改、源列表还是旧的」的不一致。
+        // `run_coupled` 进入前、跑完后各看一次取消：已取消就整段跳过，
+        // 写入中途收到的取消等两处都写完后才报告。
         let tx_cb = tx.clone();
-        tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
-            let _ = tx_cb.send(Event::TopicNotInMirror { topic, mirror });
+        run_coupled(self.cancel_token.as_ref(), || {
+            tm.write_enabled(false)?;
+
+            // 函数跑在事件泵的任务里，事件经 flume 通道交给 `start` 的回调。
+            tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
+                let _ = tx_cb.send(Event::TopicNotInMirror { topic, mirror });
+            })?;
+
+            Ok(())
         })?;
 
         let _ = tx.send(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
@@ -1051,6 +1049,26 @@ fn compress_type_of(name: &str) -> CompressType {
 /// 查询（唤醒消息留给事件泵用）。
 fn is_canceled(cancel_token: Option<&CancelToken>) -> bool {
     cancel_token.is_some_and(|token| token.1.load(Ordering::SeqCst))
+}
+
+/// 执行一段「要么全做、要么全不做」的同步写入（例如 atm 状态文件和 apt
+/// 源列表必须成对更新）：进入前先看取消、已取消就整段跳过；整段跑完再
+/// 报告写入期间收到的取消，中途的取消不会把成对的写入截成一半。
+fn run_coupled(
+    cancel_token: Option<&CancelToken>,
+    writes: impl FnOnce() -> Result<()>,
+) -> Result<()> {
+    if is_canceled(cancel_token) {
+        return Err(RefreshError::Canceled);
+    }
+
+    writes()?;
+
+    if is_canceled(cancel_token) {
+        return Err(RefreshError::Canceled);
+    }
+
+    Ok(())
 }
 
 /// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前钩子的整个进程组、
@@ -1625,6 +1643,52 @@ mod tests {
 
         assert!(is_canceled(Some(&cancel_token)));
         assert!(is_canceled(Some(&cancel_token)));
+    }
+
+    #[test]
+    fn run_coupled_skips_writes_when_already_canceled() {
+        let (cancel_handle, cancel_token) = cancel_channel();
+        cancel_handle.cancel();
+
+        let ran = Arc::new(AtomicUsize::new(0));
+        let ran_in_writes = ran.clone();
+        let result = run_coupled(Some(&cancel_token), || {
+            ran_in_writes.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        });
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        assert_eq!(ran.load(Ordering::Relaxed), 0, "已取消时不应开始写");
+    }
+
+    #[test]
+    fn run_coupled_defers_cancel_until_both_writes_done() {
+        // 写入中途才收到取消：成对的写入必须整段跑完（不能只写一半），
+        // 取消在跑完后才报告。
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let ran = Arc::new(AtomicUsize::new(0));
+        let ran_in_writes = ran.clone();
+        let handle_in_writes = cancel_handle.clone();
+        let result = run_coupled(Some(&cancel_token), || {
+            // 第一处写入进行中（或刚写完）时收到取消。
+            ran_in_writes.fetch_add(1, Ordering::Relaxed);
+            handle_in_writes.cancel();
+            ran_in_writes.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        });
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        assert_eq!(
+            ran.load(Ordering::Relaxed),
+            2,
+            "写入中途的取消不能把成对写入截成一半"
+        );
+
+        // 没有取消：正常返回。
+        let (_handle, cancel_token) = cancel_channel();
+        let result = run_coupled(Some(&cancel_token), || Ok(()));
+        assert!(matches!(result, Ok(())));
     }
 
     #[test]
