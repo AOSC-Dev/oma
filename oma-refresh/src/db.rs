@@ -326,6 +326,12 @@ impl OmaRefresh {
             },
         )?;
 
+        // 结果就绪与取消信号可能同时到达，事件泵不保证优先选中取消；
+        // 各阶段返回后都再确认一次，避免带着未处理的取消继续收尾。
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
+
         // 有元数据更新、或清理了失效的列表文件（如退出 topic），
         // 才执行 success invoke；否则列表状态虽然变了，下游缓存
         // （如 amo 的搜索索引）却收不到失效通知。
@@ -1037,10 +1043,14 @@ where
     T: Send + 'static,
 {
     // 事件泵可被唤醒的事件。
-    enum Pumped {
+    enum Pumped<T> {
         Event(Event),
-        // 事件发送端已全部断开：下载任务结束，等待其结果。
+        // 事件发送端已全部断开：事件流结束，但任务可能还在收尾。
         EventsDone,
+        // 任务结束，结果已就绪。
+        TaskDone(Result<T>),
+        // 结果通道断开但没有结果（任务被丢弃或 panic）。
+        TaskResultGone,
         // 收到取消信号。
         Canceled,
         // 取消通道断开但未发送信号：之后只泵事件。
@@ -1053,15 +1063,26 @@ where
         let _ = result_tx.send(res);
     });
 
+    // 事件流可能先于任务结束（例如最后一个事件发送端在任务收尾前就被
+    // 丢弃）：之后改为等结果，但取消信号要一直盯着——只等结果会把这段
+    // 窗口里的取消漏掉，刷新会照跑不误地返回成功。
+    let mut events_done = false;
     let mut cancel_token = cancel_token;
     loop {
-        // 在事件和取消信号之间阻塞等待：任意一个到达都会唤醒，无需轮询。
-        // 取消时 abort 丢弃包装 future，oma-fetch 放在 `JoinSet` 里的下载
-        // 任务随之取消。
-        let mut selector = flume::Selector::new().recv(rx, |result| match result {
-            Ok(event) => Pumped::Event(event),
-            Err(_) => Pumped::EventsDone,
-        });
+        // 在事件、结果和取消信号之间阻塞等待：任意一个到达都会唤醒，
+        // 无需轮询。取消时 abort 丢弃包装 future，oma-fetch 放在
+        // `JoinSet` 里的下载任务随之取消。
+        let mut selector = if events_done {
+            flume::Selector::new().recv(&result_rx, |result| match result {
+                Ok(result) => Pumped::TaskDone(result),
+                Err(_) => Pumped::TaskResultGone,
+            })
+        } else {
+            flume::Selector::new().recv(rx, |result| match result {
+                Ok(event) => Pumped::Event(event),
+                Err(_) => Pumped::EventsDone,
+            })
+        };
         if let Some(token) = cancel_token {
             selector = selector.recv(&token.0, |result| match result {
                 Ok(()) => Pumped::Canceled,
@@ -1071,7 +1092,10 @@ where
 
         match selector.wait() {
             Pumped::Event(event) => callback(event),
-            Pumped::EventsDone => break,
+            // 事件流结束：继续等结果（或等取消）。
+            Pumped::EventsDone => events_done = true,
+            Pumped::TaskDone(result) => return result,
+            Pumped::TaskResultGone => return Err(RefreshError::DownloadFailed(None)),
             Pumped::Canceled => {
                 task_handle.abort();
                 // 取消不是立即生效的：`abort` 只发出信号，运行时要到下一次
@@ -1096,10 +1120,6 @@ where
             Pumped::CancelGone => cancel_token = None,
         }
     }
-
-    result_rx
-        .recv()
-        .map_err(|_| RefreshError::DownloadFailed(None))?
 }
 
 #[cfg(test)]
@@ -1260,6 +1280,46 @@ mod tests {
         // 在锁释放后继续落盘。
         assert_eq!(marked.load(Ordering::SeqCst), CHILDREN);
         drop(tx);
+    }
+
+    #[test]
+    fn cancel_observed_while_waiting_for_result() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            handle_for_thread.cancel();
+        });
+
+        // 任务先丢弃事件发送端（事件流就此结束），但要很晚才返回结果：
+        // 80ms 时的取消落在「等结果」阶段，必须被观察到。
+        let (finish_tx, finish_rx) = flume::bounded::<()>(1);
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(500));
+            let _ = finish_tx.send(());
+        });
+
+        let mut callback = |_event: Event| {};
+        let result: Result<()> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            None,
+            async move {
+                drop(tx);
+                let _ = finish_rx.recv_async().await;
+                Ok(())
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
     }
 
     #[test]
