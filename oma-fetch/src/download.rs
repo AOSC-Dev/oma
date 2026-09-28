@@ -348,7 +348,10 @@ impl SingleDownloader {
                                 current_path.display(),
                                 target_path.display()
                             );
-                            if let Err(e) = tokio::fs::rename(&current_path, &target_path).await {
+                            // 同步 rename：任务被取消丢弃后不会留下仍在落盘
+                            // 的后台操作（`tokio::fs` 的 rename 走
+                            // spawn_blocking，丢弃 future 也取消不掉）。
+                            if let Err(e) = std::fs::rename(&current_path, &target_path) {
                                 callback(Event::Failed {
                                     file_name: self.entry.filename.clone(),
                                     error: SingleDownloadError::Write { source: e },

@@ -13,7 +13,9 @@ use tokio::task::JoinSet;
 
 pub mod checksum;
 pub mod download;
+mod task_tracker;
 pub use crate::download::SingleDownloadError;
+pub use task_tracker::{TaskGuard, TaskTracker};
 
 pub use reqwest;
 
@@ -191,6 +193,11 @@ pub struct DownloadManager {
     total_size: u64,
     #[builder(default = Duration::from_secs(15))]
     timeout: Duration,
+    /// 子任务追踪器（见 [`TaskTracker`]）：下载子任务被丢弃时自动注销。
+    /// 取消方可在释放目录锁前等它归零，确保没有子任务会在锁释放后
+    /// 继续落盘。
+    #[builder(default)]
+    tracker: TaskTracker,
 }
 
 #[derive(Debug)]
@@ -218,6 +225,7 @@ impl DownloadManager {
     {
         let mut list = vec![];
         let len = self.download_list.len();
+        let tracker = self.tracker.clone();
 
         let mut source_locks = AHashMap::new();
 
@@ -261,8 +269,10 @@ impl DownloadManager {
 
         for (single, source_sem) in list {
             let cb = callback_arc.clone();
+            let guard = tracker.guard();
 
             set.spawn(async move {
+                let _guard = guard;
                 let _permit = match source_sem.acquire_owned().await {
                     Ok(p) => Some(p),
                     Err(_) => {
