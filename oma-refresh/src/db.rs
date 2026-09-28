@@ -349,6 +349,9 @@ impl OmaRefresh {
         }
 
         if tasks.is_empty() {
+            // 没有可下载的元数据也要把这次提交的通知发出去（比如关掉了
+            // 最后一个主题仓库，列表已经清空）。
+            notify_lists_changed_once(&mut notify_pending, &apt_cfg);
             return Err(RefreshError::NoMetadataToDownload);
         }
 
@@ -372,7 +375,11 @@ impl OmaRefresh {
                 notify_lists_changed_once(&mut notify_pending, &apt_cfg);
                 return Err(RefreshError::Canceled);
             }
-            Err(e) => return Err(e),
+            Err(e) => {
+                // 下载失败退出时，同样要把这次提交的通知发出去。
+                notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+                return Err(e);
+            }
         };
 
         // 结果就绪与取消信号可能同时到达，事件泵不保证优先选中取消；
@@ -388,15 +395,21 @@ impl OmaRefresh {
         let should_run_invoke = res.has_wrote() || removed_unused;
 
         if should_run_invoke {
-            // 通知马上就以成功钩子的形式跑了：无论结果如何都不再补第二次。
-            notify_pending = false;
+            // 钩子马上会跑，但只有它完整跑完才算通知过：先保持「待通知」，
+            // 被取消打断时下面补一次（不可中断）；完整跑完才清掉。
+            notify_pending = true;
             callback(Event::RunInvokeScript);
 
             // 钩子执行期间会盯着取消信号（必要时终止整个进程组）；被
             // 取消就不再继续收尾。
             if !run_success_post_invoke(&apt_cfg, self_arc.cancel_token.as_ref()) {
+                // 钩子被杀掉了，通知可能没跑完：补跑一次（脚本要能容忍
+                // 重复执行——失效类脚本通常如此）。
+                notify_lists_changed_once(&mut notify_pending, &apt_cfg);
                 return Err(RefreshError::Canceled);
             }
+
+            notify_pending = false;
         }
 
         // 报告完成前最后再确认一次取消（比如信号恰好在钩子收尾时到达）。
@@ -629,16 +642,21 @@ impl OmaRefresh {
         };
 
         let not_in_mirror = std::cell::RefCell::new(Vec::new());
-        tm.write_enabled(false)?;
+        // 先记下状态文件与源列表文件的原内容：任一处写入失败时按字节恢复
+        // 原文件，而不是根据（可能已经变化的新）主题数据重新生成旧内容。
+        let snapshot = tm.snapshot_files();
+        if let Err(e) = tm.write_enabled(false) {
+            let _ = snapshot.restore();
+            return Err(e.into());
+        }
         if let Err(e) = tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
             not_in_mirror.borrow_mut().push((topic, mirror));
         }) {
-            // 状态文件已经写进去了，源列表却没写成功：先尽力把源列表写回
-            // 旧内容，再回滚状态文件，别让两个文件停在「状态已变、源列表
-            // 没变」的中间态。磁盘故障时回滚也可能失败，只能尽力而为；
-            // 错误照常上报，下次刷新会重做这次变更。
-            let _ = tm.write_sources_list(&self.topic_msg, true, |_, _| {});
-            let _ = tm.write_enabled(true);
+            // 状态文件已经写进去了，源列表却没写成功：把两个文件都恢复成
+            // 写入前的内容，别让它们停在「状态已变、源列表没变」的中间态。
+            // 磁盘故障时恢复也可能失败，只能尽力而为；错误照常上报，下次
+            // 刷新会重做这次变更。
+            let _ = snapshot.restore();
             return Err(e.into());
         }
         for (topic, mirror) in not_in_mirror.into_inner() {

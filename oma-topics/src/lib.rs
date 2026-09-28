@@ -84,6 +84,63 @@ impl Hash for Topic {
     }
 }
 
+/// 状态文件与两个源列表文件（现行与旧格式）的原内容快照。
+///
+/// 由 [`TopicManager::snapshot_files`] 生成。[`Self::restore`] 把文件
+/// 恢复成快照时的内容：当时不存在的文件会被删掉——`write_enabled` 与
+/// `write_sources_list` 这对写入里后一步（或前一步）失败时，用它把
+/// 两个文件恢复一致，而不是根据（可能已经变化的新）主题数据重新生成
+/// 旧内容。
+pub struct TopicFilesSnapshot {
+    /// (路径, 原内容)；`None` 表示快照时文件不存在。
+    files: Vec<(PathBuf, Option<Vec<u8>>)>,
+}
+
+impl TopicFilesSnapshot {
+    fn of(paths: impl IntoIterator<Item = PathBuf>) -> Self {
+        let files = paths
+            .into_iter()
+            .map(|path| {
+                let content = std::fs::read(&path).ok();
+                (path, content)
+            })
+            .collect();
+
+        Self { files }
+    }
+
+    /// 把文件恢复成快照时的内容：有原内容的写回，当时不存在的删掉。
+    ///
+    /// 逐个文件尽力恢复，某个失败不阻止恢复其余文件；返回第一个错误。
+    pub fn restore(self) -> Result<()> {
+        let mut first_err = None;
+
+        for (path, content) in self.files {
+            let res = match content {
+                Some(content) => std::fs::write(&path, content),
+                None => match std::fs::remove_file(&path) {
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                    res => res,
+                },
+            };
+
+            if let Err(e) = res
+                && first_err.is_none()
+            {
+                first_err = Some(OmaTopicsError::FailedToOperateDirOrFile(
+                    path.display().to_string(),
+                    e,
+                ));
+            }
+        }
+
+        match first_err {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+}
+
 pub struct TopicManager {
     enabled: Vec<Topic>,
     all: HashMap<Box<str>, Vec<Topic>>,
@@ -314,6 +371,16 @@ impl TopicManager {
         serde_json::to_vec(&self.enabled).map_err(|_| OmaTopicsError::FailedSer)
     }
 
+    /// 记录状态文件与源列表文件（现行与旧格式）当前内容，写入失败时用
+    /// [`TopicFilesSnapshot::restore`] 按原内容恢复。
+    pub fn snapshot_files(&self) -> TopicFilesSnapshot {
+        TopicFilesSnapshot::of([
+            self.atm_state_path.clone(),
+            self.atm_source_list_path.clone(),
+            self.atm_source_list_path_new.clone(),
+        ])
+    }
+
     /// Write topic changes to mirror list
     pub fn write_enabled(&mut self, revert: bool) -> Result<()> {
         let s = self.serialize_state(revert)?;
@@ -522,4 +589,38 @@ where
     });
 
     result_rx.recv().map_err(|_| OmaTopicsError::RecvError)?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_restores_original_file_contents() {
+        let dir =
+            std::env::temp_dir().join(format!("oma-topics-snapshot-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let kept = dir.join("state");
+        let created = dir.join("atm.list"); // 快照时不存在
+        let removed = dir.join("atm.sources"); // 快照时存在
+        std::fs::write(&kept, b"old-state").unwrap();
+        std::fs::write(&removed, b"old-sources").unwrap();
+
+        let snapshot = TopicFilesSnapshot::of([kept.clone(), created.clone(), removed.clone()]);
+
+        // 模拟写入阶段的三种改动：改写、新建、删除。
+        std::fs::write(&kept, b"new-state").unwrap();
+        std::fs::write(&created, b"created-by-write").unwrap();
+        std::fs::remove_file(&removed).unwrap();
+
+        snapshot.restore().unwrap();
+
+        assert_eq!(std::fs::read(&kept).unwrap(), b"old-state");
+        assert!(!created.exists(), "快照时不存在、之后新建的文件要删掉");
+        assert_eq!(std::fs::read(&removed).unwrap(), b"old-sources");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
