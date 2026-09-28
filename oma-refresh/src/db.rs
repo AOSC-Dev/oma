@@ -309,9 +309,10 @@ impl OmaRefresh {
         debug!("oma will download source metadata: {tasks:#?}");
 
         // 提交边界：跨过去之后到列表清理完成都不再观察取消——主题写入、
-        // 旧列表清理、（必要时）通知要么整段做完、要么整段不做；半提交的
-        // 磁盘状态比多花几毫秒做完收尾危险得多。进入前若已取消就直接退出，
-        // 此时还没有任何写盘。
+        // 旧列表清理、（必要时）通知在取消语义下要么整段做完、要么整段
+        // 不做；半提交的磁盘状态比多花几毫秒做完收尾危险得多。进入前若
+        // 已取消就直接退出，此时还没有任何写盘。写入本身发错时由
+        // `write_topic_files` 尽力回滚，见那里的注释。
         if is_canceled(self_arc.cancel_token.as_ref()) {
             return Err(RefreshError::Canceled);
         }
@@ -327,16 +328,25 @@ impl OmaRefresh {
         //
         // 阶段 2（不可中断的提交收尾）。`tasks.is_empty()` 的检查放在收尾
         // 之后：关闭最后一个主题仓库时，失效列表照样要清干净。
+        let topics_committed = topics.is_some();
         let removed_unused = finish_commit(
             self_arc.cancel_token.as_ref(),
             &self_arc.download_dir,
             download_list,
-            topics.is_some(),
+            topics_committed,
             || self_arc.write_topic_files(topics, &mut callback),
-            || {
-                let _ = self_arc.run_success_post_invoke(&apt_cfg, None);
-            },
+            || notify_lists_changed(&apt_cfg, None),
         )?;
+
+        // 提交期间的列表改动（源列表被重写 / 失效列表被清理）需要通知下游
+        // 索引。记录「待通知」状态：之后的阶段若被取消，成功钩子不会运行，
+        // 但这条通知不能漏——每个取消路径都会补一次（见下面各处）。
+        let mut notify_pending = topics_committed || removed_unused;
+
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+            return Err(RefreshError::Canceled);
+        }
 
         if tasks.is_empty() {
             return Err(RefreshError::NoMetadataToDownload);
@@ -345,7 +355,7 @@ impl OmaRefresh {
         let sc2 = self_arc.clone();
         let tracker_for_data = tracker.clone();
         let (tx, rx) = flume::unbounded::<Event>();
-        let res = run_task_with_pump(
+        let res = match run_task_with_pump(
             &async_rt_handle,
             &rx,
             &mut callback,
@@ -355,11 +365,20 @@ impl OmaRefresh {
                 sc2.download_release_data(tx, tasks, total, optional_index_files, tracker_for_data)
                     .await
             },
-        )?;
+        ) {
+            Ok(res) => res,
+            Err(RefreshError::Canceled) => {
+                // 提交之后的取消：成功钩子不跑了，但列表改动的通知要补上。
+                notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+                return Err(RefreshError::Canceled);
+            }
+            Err(e) => return Err(e),
+        };
 
         // 结果就绪与取消信号可能同时到达，事件泵不保证优先选中取消；
         // 各阶段返回后都再确认一次，避免带着未处理的取消继续收尾。
         if is_canceled(self_arc.cancel_token.as_ref()) {
+            notify_lists_changed_once(&mut notify_pending, &apt_cfg);
             return Err(RefreshError::Canceled);
         }
 
@@ -369,17 +388,20 @@ impl OmaRefresh {
         let should_run_invoke = res.has_wrote() || removed_unused;
 
         if should_run_invoke {
+            // 通知马上就以成功钩子的形式跑了：无论结果如何都不再补第二次。
+            notify_pending = false;
             callback(Event::RunInvokeScript);
 
             // 钩子执行期间会盯着取消信号（必要时终止整个进程组）；被
             // 取消就不再继续收尾。
-            if !self_arc.run_success_post_invoke(&apt_cfg, self_arc.cancel_token.as_ref()) {
+            if !run_success_post_invoke(&apt_cfg, self_arc.cancel_token.as_ref()) {
                 return Err(RefreshError::Canceled);
             }
         }
 
         // 报告完成前最后再确认一次取消（比如信号恰好在钩子收尾时到达）。
         if is_canceled(self_arc.cancel_token.as_ref()) {
+            notify_lists_changed_once(&mut notify_pending, &apt_cfg);
             return Err(RefreshError::Canceled);
         }
 
@@ -478,24 +500,6 @@ impl OmaRefresh {
         }
 
         Ok(res)
-    }
-
-    /// 执行 `APT::Update::Post-Invoke-Success` 里的钩子（失败只告警）。
-    ///
-    /// 返回 `false` 表示执行期间收到了取消信号（当前钩子的进程组已被终止）。
-    /// `cancel_token` 为 `None` 时不观察取消（提交收尾里的通知必须跑完）。
-    fn run_success_post_invoke(&self, cfg: &AptConfig, cancel_token: Option<&CancelToken>) -> bool {
-        // 本 crate 的配置解析器把列表项存为 `KEY::{item}`（见
-        // `config_parser::handle_list_value`），不是 apt 的 `KEY#N` 约定，
-        // 因此要像 `sourceslist::ignores` 一样用 `keys_under` + `get(KEY::{k})`
-        // 读取，否则永远取不到任何命令。
-        let cmds: Vec<String> = cfg
-            .keys_under("APT::Update::Post-Invoke-Success")
-            .map(|k| cfg.get(&format!("APT::Update::Post-Invoke-Success::{k}"), ""))
-            .filter(|s| !s.is_empty())
-            .collect();
-
-        run_post_invoke_commands(&cmds, cancel_token)
     }
 
     async fn download_releases(
@@ -626,9 +630,17 @@ impl OmaRefresh {
 
         let not_in_mirror = std::cell::RefCell::new(Vec::new());
         tm.write_enabled(false)?;
-        tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
+        if let Err(e) = tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
             not_in_mirror.borrow_mut().push((topic, mirror));
-        })?;
+        }) {
+            // 状态文件已经写进去了，源列表却没写成功：先尽力把源列表写回
+            // 旧内容，再回滚状态文件，别让两个文件停在「状态已变、源列表
+            // 没变」的中间态。磁盘故障时回滚也可能失败，只能尽力而为；
+            // 错误照常上报，下次刷新会重做这次变更。
+            let _ = tm.write_sources_list(&self.topic_msg, true, |_, _| {});
+            let _ = tm.write_enabled(true);
+            return Err(e.into());
+        }
         for (topic, mirror) in not_in_mirror.into_inner() {
             callback(Event::TopicNotInMirror { topic, mirror });
         }
@@ -1114,6 +1126,41 @@ fn finish_commit(
     }
 
     Ok(removed_unused)
+}
+
+/// 执行 `APT::Update::Post-Invoke-Success` 里的钩子（失败只告警）。
+///
+/// 返回 `false` 表示执行期间收到了取消信号（当前钩子的进程组已被终止）。
+/// `cancel_token` 为 `None` 时不观察取消，把钩子跑完（提交后的通知需要）。
+fn run_success_post_invoke(cfg: &AptConfig, cancel_token: Option<&CancelToken>) -> bool {
+    // 本 crate 的配置解析器把列表项存为 `KEY::{item}`（见
+    // `config_parser::handle_list_value`），不是 apt 的 `KEY#N` 约定，
+    // 因此要像 `sourceslist::ignores` 一样用 `keys_under` + `get(KEY::{k})`
+    // 读取，否则永远取不到任何命令。
+    let cmds: Vec<String> = cfg
+        .keys_under("APT::Update::Post-Invoke-Success")
+        .map(|k| cfg.get(&format!("APT::Update::Post-Invoke-Success::{k}"), ""))
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    run_post_invoke_commands(&cmds, cancel_token)
+}
+
+/// 列表状态已改动（源列表被重写 / 失效列表被清理）时的下游通知，
+/// 例如让 amo 的搜索索引失效。
+///
+/// 目前复用 `APT::Update::Post-Invoke-Success` 这条通道；`cancel_token`
+/// 为 `None` 表示不观察取消——提交已经发生，取消路径也要把通知补完。
+fn notify_lists_changed(cfg: &AptConfig, cancel_token: Option<&CancelToken>) {
+    let _ = run_success_post_invoke(cfg, cancel_token);
+}
+
+/// 若列表改动还没通知过，补一次不可中断的下游通知（提交后的取消路径用）。
+fn notify_lists_changed_once(pending: &mut bool, cfg: &AptConfig) {
+    if *pending {
+        *pending = false;
+        notify_lists_changed(cfg, None);
+    }
 }
 
 /// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前钩子的整个进程组、
@@ -1688,6 +1735,38 @@ mod tests {
 
         assert!(is_canceled(Some(&cancel_token)));
         assert!(is_canceled(Some(&cancel_token)));
+    }
+
+    #[test]
+    fn notify_lists_changed_ignores_a_latched_cancel() {
+        let marker =
+            std::env::temp_dir().join(format!("oma-notify-lists-test-{}", std::process::id()));
+        let _ = std::fs::remove_file(&marker);
+
+        let mut cfg = AptConfig::new();
+        cfg.set_list(
+            "APT::Update::Post-Invoke-Success",
+            &format!("touch {}", marker.display()),
+        );
+
+        let (cancel_handle, cancel_token) = cancel_channel();
+        cancel_handle.cancel();
+
+        // 观察取消的成功钩子会被取消信号拦下……
+        assert!(!run_success_post_invoke(&cfg, Some(&cancel_token)));
+        assert!(!marker.exists());
+
+        // ……但提交后的「待通知」状态必须不可中断地补跑一次，且只跑一次。
+        let mut pending = true;
+        notify_lists_changed_once(&mut pending, &cfg);
+        assert!(!pending, "通知过后状态要清掉");
+        assert!(marker.exists(), "提交后的取消路径也要完成一次通知");
+
+        let _ = std::fs::remove_file(&marker);
+        notify_lists_changed_once(&mut pending, &cfg);
+        assert!(!marker.exists(), "清掉的待通知状态不应重复通知");
+
+        let _ = std::fs::remove_file(&marker);
     }
 
     #[test]
