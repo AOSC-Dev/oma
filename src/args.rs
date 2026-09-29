@@ -25,6 +25,7 @@ use crate::{
     lang::SYSTEM_LANG,
     list::List,
     mark::Mark,
+    moo::Moo,
     pick::Pick,
     rdepends::Rdepends,
     refresh::Refresh,
@@ -256,6 +257,9 @@ pub enum SubCmd {
     #[command(help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Why(Why),
+    /// An easter egg
+    #[command(hide = true)]
+    Moo(Moo),
 }
 
 #[derive(Debug, Args)]

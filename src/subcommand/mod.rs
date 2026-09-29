@@ -12,6 +12,7 @@ pub mod list;
 pub mod mark;
 #[cfg(feature = "aosc")]
 pub mod mirror;
+pub mod moo;
 pub mod pick;
 pub mod rdepends;
 pub mod refresh;
