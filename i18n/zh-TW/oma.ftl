@@ -251,6 +251,7 @@ dpkg-configure-failed-due-to-tips = 這有可能是 AOSC OS 與某些軟體的�
 set-permission = 權限設定失敗
 clean-zero = 沒有需要清理的快取資料。
 failed-refresh = 無法重新整理軟體庫後設資料。
+refresh-canceled = 重新整理已被取消。
 open-err = 無法打開檔案
 create-err = 無法建立檔案
 seek-err = 無法讀取檔案
