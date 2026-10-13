@@ -89,7 +89,7 @@ impl AptConfig {
         depth: usize,
     ) {
         for i in 0..node.child_count() {
-            let Some(child) = node.child(i as u32) else {
+            let Some(child) = node.child(i) else {
                 continue;
             };
             if !child.is_named() {
