@@ -1,6 +1,7 @@
 pub mod apt_config;
 #[cfg(feature = "apt-lists")]
 mod apt_db;
+mod atomic_write;
 #[cfg(feature = "apt-lists")]
 mod cache;
 #[cfg(feature = "apt-lists")]

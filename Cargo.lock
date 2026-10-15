@@ -1166,6 +1166,7 @@ version = "0.5.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45bfeac719b1f3441c6f8c29652c60376e11eabbdbd99c53b3f14e0e8585d053"
 dependencies = [
+ "deb822-fast",
  "regex",
  "rowan",
  "serde",
@@ -3481,6 +3482,7 @@ dependencies = [
  "aho-corasick",
  "ar",
  "deb822-fast",
+ "deb822-lossless",
  "debian-control",
  "debversion",
  "flate2",
