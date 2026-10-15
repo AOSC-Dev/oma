@@ -3,7 +3,7 @@ pub mod apt_config;
 mod apt_db;
 mod atomic_write;
 #[cfg(feature = "apt-lists")]
-mod cache;
+pub(crate) mod cache;
 #[cfg(feature = "apt-lists")]
 pub mod deb;
 #[cfg(feature = "apt-lists")]
@@ -24,7 +24,7 @@ pub(crate) mod config_parser;
 mod dpkg;
 mod dpkg_state;
 pub mod extended_states;
-pub use extended_states::AptExtendedStates;
+pub use extended_states::{AptExtendedStates, ExtendedStatesError};
 pub mod error;
 
 #[cfg(feature = "filename")]
@@ -54,3 +54,8 @@ pub use filename::{AptListFilename, FilenameError, FilenameResult};
     feature = "search-text"
 ))]
 pub use search::*;
+
+#[cfg(feature = "resolver")]
+pub mod apt_provider;
+#[cfg(feature = "resolver")]
+pub use apt_provider::*;
