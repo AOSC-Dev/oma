@@ -17,7 +17,7 @@ use rkyv::vec::ArchivedVec;
 
 use crate::AptConfig;
 use crate::apt_lists::{
-    ArchivedPackageVersion, IndexSource, PackageEntry, PackageVersion,
+    ArchivedPackageVersion, IndexSource, PackageEntry, PackageVersion, ParsedDeps,
     parse_apt_lists_dir_with_sources,
 };
 use crate::apt_sources::SourceLookup;
@@ -295,7 +295,7 @@ impl AptDb {
     /// borrow when the data is owned and unshadowed, an owned (deserialized)
     /// vec when it comes from the memory map or the overlay. Shared with the
     /// package matcher, which uses it as its versions accessor.
-    pub(crate) fn versions(&self, name: &str) -> Cow<'_, [PackageVersion]> {
+    pub fn versions(&self, name: &str) -> Cow<'_, [PackageVersion]> {
         if let Some(overlay) = self.overlay.get(name) {
             return Cow::Borrowed(overlay.as_slice());
         }
@@ -325,6 +325,52 @@ impl AptDb {
             Repo::Archived(archived) => {
                 archived.archived().entries.get(name).map_or(0, |v| v.len())
             }
+        }
+    }
+
+    /// The pre-parsed dependency fields of one `(name, version)`, parsed on
+    /// demand — the zero-copy database keeps no per-version cache, and a
+    /// single version's dependency text is microseconds to parse.
+    pub fn deps_of(&self, name: &str, version: &str) -> Option<Cow<'_, ParsedDeps>> {
+        let versions = self.versions(name);
+        let v = versions
+            .iter()
+            .find(|v| v.entry.version.as_deref() == Some(version))?;
+        Some(Cow::Owned(ParsedDeps::from_entry(&v.entry)))
+    }
+
+    /// The candidate version of a package — the highest version — as a
+    /// [`PackageVersion`] with its sources. The resolver's policy choice,
+    /// mirroring apt's `pkgPolicy::GetCandidateVer`; the version actually
+    /// installed is decided while solving.
+    pub fn candidate_version(&self, name: &str) -> Option<Cow<'_, PackageVersion>> {
+        let versions = self.versions(name);
+        match versions {
+            Cow::Borrowed(slice) => slice
+                .iter()
+                .max_by_key(|v| v.parsed_version())
+                .map(Cow::Borrowed),
+            Cow::Owned(vec) => vec
+                .iter()
+                .max_by_key(|v| v.parsed_version())
+                .cloned()
+                .map(Cow::Owned),
+        }
+    }
+
+    /// The version matching an exact version string, or `None`. Like
+    /// [`Self::candidate_version`] this never falls back to another version.
+    pub fn get_version(&self, name: &str, version: &str) -> Option<Cow<'_, PackageVersion>> {
+        let versions = self.versions(name);
+        match versions {
+            Cow::Borrowed(slice) => slice
+                .iter()
+                .find(|v| v.entry.version.as_deref() == Some(version))
+                .map(Cow::Borrowed),
+            Cow::Owned(vec) => vec
+                .into_iter()
+                .find(|v| v.entry.version.as_deref() == Some(version))
+                .map(Cow::Owned),
         }
     }
 
@@ -712,6 +758,8 @@ mod tests {
                 filename: None,
                 size: None,
                 sha256: None,
+                essential: None,
+                protected: None,
             }
         }
     }
