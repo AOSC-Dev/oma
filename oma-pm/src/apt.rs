@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    cmp::Ordering,
     fmt,
     io::{self},
     path::{Path, PathBuf},
@@ -7,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use ahash::HashSet;
+use ahash::{HashMap, HashSet};
 use bon::Builder;
 pub use oma_apt::cache::Upgrade;
 use once_cell::sync::OnceCell;
@@ -15,14 +16,14 @@ use reqwest_middleware::ClientWithMiddleware;
 use tokio::runtime::{Handle, Runtime};
 
 use oma_apt::{
-    DepFlags, Dependency, Package, PkgCurrentState, Version,
+    BaseDep, DepFlags, DepType, Dependency, Package, PkgCurrentState, Version,
     cache::{Cache, PackageSort},
     error::AptErrors,
     new_cache,
     progress::{AcquireProgress, InstallProgress},
     raw::{IntoRawIter, config as apt_config},
     records::RecordField,
-    util::DiskSpace,
+    util::{DiskSpace, cmp_versions},
 };
 
 use oma_fetch::{Event, Summary, checksum::ChecksumError};
@@ -87,6 +88,9 @@ pub struct OmaApt {
     pub dry_run: bool,
     /// The set of selected packages.
     select_pkgs: HashSet<usize>,
+    /// The recommendations a reinstall marked and protected: they are roots of
+    /// the dependency walk, so what they need stays with them.
+    recommend_roots: HashSet<usize>,
     /// A set of lists containing broken packages that have unmet dependencies.
     /// Each inner vector represents a group of packages with unmet dependencies.
     unmet: Vec<Vec<BrokenPackage>>,
@@ -225,6 +229,7 @@ impl OmaApt {
             autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
             select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
+            recommend_roots: HashSet::with_hasher(ahash::RandomState::new()),
             unmet: vec![],
             archive_dir: OnceCell::new(),
             async_handler: OnceCell::new(),
@@ -432,7 +437,13 @@ impl OmaApt {
         let install_recommends = apt_config::find_bool("APT::Install-Recommends".to_string(), true);
 
         for pkg in pkgs {
-            let marked_install = mark_install(&self.cache, pkg, reinstall, install_recommends)?;
+            let marked_install = mark_install(
+                &self.cache,
+                pkg,
+                reinstall,
+                install_recommends,
+                &mut self.recommend_roots,
+            )?;
 
             let pkg_index = pkg.raw_pkg.index();
 
@@ -768,7 +779,311 @@ impl OmaApt {
             });
         }
 
+        self.drop_unneeded_install_marks();
+
         Ok(())
+    }
+
+    /// Drop the automatic installs the transaction does not need.
+    ///
+    /// What the transaction is about is taken from its result: everything that
+    /// stays installed, the packages that were asked for, apt's essential
+    /// packages and the recommendations a reinstall marks, together with what
+    /// they need. Dependencies count the way apt counts them — one alternative
+    /// per dependency group, by version, as `is_important_dep` and
+    /// `MarkInstall_InstallDependencies` do.
+    ///
+    /// Giving up on a mark can leave the transaction broken, so, like apt's
+    /// `pkgMinimizeUpgrade`, the marks are given up on one at a time and put
+    /// back when the resolution no longer holds, and the walk repeats while it
+    /// made a difference. A mark something protects is a root of the walk, not
+    /// something to give up on. Installed automatic packages are left alone;
+    /// removing those is `autoremove`'s job.
+    fn drop_unneeded_install_marks(&self) {
+        // The marks something protects: they stay, so what they need stays
+        // with them.
+        let mut protected: HashSet<usize> = HashSet::default();
+        // The removals the installs given up on asked for.
+        let mut removals: Vec<Package<'_>> = vec![];
+        loop {
+            let unneeded = self.unneeded_install_marks(&protected);
+            if unneeded.is_empty() {
+                break;
+            }
+
+            let broken = self.cache.depcache().broken_count();
+            let mut progressed = false;
+            for pkg in unneeded {
+                // What the install would remove goes with it, so it is read
+                // before the mark is given up on.
+                let removed = self.removals_of(&pkg);
+
+                if !pkg.mark_keep() {
+                    // Something protects it — the reinstall path marks the
+                    // recommendations it follows itself — so the mark did not
+                    // change: it is a root, not something to give up on.
+                    progressed |= protected.insert(pkg.index());
+                    continue;
+                }
+
+                if self.cache.depcache().broken_count() > broken {
+                    // Something needs it after all: it is what keeps the
+                    // version it is installed with satisfiable.
+                    pkg.mark_install(true, false);
+                    continue;
+                }
+
+                debug!(
+                    "Unmarking {}: nothing in the transaction needs it",
+                    pkg.fullname(true)
+                );
+                removals.extend(removed);
+                progressed = true;
+            }
+
+            if !progressed {
+                break;
+            }
+        }
+
+        self.restore_removals(&removals);
+    }
+
+    /// Packages an install would remove: the installed ones its version
+    /// conflicts with or breaks.
+    fn removals_of(&self, pkg: &Package<'_>) -> Vec<Package<'_>> {
+        let Some(version) = pkg.install_version() else {
+            return vec![];
+        };
+
+        self.cache
+            .packages(&PackageSort::default().installed())
+            .filter(|removed| {
+                removed.marked_delete()
+                    && [DepType::Conflicts, DepType::DpkgBreaks]
+                        .iter()
+                        .any(|dep_type| {
+                            version
+                                .depends_map()
+                                .get(dep_type)
+                                .into_iter()
+                                .flatten()
+                                .flat_map(|group| group.iter())
+                                .any(|dep| removes(dep, removed))
+                        })
+            })
+            .collect()
+    }
+
+    /// Put back the removals a discarded install asked for: without the
+    /// replacement arriving, the package it would have replaced is still what
+    /// the system runs. A removal another install still wants stays, and so
+    /// does one that cannot come back — keeping it would leave the transaction
+    /// broken again. Giving one back can be what makes another possible, so it
+    /// is tried again while it made a difference.
+    fn restore_removals(&self, removals: &[Package<'_>]) {
+        let mut pending: Vec<&Package<'_>> = removals
+            .iter()
+            .filter(|removed| {
+                !self.select_pkgs.contains(&removed.index()) && removed.marked_delete()
+            })
+            .collect();
+
+        loop {
+            let mut progressed = false;
+            let mut retry = vec![];
+
+            for removed in pending {
+                if !removed.marked_delete() {
+                    // Something else already put it back.
+                    continue;
+                }
+
+                // A removal another install still wants stays.
+                let wanted = self
+                    .cache
+                    .packages(&PackageSort::default())
+                    .filter(|pkg| pkg.marked_install())
+                    .any(|pkg| {
+                        self.removals_of(&pkg)
+                            .iter()
+                            .any(|other| other.index() == removed.index())
+                    });
+
+                if wanted {
+                    continue;
+                }
+
+                let broken = self.cache.depcache().broken_count();
+                if !removed.mark_keep() {
+                    continue;
+                }
+
+                // Keeping it leaves the transaction broken: the removal was
+                // needed for something else too — what the package depends on
+                // is not there any more, or it conflicts with what is arriving.
+                if self.cache.depcache().broken_count() > broken {
+                    debug!(
+                        "Keeping {} removed: the transaction needs it gone",
+                        removed.fullname(true)
+                    );
+                    removed.mark_delete(false);
+                    retry.push(removed);
+                    continue;
+                }
+
+                progressed = true;
+            }
+
+            if !progressed {
+                break;
+            }
+
+            pending = retry;
+        }
+    }
+
+    /// The install marks outside what the transaction is about (see
+    /// [`OmaApt::drop_unneeded_install_marks`]).
+    fn unneeded_install_marks(&self, protected: &HashSet<usize>) -> Vec<Package<'_>> {
+        let marked: Vec<Package<'_>> = self
+            .cache
+            .packages(&PackageSort::default())
+            .filter(|pkg| pkg.marked_install())
+            .collect();
+        // The packages whose dependencies the walk follows: the ones going in,
+        // a reinstall among them — it marks its recommendations itself
+        // (`also_install_recommends`), so they are its dependencies like any
+        // other.
+        let mut going_in: HashSet<usize> = marked.iter().map(|pkg| pkg.index()).collect();
+
+        // What was marked for a dependency of something: a new install
+        // outside what the user asked for. An upgrade is something apt keeps
+        // when the resolution — not the marking — dropped what required it,
+        // and this cleanup cannot tell the two apart.
+        let automatic: HashSet<usize> = marked
+            .iter()
+            .filter(|pkg| pkg.marked_new_install() && !self.select_pkgs.contains(&pkg.index()))
+            // apt's upgrade passes install essential packages that are
+            // missing and the resolution scores them so they stay
+            // (`Scores::AddEssential`): they are not dependencies to give up
+            // on.
+            .filter(|pkg| !pkg.is_essential())
+            .map(|pkg| pkg.index())
+            .collect();
+        // Nothing was marked as a dependency of something, so there is nothing
+        // to give up on either.
+        if automatic.is_empty() {
+            return vec![];
+        }
+
+        // The versions that decide the dependencies: the ones going in, and
+        // the installed ones that stay. Which version it is matters, an
+        // installed `x 1` does not satisfy `Depends: x (>= 2)`, and a version
+        // that is left behind — by an upgrade or a downgrade — satisfies
+        // nothing.
+        let mut kept: HashSet<(usize, String)> = HashSet::default();
+        let mut transaction: HashSet<(usize, String)> = HashSet::default();
+        let mut staying: HashSet<usize> = HashSet::default();
+        let mut versions: HashMap<usize, Version<'_>> = HashMap::default();
+        for pkg in self.cache.packages(&PackageSort::default().installed()) {
+            if pkg.marked_delete() {
+                // What a package that goes away needed is not needed any more.
+                continue;
+            }
+
+            staying.insert(pkg.index());
+
+            if pkg.marked_reinstall() {
+                going_in.insert(pkg.index());
+            }
+
+            if pkg.marked_install() {
+                // The version going in decides its dependencies, the installed
+                // one stays behind.
+                continue;
+            }
+
+            if let Some(installed_version) = pkg.installed() {
+                let version = (pkg.index(), installed_version.version().to_string());
+                kept.insert(version.clone());
+                transaction.insert(version);
+                versions.insert(pkg.index(), installed_version);
+            }
+        }
+        for pkg in &marked {
+            if let Some(install_version) = pkg.install_version() {
+                let version = (pkg.index(), install_version.version().to_string());
+                transaction.insert(version.clone());
+                versions.insert(pkg.index(), install_version);
+
+                // What satisfies a dependency is the version a package goes in
+                // with, so an upgraded package still satisfies the groups it
+                // did before (`DepInstall`).
+                if pkg.is_installed() {
+                    kept.insert(version);
+                }
+            }
+        }
+
+        let mut roots = staying;
+        roots.extend(self.select_pkgs.iter().copied());
+        roots.extend(protected.iter().copied());
+        roots.extend(self.recommend_roots.iter().copied());
+        // An essential package nothing depends on is not a dependency that can
+        // be given up on, so its own dependencies count too.
+        roots.extend(
+            marked
+                .iter()
+                .filter(|pkg| pkg.is_essential())
+                .map(|pkg| pkg.index()),
+        );
+
+        let mut needs: HashMap<usize, Vec<usize>> = HashMap::default();
+        for (index, version) in &versions {
+            let going_in = going_in.contains(index);
+            let mut groups = vec![];
+            for dep_type in [
+                DepType::Depends,
+                DepType::PreDepends,
+                DepType::Recommends,
+                DepType::Suggests,
+            ] {
+                for group in version.depends_map().get(&dep_type).into_iter().flatten() {
+                    if going_in {
+                        // Which dependencies apt follows is its own policy:
+                        // `APT::Install-Recommends` and
+                        // `APT::Install-Recommends-Sections`, plus the
+                        // suggested counterparts.
+                        if !self.cache.depcache().is_important_dep(group.first()) {
+                            continue;
+                        }
+                    } else if !matches!(dep_type, DepType::Depends | DepType::PreDepends) {
+                        // apt does not backfill the soft dependencies a package
+                        // that stays installed as it is never had installed
+                        // (`MarkInstall_InstallDependencies` ignores old
+                        // unsatisfied important dependencies).
+                        continue;
+                    }
+
+                    groups.push(
+                        group
+                            .iter()
+                            .flat_map(|base_dep| base_dep.all_targets())
+                            .map(|target| (target.parent().index(), target.version().to_string()))
+                            .collect::<Vec<_>>(),
+                    );
+                }
+            }
+            needs.insert(*index, needed_targets(&groups, &kept, &transaction));
+        }
+
+        unneeded_automatic_installs(roots, &automatic, |index| {
+            needs.get(&index).cloned().unwrap_or_default()
+        })
+        .into_iter()
+        .filter_map(|index| marked.iter().find(|pkg| pkg.index() == index).cloned())
+        .collect()
     }
 
     pub(crate) fn run_dpkg_configure(&self) -> OmaAptResult<()> {
@@ -1364,6 +1679,7 @@ fn mark_install(
     pkginfo: &OmaPackage,
     reinstall: bool,
     install_recommends: bool,
+    recommend_roots: &mut HashSet<usize>,
 ) -> OmaAptResult<bool> {
     let pkg = unsafe { pkginfo.raw_pkg.unique() }
         .make_safe()
@@ -1396,13 +1712,18 @@ fn mark_install(
             pkg.protect();
 
             if install_recommends {
-                also_install_recommends(&ver, cache);
+                also_install_recommends(&ver, cache, recommend_roots);
             }
 
             return Ok(is_marked);
         }
     }
 
+    // apt-private/private-install.cc `TryToInstall`: the requested package is
+    // cleared from the problem resolver's lists and protected there, so
+    // resolution keeps it and gives up on what cannot be installed instead of
+    // removing the conflicting package.
+    cache.resolver().clear(&pkg);
     pkg.protect();
 
     mark_install_inner(&pkg);
@@ -1417,17 +1738,138 @@ fn mark_install(
     Ok(pkg.marked_install())
 }
 
+/// Whether the `Conflicts`/`Breaks` alternative `dep` is about `removed`,
+/// asked the way apt asks it (`CheckDep`): the version the package is
+/// installed with — or the version it provides, for a virtual package — is
+/// compared against what the dependency asks for. Versions matter, a
+/// `Conflicts: d (<< 1)` is not about `d` installed in version 1.
+fn removes(dep: &BaseDep<'_>, removed: &Package<'_>) -> bool {
+    let Some(installed) = removed.installed() else {
+        return false;
+    };
+
+    if dep.target_package().index() == removed.index() {
+        return in_range(Some(installed.version()), dep.comp_type(), dep.version());
+    }
+
+    // A conflict against a virtual package is about the version the package
+    // provides it with.
+    installed.provides().any(|provider| {
+        provider.name() == dep.name()
+            && in_range(provider.version_str().ok(), dep.comp_type(), dep.version())
+    })
+}
+
+/// Whether the version `candidate` answers a dependency asking for `want` with
+/// the operator `comp_type`, as apt's `CheckDep` answers it: a dependency
+/// without a version asks for nothing, a package — or a provides — without one
+/// cannot answer it. `comp_type` is apt's, where `<` and `>` are already
+/// strict.
+fn in_range(candidate: Option<&str>, comp_type: Option<&str>, want: Option<&str>) -> bool {
+    let Some(want) = want else {
+        return true;
+    };
+
+    let Some(candidate) = candidate else {
+        return false;
+    };
+
+    let Ok(order) = cmp_versions(candidate, want) else {
+        return false;
+    };
+
+    match comp_type {
+        Some("<") => order == Ordering::Less,
+        Some("<=") => order != Ordering::Greater,
+        Some("=") => order == Ordering::Equal,
+        Some(">=") => order != Ordering::Less,
+        Some(">") => order == Ordering::Greater,
+        Some("!=") => order != Ordering::Equal,
+        _ => false,
+    }
+}
+
+/// What apt satisfies the dependency groups `groups` with, so that everything
+/// reachable from them is needed: `groups` maps each dependency group to the
+/// packages *and versions* that satisfy each of its alternatives, in
+/// preference order — an installed `x 1` does not satisfy a `Depends: x
+/// (>= 2)`, so which version it is matters.
+///
+/// apt resolves a dependency group to a single alternative
+/// (`MarkInstall_InstallDependencies`): one that is already satisfied by
+/// something that stays installed needs nothing new, and otherwise apt
+/// installs the first alternative the transaction can. The other alternatives
+/// of the group — one that only a dropped recommendation could satisfy, for
+/// one — are not needed.
+fn needed_targets(
+    groups: &[Vec<(usize, String)>],
+    kept: &HashSet<(usize, String)>,
+    transaction: &HashSet<(usize, String)>,
+) -> Vec<usize> {
+    let mut targets = vec![];
+    for group in groups {
+        if group.iter().any(|version| kept.contains(version)) {
+            continue;
+        }
+
+        if let Some(target) = group.iter().find(|version| transaction.contains(*version)) {
+            targets.push(target.0);
+        }
+    }
+
+    targets
+}
+
+/// The automatic installs that are outside the dependency closure of `roots`:
+/// they were only marked for install for something that the resolution dropped
+/// (see [`OmaApt::drop_unneeded_install_marks`]).
+///
+/// The roots themselves are needed, and so is what they require.
+fn unneeded_automatic_installs(
+    roots: impl IntoIterator<Item = usize>,
+    automatic: &HashSet<usize>,
+    needs: impl Fn(usize) -> Vec<usize>,
+) -> Vec<usize> {
+    let mut needed: HashSet<usize> = HashSet::default();
+    let mut queue: Vec<usize> = Vec::new();
+    for root in roots {
+        if needed.insert(root) {
+            queue.push(root);
+        }
+    }
+    while let Some(index) = queue.pop() {
+        for target in needs(index) {
+            if needed.insert(target) {
+                queue.push(target);
+            }
+        }
+    }
+
+    automatic
+        .iter()
+        .filter(|index| !needed.contains(index))
+        .copied()
+        .collect()
+}
+
 fn mark_install_inner(pkg: &Package) -> bool {
-    // 根据 Packagekit 的源码
-    // https://github.com/PackageKit/PackageKit/blob/a0a52ce90adb75a5df7ad1f0b1c9888f2eaf1a7b/backends/apt/apt-job.cpp#L388
-    // 先标记 auto_inst 为 true 把所有该包的依赖标记为自动安装
-    // 再把本包的 auto_inst 标记为 false，检查依赖问题
-    pkg.mark_install(true, true);
-    pkg.mark_install(false, true)
+    // Like apt's `TryToInstall` + `doAutoInstall`: mark the request itself
+    // first, then run the auto-install pass that pulls in what it needs —
+    // dependencies, and with `APT::Install-Recommends` recommended packages —
+    // as automatic installs.
+    //
+    // The reverse order (marking the request as an auto-install first, as
+    // PackageKit's apt backend does) makes apt mark a recommended package's
+    // whole dependency chain even when the recommended package itself cannot
+    // be installed: only the recommendation is dropped later, its
+    // dependencies stay marked and get installed as unneeded packages
+    // (#847).
+    pkg.mark_install(false, true);
+    pkg.mark_install(true, true)
 }
 
 #[cfg(feature = "aosc")]
-fn also_install_recommends(ver: &Version, cache: &Cache) {
+fn also_install_recommends(ver: &Version, cache: &Cache, recommend_roots: &mut HashSet<usize>) {
     let recommends = ver.recommends();
 
     if let Some(recommends) = recommends {
@@ -1439,6 +1881,7 @@ fn also_install_recommends(ver: &Version, cache: &Cache) {
                         warn!("Failed to mark install recommend: {}", dep.name);
                     } else {
                         pkg.protect();
+                        recommend_roots.insert(pkg.index());
                     }
                     continue;
                 }
@@ -1449,7 +1892,7 @@ fn also_install_recommends(ver: &Version, cache: &Cache) {
 }
 
 #[cfg(not(feature = "aosc"))]
-fn also_install_recommends(_ver: &Version, _cache: &Cache) {}
+fn also_install_recommends(_ver: &Version, _cache: &Cache, _recommend_roots: &mut HashSet<usize>) {}
 
 /// Broken package, struct contains its name and cause for broken status.
 #[derive(Debug, Clone)]
@@ -1557,4 +2000,208 @@ fn broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<Vec<BrokenPackage>
     }
 
     result
+}
+
+#[cfg(test)]
+mod needed_targets_tests {
+    use super::needed_targets;
+    use ahash::HashSet;
+
+    fn set(versions: &[(usize, &str)]) -> HashSet<(usize, String)> {
+        versions
+            .iter()
+            .map(|(index, version)| (*index, version.to_string()))
+            .collect()
+    }
+
+    fn group(targets: &[(usize, &str)]) -> Vec<(usize, String)> {
+        targets
+            .iter()
+            .map(|(index, version)| (*index, version.to_string()))
+            .collect()
+    }
+
+    /// An alternative that stays installed needs nothing new, and the rest of
+    /// the group is not needed for it.
+    #[test]
+    fn a_kept_alternative_satisfies_the_group() {
+        // `1 | 2` with 1 installed: the leftover 2 does not become needed.
+        assert!(
+            needed_targets(
+                &[group(&[(1, "1"), (2, "1")])],
+                &set(&[(1, "1")]),
+                &set(&[(1, "1"), (2, "1")]),
+            )
+            .is_empty()
+        );
+    }
+
+    /// Otherwise apt installs the first alternative it can.
+    #[test]
+    fn the_first_alternative_of_an_or_group_wins() {
+        // `1 | 2`, neither installed, both marked: apt installs 1, so 2 is
+        // only kept when something else needs it.
+        assert_eq!(
+            needed_targets(
+                &[group(&[(1, "1"), (2, "1")])],
+                &set(&[]),
+                &set(&[(1, "1"), (2, "1")]),
+            ),
+            vec![1]
+        );
+    }
+
+    /// A group nothing in the transaction can satisfy adds nothing.
+    #[test]
+    fn unsatisfied_groups_are_skipped() {
+        assert!(needed_targets(&[group(&[])], &set(&[]), &set(&[(1, "1")])).is_empty());
+    }
+
+    /// Every group contributes at most one alternative.
+    #[test]
+    fn each_group_contributes_one_target() {
+        let targets = needed_targets(
+            &[
+                group(&[(1, "1")]),
+                group(&[(3, "1"), (4, "1")]),
+                group(&[(5, "1")]),
+                group(&[(6, "1")]),
+            ],
+            &set(&[(6, "1")]),
+            &set(&[(1, "1"), (3, "1"), (5, "1"), (6, "1")]),
+        );
+
+        assert_eq!(targets, vec![1, 3, 5]);
+    }
+
+    /// The version that is installed has to be the one that satisfies the
+    /// dependency: with `x 1` installed and no `x 2` in the transaction,
+    /// `Depends: x (>= 2) | y` is only satisfied by `y`.
+    #[test]
+    fn a_version_the_transaction_does_not_install_does_not_satisfy() {
+        let targets = needed_targets(
+            &[group(&[(1, "2"), (2, "1")])],
+            &set(&[(1, "1")]),
+            &set(&[(1, "1"), (2, "1")]),
+        );
+
+        assert_eq!(targets, vec![2]);
+    }
+}
+
+#[cfg(test)]
+mod unneeded_automatic_installs_tests {
+    use super::unneeded_automatic_installs;
+    use ahash::HashSet;
+
+    fn set(indices: &[usize]) -> HashSet<usize> {
+        indices.iter().copied().collect()
+    }
+
+    /// A dependency of a selected package stays; a package pulled in for
+    /// something the resolution dropped goes (#847).
+    #[test]
+    fn drops_what_nothing_needs() {
+        // 1 → 2 → 3 is the closure of the selected package; 4 was pulled in
+        // as a dependency of a recommended package that is not installed any
+        // more, so nothing that stays depends on it (it contributes no edge:
+        // the recommended package is not marked).
+        let needs = |index| match index {
+            1 => vec![2],
+            2 => vec![3],
+            _ => vec![],
+        };
+
+        assert_eq!(
+            unneeded_automatic_installs([1], &set(&[2, 3, 4]), needs),
+            vec![4]
+        );
+    }
+
+    /// With the recommendation installed, its dependency is needed as well.
+    #[test]
+    fn keeps_the_closure_of_every_root() {
+        let needs = |index| match index {
+            1 => vec![4],
+            4 => vec![5],
+            _ => vec![],
+        };
+
+        assert!(unneeded_automatic_installs([1], &set(&[4, 5]), needs).is_empty());
+    }
+
+    /// A package the user asked for is never dropped, auto or not.
+    #[test]
+    fn roots_are_kept() {
+        let needs = |_| vec![];
+
+        assert!(unneeded_automatic_installs([1, 2], &set(&[]), needs).is_empty());
+    }
+
+    /// A root is needed even when it is one of the candidates: what a
+    /// reinstall marks itself stays.
+    #[test]
+    fn roots_are_needed_among_candidates() {
+        let needs = |_| vec![];
+
+        assert!(unneeded_automatic_installs([1, 2], &set(&[2]), needs).is_empty());
+    }
+
+    /// Cycles do not hang the walk.
+    #[test]
+    fn cycles_terminate() {
+        let needs = |index| match index {
+            1 => vec![2],
+            2 => vec![1],
+            _ => vec![],
+        };
+
+        assert!(unneeded_automatic_installs([1], &set(&[2]), needs).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod version_range_tests {
+    use super::in_range;
+
+    /// The operators are the ones `comp_type()` gives apt's cache, where `<`
+    /// and `>` are already strict.
+    #[test]
+    fn apt_operators() {
+        assert!(in_range(Some("1"), Some("<"), Some("2")));
+        assert!(!in_range(Some("1"), Some("<"), Some("1")));
+
+        assert!(in_range(Some("1"), Some("<="), Some("1")));
+        assert!(!in_range(Some("1"), Some("<="), Some("0")));
+
+        assert!(in_range(Some("1"), Some("="), Some("1")));
+        assert!(!in_range(Some("1"), Some("="), Some("2")));
+
+        assert!(in_range(Some("2"), Some(">="), Some("1")));
+        assert!(!in_range(Some("1"), Some(">="), Some("2")));
+
+        assert!(in_range(Some("2"), Some(">"), Some("1")));
+        assert!(!in_range(Some("1"), Some(">"), Some("1")));
+
+        assert!(in_range(Some("1"), Some("!="), Some("2")));
+        assert!(!in_range(Some("1"), Some("!="), Some("1")));
+    }
+
+    /// A dependency without a version asks for nothing, a package or provides
+    /// without one cannot answer a versioned dependency.
+    #[test]
+    fn missing_versions() {
+        assert!(in_range(Some("1"), None, None));
+        assert!(in_range(None, None, None));
+        assert!(!in_range(None, Some(">="), Some("1")));
+        assert!(!in_range(Some(""), Some(">="), Some("1")));
+    }
+
+    /// Versions are compared the way dpkg compares them.
+    #[test]
+    fn debian_versions() {
+        assert!(in_range(Some("1.0~rc1"), Some("<"), Some("1.0")));
+        assert!(in_range(Some("1:1.0"), Some(">"), Some("9.9")));
+        assert!(in_range(Some("1.0-2"), Some(">="), Some("1.0-1")));
+    }
 }
