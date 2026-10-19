@@ -78,6 +78,14 @@ impl<'a> Group<'a> {
             .map(|(arch, _)| Package::new(self.state, self.name, arch))
     }
 
+    /// The installed version of any package in this group, across
+    /// architectures. Search shows one result per group, so an installed
+    /// foreign build must still mark that result as installed.
+    pub fn installed_version(&self) -> Option<&'a str> {
+        self.packages()
+            .find_map(|package| package.installed_version())
+    }
+
     /// Apt's preferred package: the native build, else the first configured
     /// architecture, else whatever the group has (`FindPreferredPkg`).
     pub fn preferred(&self) -> Option<Package<'a>> {
