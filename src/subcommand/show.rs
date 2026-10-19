@@ -95,13 +95,20 @@ impl CliExecuter for Show {
             }
 
             // Show "N additional versions" hint for a single package without
-            // --all. The version count comes from the whole database (not the
-            // displayed group): a query may be version-filtered (a local
-            // `.deb` resolves to `pkg=<version>`), yet the hint reports every
+            // --all. For repository and local-file queries the version count
+            // comes from the whole database: a query may be version-filtered
+            // (a local `.deb` resolves to `pkg=<version>`), yet the hint reports every
             // other available version, matching `apt` and old oma
             // (`pkg.versions().count() - 1`).
             let additional = if !all && !json && resolution.resolved.len() == 1 {
-                resolved.pkg.version_count().saturating_sub(1)
+                let count = if status_only(&resolved.versions) {
+                    // Status contributes separate architecture records: only
+                    // advertise the ones this query can actually display.
+                    resolved.versions.len()
+                } else {
+                    resolved.pkg.version_count()
+                };
+                count.saturating_sub(1)
             } else {
                 0
             };
@@ -133,6 +140,30 @@ fn display_group(
     Ok(())
 }
 
+fn status_only(versions: &[Cow<'_, PackageVersion>]) -> bool {
+    versions.iter().all(|version| {
+        !version.sources.is_empty() && version.sources.iter().all(IndexSource::is_dpkg_status)
+    })
+}
+
+/// Break same-version status ties in favor of the native installed build.
+/// Keep the highest-version selection for every query.
+fn default_version<'a>(
+    versions: &'a [Cow<'_, PackageVersion>],
+    native_arch: &str,
+) -> Option<&'a Cow<'a, PackageVersion>> {
+    let status_only = status_only(versions);
+
+    versions.iter().max_by_key(|version| {
+        let native = version
+            .entry
+            .architecture
+            .as_deref()
+            .is_none_or(|arch| arch == native_arch || arch == "all");
+        (version.parsed_version(), status_only && native)
+    })
+}
+
 fn display_versions(
     stdout: &mut impl Write,
     resolved: &ResolvedPackage<'_>,
@@ -141,10 +172,9 @@ fn display_versions(
     show_all: bool,
     apt_cfg: &AptConfig,
 ) {
-    // Just the highest version without `--all`: a linear scan over the
-    // already-parsed versions (the `OnceCell` cache) instead of sorting
-    // them all just to keep the last.
-    if !show_all && let Some(version) = resolved.versions.iter().max_by_key(|v| v.parsed_version())
+    if !show_all
+        && let Some(version) =
+            default_version(&resolved.versions, &apt_cfg.get("APT::Architecture", ""))
     {
         display_version(stdout, resolved, version, dpkg, ext_states, apt_cfg);
         return;
@@ -379,6 +409,77 @@ fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn version(version: &str, arch: &str, source: IndexSource) -> Cow<'static, PackageVersion> {
+        Cow::Owned(PackageVersion {
+            entry: oma_apt_pkg::parse_control_entry(&format!(
+                "Package: vendor-tool\nVersion: {version}\nArchitecture: {arch}\n\n"
+            ))
+            .unwrap(),
+            sources: vec![source],
+        })
+    }
+
+    #[test]
+    fn status_default_prefers_native_independently_of_paragraph_order() {
+        let status = IndexSource::dpkg_status("/var/lib/dpkg/status");
+        let mut versions = vec![
+            version("7", "amd64", status.clone()),
+            version("7", "i386", status),
+        ];
+        for _ in 0..2 {
+            assert_eq!(
+                default_version(&versions, "amd64")
+                    .unwrap()
+                    .entry
+                    .architecture
+                    .as_deref(),
+                Some("amd64")
+            );
+            versions.reverse();
+        }
+        // An explicitly foreign query still has its foreign record to show.
+        assert_eq!(
+            default_version(&versions[1..], "amd64")
+                .unwrap()
+                .entry
+                .architecture
+                .as_deref(),
+            Some("i386")
+        );
+    }
+
+    #[test]
+    fn queries_keep_the_highest_version() {
+        for source in [
+            IndexSource::dpkg_status("/var/lib/dpkg/status"),
+            IndexSource {
+                base_url: "file:/repo".into(),
+                suite: "stable".into(),
+                component: Some("main".into()),
+                arch: Some("amd64".into()),
+            },
+            IndexSource {
+                base_url: "file:/vendor-tool.deb".into(),
+                suite: "local-deb".into(),
+                component: Some("local-deb".into()),
+                arch: None,
+            },
+        ] {
+            let versions = vec![
+                version("1", "amd64", source.clone()),
+                version("3", "i386", source),
+            ];
+            assert_eq!(
+                default_version(&versions, "amd64")
+                    .unwrap()
+                    .entry
+                    .version
+                    .as_deref(),
+                Some("3")
+            );
+        }
+    }
 
     #[test]
     fn status_source_is_named_by_its_file() {
