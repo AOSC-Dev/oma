@@ -542,7 +542,7 @@ impl AptDb {
 
         let source = IndexSource::dpkg_status(dpkg.path().display().to_string());
 
-        // Group first: checking `has_package` after the first insert would
+        // Group first: checking the repository after the first insert would
         // see the record we just added and skip the package's other
         // architectures.
         let mut by_name: HashMap<String, Vec<PackageEntry>> = HashMap::new();
@@ -554,7 +554,7 @@ impl AptDb {
         }
 
         for (name, entries) in by_name {
-            if self.has_package(&name) {
+            if self.has_indexed_package(&name) {
                 continue;
             }
             for entry in entries {
@@ -680,6 +680,22 @@ impl AptDb {
             Repo::Owned(map) => map.contains_key(name),
             Repo::Archived(archived) => archived.archived().entries.contains_key(name),
         }
+    }
+
+    /// Whether `name` is backed by something other than the status file — a
+    /// repository, a local `.deb`, or a programmatic insert.
+    ///
+    /// Status records are added on demand, so a package that has only those
+    /// must not stop a later resolution from adding the records it asks for;
+    /// an indexed package must keep its repository answer untouched.
+    fn has_indexed_package(&self, name: &str) -> bool {
+        self.versions(name).iter().any(|version| {
+            version.sources.is_empty()
+                || version
+                    .sources
+                    .iter()
+                    .any(|source| !source.is_dpkg_status())
+        })
     }
 
     /// The display full name of an entry, `name:arch`, using this database's
@@ -954,6 +970,56 @@ Status: install ok installed
                 .iter()
                 .all(|version| !version.sources.iter().any(|source| source.is_dpkg_status()))
         );
+    }
+
+    /// Resolving one architecture first must not stop a later resolution from
+    /// adding the status record another architecture asks for.
+    #[test]
+    fn status_records_merge_across_resolutions() {
+        let mut db = AptDb::from_entries("amd64", Vec::new());
+
+        let dir = tempfile::tempdir().unwrap();
+        let status = dir.path().join("status");
+        std::fs::write(
+            &status,
+            "\
+Package: vendor-tool
+Version: 7
+Architecture: i386
+Status: install ok installed
+
+Package: vendor-tool
+Version: 7
+Architecture: amd64
+Status: install ok installed
+
+",
+        )
+        .unwrap();
+        let dpkg = DpkgState::from_file_lazy(&status);
+
+        {
+            let first = db
+                .resolve_queries(vec!["vendor-tool:i386".into()], &dpkg)
+                .unwrap();
+            assert_eq!(first.resolved.len(), 1);
+            assert_eq!(
+                first.resolved[0].versions[0].entry.architecture.as_deref(),
+                Some("i386")
+            );
+        }
+
+        let second = db
+            .resolve_queries(vec!["vendor-tool:amd64".into()], &dpkg)
+            .unwrap();
+        assert_eq!(second.resolved.len(), 1);
+        assert_eq!(
+            second.resolved[0].versions[0].entry.architecture.as_deref(),
+            Some("amd64")
+        );
+
+        // Both records are kept, not replaced.
+        assert_eq!(second.resolved[0].pkg.version_count(), 2);
     }
 
     #[test]
