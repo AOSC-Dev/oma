@@ -156,20 +156,17 @@ impl<'a> PackageMatcher<'a> {
         }
     }
 
-    /// Whether `name` — possibly an architecture-qualified name like
-    /// `apt:amd64` — is available in the index.
-    ///
-    /// An arch-qualified name resolves to the package of that name, filtered
-    /// by its `Architecture` (see [`arch_matches`]).
-    fn has_package(&self, name: &str) -> bool {
-        let (pkg, arch) = split_arch(name);
-        self.index.has_package(pkg)
-            && arch.is_none_or(|arch| {
-                self.index
-                    .versions(pkg)
-                    .iter()
-                    .any(|version| arch_matches(&version.entry.architecture, arch))
-            })
+    /// The records `name` selects, with an optional `:arch` qualifier, the
+    /// way apt resolves the package: no qualifier and `:any` take this
+    /// system's package when it has one and fall back to whatever
+    /// architecture the name has; `:all` and `:native` name this system's
+    /// package only; a foreign architecture selects that build only.
+    fn view_for<'q>(&self, name: &str, qualifier: Option<&'q str>) -> Option<ArchView<'q>> {
+        ArchView::for_versions(
+            &self.index.versions(name),
+            self.index.native_arch(),
+            qualifier,
+        )
     }
 
     /// All versions of `name` — possibly an architecture-qualified name like
@@ -183,35 +180,45 @@ impl<'a> PackageMatcher<'a> {
         }
     }
 
+    /// The versions of `name` that `view` selects.
+    fn versions_in_view(&self, name: &str, view: ArchView<'_>) -> Vec<Cow<'a, PackageVersion>> {
+        let native_arch = self.index.native_arch();
+        self.versions_of(name)
+            .filter(|version| view.matches(version, native_arch))
+            .collect()
+    }
+
     /// Match packages from a glob pattern (like `apt*`). A pattern without
     /// wildcards falls back to exact name matching; an architecture-qualified
-    /// name like `apt:amd64` matches that build directly.
+    /// name like `apt:amd64` matches what apt calls that package.
     ///
     /// An `:arch` qualifier also applies to a glob (`vendor-*:i386`): it
-    /// selects the builds to show, whether the pattern names one package or
-    /// several.
+    /// selects the records apt would show, whether the pattern names one
+    /// package or several.
     pub fn match_pkgs_and_versions_from_glob<'k>(
         &self,
         glob: &'k str,
     ) -> MatcherResult<Vec<MatchGroup<'a>>> {
-        let (pattern, arch) = split_arch(glob);
+        let (pattern, qualifier) = split_arch(glob);
         let mut res = Vec::new();
-        if self.has_package(glob) {
-            res.push(
-                self.versions_of(pattern)
-                    .filter(|v| arch_matches_or(v, arch))
-                    .collect(),
-            );
+
+        if self.index.has_package(pattern) {
+            if let Some(view) = self.view_for(pattern, qualifier) {
+                let versions = self.versions_in_view(pattern, view);
+                if !versions.is_empty() {
+                    res.push(versions);
+                }
+            }
         } else {
             for pkg in self
                 .index
                 .packages_iter()
                 .filter(|p| glob_match(pattern, p.name()))
             {
-                let versions: MatchGroup<'a> = self
-                    .versions_of(pkg.name())
-                    .filter(|v| arch_matches_or(v, arch))
-                    .collect();
+                let Some(view) = self.view_for(pkg.name(), qualifier) else {
+                    continue;
+                };
+                let versions = self.versions_in_view(pkg.name(), view);
                 if !versions.is_empty() {
                     res.push(versions);
                 }
@@ -233,16 +240,15 @@ impl<'a> PackageMatcher<'a> {
         name: &str,
         version: &str,
     ) -> MatcherResult<Vec<MatchGroup<'a>>> {
-        if !self.has_package(name) {
+        let (pkg, qualifier) = split_arch(name);
+        let Some(view) = self.view_for(pkg, qualifier) else {
             return Err(MatcherError::NoPackage(name.to_string()));
-        }
+        };
 
-        let (pkg, arch) = split_arch(name);
         let versions: Vec<Cow<'a, PackageVersion>> = self
-            .versions_of(pkg)
-            .filter(|v| {
-                arch_matches_or(v, arch) && v.entry.version.as_deref().is_some_and(|v| v == version)
-            })
+            .versions_in_view(pkg, view)
+            .into_iter()
+            .filter(|v| v.entry.version.as_deref().is_some_and(|v| v == version))
             .collect();
 
         if versions.is_empty() {
@@ -267,17 +273,18 @@ impl<'a> PackageMatcher<'a> {
         name: &str,
         branch: &str,
     ) -> MatcherResult<Vec<MatchGroup<'a>>> {
-        if !self.has_package(name) {
+        let (pkg, qualifier) = split_arch(name);
+        let Some(view) = self.view_for(pkg, qualifier) else {
             return Err(MatcherError::NoPackage(name.to_string()));
-        }
+        };
 
         // Keep only the versions available from the branch, trimming their
         // sources to the branch itself. Only the survivors are cloned.
-        let (pkg, arch) = split_arch(name);
         let versions: Vec<Cow<'a, PackageVersion>> = self
-            .versions_of(pkg)
+            .versions_in_view(pkg, view)
+            .into_iter()
             .filter_map(|v| {
-                if !arch_matches_or(&v, arch) || !v.sources.iter().any(|s| s.suite == branch) {
+                if !v.sources.iter().any(|s| s.suite == branch) {
                     return None;
                 }
                 let mut owned = v.into_owned();
@@ -302,21 +309,67 @@ fn split_arch(name: &str) -> (&str, Option<&str>) {
     }
 }
 
-/// Whether `v` satisfies an `:arch` qualifier (`None` = any arch).
-fn arch_matches_or(v: &PackageVersion, arch: Option<&str>) -> bool {
-    arch.is_none_or(|a| arch_matches(&v.entry.architecture, a))
+/// The package records a query selects, the way apt resolves an `:arch`
+/// qualifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ArchView<'a> {
+    /// This system's package: the native build and `Architecture: all`.
+    Native,
+    /// One foreign architecture's package.
+    Foreign(&'a str),
+    /// Whatever architectures the name has — apt's fallback for a plain or
+    /// `:any` query when the package has no native-view build.
+    Any,
 }
 
-/// Whether an entry's `Architecture` satisfies an `:arch` qualifier.
-pub(crate) fn arch_matches(entry_arch: &Option<String>, arch: &str) -> bool {
-    match arch {
-        // `any`/`native` are satisfied by any build.
-        "any" | "native" => true,
-        "all" => entry_arch.as_deref().is_some_and(|a| a == "all"),
-        specific => entry_arch
-            .as_deref()
-            .is_some_and(|a| a == specific || a == "all"),
+impl<'a> ArchView<'a> {
+    /// The view `qualifier` selects over `versions`, or `None` when the
+    /// package has nothing apt would show for it.
+    ///
+    /// `:all` and `:native` name this system's package: an `Architecture:
+    /// all` build belongs to it (apt keeps it next to the native build), it
+    /// is not a filter for `all` records only. A plain query and `:any`
+    /// prefer that package and otherwise fall back to the architectures the
+    /// name has; a foreign qualifier selects that build only, never `all`.
+    pub(crate) fn for_versions(
+        versions: &[PackageVersion],
+        native_arch: &str,
+        qualifier: Option<&'a str>,
+    ) -> Option<Self> {
+        if versions.is_empty() {
+            return None;
+        }
+
+        let has_native = versions
+            .iter()
+            .any(|version| native_view(version.entry.architecture.as_deref(), native_arch));
+
+        match qualifier {
+            Some("all" | "native") => has_native.then_some(Self::Native),
+            Some(arch) if arch == native_arch => has_native.then_some(Self::Native),
+            Some("any") | None => Some(if has_native { Self::Native } else { Self::Any }),
+            Some(arch) => versions
+                .iter()
+                .any(|version| version.entry.architecture.as_deref() == Some(arch))
+                .then_some(Self::Foreign(arch)),
+        }
     }
+
+    /// Whether `version` belongs to this view.
+    pub(crate) fn matches(&self, version: &PackageVersion, native_arch: &str) -> bool {
+        let entry_arch = version.entry.architecture.as_deref();
+        match self {
+            Self::Native => native_view(entry_arch, native_arch),
+            Self::Foreign(arch) => entry_arch == Some(*arch),
+            Self::Any => true,
+        }
+    }
+}
+
+/// Whether a record belongs to this system's package: the native build, an
+/// `Architecture: all` build, or one whose field is missing.
+fn native_view(entry_arch: Option<&str>, native_arch: &str) -> bool {
+    matches!(entry_arch, None | Some("all")) || entry_arch == Some(native_arch)
 }
 
 #[cfg(test)]
@@ -399,6 +452,64 @@ mod tests {
         );
     }
 
+    /// The architecture views apt resolves for `show`:
+    /// - a plain query and `:any` take this system's package and fall back
+    ///   to a foreign build only when there is no native-view record;
+    /// - `:all` and `:native` name this system's package (`Architecture:
+    ///   all` included) and do not fall back;
+    /// - a foreign qualifier selects that build only, never `all`.
+    #[test]
+    fn architecture_views_follow_apt() {
+        let db = AptDb::from_entries(
+            "amd64",
+            vec![
+                entry("mixed", "1", Some("all")),
+                entry("mixed", "2", Some("i386")),
+                entry("native", "1", Some("all")),
+                entry("native", "2", Some("amd64")),
+                entry("foreign", "1", Some("i386")),
+            ],
+        );
+        let matcher = PackageMatcher::new(&db);
+
+        let versions = |query: &str| {
+            matcher
+                .match_pkgs_and_versions_from_glob(query)
+                .unwrap()
+                .into_iter()
+                .flatten()
+                .map(|version| {
+                    (
+                        version.entry.version.clone().unwrap(),
+                        version.entry.architecture.clone().unwrap(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+
+        // A plain query is the native package: `all` plus native, no i386.
+        assert_eq!(versions("mixed"), vec![("1".into(), "all".into())]);
+        assert_eq!(
+            versions("native"),
+            vec![("1".into(), "all".into()), ("2".into(), "amd64".into())]
+        );
+        // `:any` resolves like the plain query.
+        assert_eq!(versions("mixed:any"), vec![("1".into(), "all".into())]);
+        // `:all` and `:native` are the native package too, not an `all`-only
+        // filter; with no native-view build they show nothing.
+        assert_eq!(
+            versions("native:all"),
+            vec![("1".into(), "all".into()), ("2".into(), "amd64".into())]
+        );
+        assert!(versions("foreign:all").is_empty());
+        assert!(versions("foreign:native").is_empty());
+        // A foreign qualifier selects that build only, never `all`.
+        assert_eq!(versions("mixed:i386"), vec![("2".into(), "i386".into())]);
+        assert!(versions("native:i386").is_empty());
+        // A plain query falls back to the only package the name has.
+        assert_eq!(versions("foreign"), vec![("1".into(), "i386".into())]);
+    }
+
     use crate::apt_db::AptDb;
     use crate::apt_lists::IndexSource;
 
@@ -447,7 +558,7 @@ mod tests {
         let stable = source("http://repo", "stable", "main", "amd64");
         let preview = source("http://repo", "preview", "main", "amd64");
         let db = AptDb::from_entries_with_sources(
-            "",
+            "amd64",
             vec![
                 entry("fish", "4.5.0", Some("amd64")),
                 entry("apt", "2.5.4", Some("amd64")),

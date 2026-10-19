@@ -23,7 +23,7 @@ use crate::apt_sources::SourceLookup;
 use crate::cache;
 use crate::cache::CacheFile;
 use crate::package::Package;
-use crate::package_matcher::{Keyword, PackageMatcher, arch_matches};
+use crate::package_matcher::{ArchView, Keyword, PackageMatcher};
 use crate::{AptConfig, DpkgState};
 
 /// Magic for the package-database cache file (`Dir::Cache::oma-aptdb`);
@@ -223,8 +223,8 @@ fn local_deb_source(path: impl AsRef<Path>) -> IndexSource {
 
 /// Whether two records describe the same version of a package: the same
 /// version string and the same `Architecture` field. `Architecture: all` is
-/// a record of its own — apt lists it next to the native build — and a
-/// repository may carry both `all` and the native build of one version
+/// a record of its own — apt lists it next to the native build — and
+/// a repository may carry both `all` and the native build of one version
 /// during an architecture transition.
 fn same_version_record(a: &PackageEntry, b: &PackageEntry) -> bool {
     a.version == b.version && a.architecture == b.architecture
@@ -360,17 +360,19 @@ impl AptDb {
         }
     }
 
-    /// Number of records of `name` that satisfy an `:arch` qualifier;
-    /// `None` counts every architecture. Used for the "additional versions"
-    /// hint, which must only count what the query can display.
-    pub(crate) fn version_count_for_arch(&self, name: &str, arch: Option<&str>) -> usize {
-        let Some(arch) = arch else {
-            return self.version_count(name);
+    /// Number of records of `name` that the `:arch` qualifier selects, the
+    /// way apt resolves the package view; `None` is a plain query. Used for
+    /// the "additional versions" hint, which must only count what the query
+    /// can display.
+    pub(crate) fn version_count_for_arch(&self, name: &str, qualifier: Option<&str>) -> usize {
+        let versions = self.versions(name);
+        let Some(view) = ArchView::for_versions(&versions, &self.native_arch, qualifier) else {
+            return 0;
         };
 
-        self.versions(name)
+        versions
             .iter()
-            .filter(|version| arch_matches(&version.entry.architecture, arch))
+            .filter(|version| view.matches(version, &self.native_arch))
             .count()
     }
 
@@ -988,9 +990,10 @@ Description: vendor only
         }
     }
 
-    /// The "additional versions" hint counts only the query's architecture:
-    /// `oma show pkg:amd64` cannot display an i386 record, so it must not
-    /// advertise it.
+    /// The hint counts the view the query selects, as apt resolves it: the
+    /// native package (native and `all` records) for a plain query, one
+    /// foreign architecture otherwise, and every record when a plain query
+    /// has only foreign builds.
     #[test]
     fn test_version_count_for_arch() {
         let with_arch = |version: &str, arch: &str| PackageEntry {
@@ -1007,10 +1010,31 @@ Description: vendor only
         );
 
         assert_eq!(db.version_count("vendor-tool"), 3);
+        // Plain and `:any`: this system's package.
+        assert_eq!(db.version_count_for_arch("vendor-tool", None), 2);
+        assert_eq!(db.version_count_for_arch("vendor-tool", Some("any")), 2);
+        // `:all` and `:native` are this system's package, not a filter for
+        // `Architecture: all` records only.
+        assert_eq!(db.version_count_for_arch("vendor-tool", Some("all")), 2);
+        assert_eq!(db.version_count_for_arch("vendor-tool", Some("native")), 2);
         assert_eq!(db.version_count_for_arch("vendor-tool", Some("amd64")), 2);
         assert_eq!(db.version_count_for_arch("vendor-tool", Some("i386")), 1);
-        // No qualifier: every architecture, as before.
-        assert_eq!(db.version_count_for_arch("vendor-tool", None), 3);
+        assert_eq!(db.version_count_for_arch("vendor-tool", Some("arm64")), 0);
+
+        // A name with only a foreign build: apt's plain view falls back to
+        // it, while `:all`/`:native` have no package to show.
+        let foreign = AptDb::from_entries(
+            "amd64",
+            vec![PackageEntry {
+                architecture: Some("i386".to_string()),
+                ..entry("iota", "1")
+            }],
+        );
+        assert_eq!(foreign.version_count_for_arch("iota", None), 1);
+        assert_eq!(foreign.version_count_for_arch("iota", Some("any")), 1);
+        assert_eq!(foreign.version_count_for_arch("iota", Some("all")), 0);
+        assert_eq!(foreign.version_count_for_arch("iota", Some("native")), 0);
+        assert_eq!(foreign.version_count_for_arch("iota", Some("i386")), 1);
     }
 
     #[test]
@@ -1035,8 +1059,8 @@ Description: vendor only
 
     /// `Architecture: all` and the native architecture are separate records
     /// even at the same version (a repository may list both during an
-    /// architecture transition): neither takes the other's source, and the
-    /// all record is still found by its name.
+    /// architecture transition): neither takes the other's source, and apt's
+    /// `:all`/`:amd64` views show both while `:i386` shows neither.
     #[test]
     fn test_all_and_native_arch_are_distinct_records() {
         let with_arch = |version: &str, arch: &str| PackageEntry {
@@ -1069,18 +1093,37 @@ Description: vendor only
             .iter()
             .find(|version| version.entry.architecture.as_deref() == Some("amd64"))
             .expect("the native record is kept");
-        assert_eq!(all.sources, vec![all_source.clone()]);
+        assert_eq!(all.sources, vec![all_source]);
         assert_eq!(native.sources, vec![native_source]);
 
-        // The all record still resolves by name, with its own source.
+        // `:all` and `:amd64` both name this system's package, as in apt:
+        // the all and native records are shown together, each with its own
+        // source. A foreign architecture shows neither.
         let matcher = PackageMatcher::new(&db);
-        let matched = matcher
-            .match_pkgs_and_versions_from_glob("vendor-tool:all")
-            .unwrap();
-        assert_eq!(matched.len(), 1);
-        assert_eq!(matched[0].len(), 1);
-        assert_eq!(matched[0][0].entry.architecture.as_deref(), Some("all"));
-        assert_eq!(matched[0][0].sources, vec![all_source]);
+        for query in ["vendor-tool", "vendor-tool:all", "vendor-tool:amd64"] {
+            let matched = matcher.match_pkgs_and_versions_from_glob(query).unwrap();
+            assert_eq!(matched.len(), 1, "query {query}");
+            assert_eq!(matched[0].len(), 2, "query {query}");
+            assert!(
+                matched[0]
+                    .iter()
+                    .any(|version| version.entry.architecture.as_deref() == Some("all")),
+                "query {query} keeps the all record"
+            );
+            assert!(
+                matched[0]
+                    .iter()
+                    .any(|version| version.entry.architecture.as_deref() == Some("amd64")),
+                "query {query} keeps the native record"
+            );
+        }
+
+        assert!(
+            matcher
+                .match_pkgs_and_versions_from_glob("vendor-tool:i386")
+                .unwrap()
+                .is_empty()
+        );
     }
 
     /// Only the status file treats `all` and the native build as one

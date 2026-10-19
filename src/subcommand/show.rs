@@ -140,37 +140,19 @@ fn display_group(
 
 /// The version displayed without `--all`.
 ///
-/// The package as built for this system (`Architecture: all` included), the
-/// newest version a repository offers — what oma would install — and, when no
-/// repository has the package, the newest installed one. apt picks that
-/// version with pin priorities, which the database does not model.
+/// The newest version a repository offers — what oma would install — and,
+/// when no repository has the package, the newest installed one. apt picks
+/// that version with pin priorities, which the database does not model.
 ///
-/// A query that names an architecture prefers that build: an `Architecture:
-/// all` record satisfies `foo:i386` (the matcher accepts it), but must not
-/// win over the i386 build just because `all` counts as native. When the
-/// query names this system's own architecture, `all` and the native build
-/// are the same choice — apt shows the newer one — so source and version
-/// decide between them. `any` and `native` select every build, leaving the
-/// choice to the native preference.
+/// `versions` is already narrowed to the architecture view the query selects
+/// (the plain/native view, or one foreign architecture), so `Architecture:
+/// all` and the native build are compared here the way apt compares the
+/// versions of one package.
 fn default_version<'a>(
     versions: &'a [Cow<'_, PackageVersion>],
-    native_arch: &str,
-    query_arch: Option<&str>,
 ) -> Option<&'a Cow<'a, PackageVersion>> {
-    let query_arch = query_arch.filter(|arch| !matches!(*arch, "any" | "native"));
-
     versions.iter().max_by_key(|version| {
         (
-            match query_arch {
-                // A foreign build is the one the query names; `all` does not
-                // match it exactly.
-                Some(arch) if arch != native_arch => {
-                    version.entry.architecture.as_deref() == Some(arch)
-                }
-                // The native query (or no qualifier at all): `all` and the
-                // native build are equally native, as for `is_native`.
-                _ => version.entry.is_native(native_arch),
-            },
             version
                 .sources
                 .iter()
@@ -189,13 +171,7 @@ fn display_versions(
     apt_cfg: &AptConfig,
 ) {
     // Just one version without `--all`.
-    if !show_all
-        && let Some(version) = default_version(
-            &resolved.versions,
-            resolved.pkg.native_arch(),
-            resolved.arch.as_deref(),
-        )
-    {
+    if !show_all && let Some(version) = default_version(&resolved.versions) {
         display_version(stdout, resolved, version, dpkg, ext_states, apt_cfg);
         return;
     }
@@ -450,87 +426,6 @@ mod tests {
         Cow::Owned(PackageVersion { entry, sources })
     }
 
-    /// Two architectures of the same version: the one built for this system.
-    #[test]
-    fn default_version_prefers_the_native_architecture() {
-        let versions = vec![version("7", "amd64", true), version("7", "i386", true)];
-
-        let picked = default_version(&versions, "amd64", None).unwrap();
-        assert_eq!(picked.entry.architecture.as_deref(), Some("amd64"));
-    }
-
-    /// A qualified query selects the build it names: an `Architecture: all`
-    /// record also satisfies `foo:i386` (the matcher accepts it), but must
-    /// not win over the i386 build just because `all` counts as native.
-    #[test]
-    fn default_version_prefers_the_queried_architecture() {
-        let versions = vec![version("1", "all", true), version("2", "i386", true)];
-
-        assert_eq!(
-            default_version(&versions, "amd64", Some("i386"))
-                .unwrap()
-                .entry
-                .version
-                .as_deref(),
-            Some("2")
-        );
-
-        // The same group without a qualifier keeps the native `all` build.
-        assert_eq!(
-            default_version(&versions, "amd64", None)
-                .unwrap()
-                .entry
-                .version
-                .as_deref(),
-            Some("1")
-        );
-
-        // `any` and `native` span every build, so the native preference
-        // applies rather than an exact-architecture match.
-        for arch in ["any", "native"] {
-            assert_eq!(
-                default_version(&versions, "amd64", Some(arch))
-                    .unwrap()
-                    .entry
-                    .version
-                    .as_deref(),
-                Some("1")
-            );
-        }
-
-        // The same holds for the native architecture itself: the amd64
-        // build wins over an older `all` one.
-        let native = vec![version("1", "all", true), version("2", "amd64", true)];
-        assert_eq!(
-            default_version(&native, "amd64", Some("amd64"))
-                .unwrap()
-                .entry
-                .version
-                .as_deref(),
-            Some("2")
-        );
-    }
-
-    /// The native architecture and `all` are the same answer to a native
-    /// query: source and version decide, so an older installed amd64 build
-    /// does not hide a newer `all` one from the repository (apt shows 2).
-    #[test]
-    fn default_version_treats_all_as_native_for_a_native_query() {
-        let versions = vec![version("1", "amd64", true), version("2", "all", false)];
-
-        for query in [None, Some("amd64"), Some("native"), Some("any")] {
-            assert_eq!(
-                default_version(&versions, "amd64", query)
-                    .unwrap()
-                    .entry
-                    .version
-                    .as_deref(),
-                Some("2"),
-                "query {query:?}"
-            );
-        }
-    }
-
     /// A version a repository offers beats an installed one, even a newer
     /// one: apt chooses between them with pins, which the database lacks.
     #[test]
@@ -538,12 +433,26 @@ mod tests {
         let versions = vec![version("1", "amd64", false), version("2", "amd64", true)];
 
         assert_eq!(
-            default_version(&versions, "amd64", None)
-                .unwrap()
-                .entry
-                .version
-                .as_deref(),
+            default_version(&versions).unwrap().entry.version.as_deref(),
             Some("1")
+        );
+    }
+
+    /// Within one architecture view, the newest repository version wins —
+    /// including an `all` build over an older installed native one, which is
+    /// the version apt shows.
+    #[test]
+    fn default_version_prefers_the_newest_repository_version() {
+        let versions = vec![version("1", "amd64", true), version("2", "all", false)];
+        assert_eq!(
+            default_version(&versions).unwrap().entry.version.as_deref(),
+            Some("2")
+        );
+
+        let versions = vec![version("1", "all", false), version("2", "amd64", false)];
+        assert_eq!(
+            default_version(&versions).unwrap().entry.version.as_deref(),
+            Some("2")
         );
     }
 
@@ -553,7 +462,7 @@ mod tests {
     fn default_version_falls_back_to_the_installed_one() {
         let installed = vec![version("7", "amd64", true)];
         assert_eq!(
-            default_version(&installed, "amd64", None)
+            default_version(&installed)
                 .unwrap()
                 .entry
                 .version
@@ -563,7 +472,7 @@ mod tests {
 
         let foreign = vec![version("7", "i386", true)];
         assert_eq!(
-            default_version(&foreign, "amd64", None)
+            default_version(&foreign)
                 .unwrap()
                 .entry
                 .architecture
