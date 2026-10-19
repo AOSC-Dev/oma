@@ -12,7 +12,7 @@ use std::fmt;
 /// A Debian architecture name, or one of APT's architecture selectors.
 ///
 /// Selectors are kept distinct from concrete names; resolve them with
-/// [`AptState`](crate::state::AptState) rather than comparing strings.
+/// [`AptState`](crate::AptState) rather than comparing strings.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(
     feature = "apt-lists",

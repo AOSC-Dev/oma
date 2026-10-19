@@ -6,7 +6,7 @@ use oma_apt_pkg::search::{
     IndiciumSearch, OmaSearch as _, PackageStatus, SearchResult, SearchType, StrSimSearch,
     TextSearch,
 };
-use oma_apt_pkg::{AptConfig, AptDb, DpkgState};
+use oma_apt_pkg::{AptConfig, AptState};
 use oma_console::terminal::gen_prefix;
 use oma_logger::debug;
 use oma_pager::Pager;
@@ -183,13 +183,13 @@ pub fn search(
             }
         }
         SearchEngine::Strsim => {
-            let (apt_db, dpkg) = load_apt_db_and_dpkg(config.apt_config())?;
-            let searcher = StrSimSearch::new(&apt_db, &dpkg);
+            let state = load_state(config.apt_config())?;
+            let searcher = StrSimSearch::new(&state);
             Ok(searcher.search(&keywords.join(" "))?)
         }
         SearchEngine::Text => {
-            let (apt_db, dpkg) = load_apt_db_and_dpkg(config.apt_config())?;
-            let searcher = TextSearch::new(&apt_db, &dpkg);
+            let state = load_state(config.apt_config())?;
+            let searcher = TextSearch::new(&state);
             let mut result = vec![];
             for keyword in keywords {
                 let res = searcher.search(keyword)?;
@@ -201,14 +201,8 @@ pub fn search(
     }
 }
 
-fn load_apt_db_and_dpkg(apt_cfg: &AptConfig) -> Result<(AptDb, DpkgState), OutputError> {
-    let dpkg_path = apt_cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
-
-    let apt_db = AptDb::load_or_build(apt_cfg)?;
-
-    let dpkg = DpkgState::from_file(&dpkg_path)?;
-
-    Ok((apt_db, dpkg))
+fn load_state(apt_cfg: &AptConfig) -> Result<AptState, OutputError> {
+    AptState::load(apt_cfg).map_err(|e| OutputError::with_source("Failed to load package state", e))
 }
 
 fn local_indicium_search(
@@ -216,9 +210,9 @@ fn local_indicium_search(
     f: Box<dyn Fn(usize) + 'static>,
     query: String,
 ) -> Result<Vec<SearchResult>, OutputError> {
-    let (apt_db, dpkg) = load_apt_db_and_dpkg(apt_cfg)?;
+    let state = load_state(apt_cfg)?;
 
-    let searcher = IndiciumSearch::new_with_cache(&apt_db, &dpkg, apt_cfg, SearchType::Live, f)?;
+    let searcher = IndiciumSearch::new_with_cache(&state, apt_cfg, SearchType::Live, f)?;
 
     Ok(searcher.search(&query)?)
 }

@@ -1,60 +1,48 @@
+//! `oma-apt-pkg` — an arch-first view of APT's package state.
+//!
+//! [`AptState`] is the only entry point for package data: it loads the
+//! `Packages` indexes and the live dpkg status file, and exposes packages by
+//! name and architecture (APT's `Group` → `Package` → `Version` model).
+//! Parsers and cache formats live under a private `internal` module.
+
 pub mod apt_config;
+
 #[cfg(feature = "apt-lists")]
-mod arch;
+mod api;
 #[cfg(feature = "apt-lists")]
-mod state;
+mod internal;
+
 #[cfg(feature = "apt-lists")]
-pub use arch::{Arch, PackageKey};
-#[cfg(feature = "apt-lists")]
-pub use state::{
-    AptState, Control, Group, Package as PackageView, QueryResolution, ResolvedPackage, Source,
+pub use api::{
+    AptState, Arch, Control, Group, Package, PackageKey, QueryResolution, ResolvedPackage, Source,
     Version,
 };
 #[cfg(feature = "apt-lists")]
-mod apt_db;
+pub use internal::dpkg::DpkgError;
 #[cfg(feature = "apt-lists")]
-mod cache;
+pub use internal::lists::AptListsError;
+
 #[cfg(feature = "apt-lists")]
 pub mod deb;
-#[cfg(feature = "apt-lists")]
-pub use deb::*;
-#[cfg(feature = "apt-lists")]
-pub mod package_matcher;
-#[cfg(feature = "apt-lists")]
-pub use package_matcher::*;
-#[cfg(feature = "apt-lists")]
-mod apt_lists;
+
 #[cfg(feature = "apt-sources")]
 pub mod apt_sources;
-#[cfg(feature = "apt-lists")]
-pub mod package;
-pub use apt_config::*;
-#[cfg(feature = "apt-config")]
-pub(crate) mod config_parser;
-mod dpkg;
-mod dpkg_state;
-pub mod extended_states;
-pub use extended_states::AptExtendedStates;
+
 pub mod error;
+pub mod extended_states;
+pub use apt_config::*;
+pub use error::*;
+pub use extended_states::AptExtendedStates;
 
 #[cfg(feature = "filename")]
 pub mod filename;
+
 #[cfg(any(
     feature = "search-indicium",
     feature = "search-strsim",
     feature = "search-text"
 ))]
 pub mod search;
-
-#[cfg(feature = "apt-lists")]
-pub use apt_db::*;
-#[cfg(feature = "apt-lists")]
-pub use apt_lists::*;
-pub use dpkg::*;
-pub use dpkg_state::*;
-pub use error::*;
-#[cfg(feature = "apt-lists")]
-pub use package::*;
 
 #[cfg(feature = "filename")]
 pub use filename::{AptListFilename, FilenameError, FilenameResult};

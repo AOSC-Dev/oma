@@ -20,11 +20,11 @@ use oma_logger::debug;
 
 use deb822_fast::FromDeb822Paragraph;
 
-pub use crate::apt_lists::{IndexSource as Source, PackageEntry as Control};
+use super::arch::{Arch, PackageKey};
 use crate::apt_sources::SourceLookup;
-use crate::arch::{Arch, PackageKey};
-use crate::cache::CacheFile;
 use crate::error::Error;
+use crate::internal::cache::CacheFile;
+pub use crate::internal::lists::{IndexSource as Source, PackageEntry as Control};
 
 /// One version record of a package.
 #[derive(Debug, Clone, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
@@ -275,7 +275,7 @@ impl AptState {
         let archs = cfg.architectures();
 
         if let Some(data) = load_state_cache(&cache_path)
-            && crate::cache::valid(&cache_path, &lists_dir, &lookup, &archs, &data.files)
+            && crate::internal::cache::valid(&cache_path, &lists_dir, &lookup, &archs, &data.files)
         {
             debug!("oma package state cache hit: {cache_path}");
             let mut state = Self {
@@ -293,7 +293,7 @@ impl AptState {
 
         debug!("oma package state cache miss: {cache_path}");
         let (entries, sources) =
-            crate::apt_lists::parse_apt_lists_dir_with_sources(&lists_dir, &lookup, &archs)?;
+            crate::internal::lists::parse_apt_lists_dir_with_sources(&lists_dir, &lookup, &archs)?;
 
         let mut state = Self {
             native,
@@ -302,7 +302,7 @@ impl AptState {
             package_order: HashMap::new(),
             installed: HashMap::new(),
             status_path,
-            files: crate::cache::collect(&lists_dir, &lookup, &archs),
+            files: crate::internal::cache::collect(&lists_dir, &lookup, &archs),
         };
         state.add_index(entries, sources);
         state.save_cache(&cache_path);
@@ -323,6 +323,11 @@ impl AptState {
     /// The status file this state was built from.
     pub fn status_path(&self) -> &Path {
         &self.status_path
+    }
+
+    /// The Packages files this state was built from, for cache validation.
+    pub(crate) fn files(&self) -> &[crate::internal::cache::CacheFile] {
+        &self.files
     }
 
     /// The group with this package name, if any.
@@ -386,7 +391,7 @@ impl AptState {
             version_arch.clone()
         };
         let key = PackageKey::new(control.package.clone(), package_arch.clone());
-        let source = crate::apt_db::local_deb_source(path.as_ref());
+        let source = crate::deb::source_for(path.as_ref());
         let name = control.package.clone();
         self.insert_version(
             &name,
@@ -572,13 +577,13 @@ impl AptState {
     }
 
     fn merge_status(&mut self) {
-        let Ok(paragraphs) = crate::dpkg::paragraphs(&self.status_path) else {
+        let Ok(paragraphs) = crate::internal::dpkg::paragraphs(&self.status_path) else {
             return;
         };
         let source = Source::dpkg_status(self.status_path.display().to_string());
 
         for paragraph in paragraphs.filter_map(Result::ok) {
-            let Ok(pkg) = crate::dpkg::DpkgPackage::from_paragraph(&paragraph) else {
+            let Ok(pkg) = crate::internal::dpkg::DpkgPackage::from_paragraph(&paragraph) else {
                 continue;
             };
             if !pkg.has_version() {
@@ -631,14 +636,16 @@ impl AptState {
 
 fn load_state_cache(path: &str) -> Option<AptStateData> {
     let bytes = std::fs::read(path).ok()?;
-    if !crate::cache::header_ok(&bytes, STATE_CACHE_MAGIC) {
+    if !crate::internal::cache::header_ok(&bytes, STATE_CACHE_MAGIC) {
         return None;
     }
     let archived = rkyv::access::<ArchivedAptStateData, rkyv::rancor::Error>(
-        &bytes[crate::cache::CACHE_HEADER_LEN..],
+        &bytes[crate::internal::cache::CACHE_HEADER_LEN..],
     )
     .ok()?;
-    Some(crate::cache::from_archived::<AptStateData>(archived))
+    Some(crate::internal::cache::from_archived::<AptStateData>(
+        archived,
+    ))
 }
 
 fn save_state_cache(path: &str, data: &AptStateData) -> std::io::Result<()> {
@@ -648,8 +655,8 @@ fn save_state_cache(path: &str, data: &AptStateData) -> std::io::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
 
-    let mut buf = Vec::with_capacity(crate::cache::CACHE_HEADER_LEN + archive.len());
-    crate::cache::push_header(&mut buf, STATE_CACHE_MAGIC);
+    let mut buf = Vec::with_capacity(crate::internal::cache::CACHE_HEADER_LEN + archive.len());
+    crate::internal::cache::push_header(&mut buf, STATE_CACHE_MAGIC);
     buf.extend_from_slice(&archive);
 
     let mut tmp = path.as_os_str().to_owned();

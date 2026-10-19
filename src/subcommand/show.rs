@@ -7,7 +7,7 @@ use clap_complete::ArgValueCompleter;
 use dialoguer::console::{StyledObject, style};
 use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
-    AptConfig, AptExtendedStates, AptState, Control, PackageView, ResolvedPackage, Source, Version,
+    AptConfig, AptExtendedStates, AptState, Control, Package, ResolvedPackage, Source, Version,
 };
 use oma_logger::info;
 use oma_utils::human_bytes::HumanBytes;
@@ -158,7 +158,7 @@ fn default_version(versions: &[Version]) -> Option<&Version> {
 
 fn display_versions(
     stdout: &mut impl Write,
-    pkg: &PackageView<'_>,
+    pkg: &Package<'_>,
     versions: &[Version],
     state: &AptState,
     ext_states: &AptExtendedStates,
@@ -216,7 +216,7 @@ fn field_value<'a>(entry: &'a Control, field: &str) -> Option<Cow<'a, str>> {
 /// from the [`Package`] view, the rest from this specific version.
 fn display_version(
     stdout: &mut impl Write,
-    pkg: &PackageView<'_>,
+    pkg: &Package<'_>,
     version: &Version,
     state: &AptState,
     ext_states: &AptExtendedStates,
@@ -395,7 +395,7 @@ mod tests {
 
     fn version(version: &str, arch: &str, source: Source) -> Version {
         Version {
-            control: oma_apt_pkg::parse_control_entry(&format!(
+            control: oma_apt_pkg::deb::parse_control_entry(&format!(
                 "Package: vendor-tool\nVersion: {version}\nArchitecture: {arch}\n\n"
             ))
             .unwrap(),
