@@ -14,9 +14,10 @@ use crate::apt_sources::SourceLookup;
 /// starts at a 16-byte offset so it is 8-byte aligned (mapping bases and
 /// freshly allocated buffers are page/8-aligned).
 pub(crate) const CACHE_HEADER_LEN: usize = 16;
-/// `2` moves the package database to an architecture-keyed payload and the
-/// search index to the new status handling; older caches are rebuilt.
-pub(crate) const CACHE_VERSION: u32 = 2;
+/// `3` stores the native/ordered architectures with the package database
+/// (and `2` moved it to an architecture-keyed payload); older caches are
+/// rebuilt.
+pub(crate) const CACHE_VERSION: u32 = 3;
 
 /// Whether `bytes` begins with a valid header for `magic` (magic + current
 /// version).

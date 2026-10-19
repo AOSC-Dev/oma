@@ -216,6 +216,8 @@ fn state_cache_roundtrips() {
     let data = AptStateData {
         groups: state.groups.clone(),
         package_order: state.package_order.clone(),
+        native_arch: state.native.clone(),
+        architectures: state.architectures.clone(),
         files: Vec::new(),
     };
     let dir = tempfile::tempdir().unwrap();

@@ -62,6 +62,8 @@ impl AptState {
         let archs = cfg.architectures();
 
         if let Some(data) = load_state_cache(&cache_path)
+            && data.native_arch == native
+            && data.architectures == architectures
             && crate::internal::cache::valid(&cache_path, &lists_dir, &lookup, &archs, &data.files)
         {
             debug!("oma package state cache hit: {cache_path}");
@@ -165,6 +167,8 @@ impl AptState {
         let data = AptStateData {
             groups: std::mem::take(&mut self.groups),
             package_order: std::mem::take(&mut self.package_order),
+            native_arch: self.native.clone(),
+            architectures: self.architectures.clone(),
             files: std::mem::take(&mut self.files),
         };
         if let Err(e) = save_state_cache(path, &data) {
@@ -274,7 +278,16 @@ impl AptState {
                 versions
                     .iter()
                     .filter(|version| matches_version(version, parsed.version, parsed.branch))
-                    .cloned()
+                    .filter_map(|version| {
+                        // A branch query reports only the sources of that
+                        // branch; a version may also be in other suites.
+                        let Some(branch) = parsed.branch else {
+                            return Some(version.clone());
+                        };
+                        let mut version = version.clone();
+                        version.sources.retain(|source| source.suite == branch);
+                        (!version.sources.is_empty()).then_some(version)
+                    })
                     .collect(),
             )
         };
