@@ -1,22 +1,25 @@
+use std::borrow::Cow;
+
 use super::arch::{Arch, PackageKey};
 use super::model::Version;
 
 /// One resolved query: the selected package plus its filtered versions.
 #[derive(Debug)]
-pub struct ResolvedPackage {
+pub struct ResolvedPackage<'a> {
     /// The selected package identity.
     pub key: PackageKey,
-    /// The versions this query selects, after version/branch filtering.
-    pub versions: Vec<Version>,
+    /// The versions this query selects: borrowed from the state when no
+    /// version/branch filter was applied, owned otherwise.
+    pub versions: Cow<'a, [Version]>,
     /// The architecture selector the query carried, if any.
     pub arch: Option<Arch>,
 }
 
 /// Result of resolving package queries.
 #[derive(Debug)]
-pub struct QueryResolution {
+pub struct QueryResolution<'a> {
     /// Resolved queries, in query order.
-    pub resolved: Vec<ResolvedPackage>,
+    pub resolved: Vec<ResolvedPackage<'a>>,
     /// Queries that matched no package.
     pub no_match: Vec<String>,
 }
