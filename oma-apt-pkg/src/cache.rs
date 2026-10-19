@@ -14,7 +14,11 @@ use crate::apt_sources::SourceLookup;
 /// starts at a 16-byte offset so it is 8-byte aligned (mapping bases and
 /// freshly allocated buffers are page/8-aligned).
 pub(crate) const CACHE_HEADER_LEN: usize = 16;
-pub(crate) const CACHE_VERSION: u32 = 1;
+/// Bumped whenever a payload stops meaning what it did: `2` keeps a package's
+/// versions per architecture, so a cache built by `1` — where the same
+/// version of several architectures was merged into one record — must not be
+/// read.
+pub(crate) const CACHE_VERSION: u32 = 2;
 
 /// Whether `bytes` begins with a valid header for `magic` (magic + current
 /// version).
@@ -366,6 +370,11 @@ mod tests {
         assert!(header_ok(&buf, b"TESTMAG\x00"));
         assert!(!header_ok(&buf, b"WRONGMG\x00"));
         assert!(!header_ok(&buf[..8], b"TESTMAG\x00"));
+
+        // A cache of another format version is not read either.
+        let mut old = buf.clone();
+        old[8..12].copy_from_slice(&(CACHE_VERSION - 1).to_le_bytes());
+        assert!(!header_ok(&old, b"TESTMAG\x00"));
     }
 
     #[test]

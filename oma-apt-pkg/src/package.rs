@@ -78,6 +78,12 @@ impl<'a> Package<'a> {
         self.apt_db.fullname(&version.entry, pretty)
     }
 
+    /// The architecture this system runs (`APT::Architecture`), which the
+    /// database takes as the native one.
+    pub fn native_arch(&self) -> &str {
+        self.apt_db.native_arch()
+    }
+
     /// Number of distinct versions in the database (a version shared by
     /// several sources counts once).
     pub fn version_count(&self) -> usize {

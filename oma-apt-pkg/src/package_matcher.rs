@@ -42,6 +42,59 @@ pub struct PackageMatcher<'a> {
     index: &'a AptDb,
 }
 
+/// A keyword as the matcher reads it: a package name or glob, optionally
+/// with an `=version` and a `/branch` select — `pkg`, `pkg=1.0`,
+/// `pkg/suite`, `pkg:arch=1.0`.
+///
+/// The one place keywords are parsed, so the index and a source that holds
+/// entries the index does not (the dpkg status file) read them alike.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Keyword<'a> {
+    name: &'a str,
+    version: Option<&'a str>,
+    branch: Option<&'a str>,
+}
+
+impl<'a> Keyword<'a> {
+    pub(crate) fn parse(keyword: &'a str) -> Self {
+        let (name, version) = match keyword.split_once('=') {
+            Some((name, version)) => (name, Some(version)),
+            None => (keyword, None),
+        };
+        let (name, branch) = match name.split_once('/') {
+            Some((name, branch)) => (name, Some(branch)),
+            None => (name, None),
+        };
+
+        Self {
+            name,
+            version,
+            branch,
+        }
+    }
+
+    /// The package name, architecture qualifier included — what
+    /// [`PackageMatcher::match_from_version`] and
+    /// [`PackageMatcher::match_from_branch`] take.
+    pub(crate) fn name(&self) -> &'a str {
+        self.name
+    }
+
+    pub(crate) fn version(&self) -> Option<&'a str> {
+        self.version
+    }
+
+    pub(crate) fn branch(&self) -> Option<&'a str> {
+        self.branch
+    }
+
+    /// The package pattern the keyword names — the name or glob, without the
+    /// `:arch` qualifier, which only filters versions.
+    pub(crate) fn pattern(&self) -> &'a str {
+        split_arch(self.name).0
+    }
+}
+
 impl<'a> PackageMatcher<'a> {
     /// Create a matcher over the given package database.
     pub fn new(index: &'a AptDb) -> Self {
@@ -68,12 +121,13 @@ impl<'a> PackageMatcher<'a> {
         let mut no_result = Vec::new();
 
         for keyword in keywords {
-            let res = if let Some((name, version)) = keyword.split_once('=') {
-                self.match_from_version(name, version)?
-            } else if let Some((name, branch)) = keyword.split_once('/') {
-                self.match_from_branch(name, branch)?
+            let parsed = Keyword::parse(keyword);
+            let res = if let Some(version) = parsed.version() {
+                self.match_from_version(parsed.name(), version)?
+            } else if let Some(branch) = parsed.branch() {
+                self.match_from_branch(parsed.name(), branch)?
             } else {
-                self.match_pkgs_and_versions_from_glob(keyword)?
+                self.match_pkgs_and_versions_from_glob(parsed.name())?
             };
 
             if res.is_empty() {
@@ -242,6 +296,33 @@ fn arch_matches(entry_arch: &Option<String>, arch: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keyword_parse() {
+        let parse = |keyword| Keyword::parse(keyword);
+
+        let plain = parse("fish");
+        assert_eq!(plain.name(), "fish");
+        assert_eq!(plain.pattern(), "fish");
+        assert_eq!(plain.version(), None);
+        assert_eq!(plain.branch(), None);
+
+        let version = parse("fish:amd64=3.7");
+        assert_eq!(version.name(), "fish:amd64");
+        assert_eq!(version.pattern(), "fish");
+        assert_eq!(version.version(), Some("3.7"));
+        assert_eq!(version.branch(), None);
+
+        let branch = parse("fish/stable");
+        assert_eq!(branch.name(), "fish");
+        assert_eq!(branch.pattern(), "fish");
+        assert_eq!(branch.version(), None);
+        assert_eq!(branch.branch(), Some("stable"));
+
+        // A glob keeps its wildcards; only a qualifier is stripped.
+        let glob = parse("fish-*:i386");
+        assert_eq!(glob.pattern(), "fish-*");
+    }
 
     use crate::apt_db::AptDb;
     use crate::apt_lists::IndexSource;

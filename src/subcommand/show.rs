@@ -66,9 +66,11 @@ impl CliExecuter for Show {
         let (mut apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
 
         // Resolve each query: local `.deb` files are parsed directly,
-        // everything else is matched against the package database.
+        // everything else is matched against the package database — which
+        // answers for a package that is only installed from the status file
+        // as well, like apt.
         let resolution = apt_db
-            .resolve_queries(packages)
+            .resolve_queries(packages, &dpkg)
             .context("Failed to resolve package queries")?;
 
         handle_no_result(
@@ -132,6 +134,28 @@ fn display_group(
     Ok(())
 }
 
+/// The version displayed without `--all`.
+///
+/// The package as built for this system (`Architecture: all` included), the
+/// newest version a repository offers — what oma would install — and, when no
+/// repository has the package, the newest installed one. apt picks that
+/// version with pin priorities, which the database does not model.
+fn default_version<'a>(
+    versions: &'a [Cow<'_, PackageVersion>],
+    native_arch: &str,
+) -> Option<&'a Cow<'a, PackageVersion>> {
+    versions.iter().max_by_key(|version| {
+        (
+            version.entry.is_native(native_arch),
+            version
+                .sources
+                .iter()
+                .any(|source| !source.is_dpkg_status()),
+            version.parsed_version(),
+        )
+    })
+}
+
 fn display_versions(
     stdout: &mut impl Write,
     resolved: &ResolvedPackage<'_>,
@@ -140,10 +164,9 @@ fn display_versions(
     show_all: bool,
     apt_cfg: &AptConfig,
 ) {
-    // Just the highest version without `--all`: a linear scan over the
-    // already-parsed versions (the `OnceCell` cache) instead of sorting
-    // them all just to keep the last.
-    if !show_all && let Some(version) = resolved.versions.iter().max_by_key(|v| v.parsed_version())
+    // Just one version without `--all`.
+    if !show_all
+        && let Some(version) = default_version(&resolved.versions, resolved.pkg.native_arch())
     {
         display_version(stdout, resolved, version, dpkg, ext_states, apt_cfg);
         return;
@@ -317,6 +340,12 @@ fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
 /// `local-deb/local-deb` suite/component, so it renders through the same
 /// path.
 fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
+    // The dpkg status file is not an index: apt names the file itself, e.g.
+    // `APT-Sources: /var/lib/dpkg/status`.
+    if source.is_dpkg_status() {
+        return source.base_url.clone();
+    }
+
     // libapt renders the archive URI without a trailing slash in
     // APT-Sources: its sources.list parser appends one internally
     // (`FixupURI`), but the displayed URI is trimmed, e.g.
@@ -366,5 +395,80 @@ fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
         (Some(component), Some(_)) => format!("{base_url} {suite}/{component} Packages"),
         (Some(component), None) => format!("{base_url} {suite}/{component}"),
         (None, _) => format!("{base_url} {suite}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn version(version: &str, arch: &str, status_file: bool) -> Cow<'static, PackageVersion> {
+        let entry = oma_apt_pkg::parse_control_entry(&format!(
+            "Package: vendor-tool\nVersion: {version}\nArchitecture: {arch}\nDescription: test\n\n"
+        ))
+        .unwrap();
+
+        let sources = if status_file {
+            vec![IndexSource::dpkg_status("/var/lib/dpkg/status")]
+        } else {
+            vec![IndexSource {
+                base_url: "file:/repo".to_string(),
+                suite: "stable".to_string(),
+                component: Some("main".to_string()),
+                arch: Some(arch.to_string()),
+            }]
+        };
+
+        Cow::Owned(PackageVersion { entry, sources })
+    }
+
+    /// Two architectures of the same version: the one built for this system.
+    #[test]
+    fn default_version_prefers_the_native_architecture() {
+        let versions = vec![version("7", "amd64", true), version("7", "i386", true)];
+
+        let picked = default_version(&versions, "amd64").unwrap();
+        assert_eq!(picked.entry.architecture.as_deref(), Some("amd64"));
+    }
+
+    /// A version a repository offers beats an installed one, even a newer
+    /// one: apt chooses between them with pins, which the database lacks.
+    #[test]
+    fn default_version_prefers_a_repository_version() {
+        let versions = vec![version("1", "amd64", false), version("2", "amd64", true)];
+
+        assert_eq!(
+            default_version(&versions, "amd64")
+                .unwrap()
+                .entry
+                .version
+                .as_deref(),
+            Some("1")
+        );
+    }
+
+    /// Nothing offers the package any more: the installed version is shown,
+    /// whatever architecture it is.
+    #[test]
+    fn default_version_falls_back_to_the_installed_one() {
+        let installed = vec![version("7", "amd64", true)];
+        assert_eq!(
+            default_version(&installed, "amd64")
+                .unwrap()
+                .entry
+                .version
+                .as_deref(),
+            Some("7")
+        );
+
+        let foreign = vec![version("7", "i386", true)];
+        assert_eq!(
+            default_version(&foreign, "amd64")
+                .unwrap()
+                .entry
+                .architecture
+                .as_deref(),
+            Some("i386")
+        );
     }
 }

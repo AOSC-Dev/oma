@@ -62,6 +62,15 @@ pub struct PackageEntry {
 }
 
 impl PackageEntry {
+    /// Whether this entry is the package as built for `native_arch`: its own
+    /// architecture, or `all`, which every architecture runs.
+    pub fn is_native(&self, native_arch: &str) -> bool {
+        match self.architecture.as_deref() {
+            Some("all") | None => true,
+            Some(arch) => arch == native_arch,
+        }
+    }
+
     /// Whether this package is currently installed on the system.
     pub fn is_installed(&self, dpkg: &DpkgState) -> bool {
         dpkg.is_installed(&self.package)
@@ -129,6 +138,29 @@ pub struct IndexSource {
     pub component: Option<String>,
     /// The architecture from `binary-<arch>`; `None` for flat repositories.
     pub arch: Option<String>,
+}
+
+impl IndexSource {
+    /// The dpkg status file, where a package that is installed but no longer
+    /// available from any repository comes from.
+    ///
+    /// It is not a repository: apt names the file itself
+    /// (`APT-Sources: /var/lib/dpkg/status`), so it has no suite, component
+    /// or architecture — the empty suite is what marks it.
+    pub fn dpkg_status(path: impl Into<String>) -> Self {
+        Self {
+            base_url: path.into(),
+            suite: String::new(),
+            component: None,
+            arch: None,
+        }
+    }
+
+    /// Whether this source is the dpkg status file (see
+    /// [`Self::dpkg_status`]).
+    pub fn is_dpkg_status(&self) -> bool {
+        self.suite.is_empty()
+    }
 }
 
 /// Parse `/var/lib/apt/lists/` and return all package entries paired with
@@ -287,6 +319,30 @@ Depends: libc6
             Some("A smarter cd command for your terminal")
         );
         assert_eq!(entry.depends.as_deref(), Some("libc6"));
+    }
+
+    #[test]
+    fn test_is_native() {
+        let entry = |arch: Option<&str>| PackageEntry {
+            architecture: arch.map(str::to_string),
+            ..PackageEntry::from_paragraph(
+                &"Package: fish\nVersion: 3.7\nDescription: shell\n\n"
+                    .parse::<Deb822>()
+                    .unwrap()
+                    .iter()
+                    .next()
+                    .unwrap()
+                    .clone(),
+            )
+            .unwrap()
+        };
+
+        assert!(entry(Some("amd64")).is_native("amd64"));
+        assert!(!entry(Some("i386")).is_native("amd64"));
+        // `all` runs on every architecture, and a record without one is taken
+        // as the native build.
+        assert!(entry(Some("all")).is_native("amd64"));
+        assert!(entry(None).is_native("amd64"));
     }
 
     #[test]
