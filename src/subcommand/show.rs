@@ -64,6 +64,15 @@ impl CliExecuter for Show {
         let apt_cfg = config.apt_config();
         let (mut state, ext_states) = load_state(apt_cfg)?;
 
+        // Local `.deb` files insert into the state; `resolve` then finds
+        // them without needing a mutable borrow.
+        for path in packages
+            .iter()
+            .filter(|query| query.ends_with(".deb") && std::path::Path::new(query).is_file())
+        {
+            let _ = state.insert_deb(path);
+        }
+
         // Resolve each query against the unified package state — apt lists
         // plus the live dpkg status, selected by architecture the way apt
         // selects a package.
@@ -228,7 +237,7 @@ fn display_version(
         // the displayed version so an arch-filtered query (`foo:i386`) or
         // `--all` labels each block with its own architecture.
         let value = if *field == "Package" {
-            Some(Cow::Owned(pkg.fullname(version, true)))
+            Some(pkg.fullname(version, true))
         } else {
             field_value(&version.control, field)
         };
@@ -257,7 +266,7 @@ fn display_version(
     }
 
     // APT-Manual-Installed: check dpkg status and auto-installed flag.
-    if state.is_installed(&pkg.key()) {
+    if state.is_installed_of(pkg.name(), pkg.arch()) {
         write!(
             stdout,
             "{}",
@@ -288,7 +297,7 @@ fn display_versions_to_json(
     state: &AptState,
     apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
-    let installed = state.is_installed(&resolved.key);
+    let installed = state.is_installed_of(resolved.key.name(), resolved.key.arch());
     let json_entries: Vec<PackageJson<'_>> = versions
         .iter()
         .map(|v| PackageJson {

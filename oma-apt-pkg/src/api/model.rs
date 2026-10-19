@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use super::arch::{Arch, PackageKey};
 use super::state::AptState;
 use super::{Control, Source};
@@ -65,7 +67,7 @@ impl<'a> Group<'a> {
         state
             .packages(name)
             .keys()
-            .map(move |arch| Package::new(state, name, arch.clone()))
+            .map(move |arch| Package::new(state, name, arch))
     }
 
     /// The package built for `arch`, if the group has one.
@@ -73,7 +75,7 @@ impl<'a> Group<'a> {
         self.state
             .packages(self.name)
             .get_key_value(arch.as_str())
-            .map(|(arch, _)| Package::new(self.state, self.name, arch.clone()))
+            .map(|(arch, _)| Package::new(self.state, self.name, arch))
     }
 
     /// Apt's preferred package: the native build, else the first configured
@@ -90,11 +92,11 @@ impl<'a> Group<'a> {
 pub struct Package<'a> {
     state: &'a AptState,
     name: &'a str,
-    arch: Arch,
+    arch: &'a Arch,
 }
 
 impl<'a> Package<'a> {
-    pub(crate) fn new(state: &'a AptState, name: &'a str, arch: Arch) -> Self {
+    pub(crate) fn new(state: &'a AptState, name: &'a str, arch: &'a Arch) -> Self {
         Self { state, name, arch }
     }
 
@@ -104,13 +106,13 @@ impl<'a> Package<'a> {
     }
 
     /// The package architecture (never `all`).
-    pub fn arch(&self) -> &Arch {
-        &self.arch
+    pub fn arch(&self) -> &'a Arch {
+        self.arch
     }
 
     /// The package identity.
     pub fn key(&self) -> PackageKey {
-        PackageKey::new(self.name, self.arch.clone())
+        PackageKey::new(self.name, (*self.arch).clone())
     }
 
     /// Every version of this package, newest first.
@@ -137,7 +139,7 @@ impl<'a> Package<'a> {
 
     /// The installed version, if the status file marks one.
     pub fn installed_version(&self) -> Option<&'a str> {
-        self.state.installed_version(&self.key())
+        self.state.installed_version_of(self.name, self.arch)
     }
 
     /// Whether the package is installed.
@@ -147,12 +149,12 @@ impl<'a> Package<'a> {
 
     /// The name apt displays, `name[:arch]` — the architecture is omitted for
     /// the native build and for `Architecture: all` versions.
-    pub fn fullname(&self, version: &Version, pretty: bool) -> String {
+    pub fn fullname(&self, version: &Version, pretty: bool) -> Cow<'a, str> {
         let arch = version.arch();
         if pretty && (arch.is_all() || arch == self.state.native_arch()) {
-            self.name.to_string()
+            Cow::Borrowed(self.name)
         } else {
-            format!("{}:{}", self.name, arch)
+            Cow::Owned(format!("{}:{}", self.name, arch))
         }
     }
 }

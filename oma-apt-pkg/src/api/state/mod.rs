@@ -11,6 +11,7 @@
 //! `Packages` files and the dpkg status file stay private to the crate; callers
 //! query packages and versions here.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -38,8 +39,9 @@ pub struct AptState {
     groups: HashMap<String, HashMap<Arch, Vec<Version>>>,
     /// Package insertion order per group, which apt's `:any` follows.
     package_order: HashMap<String, Vec<Arch>>,
-    /// (name, arch) → installed version.
-    installed: HashMap<PackageKey, String>,
+    /// name → arch → installed version. Nested so a package view can look
+    /// itself up without building a [`PackageKey`].
+    installed: HashMap<String, HashMap<Arch, String>>,
     status_path: PathBuf,
     files: Vec<CacheFile>,
 }
@@ -125,7 +127,7 @@ impl AptState {
     pub fn package<'a>(&'a self, name: &str, arch: &Arch) -> Option<Package<'a>> {
         let (name, packages) = self.groups.get_key_value(name)?;
         let (arch, _) = packages.get_key_value(arch.as_str())?;
-        Some(Package::new(self, name, arch.clone()))
+        Some(Package::new(self, name, arch))
     }
 
     /// All package groups, in no particular order.
@@ -135,23 +137,42 @@ impl AptState {
 
     /// The installed version of `key`, if the status file has one.
     pub fn installed_version<'a>(&'a self, key: &PackageKey) -> Option<&'a str> {
-        self.installed.get(key).map(String::as_str)
+        self.installed_version_of(key.name(), key.arch())
+    }
+
+    /// The installed version of `name:arch`, without building a key.
+    pub fn installed_version_of<'a>(&'a self, name: &str, arch: &Arch) -> Option<&'a str> {
+        self.installed.get(name)?.get(arch).map(String::as_str)
     }
 
     /// Whether `key` is installed.
     pub fn is_installed(&self, key: &PackageKey) -> bool {
-        self.installed.contains_key(key)
+        self.installed
+            .get(key.name())
+            .is_some_and(|packages| packages.contains_key(key.arch()))
     }
 
-    fn save_cache(&self, path: &str) {
+    /// Whether `name:arch` is installed, without building a key.
+    pub fn is_installed_of(&self, name: &str, arch: &Arch) -> bool {
+        self.installed
+            .get(name)
+            .is_some_and(|packages| packages.contains_key(arch))
+    }
+
+    /// Move the Packages data into the cache payload and back, instead of
+    /// cloning the whole group map just to serialize it.
+    fn save_cache(&mut self, path: &str) {
         let data = AptStateData {
-            groups: self.groups.clone(),
-            package_order: self.package_order.clone(),
-            files: self.files.clone(),
+            groups: std::mem::take(&mut self.groups),
+            package_order: std::mem::take(&mut self.package_order),
+            files: std::mem::take(&mut self.files),
         };
         if let Err(e) = save_state_cache(path, &data) {
             debug!("Failed to save oma package state cache: {e}");
         }
+        self.groups = data.groups;
+        self.package_order = data.package_order;
+        self.files = data.files;
     }
 
     /// Insert one local `.deb` and return its key, so a query can resolve it.
@@ -187,81 +208,41 @@ impl AptState {
     }
 
     /// Resolve package queries the way apt resolves a package name.
-    pub fn resolve(&mut self, queries: Vec<String>) -> QueryResolution {
-        // Local `.deb` files insert into the state; do that first so the
-        // view borrows below are immutable.
-        let (debs, queries): (Vec<String>, Vec<String>) = queries
-            .into_iter()
-            .partition(|query| query.ends_with(".deb") && Path::new(query).is_file());
-        let mut no_match = Vec::new();
-        let mut deb_keys = Vec::new();
-        for path in debs {
-            match self.insert_deb(&path) {
-                Ok(key) => deb_keys.push(key),
-                Err(_) => no_match.push(path),
-            }
-        }
-
+    ///
+    /// A local `.deb` path must first be added with [`Self::insert_deb`]; it
+    /// is then resolved from the version that insertion recorded. Versions
+    /// are borrowed from the state unless a `=version` or `/branch` filter
+    /// applies, in which case only the matching records are cloned.
+    pub fn resolve<'a>(&'a self, queries: Vec<String>) -> QueryResolution<'a> {
         let mut resolved = Vec::new();
-
-        for key in deb_keys {
-            let Some((_name, packages)) = self.groups.get_key_value(key.name()) else {
-                continue;
-            };
-            let Some(versions) = packages.get(key.arch().as_str()) else {
-                continue;
-            };
-            resolved.push(ResolvedPackage {
-                key: key.clone(),
-                versions: versions.clone(),
-                arch: None,
-            });
-        }
+        let mut no_match = Vec::new();
 
         for query in queries {
-            let matched = {
-                let parsed = Query::parse(&query);
-                let names: Vec<&str> = if parsed.name.contains('*')
-                    || parsed.name.contains('?')
-                    || parsed.name.contains('[')
-                {
-                    self.groups
-                        .keys()
-                        .filter(|name| glob_match(parsed.name, name))
-                        .map(String::as_str)
-                        .collect()
-                } else {
-                    self.groups
-                        .get_key_value(parsed.name)
-                        .map(|(name, _)| name.as_str())
-                        .into_iter()
-                        .collect()
-                };
+            if query.ends_with(".deb") && Path::new(&query).is_file() {
+                if !self.resolve_deb(&query, &mut resolved) {
+                    no_match.push(query);
+                }
+                continue;
+            }
 
+            let parsed = Query::parse(&query);
+            let glob =
+                parsed.name.contains('*') || parsed.name.contains('?') || parsed.name.contains('[');
+
+            let matched = if glob {
                 let mut matched = false;
-                for name in names {
-                    let Some(arch) = self.select_arch(name, parsed.arch) else {
-                        continue;
-                    };
-                    let Some(versions) = self.packages(name).get(arch.as_str()) else {
-                        continue;
-                    };
-                    let selected: Vec<Version> = versions
-                        .iter()
-                        .filter(|version| matches_version(version, parsed.version, parsed.branch))
-                        .cloned()
-                        .collect();
-                    if selected.is_empty() {
-                        continue;
-                    }
-                    matched = true;
-                    resolved.push(ResolvedPackage {
-                        key: PackageKey::new(name, arch),
-                        versions: selected,
-                        arch: parsed.arch.map(Arch::new),
-                    });
+                for name in self
+                    .groups
+                    .keys()
+                    .filter(|name| glob_match(parsed.name, name))
+                {
+                    matched |= self.resolve_name(name, parsed, &mut resolved);
                 }
                 matched
+            } else {
+                self.groups
+                    .get_key_value(parsed.name)
+                    .is_some_and(|(name, _)| self.resolve_name(name, parsed, &mut resolved))
             };
 
             if !matched {
@@ -272,6 +253,81 @@ impl AptState {
         QueryResolution { resolved, no_match }
     }
 
+    /// Resolve one package name for `parsed`, appending the selected version
+    /// group. Returns whether anything matched.
+    fn resolve_name<'a>(
+        &'a self,
+        name: &str,
+        parsed: Query<'_>,
+        resolved: &mut Vec<ResolvedPackage<'a>>,
+    ) -> bool {
+        let Some(arch) = self.select_arch(name, parsed.arch) else {
+            return false;
+        };
+        let Some(versions) = self.packages(name).get(arch) else {
+            return false;
+        };
+        let selected: Cow<'a, [Version]> = if parsed.version.is_none() && parsed.branch.is_none() {
+            Cow::Borrowed(versions.as_slice())
+        } else {
+            Cow::Owned(
+                versions
+                    .iter()
+                    .filter(|version| matches_version(version, parsed.version, parsed.branch))
+                    .cloned()
+                    .collect(),
+            )
+        };
+        if selected.is_empty() {
+            return false;
+        }
+
+        resolved.push(ResolvedPackage {
+            key: PackageKey::new(name, (*arch).clone()),
+            versions: selected,
+            arch: parsed.arch.map(Arch::new),
+        });
+        true
+    }
+
+    /// Resolve a local `.deb` that the caller already inserted into the state.
+    fn resolve_deb<'a>(&'a self, path: &str, resolved: &mut Vec<ResolvedPackage<'a>>) -> bool {
+        let Ok(control) = crate::deb::parse_deb(path) else {
+            return false;
+        };
+        let version_arch = Arch::new(
+            control
+                .architecture
+                .clone()
+                .unwrap_or_else(|| self.native.to_string()),
+        );
+        let package_arch = if version_arch.is_all() {
+            self.native.clone()
+        } else {
+            version_arch.clone()
+        };
+        let key = PackageKey::new(control.package.clone(), package_arch.clone());
+        let Some(versions) = self
+            .groups
+            .get(&control.package)
+            .and_then(|packages| packages.get(&package_arch))
+        else {
+            return false;
+        };
+        let Some(index) = versions.iter().position(|version| {
+            version.version() == control.version.as_deref() && version.arch == version_arch
+        }) else {
+            return false;
+        };
+
+        resolved.push(ResolvedPackage {
+            key,
+            versions: Cow::Borrowed(&versions[index..index + 1]),
+            arch: None,
+        });
+        true
+    }
+
     pub(crate) fn packages<'a>(&'a self, name: &str) -> &'a HashMap<Arch, Vec<Version>> {
         static EMPTY: std::sync::OnceLock<HashMap<Arch, Vec<Version>>> = std::sync::OnceLock::new();
         self.groups
@@ -279,56 +335,44 @@ impl AptState {
             .unwrap_or_else(|| EMPTY.get_or_init(HashMap::new))
     }
 
-    pub(crate) fn preferred_arch(&self, name: &str) -> Option<Arch> {
+    pub(crate) fn preferred_arch<'a>(&'a self, name: &str) -> Option<&'a Arch> {
         let packages = self.packages(name);
-        if packages.contains_key(self.native.as_str()) {
-            return Some(self.native.clone());
+        if let Some((arch, _)) = packages.get_key_value(self.native.as_str()) {
+            return Some(arch);
         }
         for arch in &self.architectures {
-            if packages.contains_key(arch.as_str()) {
-                return Some(arch.clone());
+            if let Some((found, _)) = packages.get_key_value(arch.as_str()) {
+                return Some(found);
             }
         }
-        packages.keys().next().cloned()
+        packages.keys().next()
     }
 
-    fn select_arch(&self, name: &str, qualifier: Option<&str>) -> Option<Arch> {
+    fn select_arch<'a>(&'a self, name: &str, qualifier: Option<&str>) -> Option<&'a Arch> {
         match qualifier {
             Some(Arch::ALL) | Some(Arch::NATIVE) => self
                 .packages(name)
                 .get_key_value(self.native.as_str())
-                .map(|(arch, _)| arch.clone()),
-            Some(Arch::ANY) => self
-                .package_order
-                .get(name)
-                .and_then(|order| order.first().cloned()),
+                .map(|(arch, _)| arch),
+            Some(Arch::ANY) => self.package_order.get(name).and_then(|order| order.first()),
             None => self.preferred_arch(name),
             Some(arch) => self
                 .packages(name)
                 .get_key_value(arch)
-                .map(|(arch, _)| arch.clone()),
+                .map(|(arch, _)| arch),
         }
     }
 
     fn insert_version(&mut self, name: &str, arch: Arch, version: Version) {
-        if !self
-            .groups
-            .get(name)
-            .is_some_and(|packages| packages.contains_key(&arch))
-        {
-            self.package_order
-                .entry(name.to_string())
-                .or_default()
-                .push(arch.clone());
+        let groups = &mut self.groups;
+        let order = &mut self.package_order;
+        let key = name.to_string();
+        let packages = groups.entry(key.clone()).or_default();
+
+        if !packages.contains_key(&arch) {
+            order.entry(key).or_default().push(arch.clone());
         }
-        push_or_merge(
-            self.groups
-                .entry(name.to_string())
-                .or_default()
-                .entry(arch)
-                .or_default(),
-            version,
-        );
+        push_or_merge(packages.entry(arch).or_default(), version);
     }
 
     fn add_index(&mut self, entries: Vec<Control>, sources: Vec<Source>) {
@@ -386,12 +430,11 @@ impl AptState {
             } else {
                 version_arch.clone()
             };
-            let key = PackageKey::new(pkg.name.clone(), package_arch.clone());
             let versions = self
                 .groups
                 .entry(pkg.name.clone())
                 .or_default()
-                .entry(package_arch)
+                .entry(package_arch.clone())
                 .or_default();
 
             if let Some(existing) = versions.iter_mut().find(|existing| {
@@ -409,7 +452,10 @@ impl AptState {
             }
 
             if pkg.selection_state().is_installed() {
-                self.installed.insert(key, version);
+                self.installed
+                    .entry(pkg.name.clone())
+                    .or_default()
+                    .insert(package_arch, version);
             }
         }
     }

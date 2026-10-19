@@ -3,6 +3,7 @@
 //! Builds a search index from parsed APT list entries and dpkg status,
 //! without depending on the C++ `oma-apt` binding.
 
+use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -162,8 +163,6 @@ pub struct IndiciumSearch {
     /// mtime), mirroring apt's PackageFile IMS records. Checked by
     /// [`crate::internal::cache::valid`] on cache load.
     pub(crate) files: Vec<CacheFile>,
-    /// Search type, kept so a refresh can rebuild the index.
-    search_type: SearchType,
 }
 
 /// Magic for the search-index cache file (`Dir::Cache::oma-search`); the
@@ -247,17 +246,51 @@ impl IndiciumSearch {
             pkg_map,
             index: search_index,
             files: Vec::new(),
-            search_type,
         }
     }
 
-    /// Rebuild the entries and their index from a fresh state, keeping the
-    /// recorded Packages files for cache validation.
+    /// Refresh status and versions in place from a fresh state, adding new
+    /// packages and dropping ones the indexes no longer carry. The index is
+    /// only touched for those changes, so a cache hit does not rebuild it.
     pub fn refresh_from(&mut self, state: &AptState) {
-        let files = std::mem::take(&mut self.files);
-        let search_type = self.search_type.clone();
-        *self = Self::new(state, search_type, |_| {});
-        self.files = files;
+        let mut seen: HashSet<&str> = HashSet::new();
+
+        for group in state.groups() {
+            let name = group.name();
+            if name.ends_with("-dbg") {
+                continue;
+            }
+            let Some(package) = group.preferred() else {
+                continue;
+            };
+            let Some(candidate) = package.candidate() else {
+                continue;
+            };
+            let installed = package.installed_version();
+            let status = search_status(installed, candidate.version());
+            seen.insert(name);
+
+            if let Some(entry) = self.pkg_map.get_mut(name) {
+                entry.status = status;
+                entry.old_version = installed.map(str::to_string);
+                entry.new_version = candidate.version().unwrap_or_default().to_string();
+            } else if let Some(entry) = search_entry(state, name, &package) {
+                self.index.insert(&name.to_string(), &entry);
+                self.pkg_map.insert(name.to_string(), entry);
+            }
+        }
+
+        let removed: Vec<String> = self
+            .pkg_map
+            .keys()
+            .filter(|name| !seen.contains(name.as_str()))
+            .cloned()
+            .collect();
+        for name in removed {
+            if let Some(entry) = self.pkg_map.shift_remove(&name) {
+                self.index.remove(&name, &entry);
+            }
+        }
     }
 }
 
@@ -272,47 +305,51 @@ fn build_search_entries(state: &AptState) -> Vec<SearchEntry> {
         let Some(package) = group.preferred() else {
             continue;
         };
-        let Some(candidate) = package.candidate() else {
-            continue;
-        };
-        let installed = package.installed_version();
-        let status = match installed {
-            Some(installed) if is_upgradable(candidate.version(), Some(installed)) => {
-                PackageStatus::Upgrade
-            }
-            Some(_) => PackageStatus::Installed,
-            None => PackageStatus::Avail,
-        };
-
-        let description = candidate
-            .control
-            .description
-            .as_deref()
-            .map(|d| d.lines().next().unwrap_or(d).to_string())
-            .unwrap_or_else(|| "No description".to_string());
-        let provides: IndexSet<String> = candidate
-            .control
-            .provides
-            .as_deref()
-            .map(|s| {
-                s.parse::<Relations>()
-                    .map(|r| r.iter().flatten().map(|d| d.name.clone()).collect())
-                    .unwrap_or_default()
-            })
-            .unwrap_or_default();
-
-        entries.push(SearchEntry {
-            name: name.to_string(),
-            description,
-            status,
-            provides,
-            has_dbg: state.group(&format!("{name}-dbg")).is_some(),
-            section_is_base: candidate.control.section.as_deref() == Some("Bases"),
-            old_version: installed.map(str::to_string),
-            new_version: candidate.version().unwrap_or_default().to_string(),
-        });
+        if let Some(entry) = search_entry(state, name, &package) {
+            entries.push(entry);
+        }
     }
     entries
+}
+
+fn search_status(installed: Option<&str>, candidate: Option<&str>) -> PackageStatus {
+    match installed {
+        Some(installed) if is_upgradable(candidate, Some(installed)) => PackageStatus::Upgrade,
+        Some(_) => PackageStatus::Installed,
+        None => PackageStatus::Avail,
+    }
+}
+
+fn search_entry(state: &AptState, name: &str, package: &crate::Package<'_>) -> Option<SearchEntry> {
+    let candidate = package.candidate()?;
+    let installed = package.installed_version();
+    let description = candidate
+        .control
+        .description
+        .as_deref()
+        .map(|d| d.lines().next().unwrap_or(d).to_string())
+        .unwrap_or_else(|| "No description".to_string());
+    let provides: IndexSet<String> = candidate
+        .control
+        .provides
+        .as_deref()
+        .map(|s| {
+            s.parse::<Relations>()
+                .map(|r| r.iter().flatten().map(|d| d.name.clone()).collect())
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
+
+    Some(SearchEntry {
+        name: name.to_string(),
+        description,
+        status: search_status(installed, candidate.version()),
+        provides,
+        has_dbg: state.group(&format!("{name}-dbg")).is_some(),
+        section_is_base: candidate.control.section.as_deref() == Some("Bases"),
+        old_version: installed.map(str::to_string),
+        new_version: candidate.version().unwrap_or_default().to_string(),
+    })
 }
 
 #[cfg(feature = "search-indicium")]
@@ -400,7 +437,6 @@ impl IndiciumSearch {
             pkg_map: cache.pkg_map,
             index: search_index,
             files: cache.files,
-            search_type,
         })
     }
 
@@ -655,7 +691,6 @@ mod tests {
                 .exclude_keywords(None)
                 .build(),
             files: Vec::new(),
-            search_type: SearchType::Live,
         };
 
         let dir = tempfile::tempdir().unwrap();
