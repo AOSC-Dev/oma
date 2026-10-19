@@ -14,11 +14,12 @@ use crate::apt_sources::SourceLookup;
 /// starts at a 16-byte offset so it is 8-byte aligned (mapping bases and
 /// freshly allocated buffers are page/8-aligned).
 pub(crate) const CACHE_HEADER_LEN: usize = 16;
-/// Bumped whenever a payload stops meaning what it did: `2` keeps a package's
-/// versions per architecture, so a cache built by `1` — where the same
-/// version of several architectures was merged into one record — must not be
-/// read.
-pub(crate) const CACHE_VERSION: u32 = 2;
+/// Bumped whenever a payload stops meaning what it did: `3` keeps an
+/// `Architecture: all` record distinct from the native build (and `2` keeps
+/// a package's versions per architecture). A cache written before either
+/// change — `all` folded into the native architecture, or one record per
+/// version across architectures — must not be read.
+pub(crate) const CACHE_VERSION: u32 = 3;
 
 /// Whether `bytes` begins with a valid header for `magic` (magic + current
 /// version).

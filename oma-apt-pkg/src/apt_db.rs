@@ -222,10 +222,20 @@ fn local_deb_source(path: impl AsRef<Path>) -> IndexSource {
 }
 
 /// Whether two records describe the same version of a package: the same
-/// version string and architecture, with `all` standing for the native
-/// architecture — dpkg records an `Architecture: all` package under the
-/// architecture it is installed on.
-fn same_version_record(a: &PackageEntry, b: &PackageEntry, native_arch: &str) -> bool {
+/// version string and the same `Architecture` field. `Architecture: all` is
+/// a record of its own — apt lists it next to the native build — and a
+/// repository may carry both `all` and the native build of one version
+/// during an architecture transition.
+fn same_version_record(a: &PackageEntry, b: &PackageEntry) -> bool {
+    a.version == b.version && a.architecture == b.architecture
+}
+
+/// Whether a status-file record describes a version the database already
+/// holds: the same version and architecture, with `all` standing for the
+/// native architecture — dpkg records an `Architecture: all` package under
+/// the architecture it is installed on, so it must not be added as a second
+/// record of the same installed version.
+fn same_installed_record(a: &PackageEntry, b: &PackageEntry, native_arch: &str) -> bool {
     fn arch<'a>(entry: &'a PackageEntry, native_arch: &'a str) -> &'a str {
         match entry.architecture.as_deref() {
             Some("all") | None => native_arch,
@@ -278,28 +288,26 @@ pub struct AptDb {
 fn build_map(
     entries: Vec<PackageEntry>,
     entry_sources: Vec<IndexSource>,
-    native_arch: &str,
 ) -> HashMap<String, Vec<PackageVersion>> {
     let mut map = HashMap::new();
     for (e, src) in entries.into_iter().zip(entry_sources) {
         let pkg = e.package.clone();
-        push_or_merge(map.entry(pkg).or_default(), e, Some(src), native_arch);
+        push_or_merge(map.entry(pkg).or_default(), e, Some(src));
     }
     map
 }
 
 /// Push `entry` into `versions`, merging it into the existing entry of the
-/// same version (adding `source` to its source list) so a version shared by
-/// several sources is stored once.
+/// same version and architecture (adding `source` to its source list) so a
+/// version shared by several sources is stored once.
 fn push_or_merge(
     versions: &mut Vec<PackageVersion>,
     entry: PackageEntry,
     source: Option<IndexSource>,
-    native_arch: &str,
 ) {
     if let Some(existing) = versions
         .iter_mut()
-        .find(|v| same_version_record(&v.entry, &entry, native_arch))
+        .find(|v| same_version_record(&v.entry, &entry))
     {
         if let Some(source) = source
             && !existing.sources.contains(&source)
@@ -395,7 +403,7 @@ impl AptDb {
         for e in entries {
             let name = e.package.clone();
             let versions = map.entry(name).or_default();
-            push_or_merge(versions, e, None, native_arch);
+            push_or_merge(versions, e, None);
         }
         Self {
             repo: Repo::Owned(map),
@@ -413,8 +421,7 @@ impl AptDb {
     /// `APT-Sources` entry.
     pub fn insert(&mut self, entry: PackageEntry) {
         let name = entry.package.clone();
-        let native_arch = self.native_arch.clone();
-        push_or_merge(self.mutate_versions(&name), entry, None, &native_arch);
+        push_or_merge(self.mutate_versions(&name), entry, None);
     }
 
     /// Insert a package entry together with its source, merging into the
@@ -422,13 +429,7 @@ impl AptDb {
     /// sources stays one version whose source list grows.
     pub fn insert_with_source(&mut self, entry: PackageEntry, source: IndexSource) {
         let name = entry.package.clone();
-        let native_arch = self.native_arch.clone();
-        push_or_merge(
-            self.mutate_versions(&name),
-            entry,
-            Some(source),
-            &native_arch,
-        );
+        push_or_merge(self.mutate_versions(&name), entry, Some(source));
     }
 
     /// Parse a local `.deb` file and insert its control entry into the
@@ -591,7 +592,7 @@ impl AptDb {
         entry_sources: Vec<IndexSource>,
     ) -> Self {
         Self {
-            repo: Repo::Owned(build_map(entries, entry_sources, native_arch)),
+            repo: Repo::Owned(build_map(entries, entry_sources)),
             overlay: HashMap::new(),
             native_arch: native_arch.to_string(),
         }
@@ -654,7 +655,7 @@ impl AptDb {
         let (entries, sources) = parse_apt_lists_dir_with_sources(&lists_dir, &lookup, &archs)?;
         let files = cache::collect(&lists_dir, &lookup, &archs);
         let data = AptDbData {
-            entries: build_map(entries, sources, &native_arch),
+            entries: build_map(entries, sources),
             native_arch: native_arch.to_string(),
             files,
         };
@@ -693,7 +694,7 @@ impl AptDb {
     fn has_record(&self, entry: &PackageEntry) -> bool {
         self.versions(&entry.package)
             .iter()
-            .any(|v| same_version_record(&v.entry, entry, &self.native_arch))
+            .any(|v| same_installed_record(&v.entry, entry, &self.native_arch))
     }
 
     /// The architecture this system runs (`APT::Architecture`), which the
@@ -1027,9 +1028,75 @@ Description: vendor only
         assert!(!db.has_record(&entry("nosuchpkg", "3.6")));
 
         // The same version of another architecture is a record of its own,
-        // and `all` names the native architecture.
+        // and an installed `all` record names the native architecture.
         assert!(db.has_record(&with_arch("fish", "3.6", "all")));
         assert!(!db.has_record(&with_arch("fish", "3.6", "i386")));
+    }
+
+    /// `Architecture: all` and the native architecture are separate records
+    /// even at the same version (a repository may list both during an
+    /// architecture transition): neither takes the other's source, and the
+    /// all record is still found by its name.
+    #[test]
+    fn test_all_and_native_arch_are_distinct_records() {
+        let with_arch = |version: &str, arch: &str| PackageEntry {
+            architecture: Some(arch.to_string()),
+            ..entry("vendor-tool", version)
+        };
+        let all_source = IndexSource {
+            base_url: "file:/repo".to_string(),
+            suite: "stable".to_string(),
+            component: Some("main".to_string()),
+            arch: Some("all".to_string()),
+        };
+        let native_source = IndexSource {
+            arch: Some("amd64".to_string()),
+            ..all_source.clone()
+        };
+        let db = AptDb::from_entries_with_sources(
+            "amd64",
+            vec![with_arch("7", "all"), with_arch("7", "amd64")],
+            vec![all_source.clone(), native_source.clone()],
+        );
+
+        let versions = db.versions("vendor-tool");
+        assert_eq!(versions.len(), 2, "all and amd64 are separate records");
+        let all = versions
+            .iter()
+            .find(|version| version.entry.architecture.as_deref() == Some("all"))
+            .expect("the all record is kept");
+        let native = versions
+            .iter()
+            .find(|version| version.entry.architecture.as_deref() == Some("amd64"))
+            .expect("the native record is kept");
+        assert_eq!(all.sources, vec![all_source.clone()]);
+        assert_eq!(native.sources, vec![native_source]);
+
+        // The all record still resolves by name, with its own source.
+        let matcher = PackageMatcher::new(&db);
+        let matched = matcher
+            .match_pkgs_and_versions_from_glob("vendor-tool:all")
+            .unwrap();
+        assert_eq!(matched.len(), 1);
+        assert_eq!(matched[0].len(), 1);
+        assert_eq!(matched[0][0].entry.architecture.as_deref(), Some("all"));
+        assert_eq!(matched[0][0].sources, vec![all_source]);
+    }
+
+    /// Only the status file treats `all` and the native build as one
+    /// installed version; repository records keep them apart.
+    #[test]
+    fn test_status_dedup_treats_all_as_native() {
+        let with_arch = |version: &str, arch: &str| PackageEntry {
+            architecture: Some(arch.to_string()),
+            ..entry("vendor-tool", version)
+        };
+        let db = AptDb::from_entries("amd64", vec![with_arch("7", "amd64")]);
+
+        assert!(db.has_record(&with_arch("7", "amd64")));
+        assert!(db.has_record(&with_arch("7", "all")));
+        assert!(!db.has_record(&with_arch("7", "i386")));
+        assert!(!db.has_record(&with_arch("8", "amd64")));
     }
 
     #[test]
@@ -1093,7 +1160,10 @@ Description: vendor only
 
         let mut db = AptDb::from_entries_with_sources(
             "amd64",
-            vec![entry("hello", "2.10-2")],
+            vec![PackageEntry {
+                architecture: Some("amd64".to_string()),
+                ..entry("hello", "2.10-2")
+            }],
             vec![IndexSource {
                 base_url: "https://example.com/debs".to_string(),
                 suite: "stable".to_string(),
@@ -1142,7 +1212,6 @@ Description: vendor only
                     entry("apt", "2.5.4"),
                 ],
                 vec![stable_source(), stable_source(), stable_source()],
-                "amd64",
             ),
             native_arch: "amd64".to_string(),
             files: Vec::new(),
@@ -1183,11 +1252,7 @@ Description: vendor only
         let path = dir.path().join("oma-aptdb.bincode");
 
         let data = AptDbData {
-            entries: build_map(
-                vec![entry("hello", "2.10-2")],
-                vec![stable_source()],
-                "amd64",
-            ),
+            entries: build_map(vec![entry("hello", "2.10-2")], vec![stable_source()]),
             native_arch: "amd64".to_string(),
             files: Vec::new(),
         };
@@ -1239,7 +1304,6 @@ Description: vendor only
             entries: build_map(
                 vec![entry("fish", "3.6"), entry("fish", "3.7")],
                 vec![stable_source(), stable_source()],
-                "amd64",
             ),
             native_arch: "amd64".to_string(),
             files: Vec::new(),
@@ -1280,7 +1344,6 @@ Description: vendor only
                     entry("apt", "2.5.4"),
                 ],
                 vec![stable_source(), stable_source(), stable_source()],
-                "amd64",
             ),
             native_arch: "amd64".to_string(),
             files: Vec::new(),
