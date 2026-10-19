@@ -180,9 +180,12 @@ Package: removed-tool\nVersion: 1\nArchitecture: amd64\nStatus: deinstall ok con
 
     // One search result per group: an installed foreign build still counts
     // as installed even though the preferred package is the native one.
+    let libfoo = state.group("libfoo").unwrap();
+    assert_eq!(libfoo.installed_version(), Some("1"));
     assert_eq!(
-        state.group("libfoo").unwrap().installed_version(),
-        Some("1")
+        libfoo.installed_package().unwrap().arch().as_str(),
+        "i386",
+        "the installed package is selected, not the preferred native one"
     );
 
     assert_eq!(

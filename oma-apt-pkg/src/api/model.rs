@@ -78,12 +78,23 @@ impl<'a> Group<'a> {
             .map(|(arch, _)| Package::new(self.state, self.name, arch))
     }
 
-    /// The installed version of any package in this group, across
-    /// architectures. Search shows one result per group, so an installed
-    /// foreign build must still mark that result as installed.
+    /// The installed package in this group. Search compares this package's
+    /// candidate with its own installed version, not the preferred
+    /// architecture's candidate. Package order makes the choice deterministic
+    /// when several architectures are installed.
+    pub fn installed_package(&self) -> Option<Package<'a>> {
+        self.state
+            .package_order(self.name)
+            .iter()
+            .filter_map(|arch| self.package(arch))
+            .find(|package| package.is_installed())
+            .or_else(|| self.packages().find(|package| package.is_installed()))
+    }
+
+    /// The installed version of the installed package in this group, if any.
     pub fn installed_version(&self) -> Option<&'a str> {
-        self.packages()
-            .find_map(|package| package.installed_version())
+        self.installed_package()
+            .and_then(|package| package.installed_version())
     }
 
     /// Apt's preferred package: the native build, else the first configured

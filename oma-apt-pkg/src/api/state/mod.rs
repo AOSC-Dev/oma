@@ -341,6 +341,15 @@ impl AptState {
         true
     }
 
+    /// Package architectures in insertion order (apt's group package order).
+    /// Status-only packages are appended during the status merge.
+    pub(crate) fn package_order(&self, name: &str) -> &[Arch] {
+        self.package_order
+            .get(name)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
+
     pub(crate) fn packages<'a>(&'a self, name: &str) -> &'a HashMap<Arch, Vec<Version>> {
         static EMPTY: std::sync::OnceLock<HashMap<Arch, Vec<Version>>> = std::sync::OnceLock::new();
         self.groups
