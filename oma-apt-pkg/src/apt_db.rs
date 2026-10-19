@@ -252,7 +252,7 @@ fn file_uri(path: impl AsRef<Path>) -> String {
 /// The [`IndexSource`] for a local `.deb` — its `file:` URI with APT's
 /// conventional `local-deb/local-deb` suite/component, so repository
 /// consumers can format it the same way.
-fn local_deb_source(path: impl AsRef<Path>) -> IndexSource {
+pub(crate) fn local_deb_source(path: impl AsRef<Path>) -> IndexSource {
     IndexSource {
         base_url: file_uri(path),
         suite: "local-deb".to_string(),

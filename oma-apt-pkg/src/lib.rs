@@ -1,5 +1,13 @@
 pub mod apt_config;
 #[cfg(feature = "apt-lists")]
+mod arch;
+#[cfg(feature = "apt-lists")]
+mod state;
+#[cfg(feature = "apt-lists")]
+pub use arch::{Arch, PackageKey};
+#[cfg(feature = "apt-lists")]
+pub use state::{AptState, Control, Group, QueryResolution, ResolvedPackage, Source, Version};
+#[cfg(feature = "apt-lists")]
 mod apt_db;
 #[cfg(feature = "apt-lists")]
 mod cache;

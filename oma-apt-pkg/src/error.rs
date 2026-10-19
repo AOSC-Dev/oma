@@ -17,4 +17,7 @@ pub enum Error {
     /// APT-Sources formatting failed (e.g. missing architecture).
     #[error("{0}")]
     AptSources(String),
+    /// The APT configuration is incomplete.
+    #[error("{0}")]
+    Config(String),
 }
