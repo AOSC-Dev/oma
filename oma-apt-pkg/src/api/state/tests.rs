@@ -171,10 +171,39 @@ Package: removed-tool\nVersion: 1\nArchitecture: amd64\nStatus: deinstall ok con
             .as_str(),
         "i386"
     );
+    // A status-only package records its architectures in package order too,
+    // so `:any` resolves.
+    let any = state.resolve(vec!["vendor-tool:any".into()]);
+    assert_eq!(any.resolved[0].key.arch.as_str(), "amd64");
+
     assert_eq!(
         state.resolve(vec!["removed-tool".into()]).no_match,
         vec!["removed-tool"]
     );
+}
+
+#[test]
+fn local_deb_resolves_only_its_own_version() {
+    let mut state = state("amd64", &["amd64"]);
+    add(&mut state, "foo", "1", "amd64");
+    add(&mut state, "foo", "2", "amd64");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("foo_9_amd64.deb");
+    std::fs::write(
+        &path,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 9\nArchitecture: amd64\nDescription: local\n",
+        ),
+    )
+    .unwrap();
+    state.insert_deb(&path).unwrap();
+
+    let resolution = state.resolve(vec![path.to_string_lossy().into_owned()]);
+    assert_eq!(resolution.resolved.len(), 1);
+    let versions = &resolution.resolved[0].versions;
+    assert_eq!(versions.len(), 1, "only the .deb's version is selected");
+    assert_eq!(versions[0].version(), Some("9"));
 }
 
 #[test]
