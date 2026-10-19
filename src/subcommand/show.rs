@@ -66,9 +66,10 @@ impl CliExecuter for Show {
         let (mut apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
 
         // Resolve each query: local `.deb` files are parsed directly,
-        // everything else is matched against the package database.
+        // everything else is matched against the package database — which
+        // answers for a package only the status file has as well.
         let resolution = apt_db
-            .resolve_queries(packages)
+            .resolve_queries(packages, &dpkg)
             .context("Failed to resolve package queries")?;
 
         handle_no_result(
@@ -317,6 +318,12 @@ fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
 /// `local-deb/local-deb` suite/component, so it renders through the same
 /// path.
 fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
+    // The dpkg status file is not an index: apt names the file itself, e.g.
+    // `APT-Sources: /var/lib/dpkg/status`.
+    if source.is_dpkg_status() {
+        return source.base_url.clone();
+    }
+
     // libapt renders the archive URI without a trailing slash in
     // APT-Sources: its sources.list parser appends one internally
     // (`FixupURI`), but the displayed URI is trimmed, e.g.
@@ -366,5 +373,19 @@ fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
         (Some(component), Some(_)) => format!("{base_url} {suite}/{component} Packages"),
         (Some(component), None) => format!("{base_url} {suite}/{component}"),
         (None, _) => format!("{base_url} {suite}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_source_is_named_by_its_file() {
+        let source = IndexSource::dpkg_status("/var/lib/dpkg/status");
+        assert_eq!(
+            format_apt_source(&source, &AptConfig::new()),
+            "/var/lib/dpkg/status"
+        );
     }
 }

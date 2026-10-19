@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
+use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph, ParagraphReader};
 
 /// Errors that can occur when parsing dpkg status files.
 #[derive(Debug, thiserror::Error)]
@@ -42,6 +42,21 @@ pub struct DpkgPackage {
 }
 
 impl DpkgPackage {
+    /// The current state — the third word of `Status` (`installed`,
+    /// `unpacked`, `half-configured`, `config-files`, `not-installed`, ...).
+    pub fn current_state(&self) -> Option<&str> {
+        self.status.as_deref()?.split_whitespace().nth(2)
+    }
+
+    /// Whether the status file holds a version of the package.
+    ///
+    /// dpkg keeps a paragraph for a package that is gone as well, with its
+    /// configuration files or nothing at all left behind; apt's cache holds
+    /// no version for either, whatever the desired state says.
+    pub fn has_version(&self) -> bool {
+        !matches!(self.current_state(), Some("not-installed" | "config-files"))
+    }
+
     /// Derive selection state from the `Status` field.
     pub fn selection_state(&self) -> SelectionState {
         let s = match self.status.as_deref() {
@@ -61,15 +76,21 @@ impl DpkgPackage {
         }
     }
 }
-/// Parse `/var/lib/dpkg/status` and return full package information.
-///
-/// Streams the file paragraph by paragraph via
+/// The status file's paragraphs, streamed via
 /// [`Deb822::iter_paragraphs_from_reader`] — the file holds every installed
 /// package and is never buffered whole.
-pub fn parse_dpkg_status(path: impl AsRef<Path>) -> Result<Vec<DpkgPackage>, DpkgError> {
+pub(crate) fn paragraphs(
+    path: impl AsRef<Path>,
+) -> Result<ParagraphReader<std::io::BufReader<std::fs::File>>, DpkgError> {
     let file = std::fs::File::open(path.as_ref())?;
+    Ok(Deb822::iter_paragraphs_from_reader(
+        std::io::BufReader::new(file),
+    ))
+}
 
-    Deb822::iter_paragraphs_from_reader(std::io::BufReader::new(file))
+/// Parse `/var/lib/dpkg/status` and return full package information.
+pub fn parse_dpkg_status(path: impl AsRef<Path>) -> Result<Vec<DpkgPackage>, DpkgError> {
+    paragraphs(path)?
         .map(|para| {
             let para = para.map_err(DpkgError::Deb822)?;
             DpkgPackage::from_paragraph(&para)
@@ -140,5 +161,8 @@ Status: deinstall ok config-files
 
         assert_eq!(packages[2].name, "old-kernel");
         assert!(!packages[2].selection_state().is_installed());
+        // Configuration files left behind: no version in apt's cache.
+        assert!(!packages[2].has_version());
+        assert!(packages[0].has_version());
     }
 }
