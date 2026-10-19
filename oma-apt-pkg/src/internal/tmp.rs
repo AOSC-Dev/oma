@@ -1,74 +1,26 @@
-//! Temporary paths and atomic cache writes.
+//! Atomic cache writes through a temporary file.
 
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::Path;
 
-static COUNTER: AtomicU64 = AtomicU64::new(0);
+use tempfile::NamedTempFile;
 
-/// A temporary file next to its target, so a rename can replace the target
-/// atomically. The path is unique per process and call — concurrent writers
-/// cannot truncate each other's temporary file.
-///
-/// The file is removed on drop unless [`TempPath::persist`] renamed it.
-pub(crate) struct TempPath {
-    path: PathBuf,
-    persisted: bool,
-}
-
-impl TempPath {
-    pub(crate) fn new(target: &Path) -> Self {
-        let mut name = target
-            .file_name()
-            .map(|name| name.to_os_string())
-            .unwrap_or_default();
-        name.push(format!(
-            ".tmp.{}.{}",
-            std::process::id(),
-            COUNTER.fetch_add(1, Ordering::Relaxed)
-        ));
-
-        Self {
-            path: target.with_file_name(name),
-            persisted: false,
-        }
-    }
-
-    pub(crate) fn path(&self) -> &Path {
-        &self.path
-    }
-
-    /// Rename the temporary file over `target`.
-    pub(crate) fn persist(mut self, target: &Path) -> io::Result<()> {
-        std::fs::rename(&self.path, target)?;
-        self.persisted = true;
-        Ok(())
-    }
-}
-
-impl Drop for TempPath {
-    fn drop(&mut self) {
-        if !self.persisted {
-            let _ = std::fs::remove_file(&self.path);
-        }
-    }
-}
-
-/// Write `bytes` to `target` through a temporary file and rename, creating
-/// the parent directory if needed. The temporary file is cleaned up if
-/// writing or renaming fails.
+/// Write `bytes` to `target` through a uniquely named temporary file in the
+/// same directory, then rename it into place. `NamedTempFile` creates the
+/// file with `O_EXCL`, so concurrent writers cannot truncate each other, and
+/// removes it on drop if writing or renaming fails.
 pub(crate) fn write(target: &Path, bytes: &[u8]) -> io::Result<()> {
-    if let Some(parent) = target.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    let parent = match target.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
+    std::fs::create_dir_all(parent)?;
 
-    let tmp = TempPath::new(target);
-    {
-        let mut file = std::fs::File::create(tmp.path())?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
-    }
-    tmp.persist(target)
+    let mut tmp = NamedTempFile::new_in(parent)?;
+    tmp.write_all(bytes)?;
+    tmp.as_file().sync_all()?;
+    tmp.persist(target).map_err(|error| error.error)?;
+    Ok(())
 }
 
 #[cfg(test)]
