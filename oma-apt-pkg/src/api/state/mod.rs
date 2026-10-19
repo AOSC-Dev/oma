@@ -320,6 +320,7 @@ impl AptState {
             version_arch.clone()
         };
         let key = PackageKey::new(control.package.clone(), package_arch.clone());
+        let source = crate::deb::source_for(path);
         let Some(versions) = self
             .groups
             .get(&control.package)
@@ -328,7 +329,11 @@ impl AptState {
             return false;
         };
         let Some(index) = versions.iter().position(|version| {
-            version.version() == control.version.as_deref() && version.arch == version_arch
+            version.version() == control.version.as_deref()
+                && version.arch == version_arch
+                && version.sources.iter().any(|candidate| {
+                    candidate.is_local_deb() && candidate.base_url == source.base_url
+                })
         }) else {
             return false;
         };
@@ -493,10 +498,24 @@ impl AptState {
 }
 
 fn push_or_merge(versions: &mut Vec<Version>, version: Version) {
-    if let Some(existing) = versions
-        .iter_mut()
-        .find(|existing| existing.version() == version.version() && existing.arch == version.arch)
-    {
+    let new_is_local = version.sources.iter().any(Source::is_local_deb);
+    if let Some(existing) = versions.iter_mut().find(|existing| {
+        if existing.version() != version.version() || existing.arch != version.arch {
+            return false;
+        }
+        if new_is_local {
+            // Keep distinct local files separate, but coalesce re-inserting
+            // the same file.
+            existing
+                .sources
+                .iter()
+                .any(|source| source.is_local_deb() && version.sources.contains(source))
+        } else {
+            // A local `.deb` keeps its own control record; never merge it
+            // with an indexed version of the same identity.
+            !existing.sources.iter().any(Source::is_local_deb)
+        }
+    }) {
         for source in version.sources {
             if !existing.sources.contains(&source) {
                 existing.sources.push(source);

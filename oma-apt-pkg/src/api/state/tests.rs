@@ -267,3 +267,64 @@ fn malformed_status_paragraph_is_an_error() {
     state.status_path = path;
     assert!(state.merge_status().is_err());
 }
+
+#[test]
+fn local_deb_keeps_its_control_when_the_repo_has_the_same_version() {
+    let mut state = state("amd64", &["amd64"]);
+    add(&mut state, "foo", "1", "amd64");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("foo_1_amd64.deb");
+    std::fs::write(
+        &path,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 1\nArchitecture: amd64\nDescription: local control\n",
+        ),
+    )
+    .unwrap();
+    state.insert_deb(&path).unwrap();
+
+    let resolution = state.resolve(vec![path.to_string_lossy().into_owned()]);
+    let versions = &resolution.resolved[0].versions;
+    assert_eq!(versions.len(), 1);
+    assert_eq!(
+        versions[0].control.description.as_deref(),
+        Some("local control")
+    );
+    assert!(versions[0].sources.iter().all(Source::is_local_deb));
+}
+
+#[test]
+fn distinct_local_debs_with_the_same_identity_stay_separate() {
+    let mut state = state("amd64", &["amd64"]);
+
+    let dir = tempfile::tempdir().unwrap();
+    let one = dir.path().join("foo_1_amd64.deb");
+    let two = dir.path().join("foo_1_amd64-copy.deb");
+    std::fs::write(
+        &one,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 1\nArchitecture: amd64\nDescription: first local\n",
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        &two,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 1\nArchitecture: amd64\nDescription: second local\n",
+        ),
+    )
+    .unwrap();
+    state.insert_deb(&one).unwrap();
+    state.insert_deb(&two).unwrap();
+
+    for (path, description) in [(&one, "first local"), (&two, "second local")] {
+        let resolution = state.resolve(vec![path.to_string_lossy().into_owned()]);
+        let versions = &resolution.resolved[0].versions;
+        assert_eq!(versions.len(), 1);
+        assert_eq!(
+            versions[0].control.description.as_deref(),
+            Some(description)
+        );
+    }
+}
