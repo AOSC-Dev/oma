@@ -44,5 +44,5 @@ pub(super) fn save_state_cache(path: &str, data: &AptStateData) -> std::io::Resu
     crate::internal::cache::push_header(&mut buf, STATE_CACHE_MAGIC);
     buf.extend_from_slice(&archive);
 
-    crate::internal::tmp::write(Path::new(path), &buf)
+    crate::internal::cache::write_atomic(Path::new(path), &buf)
 }

@@ -486,7 +486,7 @@ impl IndiciumSearch {
         crate::internal::cache::push_header(&mut buf, SEARCH_CACHE_MAGIC);
         buf.extend_from_slice(&archive);
 
-        crate::internal::tmp::write(path, &buf)
+        crate::internal::cache::write_atomic(path, &buf)
     }
 }
 
