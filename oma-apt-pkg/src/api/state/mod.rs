@@ -430,6 +430,16 @@ impl AptState {
             } else {
                 version_arch.clone()
             };
+            if !self
+                .groups
+                .get(&pkg.name)
+                .is_some_and(|packages| packages.contains_key(&package_arch))
+            {
+                self.package_order
+                    .entry(pkg.name.clone())
+                    .or_default()
+                    .push(package_arch.clone());
+            }
             let versions = self
                 .groups
                 .entry(pkg.name.clone())

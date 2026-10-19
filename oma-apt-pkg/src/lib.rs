@@ -9,7 +9,6 @@ pub mod apt_config;
 
 #[cfg(feature = "apt-lists")]
 mod api;
-#[cfg(feature = "apt-lists")]
 mod internal;
 
 #[cfg(feature = "apt-lists")]
@@ -17,7 +16,6 @@ pub use api::{
     AptState, Arch, Control, Group, Package, PackageKey, QueryResolution, ResolvedPackage, Source,
     Version,
 };
-#[cfg(feature = "apt-lists")]
 pub use internal::dpkg::DpkgError;
 #[cfg(feature = "apt-lists")]
 pub use internal::lists::AptListsError;
