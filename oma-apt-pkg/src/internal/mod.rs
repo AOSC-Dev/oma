@@ -9,3 +9,4 @@ pub(crate) mod config_parser;
 pub(crate) mod dpkg;
 #[cfg(feature = "apt-lists")]
 pub(crate) mod lists;
+pub(crate) mod tmp;

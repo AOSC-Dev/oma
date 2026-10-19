@@ -1,8 +1,7 @@
 //! The rkyv cache for the Packages half of [`AptState`](super::AptState).
 
 use std::collections::HashMap;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use super::super::arch::Arch;
 use super::super::model::Version;
@@ -41,21 +40,9 @@ pub(super) fn load_state_cache(path: &str) -> Option<AptStateData> {
 
 pub(super) fn save_state_cache(path: &str, data: &AptStateData) -> std::io::Result<()> {
     let archive = rkyv::to_bytes::<rkyv::rancor::Error>(data).map_err(std::io::Error::other)?;
-    let path = Path::new(path);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
     let mut buf = Vec::with_capacity(crate::internal::cache::CACHE_HEADER_LEN + archive.len());
     crate::internal::cache::push_header(&mut buf, STATE_CACHE_MAGIC);
     buf.extend_from_slice(&archive);
 
-    let mut tmp = path.as_os_str().to_owned();
-    tmp.push(".tmp");
-    let tmp = PathBuf::from(tmp);
-    let mut file = std::fs::File::create(&tmp)?;
-    file.write_all(&buf)?;
-    file.sync_all()?;
-    std::fs::rename(&tmp, path)?;
-    Ok(())
+    crate::internal::tmp::write(Path::new(path), &buf)
 }
