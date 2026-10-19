@@ -192,7 +192,13 @@ impl DpkgState {
                 };
                 patterns.iter().any(|(glob, arch)| {
                     glob_match(glob, name)
-                        && arch.is_none_or(|arch| paragraph.get("Architecture") == Some(arch))
+                        && arch.is_none_or(|arch| {
+                            // `Architecture: all` runs on every architecture,
+                            // as the matcher's `arch_matches` treats it.
+                            paragraph
+                                .get("Architecture")
+                                .is_some_and(|entry_arch| entry_arch == arch || entry_arch == "all")
+                        })
                 })
             })
             .filter_map(|paragraph| {
@@ -244,6 +250,11 @@ Package: unpacked-tool
 Version: 3
 Architecture: amd64
 Status: install ok unpacked
+
+Package: all-tool
+Version: 2
+Architecture: all
+Status: install ok installed
 ";
 
     fn write_status() -> tempfile::TempDir {
@@ -309,8 +320,14 @@ Status: install ok unpacked
         assert_eq!(foreign.len(), 1);
         assert_eq!(foreign[0].architecture.as_deref(), Some("i386"));
 
+        // `Architecture: all` satisfies every concrete architecture, as the
+        // matcher treats it.
+        let all_build = state.entries(["all-tool:i386"]);
+        assert_eq!(all_build.len(), 1);
+        assert_eq!(all_build[0].architecture.as_deref(), Some("all"));
+
         let glob = state.entries(["*-tool"]);
-        assert_eq!(glob.len(), 3, "two vendor builds + the unpacked package");
+        assert_eq!(glob.len(), 4, "two vendor builds + unpacked + all");
 
         // A package with only configuration files left has no version; an
         // unpacked one does.

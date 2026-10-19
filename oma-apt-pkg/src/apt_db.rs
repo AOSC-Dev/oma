@@ -899,6 +899,11 @@ Version: 1
 Architecture: amd64
 Status: deinstall ok config-files
 
+Package: all-tool
+Version: 2
+Architecture: all
+Status: install ok installed
+
 ",
         )
         .unwrap();
@@ -909,6 +914,7 @@ Status: deinstall ok config-files
                 vec![
                     "vendor-tool:i386".into(),
                     "vendor-tool=7".into(),
+                    "all-tool:i386".into(),
                     "removed-tool".into(),
                     "indexed".into(),
                 ],
@@ -918,7 +924,7 @@ Status: deinstall ok config-files
 
         // A package with only configuration files left is not shown.
         assert_eq!(resolution.no_match, vec!["removed-tool"]);
-        assert_eq!(resolution.resolved.len(), 3);
+        assert_eq!(resolution.resolved.len(), 4);
 
         let foreign = &resolution.resolved[0].versions;
         assert_eq!(foreign.len(), 1);
@@ -934,9 +940,16 @@ Status: deinstall ok config-files
                 .all(|version| version.sources[0].is_dpkg_status())
         );
 
+        // An `Architecture: all` status record satisfies a concrete
+        // qualifier, as the matcher treats it.
+        let all_build = &resolution.resolved[2].versions;
+        assert_eq!(all_build.len(), 1);
+        assert_eq!(all_build[0].entry.architecture.as_deref(), Some("all"));
+        assert!(all_build[0].sources[0].is_dpkg_status());
+
         // The indexed package still comes from the repository.
         assert!(
-            resolution.resolved[2]
+            resolution.resolved[3]
                 .versions
                 .iter()
                 .all(|version| !version.sources.iter().any(|source| source.is_dpkg_status()))
