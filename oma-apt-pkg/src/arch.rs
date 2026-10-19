@@ -14,6 +14,11 @@ use std::fmt;
 /// Selectors are kept distinct from concrete names; resolve them with
 /// [`AptState`](crate::state::AptState) rather than comparing strings.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "apt-lists",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+#[cfg_attr(feature = "apt-lists", rkyv(derive(Hash, Eq, PartialEq)))]
 pub struct Arch(String);
 
 impl Arch {

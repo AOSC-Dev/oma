@@ -12,19 +12,22 @@
 //! query packages and versions here.
 
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use glob_match::glob_match;
+use oma_logger::debug;
 
 use deb822_fast::FromDeb822Paragraph;
 
 pub use crate::apt_lists::{IndexSource as Source, PackageEntry as Control};
 use crate::apt_sources::SourceLookup;
 use crate::arch::{Arch, PackageKey};
+use crate::cache::CacheFile;
 use crate::error::Error;
 
 /// One version record of a package.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Version {
     /// The raw control fields, as apt's `pkgCache::Version` keeps them.
     pub control: Control,
@@ -229,6 +232,18 @@ impl<'a> Query<'a> {
     }
 }
 
+/// Magic for the package-database cache (`Dir::Cache::oma-aptdb`).
+const STATE_CACHE_MAGIC: &[u8; 8] = b"OMAST\x00\x00\x00";
+
+/// On-disk form of an [`AptState`]: the Packages data only. dpkg status is
+/// live and merged after loading, like apt's status cache refresh.
+#[derive(Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+struct AptStateData {
+    groups: HashMap<String, HashMap<Arch, Vec<Version>>>,
+    package_order: HashMap<String, Vec<Arch>>,
+    files: Vec<CacheFile>,
+}
+
 /// The unified package state: apt lists plus dpkg status.
 #[derive(Debug)]
 pub struct AptState {
@@ -241,6 +256,7 @@ pub struct AptState {
     /// (name, arch) → installed version.
     installed: HashMap<PackageKey, String>,
     status_path: PathBuf,
+    files: Vec<CacheFile>,
 }
 
 impl AptState {
@@ -253,14 +269,31 @@ impl AptState {
 
         let architectures: Vec<Arch> = cfg.architectures().into_iter().map(Arch::new).collect();
         let lists_dir = cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
+        let cache_path = cfg.get_file("Dir::Cache::oma-aptdb", "var/cache/apt/oma-aptdb.bincode");
         let status_path = PathBuf::from(cfg.get_file("Dir::State::status", "var/lib/dpkg/status"));
         let lookup = SourceLookup::build(cfg);
+        let archs = cfg.architectures();
 
-        let (entries, sources) = crate::apt_lists::parse_apt_lists_dir_with_sources(
-            &lists_dir,
-            &lookup,
-            &cfg.architectures(),
-        )?;
+        if let Some(data) = load_state_cache(&cache_path)
+            && crate::cache::valid(&cache_path, &lists_dir, &lookup, &archs, &data.files)
+        {
+            debug!("oma package state cache hit: {cache_path}");
+            let mut state = Self {
+                native,
+                architectures,
+                groups: data.groups,
+                package_order: data.package_order,
+                installed: HashMap::new(),
+                status_path,
+                files: data.files,
+            };
+            state.merge_status();
+            return Ok(state);
+        }
+
+        debug!("oma package state cache miss: {cache_path}");
+        let (entries, sources) =
+            crate::apt_lists::parse_apt_lists_dir_with_sources(&lists_dir, &lookup, &archs)?;
 
         let mut state = Self {
             native,
@@ -269,8 +302,10 @@ impl AptState {
             package_order: HashMap::new(),
             installed: HashMap::new(),
             status_path,
+            files: crate::cache::collect(&lists_dir, &lookup, &archs),
         };
         state.add_index(entries, sources);
+        state.save_cache(&cache_path);
         state.merge_status();
         Ok(state)
     }
@@ -320,6 +355,17 @@ impl AptState {
     /// Whether `key` is installed.
     pub fn is_installed(&self, key: &PackageKey) -> bool {
         self.installed.contains_key(key)
+    }
+
+    fn save_cache(&self, path: &str) {
+        let data = AptStateData {
+            groups: self.groups.clone(),
+            package_order: self.package_order.clone(),
+            files: self.files.clone(),
+        };
+        if let Err(e) = save_state_cache(path, &data) {
+            debug!("Failed to save oma package state cache: {e}");
+        }
     }
 
     /// Insert one local `.deb` and return its key, so a query can resolve it.
@@ -583,6 +629,39 @@ impl AptState {
     }
 }
 
+fn load_state_cache(path: &str) -> Option<AptStateData> {
+    let bytes = std::fs::read(path).ok()?;
+    if !crate::cache::header_ok(&bytes, STATE_CACHE_MAGIC) {
+        return None;
+    }
+    let archived = rkyv::access::<ArchivedAptStateData, rkyv::rancor::Error>(
+        &bytes[crate::cache::CACHE_HEADER_LEN..],
+    )
+    .ok()?;
+    Some(crate::cache::from_archived::<AptStateData>(archived))
+}
+
+fn save_state_cache(path: &str, data: &AptStateData) -> std::io::Result<()> {
+    let archive = rkyv::to_bytes::<rkyv::rancor::Error>(data).map_err(std::io::Error::other)?;
+    let path = Path::new(path);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    let mut buf = Vec::with_capacity(crate::cache::CACHE_HEADER_LEN + archive.len());
+    crate::cache::push_header(&mut buf, STATE_CACHE_MAGIC);
+    buf.extend_from_slice(&archive);
+
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    let mut file = std::fs::File::create(&tmp)?;
+    file.write_all(&buf)?;
+    file.sync_all()?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
 fn push_or_merge(versions: &mut Vec<Version>, version: Version) {
     if let Some(existing) = versions
         .iter_mut()
@@ -637,6 +716,7 @@ mod tests {
             package_order: HashMap::new(),
             installed: HashMap::new(),
             status_path: PathBuf::new(),
+            files: Vec::new(),
         }
     }
 
@@ -786,5 +866,32 @@ Package: removed-tool\nVersion: 1\nArchitecture: amd64\nStatus: deinstall ok con
             state.resolve(vec!["removed-tool".into()]).no_match,
             vec!["removed-tool"]
         );
+    }
+
+    #[test]
+    fn state_cache_roundtrips() {
+        let mut state = state("amd64", &["amd64", "i386"]);
+        add(&mut state, "foo", "1", "amd64");
+        add(&mut state, "foo", "2", "i386");
+        add(&mut state, "foo", "3", "all");
+
+        let data = AptStateData {
+            groups: state.groups.clone(),
+            package_order: state.package_order.clone(),
+            files: Vec::new(),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("oma-aptdb.bincode");
+        save_state_cache(path.to_str().unwrap(), &data).unwrap();
+
+        let loaded = load_state_cache(path.to_str().unwrap()).unwrap();
+        assert_eq!(loaded.groups.len(), 1);
+        let packages = &loaded.groups["foo"];
+        assert_eq!(packages.len(), 2);
+        assert_eq!(
+            loaded.package_order["foo"],
+            vec![Arch::new("amd64"), Arch::new("i386")]
+        );
+        assert_eq!(packages[&Arch::new("amd64")].len(), 2);
     }
 }
