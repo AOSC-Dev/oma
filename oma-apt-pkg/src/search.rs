@@ -266,27 +266,37 @@ impl IndiciumSearch {
             if name.ends_with("-dbg") {
                 continue;
             }
-            let Some(package) = group.preferred() else {
+            let Some(preferred) = group.preferred() else {
                 continue;
             };
+            // With an installed foreign build, compare that build's candidate
+            // with its own installed version — the preferred architecture's
+            // newer candidate is not an upgrade for it.
+            let package = group.installed_package().unwrap_or(preferred);
             let Some(candidate) = package.candidate() else {
                 continue;
             };
-            let installed = group.installed_version();
+            let installed = package.installed_version();
             let status = search_status(installed, candidate.version());
             let candidate_version = candidate.version().unwrap_or_default();
+            let has_dbg = state.group(&format!("{name}-dbg")).is_some();
             seen.insert(name);
 
-            // Candidate-derived fields (description, Provides, base section)
-            // and the index change with the candidate, not only with status.
+            // Candidate- and state-derived fields (description, Provides,
+            // base section, debug package, index arch) can change without the
+            // version string changing.
             let arch_changed = pkg_map
                 .get(name)
                 .is_none_or(|entry| entry.arch != *package.arch());
+            let debug_changed = pkg_map
+                .get(name)
+                .is_none_or(|entry| entry.has_dbg != has_dbg);
             if arch_changed
+                || debug_changed
                 || pkg_map.get(name).map(|entry| entry.new_version.as_str())
                     != Some(candidate_version)
             {
-                if let Some(entry) = search_entry(state, name, &package, installed) {
+                if let Some(entry) = search_entry(name, &package, has_dbg) {
                     if let Some(old) = pkg_map.insert(name.to_string(), entry) {
                         index.remove(&name.to_string(), &old);
                     }
@@ -322,10 +332,12 @@ fn build_search_entries(state: &AptState) -> Vec<SearchEntry> {
         if name.ends_with("-dbg") {
             continue;
         }
-        let Some(package) = group.preferred() else {
+        let Some(preferred) = group.preferred() else {
             continue;
         };
-        if let Some(entry) = search_entry(state, name, &package, group.installed_version()) {
+        let package = group.installed_package().unwrap_or(preferred);
+        let has_dbg = state.group(&format!("{name}-dbg")).is_some();
+        if let Some(entry) = search_entry(name, &package, has_dbg) {
             entries.push(entry);
         }
     }
@@ -340,13 +352,9 @@ fn search_status(installed: Option<&str>, candidate: Option<&str>) -> PackageSta
     }
 }
 
-fn search_entry(
-    state: &AptState,
-    name: &str,
-    package: &crate::Package<'_>,
-    installed: Option<&str>,
-) -> Option<SearchEntry> {
+fn search_entry(name: &str, package: &crate::Package<'_>, has_dbg: bool) -> Option<SearchEntry> {
     let candidate = package.candidate()?;
+    let installed = package.installed_version();
     let description = candidate
         .control
         .description
@@ -370,7 +378,7 @@ fn search_entry(
         status: search_status(installed, candidate.version()),
         provides,
         arch: package.arch().clone(),
-        has_dbg: state.group(&format!("{name}-dbg")).is_some(),
+        has_dbg,
         section_is_base: candidate.control.section.as_deref() == Some("Bases"),
         old_version: installed.map(str::to_string),
         new_version: candidate.version().unwrap_or_default().to_string(),
