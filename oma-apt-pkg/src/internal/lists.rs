@@ -129,6 +129,11 @@ impl IndexSource {
     pub fn is_dpkg_status(&self) -> bool {
         self.suite.is_empty()
     }
+
+    /// Whether this source is a local `.deb` file.
+    pub fn is_local_deb(&self) -> bool {
+        self.suite == "local-deb"
+    }
 }
 
 /// Parse `/var/lib/apt/lists/` and return all package entries paired with
