@@ -17,6 +17,11 @@ const STATE_CACHE_MAGIC: &[u8; 8] = b"OMAST\x00\x00\x00";
 pub(super) struct AptStateData {
     pub(super) groups: HashMap<String, HashMap<Arch, Vec<Version>>>,
     pub(super) package_order: HashMap<String, Vec<Arch>>,
+    /// Native architecture the groups were built for; `all` versions are
+    /// attached to it and must not be reused under a different one.
+    pub(super) native_arch: Arch,
+    /// Configured architecture order, which `:any`/preferred selection uses.
+    pub(super) architectures: Vec<Arch>,
     pub(super) files: Vec<CacheFile>,
 }
 

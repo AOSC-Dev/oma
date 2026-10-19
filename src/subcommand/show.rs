@@ -70,7 +70,9 @@ impl CliExecuter for Show {
             .iter()
             .filter(|query| query.ends_with(".deb") && std::path::Path::new(query).is_file())
         {
-            let _ = state.insert_deb(path);
+            state
+                .insert_deb(path)
+                .map_err(|e| OutputError::with_source("Failed to read local package", e))?;
         }
 
         // Resolve each query against the unified package state — apt lists
