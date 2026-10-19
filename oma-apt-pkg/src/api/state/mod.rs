@@ -418,19 +418,18 @@ impl AptState {
         let paragraphs = crate::internal::dpkg::paragraphs(&self.status_path)?;
         let source = Source::dpkg_status(self.status_path.display().to_string());
 
-        for paragraph in paragraphs.filter_map(Result::ok) {
-            let Ok(pkg) = crate::internal::dpkg::DpkgPackage::from_paragraph(&paragraph) else {
-                continue;
-            };
+        for paragraph in paragraphs {
+            let paragraph = paragraph.map_err(crate::internal::dpkg::DpkgError::from)?;
+            let pkg = crate::internal::dpkg::DpkgPackage::from_paragraph(&paragraph)
+                .map_err(crate::internal::dpkg::DpkgError::Malformed)?;
             if !pkg.has_version() {
                 continue;
             }
             let Some(version) = pkg.version.clone() else {
                 continue;
             };
-            let Ok(control) = Control::from_paragraph(&paragraph) else {
-                continue;
-            };
+            let control = Control::from_paragraph(&paragraph)
+                .map_err(crate::internal::dpkg::DpkgError::Malformed)?;
             let version_arch = Arch::new(
                 pkg.architecture
                     .clone()

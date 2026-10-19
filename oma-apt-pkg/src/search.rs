@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::apt_sources::SourceLookup;
 use crate::internal::cache::CacheFile;
-use crate::{AptConfig, AptState};
+use crate::{AptConfig, AptState, Arch};
 
 #[cfg(feature = "search-indicium")]
 pub use indicium::simple::SearchType;
@@ -85,6 +85,10 @@ pub struct SearchEntry {
     pub status: PackageStatus,
     /// Virtual packages this package provides.
     pub provides: IndexSet<String>,
+    /// Architecture of the preferred package this entry was built from.
+    /// A configured-architecture reorder can change it without changing the
+    /// candidate version.
+    pub arch: Arch,
     /// Whether the package provides a matching package for debug symbols.
     pub has_dbg: bool,
     /// Whether the package is an AOSC OS metapackage (-base package).
@@ -99,6 +103,7 @@ impl std::fmt::Debug for SearchEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SearchEntry")
             .field("pkgname", &self.name)
+            .field("arch", &self.arch)
             .field("description", &self.description)
             .field("status", &self.status)
             .field("provides", &self.provides)
@@ -274,7 +279,12 @@ impl IndiciumSearch {
 
             // Candidate-derived fields (description, Provides, base section)
             // and the index change with the candidate, not only with status.
-            if pkg_map.get(name).map(|entry| entry.new_version.as_str()) != Some(candidate_version)
+            let arch_changed = pkg_map
+                .get(name)
+                .is_none_or(|entry| entry.arch != *package.arch());
+            if arch_changed
+                || pkg_map.get(name).map(|entry| entry.new_version.as_str())
+                    != Some(candidate_version)
             {
                 if let Some(entry) = search_entry(state, name, &package, installed) {
                     if let Some(old) = pkg_map.insert(name.to_string(), entry) {
@@ -359,6 +369,7 @@ fn search_entry(
         description,
         status: search_status(installed, candidate.version()),
         provides,
+        arch: package.arch().clone(),
         has_dbg: state.group(&format!("{name}-dbg")).is_some(),
         section_is_base: candidate.control.section.as_deref() == Some("Bases"),
         old_version: installed.map(str::to_string),
@@ -691,6 +702,7 @@ mod tests {
                 description: "Friendly Interactive SHell".to_string(),
                 status: PackageStatus::Installed,
                 provides: IndexSet::from_iter(["fish".to_string()]),
+                arch: crate::Arch::new("amd64"),
                 has_dbg: true,
                 section_is_base: false,
                 old_version: Some("3.6".to_string()),
@@ -716,6 +728,7 @@ mod tests {
         assert_eq!(loaded.pkg_map.len(), 1);
         let entry = &loaded.pkg_map["fish"];
         assert_eq!(entry.name, "fish");
+        assert_eq!(entry.arch, crate::Arch::new("amd64"));
         assert_eq!(entry.status, PackageStatus::Installed);
         assert_eq!(entry.provides.len(), 1);
         assert!(entry.provides.contains("fish"));

@@ -250,3 +250,17 @@ fn missing_status_file_is_an_error() {
     state.status_path = std::path::PathBuf::from("/nonexistent/oma-status");
     assert!(state.merge_status().is_err());
 }
+
+#[test]
+fn malformed_status_paragraph_is_an_error() {
+    let mut state = state("amd64", &["amd64"]);
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("status");
+    std::fs::write(
+        &path,
+        b"Package: foo\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n\nnot a field\n\n",
+    )
+    .unwrap();
+    state.status_path = path;
+    assert!(state.merge_status().is_err());
+}
