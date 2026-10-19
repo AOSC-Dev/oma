@@ -146,21 +146,29 @@ fn status_only(versions: &[Cow<'_, PackageVersion>]) -> bool {
     })
 }
 
-/// Break same-version status ties in favor of the native installed build.
-/// Keep the highest-version selection for every query.
+/// The version displayed without `--all`.
+///
+/// Indexed and local-file queries keep the highest version. For a package
+/// only the status file has, the query's architecture decides first: an
+/// explicit foreign query shows that build, while an unqualified (or
+/// `:native`/`:any`) query shows this system's build, as apt does; the
+/// highest version decides within that architecture.
 fn default_version<'a>(
     versions: &'a [Cow<'_, PackageVersion>],
     native_arch: &str,
+    query_arch: Option<&str>,
 ) -> Option<&'a Cow<'a, PackageVersion>> {
     let status_only = status_only(versions);
+    let foreign = query_arch
+        .filter(|arch| !matches!(*arch, "all" | "any" | "native") && *arch != native_arch);
 
     versions.iter().max_by_key(|version| {
-        let native = version
-            .entry
-            .architecture
-            .as_deref()
-            .is_none_or(|arch| arch == native_arch || arch == "all");
-        (version.parsed_version(), status_only && native)
+        let entry_arch = version.entry.architecture.as_deref();
+        let preferred = match foreign {
+            Some(arch) => entry_arch == Some(arch),
+            None => entry_arch.is_none_or(|arch| arch == native_arch || arch == "all"),
+        };
+        (!status_only || preferred, version.parsed_version())
     })
 }
 
@@ -173,8 +181,11 @@ fn display_versions(
     apt_cfg: &AptConfig,
 ) {
     if !show_all
-        && let Some(version) =
-            default_version(&resolved.versions, &apt_cfg.get("APT::Architecture", ""))
+        && let Some(version) = default_version(
+            &resolved.versions,
+            &apt_cfg.get("APT::Architecture", ""),
+            resolved.arch.as_deref(),
+        )
     {
         display_version(stdout, resolved, version, dpkg, ext_states, apt_cfg);
         return;
@@ -421,38 +432,73 @@ mod tests {
     }
 
     #[test]
-    fn status_default_prefers_native_independently_of_paragraph_order() {
+    fn status_default_ranks_the_query_architecture_first() {
         let status = IndexSource::dpkg_status("/var/lib/dpkg/status");
+
+        // Different versions per architecture: an unqualified (or native /
+        // any) query shows the native build, even though i386 is newer.
         let mut versions = vec![
-            version("7", "amd64", status.clone()),
-            version("7", "i386", status),
+            version("1", "amd64", status.clone()),
+            version("3", "i386", status.clone()),
         ];
-        for _ in 0..2 {
-            assert_eq!(
-                default_version(&versions, "amd64")
-                    .unwrap()
-                    .entry
-                    .architecture
-                    .as_deref(),
-                Some("amd64")
-            );
-            versions.reverse();
+        for query in [None, Some("native"), Some("any"), Some("amd64")] {
+            for _ in 0..2 {
+                assert_eq!(
+                    default_version(&versions, "amd64", query)
+                        .unwrap()
+                        .entry
+                        .architecture
+                        .as_deref(),
+                    Some("amd64"),
+                    "query {query:?}"
+                );
+                versions.reverse();
+            }
         }
-        // An explicitly foreign query still has its foreign record to show.
+
+        // An explicit foreign query keeps that build.
         assert_eq!(
-            default_version(&versions[1..], "amd64")
+            default_version(&versions, "amd64", Some("i386"))
                 .unwrap()
                 .entry
                 .architecture
                 .as_deref(),
             Some("i386")
         );
+
+        // `Architecture: all` is native: the highest native-view version
+        // wins there.
+        let mixed = vec![
+            version("1", "amd64", status.clone()),
+            version("3", "all", status.clone()),
+        ];
+        assert_eq!(
+            default_version(&mixed, "amd64", None)
+                .unwrap()
+                .entry
+                .version
+                .as_deref(),
+            Some("3")
+        );
+
+        // An explicit foreign build beats an `all` record even when newer.
+        let mixed = vec![
+            version("3", "all", status.clone()),
+            version("1", "i386", status),
+        ];
+        assert_eq!(
+            default_version(&mixed, "amd64", Some("i386"))
+                .unwrap()
+                .entry
+                .version
+                .as_deref(),
+            Some("1")
+        );
     }
 
     #[test]
-    fn queries_keep_the_highest_version() {
+    fn indexed_and_local_queries_keep_the_highest_version() {
         for source in [
-            IndexSource::dpkg_status("/var/lib/dpkg/status"),
             IndexSource {
                 base_url: "file:/repo".into(),
                 suite: "stable".into(),
@@ -471,7 +517,7 @@ mod tests {
                 version("3", "i386", source),
             ];
             assert_eq!(
-                default_version(&versions, "amd64")
+                default_version(&versions, "amd64", None)
                     .unwrap()
                     .entry
                     .version

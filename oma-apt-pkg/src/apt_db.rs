@@ -172,6 +172,10 @@ pub struct ResolvedPackage<'a> {
     /// (`pkg/suite`) or a local `.deb`'s own version. Versions borrowed
     /// from the database when no filtering needed them owned.
     pub versions: Vec<Cow<'a, PackageVersion>>,
+    /// The `:arch` qualifier the query carried, if any. It lets `show` rank
+    /// a status-only package's records by the architecture the user asked
+    /// for (`:i386`) or by the native one (no qualifier, `:native`, `:any`).
+    pub arch: Option<String>,
 }
 
 /// Result of resolving package queries.
@@ -187,16 +191,23 @@ pub struct QueryResolution<'a> {
 /// without the `=version` or `/branch` select, keeping a foreign `:arch` so
 /// the scan picks that build. `None` for a branch query, which the status
 /// file cannot answer.
+/// The package name or glob and optional `:arch` a query names, without its
+/// `=version` and `/branch` selects.
+fn query_package(query: &str) -> (&str, Option<&str>) {
+    let name = query.split_once('=').map_or(query, |(name, _)| name);
+    let name = name.split_once('/').map_or(name, |(name, _)| name);
+    match name.split_once(':') {
+        Some((package, arch)) => (package, Some(arch)),
+        None => (name, None),
+    }
+}
+
 fn status_pattern(query: &str, native_arch: &str) -> Option<String> {
     if query.contains('/') {
         return None;
     }
 
-    let name = query.split_once('=').map_or(query, |(name, _)| name);
-    let (package, arch) = match name.split_once(':') {
-        Some((package, arch)) => (package, Some(arch)),
-        None => (name, None),
-    };
+    let (package, arch) = query_package(query);
     if package.is_empty() {
         return None;
     }
@@ -494,13 +505,22 @@ impl AptDb {
                     .into_iter()
                     .next()
                     .expect("a `.deb` resolves to exactly one group"),
+                // A local `.deb` query carries no architecture qualifier.
+                arch: None,
             });
         }
 
-        // Resolve the remaining name/glob/version/branch expressions.
-        if !names.is_empty() {
-            let (matched, no_result) =
-                matcher.match_pkgs_and_versions(names.iter().map(String::as_str))?;
+        // Resolve the remaining name/glob/version/branch expressions one
+        // keyword at a time, so each group keeps the architecture its query
+        // asked for.
+        for keyword in &names {
+            let arch = query_package(keyword).1.map(str::to_owned);
+            let (matched, _no_result) = matcher.match_pkgs_and_versions([keyword.as_str()])?;
+
+            if matched.is_empty() {
+                no_match.push(keyword.clone());
+                continue;
+            }
 
             for versions in matched {
                 // Groups are never empty (the matcher drops empty matches),
@@ -514,10 +534,9 @@ impl AptDb {
                 resolved.push(ResolvedPackage {
                     pkg: Package::new(self, name),
                     versions,
+                    arch: arch.clone(),
                 });
             }
-
-            no_match = no_result.into_iter().map(str::to_owned).collect();
         }
 
         Ok(QueryResolution { resolved, no_match })
