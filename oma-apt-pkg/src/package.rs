@@ -90,6 +90,13 @@ impl<'a> Package<'a> {
         self.apt_db.version_count(&self.name)
     }
 
+    /// Number of versions satisfying an `:arch` query qualifier — `None`
+    /// counts every architecture. An `Architecture: all` build satisfies a
+    /// specific arch, like it does for matching.
+    pub fn version_count_for_arch(&self, arch: Option<&str>) -> usize {
+        self.apt_db.version_count_for_arch(&self.name, arch)
+    }
+
     /// All versions of this package.
     pub fn versions(&self) -> Cow<'a, [PackageVersion]> {
         self.apt_db.versions(&self.name)

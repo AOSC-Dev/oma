@@ -100,9 +100,13 @@ impl CliExecuter for Show {
             // displayed group): a query may be version-filtered (a local
             // `.deb` resolves to `pkg=<version>`), yet the hint reports every
             // other available version, matching `apt` and old oma
-            // (`pkg.versions().count() - 1`).
+            // (`pkg.versions().count() - 1`). An `:arch` query only counts
+            // that architecture: `-a` cannot display the others either.
             let additional = if !all && !json && resolution.resolved.len() == 1 {
-                resolved.pkg.version_count().saturating_sub(1)
+                resolved
+                    .pkg
+                    .version_count_for_arch(resolved.arch.as_deref())
+                    .saturating_sub(1)
             } else {
                 0
             };

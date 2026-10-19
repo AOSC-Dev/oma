@@ -93,6 +93,12 @@ impl<'a> Keyword<'a> {
     pub(crate) fn pattern(&self) -> &'a str {
         split_arch(self.name).0
     }
+
+    /// The `:arch` qualifier the keyword carries, which selects the builds
+    /// to show.
+    pub(crate) fn arch(&self) -> Option<&'a str> {
+        split_arch(self.name).1
+    }
 }
 
 impl<'a> PackageMatcher<'a> {
@@ -121,14 +127,7 @@ impl<'a> PackageMatcher<'a> {
         let mut no_result = Vec::new();
 
         for keyword in keywords {
-            let parsed = Keyword::parse(keyword);
-            let res = if let Some(version) = parsed.version() {
-                self.match_from_version(parsed.name(), version)?
-            } else if let Some(branch) = parsed.branch() {
-                self.match_from_branch(parsed.name(), branch)?
-            } else {
-                self.match_pkgs_and_versions_from_glob(parsed.name())?
-            };
+            let res = self.match_keyword(keyword)?;
 
             if res.is_empty() {
                 no_result.push(keyword);
@@ -138,6 +137,23 @@ impl<'a> PackageMatcher<'a> {
         }
 
         Ok((pkgs, no_result))
+    }
+
+    /// Match one keyword — a name or glob, optionally with `=version`,
+    /// `/branch` and `:arch` — against the index.
+    ///
+    /// [`match_pkgs_and_versions`](Self::match_pkgs_and_versions) and
+    /// [`AptDb::resolve_queries`] share this dispatch, so a keyword is read
+    /// the same way wherever it is resolved.
+    pub(crate) fn match_keyword(&self, keyword: &str) -> MatcherResult<Vec<MatchGroup<'a>>> {
+        let parsed = Keyword::parse(keyword);
+        if let Some(version) = parsed.version() {
+            self.match_from_version(parsed.name(), version)
+        } else if let Some(branch) = parsed.branch() {
+            self.match_from_branch(parsed.name(), branch)
+        } else {
+            self.match_pkgs_and_versions_from_glob(parsed.name())
+        }
     }
 
     /// Whether `name` — possibly an architecture-qualified name like
@@ -170,15 +186,19 @@ impl<'a> PackageMatcher<'a> {
     /// Match packages from a glob pattern (like `apt*`). A pattern without
     /// wildcards falls back to exact name matching; an architecture-qualified
     /// name like `apt:amd64` matches that build directly.
+    ///
+    /// An `:arch` qualifier also applies to a glob (`vendor-*:i386`): it
+    /// selects the builds to show, whether the pattern names one package or
+    /// several.
     pub fn match_pkgs_and_versions_from_glob<'k>(
         &self,
         glob: &'k str,
     ) -> MatcherResult<Vec<MatchGroup<'a>>> {
+        let (pattern, arch) = split_arch(glob);
         let mut res = Vec::new();
         if self.has_package(glob) {
-            let (pkg, arch) = split_arch(glob);
             res.push(
-                self.versions_of(pkg)
+                self.versions_of(pattern)
                     .filter(|v| arch_matches_or(v, arch))
                     .collect(),
             );
@@ -186,9 +206,15 @@ impl<'a> PackageMatcher<'a> {
             for pkg in self
                 .index
                 .packages_iter()
-                .filter(|p| glob_match(glob, p.name()))
+                .filter(|p| glob_match(pattern, p.name()))
             {
-                res.push(self.versions_of(pkg.name()).collect());
+                let versions: MatchGroup<'a> = self
+                    .versions_of(pkg.name())
+                    .filter(|v| arch_matches_or(v, arch))
+                    .collect();
+                if !versions.is_empty() {
+                    res.push(versions);
+                }
             }
         }
 
@@ -282,7 +308,7 @@ fn arch_matches_or(v: &PackageVersion, arch: Option<&str>) -> bool {
 }
 
 /// Whether an entry's `Architecture` satisfies an `:arch` qualifier.
-fn arch_matches(entry_arch: &Option<String>, arch: &str) -> bool {
+pub(crate) fn arch_matches(entry_arch: &Option<String>, arch: &str) -> bool {
     match arch {
         // `any`/`native` are satisfied by any build.
         "any" | "native" => true,
@@ -304,24 +330,73 @@ mod tests {
         let plain = parse("fish");
         assert_eq!(plain.name(), "fish");
         assert_eq!(plain.pattern(), "fish");
+        assert_eq!(plain.arch(), None);
         assert_eq!(plain.version(), None);
         assert_eq!(plain.branch(), None);
 
         let version = parse("fish:amd64=3.7");
         assert_eq!(version.name(), "fish:amd64");
         assert_eq!(version.pattern(), "fish");
+        assert_eq!(version.arch(), Some("amd64"));
         assert_eq!(version.version(), Some("3.7"));
         assert_eq!(version.branch(), None);
 
         let branch = parse("fish/stable");
         assert_eq!(branch.name(), "fish");
         assert_eq!(branch.pattern(), "fish");
+        assert_eq!(branch.arch(), None);
         assert_eq!(branch.version(), None);
         assert_eq!(branch.branch(), Some("stable"));
 
         // A glob keeps its wildcards; only a qualifier is stripped.
         let glob = parse("fish-*:i386");
         assert_eq!(glob.pattern(), "fish-*");
+        assert_eq!(glob.arch(), Some("i386"));
+    }
+
+    /// An `:arch` qualifier filters a glob the same way it filters an exact
+    /// name — the build the query asks for, not every build that matches.
+    #[test]
+    fn arch_qualified_glob_filters_builds() {
+        let db = AptDb::from_entries(
+            "amd64",
+            vec![
+                entry("vendor-tool", "7", Some("amd64")),
+                entry("vendor-tool", "7", Some("i386")),
+                entry("vendor-helper", "1", Some("i386")),
+            ],
+        );
+        let matcher = PackageMatcher::new(&db);
+
+        let groups = matcher
+            .match_pkgs_and_versions_from_glob("vendor-*:i386")
+            .unwrap();
+        let mut found: Vec<_> = groups
+            .iter()
+            .map(|group| {
+                assert_eq!(group.len(), 1);
+                group[0].entry.package.clone()
+            })
+            .collect();
+        found.sort_unstable();
+        assert_eq!(found, vec!["vendor-helper", "vendor-tool"]);
+
+        let exact = matcher
+            .match_pkgs_and_versions_from_glob("vendor-tool:i386")
+            .unwrap();
+        assert_eq!(exact.len(), 1);
+        assert_eq!(
+            exact[0][0].entry.architecture.as_deref(),
+            Some("i386"),
+            "the i386 build is the one the query asks for"
+        );
+
+        assert!(
+            matcher
+                .match_pkgs_and_versions_from_glob("vendor-*:arm64")
+                .unwrap()
+                .is_empty()
+        );
     }
 
     use crate::apt_db::AptDb;

@@ -23,7 +23,7 @@ use crate::apt_sources::SourceLookup;
 use crate::cache;
 use crate::cache::CacheFile;
 use crate::package::Package;
-use crate::package_matcher::{Keyword, PackageMatcher};
+use crate::package_matcher::{Keyword, PackageMatcher, arch_matches};
 use crate::{AptConfig, DpkgState};
 
 /// Magic for the package-database cache file (`Dir::Cache::oma-aptdb`);
@@ -171,6 +171,11 @@ pub struct ResolvedPackage<'a> {
     /// (`pkg/suite`) or a local `.deb`'s own version. Versions borrowed
     /// from the database when no filtering needed them owned.
     pub versions: Vec<Cow<'a, PackageVersion>>,
+    /// The `:arch` qualifier the query carried, if any. `None` for a query
+    /// that spans every architecture (a plain name, a glob or a local
+    /// `.deb`). The "additional versions" hint counts this scope, so it
+    /// never points `-a` at records the query cannot display.
+    pub arch: Option<String>,
 }
 
 /// Result of resolving package queries.
@@ -347,6 +352,20 @@ impl AptDb {
         }
     }
 
+    /// Number of records of `name` that satisfy an `:arch` qualifier;
+    /// `None` counts every architecture. Used for the "additional versions"
+    /// hint, which must only count what the query can display.
+    pub(crate) fn version_count_for_arch(&self, name: &str, arch: Option<&str>) -> usize {
+        let Some(arch) = arch else {
+            return self.version_count(name);
+        };
+
+        self.versions(name)
+            .iter()
+            .filter(|version| arch_matches(&version.entry.architecture, arch))
+            .count()
+    }
+
     /// The mutable version list for `name`, copying the repo's versions in
     /// when the repo is memory-mapped (copy-on-write: overlay entries shadow
     /// the repo so merges keep the eager semantics).
@@ -497,13 +516,23 @@ impl AptDb {
                     .into_iter()
                     .next()
                     .expect("a `.deb` resolves to exactly one group"),
+                // A local `.deb` carries no query arch: the hint may count
+                // every architecture, as before.
+                arch: None,
             });
         }
 
-        // Resolve the remaining name/glob/version/branch expressions.
-        if !names.is_empty() {
-            let (matched, no_result) =
-                matcher.match_pkgs_and_versions(names.iter().map(String::as_str))?;
+        // Resolve the remaining name/glob/version/branch expressions, one
+        // keyword at a time so each group keeps the `:arch` its query
+        // carried — the hint counts versions in that scope.
+        for keyword in &names {
+            let arch = Keyword::parse(keyword).arch().map(str::to_owned);
+            let matched = matcher.match_keyword(keyword)?;
+
+            if matched.is_empty() {
+                no_match.push(keyword.clone());
+                continue;
+            }
 
             for versions in matched {
                 // Groups are never empty (the matcher drops empty matches),
@@ -517,10 +546,9 @@ impl AptDb {
                 resolved.push(ResolvedPackage {
                     pkg: Package::new(self, name),
                     versions,
+                    arch: arch.clone(),
                 });
             }
-
-            no_match = no_result.into_iter().map(str::to_owned).collect();
         }
 
         Ok(QueryResolution { resolved, no_match })
@@ -909,6 +937,79 @@ Description: vendor only
             assert_eq!(group.versions.len(), 1);
             assert_eq!(group.versions[0].entry.package, "vendor-tool");
         }
+    }
+
+    /// The status scan keeps every architecture of a package — an `:arch`
+    /// query resolves the requested build even when another one comes first
+    /// in the file — and an arch-qualified glob filters the loaded records.
+    #[test]
+    fn test_resolve_queries_status_keeps_architectures() {
+        let mut db = AptDb::from_entries("amd64", Vec::new());
+
+        let dir = tempfile::tempdir().unwrap();
+        let status = dir.path().join("status");
+        std::fs::write(
+            &status,
+            "\
+Package: vendor-tool
+Version: 7
+Architecture: amd64
+Status: install ok installed
+Description: vendor only
+
+Package: vendor-tool
+Version: 7
+Architecture: i386
+Status: install ok installed
+Description: vendor only
+
+",
+        )
+        .unwrap();
+        let dpkg = DpkgState::from_file_lazy(&status);
+
+        let resolution = db
+            .resolve_queries(
+                vec!["vendor-tool:i386".into(), "vendor-*:i386".into()],
+                &dpkg,
+            )
+            .unwrap();
+
+        assert!(resolution.no_match.is_empty());
+        assert_eq!(resolution.resolved.len(), 2);
+        for group in &resolution.resolved {
+            assert_eq!(group.arch.as_deref(), Some("i386"));
+            assert_eq!(group.versions.len(), 1);
+            assert_eq!(
+                group.versions[0].entry.architecture.as_deref(),
+                Some("i386")
+            );
+        }
+    }
+
+    /// The "additional versions" hint counts only the query's architecture:
+    /// `oma show pkg:amd64` cannot display an i386 record, so it must not
+    /// advertise it.
+    #[test]
+    fn test_version_count_for_arch() {
+        let with_arch = |version: &str, arch: &str| PackageEntry {
+            architecture: Some(arch.to_string()),
+            ..entry("vendor-tool", version)
+        };
+        let db = AptDb::from_entries(
+            "amd64",
+            vec![
+                with_arch("7", "amd64"),
+                with_arch("7", "i386"),
+                with_arch("8", "amd64"),
+            ],
+        );
+
+        assert_eq!(db.version_count("vendor-tool"), 3);
+        assert_eq!(db.version_count_for_arch("vendor-tool", Some("amd64")), 2);
+        assert_eq!(db.version_count_for_arch("vendor-tool", Some("i386")), 1);
+        // No qualifier: every architecture, as before.
+        assert_eq!(db.version_count_for_arch("vendor-tool", None), 3);
     }
 
     #[test]
