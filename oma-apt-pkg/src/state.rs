@@ -179,9 +179,9 @@ impl<'a> Package<'a> {
 
 /// One resolved query: the selected package plus its filtered versions.
 #[derive(Debug)]
-pub struct ResolvedPackage<'a> {
-    /// The selected package (a name and one architecture).
-    pub pkg: Package<'a>,
+pub struct ResolvedPackage {
+    /// The selected package identity.
+    pub key: PackageKey,
     /// The versions this query selects, after version/branch filtering.
     pub versions: Vec<Version>,
     /// The architecture selector the query carried, if any.
@@ -190,9 +190,9 @@ pub struct ResolvedPackage<'a> {
 
 /// Result of resolving package queries.
 #[derive(Debug)]
-pub struct QueryResolution<'a> {
+pub struct QueryResolution {
     /// Resolved queries, in query order.
-    pub resolved: Vec<ResolvedPackage<'a>>,
+    pub resolved: Vec<ResolvedPackage>,
     /// Queries that matched no package.
     pub no_match: Vec<String>,
 }
@@ -236,6 +236,8 @@ pub struct AptState {
     architectures: Vec<Arch>,
     /// name → arch → versions (apt's Group → Package → Version).
     groups: HashMap<String, HashMap<Arch, Vec<Version>>>,
+    /// Package insertion order per group, which apt's `:any` follows.
+    package_order: HashMap<String, Vec<Arch>>,
     /// (name, arch) → installed version.
     installed: HashMap<PackageKey, String>,
     status_path: PathBuf,
@@ -264,6 +266,7 @@ impl AptState {
             native,
             architectures,
             groups: HashMap::new(),
+            package_order: HashMap::new(),
             installed: HashMap::new(),
             status_path,
         };
@@ -338,14 +341,10 @@ impl AptState {
         };
         let key = PackageKey::new(control.package.clone(), package_arch.clone());
         let source = crate::apt_db::local_deb_source(path.as_ref());
-        let versions = self
-            .groups
-            .entry(control.package.clone())
-            .or_default()
-            .entry(package_arch)
-            .or_default();
-        push_or_merge(
-            versions,
+        let name = control.package.clone();
+        self.insert_version(
+            &name,
+            package_arch,
             Version {
                 control,
                 sources: vec![source],
@@ -356,7 +355,7 @@ impl AptState {
     }
 
     /// Resolve package queries the way apt resolves a package name.
-    pub fn resolve(&mut self, queries: Vec<String>) -> QueryResolution<'_> {
+    pub fn resolve(&mut self, queries: Vec<String>) -> QueryResolution {
         // Local `.deb` files insert into the state; do that first so the
         // view borrows below are immutable.
         let (debs, queries): (Vec<String>, Vec<String>) = queries
@@ -374,18 +373,14 @@ impl AptState {
         let mut resolved = Vec::new();
 
         for key in deb_keys {
-            let Some((name, packages)) = self.groups.get_key_value(key.name()) else {
+            let Some((_name, packages)) = self.groups.get_key_value(key.name()) else {
                 continue;
             };
             let Some(versions) = packages.get(key.arch().as_str()) else {
                 continue;
             };
             resolved.push(ResolvedPackage {
-                pkg: Package {
-                    state: self,
-                    name,
-                    arch: key.arch().clone(),
-                },
+                key: key.clone(),
                 versions: versions.clone(),
                 arch: None,
             });
@@ -429,11 +424,7 @@ impl AptState {
                     }
                     matched = true;
                     resolved.push(ResolvedPackage {
-                        pkg: Package {
-                            state: self,
-                            name,
-                            arch,
-                        },
+                        key: PackageKey::new(name, arch),
                         versions: selected,
                         arch: parsed.arch.map(Arch::new),
                     });
@@ -475,12 +466,37 @@ impl AptState {
                 .packages(name)
                 .get_key_value(self.native.as_str())
                 .map(|(arch, _)| arch.clone()),
-            Some(Arch::ANY) | None => self.preferred_arch(name),
+            Some(Arch::ANY) => self
+                .package_order
+                .get(name)
+                .and_then(|order| order.first().cloned()),
+            None => self.preferred_arch(name),
             Some(arch) => self
                 .packages(name)
                 .get_key_value(arch)
                 .map(|(arch, _)| arch.clone()),
         }
+    }
+
+    fn insert_version(&mut self, name: &str, arch: Arch, version: Version) {
+        if !self
+            .groups
+            .get(name)
+            .is_some_and(|packages| packages.contains_key(&arch))
+        {
+            self.package_order
+                .entry(name.to_string())
+                .or_default()
+                .push(arch.clone());
+        }
+        push_or_merge(
+            self.groups
+                .entry(name.to_string())
+                .or_default()
+                .entry(arch)
+                .or_default(),
+            version,
+        );
     }
 
     fn add_index(&mut self, entries: Vec<Control>, sources: Vec<Source>) {
@@ -496,14 +512,10 @@ impl AptState {
             } else {
                 version_arch.clone()
             };
-            let versions = self
-                .groups
-                .entry(control.package.clone())
-                .or_default()
-                .entry(package_arch)
-                .or_default();
-            push_or_merge(
-                versions,
+            let name = control.package.clone();
+            self.insert_version(
+                &name,
+                package_arch,
                 Version {
                     control,
                     sources: vec![source],
@@ -622,6 +634,7 @@ mod tests {
             native: Arch::new(native),
             architectures: archs.iter().map(|arch| Arch::new(*arch)).collect(),
             groups: HashMap::new(),
+            package_order: HashMap::new(),
             installed: HashMap::new(),
             status_path: PathBuf::new(),
         }
@@ -685,33 +698,29 @@ mod tests {
 
         assert_eq!(
             state.resolve(vec!["foo".into()]).resolved[0]
-                .pkg
-                .arch()
+                .key
+                .arch
                 .as_str(),
             "amd64"
         );
         for query in ["foo:native", "foo:any", "foo:all", "foo:amd64"] {
             let resolution = state.resolve(vec![query.into()]);
-            assert_eq!(
-                resolution.resolved[0].pkg.arch().as_str(),
-                "amd64",
-                "{query}"
-            );
+            assert_eq!(resolution.resolved[0].key.arch.as_str(), "amd64", "{query}");
         }
         let foreign = state.resolve(vec!["foo:i386".into()]);
-        assert_eq!(foreign.resolved[0].pkg.arch().as_str(), "i386");
+        assert_eq!(foreign.resolved[0].key.arch.as_str(), "i386");
 
         // A package only a foreign architecture has falls back for a plain
         // query, but `:native`/`:all` do not.
         let fallback = state.resolve(vec!["bar".into()]);
-        assert_eq!(fallback.resolved[0].pkg.arch().as_str(), "i386");
+        assert_eq!(fallback.resolved[0].key.arch.as_str(), "i386");
         for query in ["bar:native", "bar:all"] {
             assert_eq!(state.resolve(vec![query.into()]).no_match, vec![query]);
         }
 
         // An `all`-only package belongs to the native package.
         let all_only = state.resolve(vec!["baz".into()]);
-        assert_eq!(all_only.resolved[0].pkg.arch().as_str(), "amd64");
+        assert_eq!(all_only.resolved[0].key.arch.as_str(), "amd64");
         assert_eq!(all_only.resolved[0].versions[0].arch().as_str(), "all");
         assert_eq!(
             state.resolve(vec!["baz:i386".into()]).no_match,
@@ -764,12 +773,12 @@ Package: removed-tool\nVersion: 1\nArchitecture: amd64\nStatus: deinstall ok con
         );
 
         let plain = state.resolve(vec!["vendor-tool".into()]);
-        assert_eq!(plain.resolved[0].pkg.arch().as_str(), "amd64");
-        assert!(plain.resolved[0].pkg.is_installed());
+        assert_eq!(plain.resolved[0].key.arch.as_str(), "amd64");
+        assert!(state.is_installed(&plain.resolved[0].key));
         assert_eq!(
             state.resolve(vec!["vendor-tool:i386".into()]).resolved[0]
-                .pkg
-                .arch()
+                .key
+                .arch
                 .as_str(),
             "i386"
         );
