@@ -147,8 +147,11 @@ fn display_group(
 ///
 /// A query that names an architecture prefers that build: an `Architecture:
 /// all` record satisfies `foo:i386` (the matcher accepts it), but must not
-/// win over the i386 build just because `all` counts as native. `any` and
-/// `native` select every build, leaving the choice to the native preference.
+/// win over the i386 build just because `all` counts as native. When the
+/// query names this system's own architecture, `all` and the native build
+/// are the same choice — apt shows the newer one — so source and version
+/// decide between them. `any` and `native` select every build, leaving the
+/// choice to the native preference.
 fn default_version<'a>(
     versions: &'a [Cow<'_, PackageVersion>],
     native_arch: &str,
@@ -159,8 +162,14 @@ fn default_version<'a>(
     versions.iter().max_by_key(|version| {
         (
             match query_arch {
-                Some(arch) => version.entry.architecture.as_deref() == Some(arch),
-                None => version.entry.is_native(native_arch),
+                // A foreign build is the one the query names; `all` does not
+                // match it exactly.
+                Some(arch) if arch != native_arch => {
+                    version.entry.architecture.as_deref() == Some(arch)
+                }
+                // The native query (or no qualifier at all): `all` and the
+                // native build are equally native, as for `is_native`.
+                _ => version.entry.is_native(native_arch),
             },
             version
                 .sources
@@ -500,6 +509,26 @@ mod tests {
                 .as_deref(),
             Some("2")
         );
+    }
+
+    /// The native architecture and `all` are the same answer to a native
+    /// query: source and version decide, so an older installed amd64 build
+    /// does not hide a newer `all` one from the repository (apt shows 2).
+    #[test]
+    fn default_version_treats_all_as_native_for_a_native_query() {
+        let versions = vec![version("1", "amd64", true), version("2", "all", false)];
+
+        for query in [None, Some("amd64"), Some("native"), Some("any")] {
+            assert_eq!(
+                default_version(&versions, "amd64", query)
+                    .unwrap()
+                    .entry
+                    .version
+                    .as_deref(),
+                Some("2"),
+                "query {query:?}"
+            );
+        }
     }
 
     /// A version a repository offers beats an installed one, even a newer
