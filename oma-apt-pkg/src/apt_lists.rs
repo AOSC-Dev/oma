@@ -135,9 +135,10 @@ impl IndexSource {
     /// The dpkg status file, where a package that is installed but no longer
     /// available from any repository comes from.
     ///
-    /// It is not a repository: apt names the file itself
-    /// (`APT-Sources: /var/lib/dpkg/status`), so it has no suite, component
-    /// or architecture — the empty suite is what marks it.
+    /// It is not a repository: apt names instead the file where the package is
+    /// recorded itself - most likely the dpkg status file (i.e.,
+    /// `APT-Sources: /var/lib/dpkg/status`), so it has no suite, component, or
+    /// architecture recorded in the source.
     pub fn dpkg_status(path: impl Into<String>) -> Self {
         Self {
             base_url: path.into(),

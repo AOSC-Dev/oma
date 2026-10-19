@@ -174,11 +174,13 @@ pub struct ResolvedPackage<'a> {
     pub versions: Vec<Cow<'a, PackageVersion>>,
     /// The `:arch` qualifier the query carried, if any. It lets `show` rank
     /// a status-only package's records by the architecture the user asked
-    /// for (`:i386`) or by the native one (no qualifier, `:native`, `:any`).
+    /// for (`:i386`) or by the native one - no qualifier or `:native` (same
+    /// as no-prefix/`:amd64` on amd64), then `:any`.
     pub arch: Option<String>,
-    /// Whether this came from a local `.deb` path. `--all` expands such a
-    /// query to every version of the package, while the default display
-    /// stays on the version read from the file.
+    /// Whether the queried package comes from a local path
+    /// (`/path/to/foo.deb`). When the query was made with `--all`, expand
+    /// this query to every version of the package, otherwise, only show
+    /// information on the specified local package.
     pub local: bool,
 }
 
@@ -191,12 +193,12 @@ pub struct QueryResolution<'a> {
     pub no_match: Vec<String>,
 }
 
-/// The status scan pattern a query asks for: its package name (or glob),
-/// without the `=version` or `/branch` select, keeping a foreign `:arch` so
-/// the scan picks that build. `None` for a branch query, which the status
-/// file cannot answer.
-/// The package name or glob and optional `:arch` a query names, without its
-/// `=version` and `/branch` selects.
+/// Search schema - package name is the part of a user query before `=` (used
+/// to match exact versions (say, bash=5.3), `/` to match exact branch/origin
+/// (say, bash/stable, for package `bash` from the `stable` branch).
+///
+/// We keep, however, the `:` in the query to help distinguish between packages
+/// of native and foreign architectures (`bash`, `bash:amd64`, etc.).
 fn query_package(query: &str) -> (&str, Option<&str>) {
     let name = query.split_once('=').map_or(query, |(name, _)| name);
     let name = name.split_once('/').map_or(name, |(name, _)| name);
@@ -483,9 +485,12 @@ impl AptDb {
             self.insert_with_source(entry, source);
         }
 
-        // A package that is installed but no index carries — a vendor
-        // `.deb`, one dropped from the archives — resolves from the status
-        // file, as in apt, whose cache holds it too.
+        // A package that is installed but is not recorded in any known source
+        // is what we consider a vendor-supplied package, or one that was
+        // dropped (removed or moved out from enabled distro repositories).
+        //
+        // We consider such a package's source (`APT-Source:`) as
+        // `/var/lib/dpkg/status`, such is also how apt handles it.
         self.add_status_entries(&names, dpkg);
 
         let matcher = PackageMatcher::new(self);
@@ -509,7 +514,7 @@ impl AptDb {
                     .into_iter()
                     .next()
                     .expect("a `.deb` resolves to exactly one group"),
-                // A local `.deb` query carries no architecture qualifier.
+                // A local `.deb` query that carried no architecture qualifier.
                 arch: None,
                 local: true,
             });
@@ -548,14 +553,10 @@ impl AptDb {
         Ok(QueryResolution { resolved, no_match })
     }
 
-    /// Add the status entries of packages no index carries.
+    /// Add the status entries for packages with no known source.
     ///
-    /// Only names with no index record are taken from the status file: an
-    /// indexed package keeps its repository versions and sources exactly as
-    /// before, so this cannot change an existing answer. A foreign
-    /// `:arch` qualifier is kept so the scan picks the requested build;
-    /// native, `all`, `any` and plain queries take every architecture and
-    /// leave the choice to the matcher.
+    /// Only names with no known source are taken from the status file,
+    /// packages with known source keep their repository versions and sources.
     fn add_status_entries(&mut self, queries: &[String], dpkg: &DpkgState) {
         let patterns: Vec<String> = queries
             .iter()
@@ -567,9 +568,9 @@ impl AptDb {
 
         let source = IndexSource::dpkg_status(dpkg.path().display().to_string());
 
-        // Group first: checking the repository after the first insert would
-        // see the record we just added and skip the package's other
-        // architectures.
+        // Group packages by name, `apt:amd64` and `apt:i386` share the same
+        // name - we group them together as `apt` regardless of version,
+        // source, or architecture qualifier.
         let mut by_name: HashMap<String, Vec<PackageEntry>> = HashMap::new();
         for entry in dpkg.entries(patterns.iter().map(String::as_str)) {
             by_name
@@ -707,12 +708,8 @@ impl AptDb {
         }
     }
 
-    /// Whether `name` is backed by something other than the status file — a
-    /// repository, a local `.deb`, or a programmatic insert.
-    ///
-    /// Status records are added on demand, so a package that has only those
-    /// must not stop a later resolution from adding the records it asks for;
-    /// an indexed package must keep its repository answer untouched.
+    /// Whether `name` is backed by something other than the dpkg status file,
+    /// either a repository, a local `.deb`, etc.
     fn has_indexed_package(&self, name: &str) -> bool {
         self.versions(name).iter().any(|version| {
             version.sources.is_empty()
@@ -906,8 +903,10 @@ mod tests {
         assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
     }
 
-    /// A package no index carries resolves from the status file, with the
-    /// file as its source; an indexed package keeps its repository answer.
+    /// A package not found from any known repository carries resolves from
+    /// the status file, with the file as its source. 
+    ///
+    /// An indexed package (with known source) keeps its repository answer.
     #[test]
     fn test_resolve_queries_falls_back_to_status() {
         let mut db = AptDb::from_entries_with_sources(

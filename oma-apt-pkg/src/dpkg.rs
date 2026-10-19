@@ -42,17 +42,16 @@ pub struct DpkgPackage {
 }
 
 impl DpkgPackage {
-    /// The current state — the third word of `Status` (`installed`,
+    /// The current state — the third word in the `Status:` line (`installed`,
     /// `unpacked`, `half-configured`, `config-files`, `not-installed`, ...).
     pub fn current_state(&self) -> Option<&str> {
         self.status.as_deref()?.split_whitespace().nth(2)
     }
 
-    /// Whether the status file holds a version of the package.
+    /// Whether the dpkg status file holds a version of the package.
     ///
     /// dpkg keeps a paragraph for a package that is gone as well, with its
-    /// configuration files or nothing at all left behind; apt's cache holds
-    /// no version for either, whatever the desired state says.
+    /// configuration files or nothing at all left behind.
     pub fn has_version(&self) -> bool {
         !matches!(self.current_state(), Some("not-installed" | "config-files"))
     }

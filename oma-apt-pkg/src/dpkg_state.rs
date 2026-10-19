@@ -301,7 +301,7 @@ Status: install ok installed
         }
     }
 
-    /// The status records a package name asks for: every architecture, the
+    /// The status records a package name asks for - every architecture, the
     /// requested one, and only paragraphs that still hold a version.
     #[cfg(feature = "apt-lists")]
     #[test]

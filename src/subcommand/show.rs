@@ -66,8 +66,7 @@ impl CliExecuter for Show {
         let (mut apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
 
         // Resolve each query: local `.deb` files are parsed directly,
-        // everything else is matched against the package database — which
-        // answers for a package only the status file has as well.
+        // everything else is matched against the package database.
         let resolution = apt_db
             .resolve_queries(packages, &dpkg)
             .context("Failed to resolve package queries")?;
@@ -102,7 +101,7 @@ impl CliExecuter for Show {
             // (`pkg.versions().count() - 1`).
             let additional = if !all && !json && resolution.resolved.len() == 1 {
                 let count = if status_only(&resolved.versions) {
-                    // Status contributes separate architecture records: only
+                    // Status contributes separate architecture records - only
                     // advertise the ones this query can actually display.
                     resolved.versions.len()
                 } else {
@@ -133,8 +132,7 @@ fn display_group(
     apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
     // `--all` on a local `.deb` shows every version the package has in the
-    // database, not just the version read from the file. Without `--all`
-    // the default stays on the file's version.
+    // database, not just the version read from the file.
     let expanded: Vec<Cow<'_, PackageVersion>>;
     let versions: &[Cow<'_, PackageVersion>] = if all && resolved.local {
         expanded = match resolved.pkg.versions() {
@@ -163,10 +161,14 @@ fn status_only(versions: &[Cow<'_, PackageVersion>]) -> bool {
 /// The version displayed without `--all`.
 ///
 /// Indexed and local-file queries keep the highest version. For a package
-/// only the status file has, the query's architecture decides first: an
-/// explicit foreign query shows that build, while an unqualified (or
-/// `:native`/`:any`) query shows this system's build, as apt does; the
-/// highest version decides within that architecture.
+/// only found in the dpkg status file (i.e., vendored or dropped from all
+/// known sources), the query's architecture is taken as the first factor.
+///
+/// An explicit foreign query (i.e., `:i386` on `:amd64` shows that package,
+/// while an unqualified (or `:native`/`:any`) query shows this system's
+/// package, as apt does.
+///
+/// The highest version is picked and displayed by architecture specification.
 fn default_version<'a>(
     versions: &'a [Cow<'_, PackageVersion>],
     native_arch: &str,
@@ -374,8 +376,8 @@ fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
 /// `local-deb/local-deb` suite/component, so it renders through the same
 /// path.
 fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
-    // The dpkg status file is not an index: apt names the file itself, e.g.
-    // `APT-Sources: /var/lib/dpkg/status`.
+    // The dpkg status file is not an index, it is only named by apt, and by
+    // convention, as `APT-Sources: /var/lib/dpkg/status`.
     if source.is_dpkg_status() {
         return source.base_url.clone();
     }
