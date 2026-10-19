@@ -5,8 +5,7 @@
 
 use std::collections::HashSet;
 use std::fs;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 
 use ahash::RandomState;
@@ -483,24 +482,11 @@ impl IndiciumSearch {
         })
         .map_err(std::io::Error::other)?;
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
         let mut buf = Vec::with_capacity(crate::internal::cache::CACHE_HEADER_LEN + archive.len());
         crate::internal::cache::push_header(&mut buf, SEARCH_CACHE_MAGIC);
         buf.extend_from_slice(&archive);
 
-        let mut tmp = path.as_os_str().to_owned();
-        tmp.push(".tmp");
-        let tmp = PathBuf::from(tmp);
-
-        let mut file = fs::File::create(&tmp)?;
-        file.write_all(&buf)?;
-        file.sync_all()?;
-        fs::rename(&tmp, path)?;
-
-        Ok(())
+        crate::internal::tmp::write(path, &buf)
     }
 }
 
