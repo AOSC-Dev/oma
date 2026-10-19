@@ -139,6 +139,7 @@ fn version_and_branch_queries_filter_one_package() {
 fn status_merges_into_packages_and_adds_missing_ones() {
     let mut state = state("amd64", &["amd64", "i386"]);
     add(&mut state, "foo", "1", "amd64");
+    add(&mut state, "libfoo", "2", "amd64");
 
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("status");
@@ -147,11 +148,12 @@ fn status_merges_into_packages_and_adds_missing_ones() {
         b"Package: foo\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n\n\
 Package: vendor-tool\nVersion: 7\nArchitecture: amd64\nStatus: install ok installed\n\n\
 Package: vendor-tool\nVersion: 7\nArchitecture: i386\nStatus: install ok installed\n\n\
+Package: libfoo\nVersion: 1\nArchitecture: i386\nStatus: install ok installed\n\n\
 Package: removed-tool\nVersion: 1\nArchitecture: amd64\nStatus: deinstall ok config-files\n\n",
     )
     .unwrap();
     state.status_path = path;
-    state.merge_status();
+    state.merge_status().unwrap();
 
     let foo = state.package("foo", &Arch::new("amd64")).unwrap();
     assert_eq!(foo.installed_version(), Some("1"));
@@ -175,6 +177,13 @@ Package: removed-tool\nVersion: 1\nArchitecture: amd64\nStatus: deinstall ok con
     // so `:any` resolves.
     let any = state.resolve(vec!["vendor-tool:any".into()]);
     assert_eq!(any.resolved[0].key.arch.as_str(), "amd64");
+
+    // One search result per group: an installed foreign build still counts
+    // as installed even though the preferred package is the native one.
+    assert_eq!(
+        state.group("libfoo").unwrap().installed_version(),
+        Some("1")
+    );
 
     assert_eq!(
         state.resolve(vec!["removed-tool".into()]).no_match,
@@ -233,4 +242,11 @@ fn state_cache_roundtrips() {
         vec![Arch::new("amd64"), Arch::new("i386")]
     );
     assert_eq!(packages[&Arch::new("amd64")].len(), 2);
+}
+
+#[test]
+fn missing_status_file_is_an_error() {
+    let mut state = state("amd64", &["amd64"]);
+    state.status_path = std::path::PathBuf::from("/nonexistent/oma-status");
+    assert!(state.merge_status().is_err());
 }

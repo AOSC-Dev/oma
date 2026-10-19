@@ -253,6 +253,7 @@ impl IndiciumSearch {
     /// packages and dropping ones the indexes no longer carry. The index is
     /// only touched for those changes, so a cache hit does not rebuild it.
     pub fn refresh_from(&mut self, state: &AptState) {
+        let Self { pkg_map, index, .. } = self;
         let mut seen: HashSet<&str> = HashSet::new();
 
         for group in state.groups() {
@@ -266,29 +267,38 @@ impl IndiciumSearch {
             let Some(candidate) = package.candidate() else {
                 continue;
             };
-            let installed = package.installed_version();
+            let installed = group.installed_version();
             let status = search_status(installed, candidate.version());
+            let candidate_version = candidate.version().unwrap_or_default();
             seen.insert(name);
 
-            if let Some(entry) = self.pkg_map.get_mut(name) {
+            // Candidate-derived fields (description, Provides, base section)
+            // and the index change with the candidate, not only with status.
+            if pkg_map.get(name).map(|entry| entry.new_version.as_str()) != Some(candidate_version)
+            {
+                if let Some(entry) = search_entry(state, name, &package, installed) {
+                    if let Some(old) = pkg_map.insert(name.to_string(), entry) {
+                        index.remove(&name.to_string(), &old);
+                    }
+                    if let Some(entry) = pkg_map.get(name) {
+                        index.insert(&name.to_string(), entry);
+                    }
+                }
+            } else if let Some(entry) = pkg_map.get_mut(name) {
                 entry.status = status;
                 entry.old_version = installed.map(str::to_string);
-                entry.new_version = candidate.version().unwrap_or_default().to_string();
-            } else if let Some(entry) = search_entry(state, name, &package) {
-                self.index.insert(&name.to_string(), &entry);
-                self.pkg_map.insert(name.to_string(), entry);
+                entry.new_version = candidate_version.to_string();
             }
         }
 
-        let removed: Vec<String> = self
-            .pkg_map
+        let removed: Vec<String> = pkg_map
             .keys()
             .filter(|name| !seen.contains(name.as_str()))
             .cloned()
             .collect();
         for name in removed {
-            if let Some(entry) = self.pkg_map.shift_remove(&name) {
-                self.index.remove(&name, &entry);
+            if let Some(entry) = pkg_map.shift_remove(&name) {
+                index.remove(&name, &entry);
             }
         }
     }
@@ -305,7 +315,7 @@ fn build_search_entries(state: &AptState) -> Vec<SearchEntry> {
         let Some(package) = group.preferred() else {
             continue;
         };
-        if let Some(entry) = search_entry(state, name, &package) {
+        if let Some(entry) = search_entry(state, name, &package, group.installed_version()) {
             entries.push(entry);
         }
     }
@@ -320,9 +330,13 @@ fn search_status(installed: Option<&str>, candidate: Option<&str>) -> PackageSta
     }
 }
 
-fn search_entry(state: &AptState, name: &str, package: &crate::Package<'_>) -> Option<SearchEntry> {
+fn search_entry(
+    state: &AptState,
+    name: &str,
+    package: &crate::Package<'_>,
+    installed: Option<&str>,
+) -> Option<SearchEntry> {
     let candidate = package.candidate()?;
-    let installed = package.installed_version();
     let description = candidate
         .control
         .description

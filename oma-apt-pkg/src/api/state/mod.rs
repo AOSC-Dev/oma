@@ -76,7 +76,7 @@ impl AptState {
                 status_path,
                 files: data.files,
             };
-            state.merge_status();
+            state.merge_status()?;
             return Ok(state);
         }
 
@@ -95,7 +95,7 @@ impl AptState {
         };
         state.add_index(entries, sources);
         state.save_cache(&cache_path);
-        state.merge_status();
+        state.merge_status()?;
         Ok(state)
     }
 
@@ -414,10 +414,8 @@ impl AptState {
         }
     }
 
-    fn merge_status(&mut self) {
-        let Ok(paragraphs) = crate::internal::dpkg::paragraphs(&self.status_path) else {
-            return;
-        };
+    fn merge_status(&mut self) -> Result<(), Error> {
+        let paragraphs = crate::internal::dpkg::paragraphs(&self.status_path)?;
         let source = Source::dpkg_status(self.status_path.display().to_string());
 
         for paragraph in paragraphs.filter_map(Result::ok) {
@@ -481,6 +479,8 @@ impl AptState {
                     .insert(package_arch, version);
             }
         }
+
+        Ok(())
     }
 }
 
