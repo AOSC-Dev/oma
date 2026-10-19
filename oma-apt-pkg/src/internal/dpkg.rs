@@ -11,6 +11,8 @@ pub enum DpkgError {
     Io(#[from] std::io::Error),
     #[error("Failed to parse deb822 data: {0}")]
     Deb822(#[from] deb822_fast::Error),
+    #[error("Malformed deb822 paragraph: {0}")]
+    Malformed(String),
 }
 
 /// Represents the desired (or current) selection state of a package.
