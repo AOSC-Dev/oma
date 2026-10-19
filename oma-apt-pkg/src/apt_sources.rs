@@ -7,9 +7,9 @@ use oma_apt_sources::{ConfiguredSources, SourceEntry};
 
 use crate::AptConfig;
 #[cfg(feature = "apt-lists")]
-use crate::apt_lists::IndexSource;
-#[cfg(feature = "apt-lists")]
 use crate::filename::AptListFilename;
+#[cfg(feature = "apt-lists")]
+use crate::internal::lists::IndexSource;
 
 /// The configured sources parsed from `sources.list`, the driver of the
 /// package database: it generates the lists files to read (forward), so
@@ -66,7 +66,11 @@ impl SourceLookup {
     /// the files in this list that exist under `Dir::State::lists` — lists
     /// files that no configured source produces are never read.
     #[cfg(feature = "apt-lists")]
-    pub fn index_files(&self, apt_cfg: &AptConfig, archs: &[String]) -> Vec<(String, IndexSource)> {
+    pub(crate) fn index_files(
+        &self,
+        apt_cfg: &AptConfig,
+        archs: &[String],
+    ) -> Vec<(String, IndexSource)> {
         let cvt = AptListFilename::new();
         let templates = IndexTargetTemplates::new(apt_cfg);
         let Some(package_key) = templates

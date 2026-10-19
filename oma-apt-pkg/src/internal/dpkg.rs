@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph, ParagraphReader};
+#[cfg(test)]
+use deb822_fast::FromDeb822Paragraph;
+use deb822_fast::{Deb822, FromDeb822, ParagraphReader};
 
 /// Errors that can occur when parsing dpkg status files.
 #[derive(Debug, thiserror::Error)]
@@ -88,6 +90,7 @@ pub(crate) fn paragraphs(
 }
 
 /// Parse `/var/lib/dpkg/status` and return full package information.
+#[cfg(test)]
 pub fn parse_dpkg_status(path: impl AsRef<Path>) -> Result<Vec<DpkgPackage>, DpkgError> {
     paragraphs(path)?
         .map(|para| {
