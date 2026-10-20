@@ -1,6 +1,5 @@
 use std::{
     cell::RefCell,
-    cmp::Ordering,
     fmt,
     io::{self},
     path::{Path, PathBuf},
@@ -16,14 +15,14 @@ use reqwest_middleware::ClientWithMiddleware;
 use tokio::runtime::{Handle, Runtime};
 
 use oma_apt::{
-    DepFlags, DepType, Dependency, Package, PkgCurrentState, Version,
+    DepFlags, Dependency, Package, PkgCurrentState, Version,
     cache::{Cache, PackageSort},
     error::AptErrors,
     new_cache,
     progress::{AcquireProgress, InstallProgress},
     raw::{IntoRawIter, config as apt_config},
     records::RecordField,
-    util::{DiskSpace, cmp_versions},
+    util::DiskSpace,
 };
 
 use oma_fetch::{Event, Summary, checksum::ChecksumError};
@@ -221,8 +220,12 @@ impl OmaApt {
         let sysroot = args.sysroot.clone();
         Self::init_config(args)?;
 
+        let cache = new_cache!(&local_debs).map_err(OmaAptError::CreateCache)?;
+        cache.depcache().apply_status();
+        cache.depcache().mark_and_sweep();
+
         Ok(Self {
-            cache: new_cache!(&local_debs).map_err(OmaAptError::CreateCache)?,
+            cache,
             autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
             select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
@@ -431,13 +434,6 @@ impl OmaApt {
         let mut no_marked_install = vec![];
 
         let install_recommends = apt_config::find_bool("APT::Install-Recommends".to_string(), true);
-
-        let requested_conflicts = requested_conflicts(&self.cache, pkgs);
-        for installed in self.cache.packages(&PackageSort::default().installed()) {
-            if installed.is_auto_removable() && !requested_conflicts.contains(&installed.index()) {
-                installed.protect();
-            }
-        }
 
         for pkg in pkgs {
             let marked_install = mark_install(&self.cache, pkg, reinstall, install_recommends)?;
@@ -785,8 +781,8 @@ impl OmaApt {
         }
     }
 
-    fn resolve_inner(&mut self, no_fixbroken: bool) -> Result<(), OmaAptError> {
-        if let Err(e) = self.cache.resolve(!no_fixbroken) {
+    fn resolve_inner(&mut self, _no_fixbroken: bool) -> Result<(), OmaAptError> {
+        if let Err(e) = self.cache.resolve(true) {
             debug!("{e:#?}");
             for pkg in self.cache.iter() {
                 let res = broken_pkg(&self.cache, &pkg, false);
@@ -1391,93 +1387,6 @@ fn get_package_checksums(
     Ok((sha256, md5, sha512))
 }
 
-fn requested_conflicts(cache: &Cache, pkgs: &[OmaPackage]) -> HashSet<usize> {
-    let mut conflicts = HashSet::default();
-    let mut queue: Vec<Version<'_>> = pkgs
-        .iter()
-        .filter_map(|pkginfo| {
-            let pkg = (unsafe { pkginfo.version_raw.unique() }).make_safe()?;
-            Some(Version::new(pkg, cache))
-        })
-        .collect();
-    let mut seen: HashSet<usize> = HashSet::default();
-
-    while let Some(version) = queue.pop() {
-        let parent_index = unsafe { version.parent_pkg().index() };
-        if !seen.insert(parent_index) {
-            continue;
-        }
-
-        for dep_type in [DepType::Conflicts, DepType::DpkgBreaks] {
-            let Some(groups) = version.depends_map().get(&dep_type) else {
-                continue;
-            };
-            for group in groups {
-                for dep in group.iter() {
-                    let target = dep.target_package();
-                    if let Some(installed) = target.installed()
-                        && in_range(Some(installed.version()), dep.comp_type(), dep.version())
-                    {
-                        conflicts.insert(target.index());
-                    }
-
-                    for provider in target.provides() {
-                        let package = provider.package();
-                        let Some(installed) = package.installed() else {
-                            continue;
-                        };
-                        if provider.version().version() != installed.version() {
-                            continue;
-                        }
-                        if in_range(provider.version_str(), dep.comp_type(), dep.version()) {
-                            conflicts.insert(package.index());
-                        }
-                    }
-                }
-            }
-        }
-
-        for dep_type in [DepType::Depends, DepType::PreDepends] {
-            let Some(groups) = version.depends_map().get(&dep_type) else {
-                continue;
-            };
-            for group in groups {
-                for dep in group.iter() {
-                    if let Some(candidate) = cache
-                        .get(dep.target_package().name())
-                        .and_then(|p| p.candidate())
-                    {
-                        queue.push(candidate);
-                    }
-                }
-            }
-        }
-    }
-
-    conflicts
-}
-
-fn in_range(candidate: Option<&str>, comp_type: Option<&str>, want: Option<&str>) -> bool {
-    let Some(want) = want else {
-        return true;
-    };
-    let Some(candidate) = candidate else {
-        return false;
-    };
-    let Ok(order) = cmp_versions(candidate, want) else {
-        return false;
-    };
-    match comp_type {
-        Some("<<" | "<") => order == Ordering::Less,
-        Some("<=") => order != Ordering::Greater,
-        Some("=") => order == Ordering::Equal,
-        Some(">=") => order != Ordering::Less,
-        Some(">>" | ">") => order == Ordering::Greater,
-        Some("!=") => order != Ordering::Equal,
-        _ => false,
-    }
-}
-
 /// Mark package as install.
 fn mark_install(
     cache: &Cache,
@@ -1542,8 +1451,8 @@ fn mark_install_inner(pkg: &Package) -> bool {
     // https://github.com/PackageKit/PackageKit/blob/a0a52ce90adb75a5df7ad1f0b1c9888f2eaf1a7b/backends/apt/apt-job.cpp#L388
     // 先标记 auto_inst 为 true 把所有该包的依赖标记为自动安装
     // 再把本包的 auto_inst 标记为 false，检查依赖问题
-    pkg.mark_install(true, true);
-    pkg.mark_install(false, true)
+    pkg.mark_install(false, true);
+    pkg.mark_install(true, true)
 }
 
 #[cfg(feature = "aosc")]
