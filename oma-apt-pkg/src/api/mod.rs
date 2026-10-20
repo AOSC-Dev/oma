@@ -10,4 +10,4 @@ pub use model::{Group, Package, Version};
 pub use query::{QueryResolution, ResolvedPackage};
 pub use state::AptState;
 
-pub use crate::internal::lists::{IndexSource as Source, PackageEntry as Control};
+pub use crate::internal::lists::{IndexSource as Source, PackageEntry as Control, SourceKind};

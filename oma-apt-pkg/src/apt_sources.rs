@@ -9,7 +9,7 @@ use crate::AptConfig;
 #[cfg(feature = "apt-lists")]
 use crate::filename::AptListFilename;
 #[cfg(feature = "apt-lists")]
-use crate::internal::lists::IndexSource;
+use crate::internal::lists::{IndexSource, SourceKind};
 
 /// The configured sources parsed from `sources.list`, the driver of the
 /// package database: it generates the lists files to read (forward), so
@@ -99,6 +99,7 @@ impl SourceLookup {
                     out.push((
                         filename,
                         IndexSource {
+                            kind: SourceKind::Repository,
                             base_url: base.to_string(),
                             suite: suite.to_string(),
                             component: None,
@@ -124,6 +125,7 @@ impl SourceLookup {
                         out.push((
                             filename,
                             IndexSource {
+                                kind: SourceKind::Repository,
                                 base_url: base.to_string(),
                                 suite: suite.to_string(),
                                 component: Some(component.clone()),

@@ -14,7 +14,7 @@ mod internal;
 #[cfg(feature = "apt-lists")]
 pub use api::{
     AptState, Arch, Control, Group, Package, PackageKey, QueryResolution, ResolvedPackage, Source,
-    Version,
+    SourceKind, Version,
 };
 pub use internal::dpkg::DpkgError;
 #[cfg(feature = "apt-lists")]
