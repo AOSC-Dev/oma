@@ -1415,11 +1415,23 @@ fn requested_conflicts(cache: &Cache, pkgs: &[OmaPackage]) -> HashSet<usize> {
             for group in groups {
                 for dep in group.iter() {
                     let target = dep.target_package();
-                    let Some(installed) = target.installed() else {
-                        continue;
-                    };
-                    if in_range(Some(installed.version()), dep.comp_type(), dep.version()) {
+                    if let Some(installed) = target.installed()
+                        && in_range(Some(installed.version()), dep.comp_type(), dep.version())
+                    {
                         conflicts.insert(target.index());
+                    }
+
+                    for provider in target.provides() {
+                        let package = provider.package();
+                        let Some(installed) = package.installed() else {
+                            continue;
+                        };
+                        if provider.version().version() != installed.version() {
+                            continue;
+                        }
+                        if in_range(provider.version_str(), dep.comp_type(), dep.version()) {
+                            conflicts.insert(package.index());
+                        }
                     }
                 }
             }
@@ -1456,11 +1468,11 @@ fn in_range(candidate: Option<&str>, comp_type: Option<&str>, want: Option<&str>
         return false;
     };
     match comp_type {
-        Some("<") => order == Ordering::Less,
+        Some("<<" | "<") => order == Ordering::Less,
         Some("<=") => order != Ordering::Greater,
         Some("=") => order == Ordering::Equal,
         Some(">=") => order != Ordering::Less,
-        Some(">") => order == Ordering::Greater,
+        Some(">>" | ">") => order == Ordering::Greater,
         Some("!=") => order != Ordering::Equal,
         _ => false,
     }
