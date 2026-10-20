@@ -132,10 +132,24 @@ fn display_group(
     json: bool,
     apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
-    if json {
-        display_versions_to_json(stdout, &resolved.versions, dpkg, apt_cfg)?;
+    // `--all` on a local `.deb` shows every version the package has in the
+    // database, not just the version read from the file. Without `--all`
+    // the default stays on the file's version.
+    let expanded: Vec<Cow<'_, PackageVersion>>;
+    let versions: &[Cow<'_, PackageVersion>] = if all && resolved.local {
+        expanded = match resolved.pkg.versions() {
+            Cow::Borrowed(versions) => versions.iter().map(Cow::Borrowed).collect(),
+            Cow::Owned(versions) => versions.into_iter().map(Cow::Owned).collect(),
+        };
+        &expanded
     } else {
-        display_versions(stdout, resolved, dpkg, ext_states, all, apt_cfg);
+        &resolved.versions
+    };
+
+    if json {
+        display_versions_to_json(stdout, versions, dpkg, apt_cfg)?;
+    } else {
+        display_versions(stdout, resolved, versions, dpkg, ext_states, all, apt_cfg);
     }
     Ok(())
 }
@@ -175,6 +189,7 @@ fn default_version<'a>(
 fn display_versions(
     stdout: &mut impl Write,
     resolved: &ResolvedPackage<'_>,
+    versions: &[Cow<'_, PackageVersion>],
     dpkg: &DpkgState,
     ext_states: &AptExtendedStates,
     show_all: bool,
@@ -182,7 +197,7 @@ fn display_versions(
 ) {
     if !show_all
         && let Some(version) = default_version(
-            &resolved.versions,
+            versions,
             &apt_cfg.get("APT::Architecture", ""),
             resolved.arch.as_deref(),
         )
@@ -195,7 +210,7 @@ fn display_versions(
     // versions instead of re-parsing each version string. Unstable is fine:
     // ties only occur between versions that compare equal (e.g. unparsable
     // version strings), whose display order is meaningless.
-    let mut shown: Vec<&Cow<'_, PackageVersion>> = resolved.versions.iter().collect();
+    let mut shown: Vec<&Cow<'_, PackageVersion>> = versions.iter().collect();
     shown.sort_unstable_by_key(|a| a.parsed_version());
 
     for (idx, version) in shown.iter().enumerate() {

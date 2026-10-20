@@ -176,6 +176,10 @@ pub struct ResolvedPackage<'a> {
     /// a status-only package's records by the architecture the user asked
     /// for (`:i386`) or by the native one (no qualifier, `:native`, `:any`).
     pub arch: Option<String>,
+    /// Whether this came from a local `.deb` path. `--all` expands such a
+    /// query to every version of the package, while the default display
+    /// stays on the version read from the file.
+    pub local: bool,
 }
 
 /// Result of resolving package queries.
@@ -507,6 +511,7 @@ impl AptDb {
                     .expect("a `.deb` resolves to exactly one group"),
                 // A local `.deb` query carries no architecture qualifier.
                 arch: None,
+                local: true,
             });
         }
 
@@ -535,6 +540,7 @@ impl AptDb {
                     pkg: Package::new(self, name),
                     versions,
                     arch: arch.clone(),
+                    local: false,
                 });
             }
         }
@@ -894,6 +900,7 @@ mod tests {
         let versions = &resolution.resolved[0].versions;
         assert_eq!(versions.len(), 2);
         assert!(versions.iter().all(|v| v.entry.package == "fish"));
+        assert!(!resolution.resolved[0].local);
         // two distinct versions (3.6, 3.7)
         assert_eq!(resolution.resolved[0].pkg.version_count(), 2);
         assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
@@ -1056,6 +1063,7 @@ Status: install ok installed
 
         assert!(resolution.no_match.is_empty());
         assert_eq!(resolution.resolved.len(), 1);
+        assert!(resolution.resolved[0].local);
         let versions = &resolution.resolved[0].versions;
         assert_eq!(versions.len(), 1);
         assert_eq!(versions[0].entry.package, "hello");
