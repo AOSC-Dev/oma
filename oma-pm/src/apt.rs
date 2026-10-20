@@ -757,9 +757,10 @@ impl OmaApt {
         Ok(())
     }
 
-    /// apt's `DoAutomaticRemove`: sweep after the resolver and drop new
-    /// installs nothing needs any more. If dropping them would break the
-    /// transaction, put them back (apt restores the dependents instead).
+    /// apt's `DoAutomaticRemove`: after dependency resolution, drop packages
+    /// that would not be needed by any dependee (reverse dependency), or those
+    /// that would result in conflicts, from the resolution. If dropping said
+    /// package(s) would break the transaction, put them back.
     fn drop_new_garbage(&self) {
         self.cache.depcache().mark_and_sweep();
 
@@ -1447,8 +1448,9 @@ fn mark_install(
 }
 
 fn mark_install_inner(pkg: &Package) -> bool {
-    // apt 的 TryToInstall + doAutoInstall：
-    // 先标记请求本身，再跑自动安装 pass，把依赖和推荐作为自动安装加入。
+    // apt's TryToInstall + doAutoInstall：
+    // Mark the install request first, then run resolution, adding dependencies,
+    // recommendations, and suggestions (if enabled) into the resolution.
     pkg.mark_install(false, true);
     pkg.mark_install(true, true)
 }
