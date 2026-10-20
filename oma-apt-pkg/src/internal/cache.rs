@@ -19,11 +19,10 @@ use crate::apt_sources::SourceLookup;
 /// freshly allocated buffers are page/8-aligned).
 pub(crate) const CACHE_HEADER_LEN: usize = 16;
 // Bump when the generated index set or the archived cache layout changes:
-// `5` adds the source kind, `4` records the preferred architecture in
-// search entries, `3` stores the native/ordered architectures with the
-// package database (and `2` moved it to an architecture-keyed payload);
-// older caches are rebuilt.
-pub(crate) const CACHE_VERSION: u32 = 5;
+// `2` is the architecture-keyed payload with source kinds, the
+// native/ordered architectures and the search entry's preferred
+// architecture; older caches are rebuilt.
+pub(crate) const CACHE_VERSION: u32 = 2;
 
 /// Whether `bytes` begins with a valid header for `magic` (magic + current
 /// version).
