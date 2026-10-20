@@ -1,4 +1,5 @@
 use super::*;
+use crate::SourceKind;
 use std::io::Write;
 
 fn control(name: &str, version: &str, arch: &str, description: &str) -> Control {
@@ -10,6 +11,7 @@ fn control(name: &str, version: &str, arch: &str, description: &str) -> Control 
 
 fn source(arch: &str, suite: &str) -> Source {
     Source {
+        kind: SourceKind::Repository,
         base_url: "file:/repo".to_string(),
         suite: suite.to_string(),
         component: Some("main".to_string()),
@@ -386,4 +388,20 @@ fn local_deb_does_not_shadow_an_indexed_architecture() {
         state.resolve(vec!["foo:native".into()]).no_match,
         vec!["foo:native"]
     );
+}
+
+#[test]
+fn repository_suite_named_local_deb_is_still_a_repository() {
+    let mut state = state("amd64", &["amd64"]);
+    state.add_index(
+        vec![control("foo", "1", "amd64", "from a suite named local-deb")],
+        vec![source("amd64", "local-deb")],
+    );
+
+    let resolution = state.resolve(vec!["foo".into()]);
+    assert_eq!(resolution.resolved.len(), 1);
+    let versions = &resolution.resolved[0].versions;
+    assert_eq!(versions.len(), 1);
+    assert!(!versions[0].is_local_deb());
+    assert_eq!(versions[0].sources[0].kind, SourceKind::Repository);
 }

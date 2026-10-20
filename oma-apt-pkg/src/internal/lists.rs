@@ -82,6 +82,21 @@ impl PackageEntry {
     }
 }
 
+/// What kind of source an [`IndexSource`] describes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(
+    feature = "apt-lists",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub enum SourceKind {
+    /// A configured repository index (`Packages`).
+    Repository,
+    /// A local `.deb` inserted with `oma show ./foo.deb`.
+    LocalDeb,
+    /// The live dpkg status file.
+    DpkgStatus,
+}
+
 /// The source an index entry came from, resolved against `sources.list`
 /// once at database build time.
 ///
@@ -94,11 +109,15 @@ impl PackageEntry {
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
 pub struct IndexSource {
+    /// What produced this entry. Never infer this from `suite`: a repository
+    /// may legitimately use `local-deb` as its suite name.
+    pub kind: SourceKind,
     /// Canonical base URL from `sources.list` (e.g.
     /// `https://mirrors.example.com/debian`). For a local `.deb` this is
     /// its `file:` URI.
     pub base_url: String,
-    /// The suite (e.g. `stable`), or `local-deb` for local `.deb`s.
+    /// The repository suite (e.g. `stable`), or the conventional `local-deb`
+    /// label for a local `.deb`.
     pub suite: String,
     /// The component (e.g. `main`), or `local-deb` for local `.deb`s;
     /// `None` for flat repositories.
@@ -111,12 +130,12 @@ impl IndexSource {
     /// The dpkg status file, where a package that is installed but no longer
     /// available from any repository comes from.
     ///
-    /// It is not a repository: apt names instead the file where the package is
-    /// recorded itself - most likely the dpkg status file (i.e.,
-    /// `APT-Sources: /var/lib/dpkg/status`), so it has no suite, component, or
-    /// architecture recorded in the source.
+    /// It is not a repository: apt names the file itself
+    /// (`APT-Sources: /var/lib/dpkg/status`), so it has no suite, component
+    /// or architecture; [`SourceKind::DpkgStatus`] marks it.
     pub fn dpkg_status(path: impl Into<String>) -> Self {
         Self {
+            kind: SourceKind::DpkgStatus,
             base_url: path.into(),
             suite: String::new(),
             component: None,
@@ -127,12 +146,12 @@ impl IndexSource {
     /// Whether this source is the dpkg status file (see
     /// [`Self::dpkg_status`]).
     pub fn is_dpkg_status(&self) -> bool {
-        self.suite.is_empty()
+        matches!(self.kind, SourceKind::DpkgStatus)
     }
 
     /// Whether this source is a local `.deb` file.
     pub fn is_local_deb(&self) -> bool {
-        self.suite == "local-deb"
+        matches!(self.kind, SourceKind::LocalDeb)
     }
 }
 

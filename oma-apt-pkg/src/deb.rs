@@ -15,7 +15,7 @@ use deb822_fast::{Deb822, FromDeb822Paragraph};
 use thiserror::Error;
 
 use crate::Control;
-use crate::internal::lists::IndexSource;
+use crate::internal::lists::{IndexSource, SourceKind};
 
 /// Errors that can occur while reading a `.deb` package.
 #[derive(Debug, Error)]
@@ -36,6 +36,7 @@ pub enum DebError {
 /// conventional `local-deb/local-deb` suite/component.
 pub(crate) fn source_for(path: impl AsRef<Path>) -> IndexSource {
     IndexSource {
+        kind: SourceKind::LocalDeb,
         base_url: file_uri(path),
         suite: "local-deb".to_string(),
         component: Some("local-deb".to_string()),
