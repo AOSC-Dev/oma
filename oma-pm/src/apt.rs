@@ -562,7 +562,7 @@ impl OmaApt {
 
         if !no_autoremove {
             // 需要先计算依赖才知道后面多少软件包是不必要的
-            self.resolve(false, purge)?;
+            self.resolve(purge)?;
 
             // 删除不必要的软件包
             self.autoremove(purge)?;
@@ -738,8 +738,8 @@ impl OmaApt {
     }
 
     /// Resolve apt dependencies
-    pub fn resolve(&mut self, no_fixbroken: bool, all_purge: bool) -> OmaAptResult<()> {
-        self.resolve_inner(no_fixbroken)?;
+    pub fn resolve(&mut self, all_purge: bool) -> OmaAptResult<()> {
+        self.resolve_inner()?;
         self.drop_new_garbage();
 
         if all_purge {
@@ -751,7 +751,7 @@ impl OmaApt {
                     pkg.protect();
                 });
 
-            self.resolve_inner(no_fixbroken)?;
+            self.resolve_inner()?;
         }
 
         Ok(())
@@ -781,7 +781,7 @@ impl OmaApt {
         }
     }
 
-    fn resolve_inner(&mut self, _no_fixbroken: bool) -> Result<(), OmaAptError> {
+    fn resolve_inner(&mut self) -> Result<(), OmaAptError> {
         if let Err(e) = self.cache.resolve(true) {
             debug!("{e:#?}");
             for pkg in self.cache.iter() {
