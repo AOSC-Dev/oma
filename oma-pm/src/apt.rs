@@ -1,5 +1,6 @@
 use std::{
     cell::RefCell,
+    cmp::Ordering,
     fmt,
     io::{self},
     path::{Path, PathBuf},
@@ -15,14 +16,14 @@ use reqwest_middleware::ClientWithMiddleware;
 use tokio::runtime::{Handle, Runtime};
 
 use oma_apt::{
-    DepFlags, Dependency, Package, PkgCurrentState, Version,
+    DepFlags, DepType, Dependency, Package, PkgCurrentState, Version,
     cache::{Cache, PackageSort},
     error::AptErrors,
     new_cache,
     progress::{AcquireProgress, InstallProgress},
     raw::{IntoRawIter, config as apt_config},
     records::RecordField,
-    util::DiskSpace,
+    util::{DiskSpace, cmp_versions},
 };
 
 use oma_fetch::{Event, Summary, checksum::ChecksumError};
@@ -431,6 +432,13 @@ impl OmaApt {
 
         let install_recommends = apt_config::find_bool("APT::Install-Recommends".to_string(), true);
 
+        let requested_conflicts = requested_conflicts(&self.cache, pkgs);
+        for installed in self.cache.packages(&PackageSort::default().installed()) {
+            if installed.is_auto_removable() && !requested_conflicts.contains(&installed.index()) {
+                installed.protect();
+            }
+        }
+
         for pkg in pkgs {
             let marked_install = mark_install(&self.cache, pkg, reinstall, install_recommends)?;
 
@@ -736,6 +744,7 @@ impl OmaApt {
     /// Resolve apt dependencies
     pub fn resolve(&mut self, no_fixbroken: bool, all_purge: bool) -> OmaAptResult<()> {
         self.resolve_inner(no_fixbroken)?;
+        self.drop_new_garbage();
 
         if all_purge {
             self.cache
@@ -750,6 +759,30 @@ impl OmaApt {
         }
 
         Ok(())
+    }
+
+    /// apt's `DoAutomaticRemove`: sweep after the resolver and drop new
+    /// installs nothing needs any more. If dropping them would break the
+    /// transaction, put them back (apt restores the dependents instead).
+    fn drop_new_garbage(&self) {
+        self.cache.depcache().mark_and_sweep();
+
+        let too_much: Vec<_> = self
+            .cache
+            .get_changes(false)
+            .filter(|pkg| pkg.marked_install() && !pkg.is_installed() && pkg.is_auto_removable())
+            .collect();
+
+        let broken = self.cache.depcache().broken_count();
+        for pkg in &too_much {
+            pkg.mark_delete(false);
+        }
+
+        if self.cache.depcache().broken_count() > broken {
+            for pkg in too_much {
+                pkg.mark_install(true, true);
+            }
+        }
     }
 
     fn resolve_inner(&mut self, no_fixbroken: bool) -> Result<(), OmaAptError> {
@@ -1356,6 +1389,81 @@ fn get_package_checksums(
     }
 
     Ok((sha256, md5, sha512))
+}
+
+fn requested_conflicts(cache: &Cache, pkgs: &[OmaPackage]) -> HashSet<usize> {
+    let mut conflicts = HashSet::default();
+    let mut queue: Vec<Version<'_>> = pkgs
+        .iter()
+        .filter_map(|pkginfo| {
+            let pkg = (unsafe { pkginfo.version_raw.unique() }).make_safe()?;
+            Some(Version::new(pkg, cache))
+        })
+        .collect();
+    let mut seen: HashSet<usize> = HashSet::default();
+
+    while let Some(version) = queue.pop() {
+        let parent_index = unsafe { version.parent_pkg().index() };
+        if !seen.insert(parent_index) {
+            continue;
+        }
+
+        for dep_type in [DepType::Conflicts, DepType::DpkgBreaks] {
+            let Some(groups) = version.depends_map().get(&dep_type) else {
+                continue;
+            };
+            for group in groups {
+                for dep in group.iter() {
+                    let target = dep.target_package();
+                    let Some(installed) = target.installed() else {
+                        continue;
+                    };
+                    if in_range(Some(installed.version()), dep.comp_type(), dep.version()) {
+                        conflicts.insert(target.index());
+                    }
+                }
+            }
+        }
+
+        for dep_type in [DepType::Depends, DepType::PreDepends] {
+            let Some(groups) = version.depends_map().get(&dep_type) else {
+                continue;
+            };
+            for group in groups {
+                for dep in group.iter() {
+                    if let Some(candidate) = cache
+                        .get(dep.target_package().name())
+                        .and_then(|p| p.candidate())
+                    {
+                        queue.push(candidate);
+                    }
+                }
+            }
+        }
+    }
+
+    conflicts
+}
+
+fn in_range(candidate: Option<&str>, comp_type: Option<&str>, want: Option<&str>) -> bool {
+    let Some(want) = want else {
+        return true;
+    };
+    let Some(candidate) = candidate else {
+        return false;
+    };
+    let Ok(order) = cmp_versions(candidate, want) else {
+        return false;
+    };
+    match comp_type {
+        Some("<") => order == Ordering::Less,
+        Some("<=") => order != Ordering::Greater,
+        Some("=") => order == Ordering::Equal,
+        Some(">=") => order != Ordering::Less,
+        Some(">") => order == Ordering::Greater,
+        Some("!=") => order != Ordering::Equal,
+        _ => false,
+    }
 }
 
 /// Mark package as install.
