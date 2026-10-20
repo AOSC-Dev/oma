@@ -109,7 +109,7 @@ fn main() -> Result<(), OmaAptError> {
 
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();
 
-    apt.resolve(false, false)?;
+    apt.resolve(false)?;
 
     let op = apt.build_transaction(
         SummarySort::default().operation().names(),

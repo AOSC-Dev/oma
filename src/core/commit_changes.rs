@@ -336,7 +336,7 @@ fn fix_broken(
             return Ok(());
         }
 
-        apt.resolve(no_fixbroken, remove_config)?;
+        apt.resolve(remove_config)?;
 
         Ok(())
     });
