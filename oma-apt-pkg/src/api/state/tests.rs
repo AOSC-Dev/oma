@@ -292,6 +292,29 @@ fn local_deb_keeps_its_control_when_the_repo_has_the_same_version() {
         Some("local control")
     );
     assert!(versions[0].sources.iter().all(Source::is_local_deb));
+
+    // Mixing a path with a name in one invocation: the name query must see
+    // the repository record only, never the inserted local one.
+    let mixed = state.resolve(vec!["foo".into(), path.to_string_lossy().into_owned()]);
+    assert_eq!(mixed.resolved.len(), 2);
+    let repo = &mixed.resolved[0];
+    assert_eq!(repo.versions.len(), 1);
+    assert!(
+        repo.versions[0]
+            .sources
+            .iter()
+            .all(|source| !source.is_local_deb())
+    );
+    assert_eq!(
+        repo.versions[0].control.description.as_deref(),
+        Some("test")
+    );
+    assert!(
+        mixed.resolved[1]
+            .versions
+            .iter()
+            .all(|version| version.is_local_deb())
+    );
 }
 
 #[test]
@@ -327,4 +350,40 @@ fn distinct_local_debs_with_the_same_identity_stay_separate() {
             Some(description)
         );
     }
+}
+
+#[test]
+fn local_deb_does_not_shadow_an_indexed_architecture() {
+    let mut state = state("amd64", &["amd64", "i386"]);
+    add(&mut state, "foo", "1", "i386");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("foo_2_amd64.deb");
+    std::fs::write(
+        &path,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 2\nArchitecture: amd64\nDescription: local native\n",
+        ),
+    )
+    .unwrap();
+    state.insert_deb(&path).unwrap();
+
+    // The local native record is not an indexed native package: a plain query
+    // falls back to the indexed i386 package instead of selecting it.
+    let plain = state.resolve(vec!["foo".into()]);
+    assert_eq!(plain.resolved.len(), 1);
+    assert_eq!(plain.resolved[0].key.arch.as_str(), "i386");
+    assert_eq!(plain.resolved[0].versions[0].version(), Some("1"));
+    assert!(
+        plain.resolved[0]
+            .versions
+            .iter()
+            .all(|version| !version.is_local_deb())
+    );
+
+    // An explicit native query must not match the local-only native arch.
+    assert_eq!(
+        state.resolve(vec!["foo:native".into()]).no_match,
+        vec!["foo:native"]
+    );
 }

@@ -214,9 +214,12 @@ impl AptState {
     /// Resolve package queries the way apt resolves a package name.
     ///
     /// A local `.deb` path must first be added with [`Self::insert_deb`]; it
-    /// is then resolved from the version that insertion recorded. Versions
-    /// are borrowed from the state unless a `=version` or `/branch` filter
-    /// applies, in which case only the matching records are cloned.
+    /// is then resolved from the version that insertion recorded. Non-path
+    /// queries deliberately ignore locally inserted versions, so mixing a
+    /// `.deb` path with a package name does not expose the local record as a
+    /// repository version. Versions are borrowed from the state unless a
+    /// `=version` or `/branch` filter (or local records) requires a filtered
+    /// copy.
     pub fn resolve<'a>(&'a self, queries: Vec<String>) -> QueryResolution<'a> {
         let mut resolved = Vec::new();
         let mut no_match = Vec::new();
@@ -271,26 +274,32 @@ impl AptState {
         let Some(versions) = self.packages(name).get(arch) else {
             return false;
         };
-        let selected: Cow<'a, [Version]> = if parsed.version.is_none() && parsed.branch.is_none() {
-            Cow::Borrowed(versions.as_slice())
-        } else {
-            Cow::Owned(
-                versions
-                    .iter()
-                    .filter(|version| matches_version(version, parsed.version, parsed.branch))
-                    .filter_map(|version| {
-                        // A branch query reports only the sources of that
-                        // branch; a version may also be in other suites.
-                        let Some(branch) = parsed.branch else {
-                            return Some(version.clone());
-                        };
-                        let mut version = version.clone();
-                        version.sources.retain(|source| source.suite == branch);
-                        (!version.sources.is_empty()).then_some(version)
-                    })
-                    .collect(),
-            )
-        };
+        // Locally inserted `.deb` records describe a file, not an apt
+        // archive: a normal package query must not see them even when both
+        // are present in one invocation.
+        let has_local = versions.iter().any(Version::is_local_deb);
+        let selected: Cow<'a, [Version]> =
+            if !has_local && parsed.version.is_none() && parsed.branch.is_none() {
+                Cow::Borrowed(versions.as_slice())
+            } else {
+                Cow::Owned(
+                    versions
+                        .iter()
+                        .filter(|version| !version.is_local_deb())
+                        .filter(|version| matches_version(version, parsed.version, parsed.branch))
+                        .filter_map(|version| {
+                            // A branch query reports only the sources of that
+                            // branch; a version may also be in other suites.
+                            let Some(branch) = parsed.branch else {
+                                return Some(version.clone());
+                            };
+                            let mut version = version.clone();
+                            version.sources.retain(|source| source.suite == branch);
+                            (!version.sources.is_empty()).then_some(version)
+                        })
+                        .collect(),
+                )
+            };
         if selected.is_empty() {
             return false;
         }
@@ -364,15 +373,22 @@ impl AptState {
 
     pub(crate) fn preferred_arch<'a>(&'a self, name: &str) -> Option<&'a Arch> {
         let packages = self.packages(name);
-        if let Some((arch, _)) = packages.get_key_value(self.native.as_str()) {
+        if let Some((arch, versions)) = packages.get_key_value(self.native.as_str())
+            && has_indexed_version(versions)
+        {
             return Some(arch);
         }
         for arch in &self.architectures {
-            if let Some((found, _)) = packages.get_key_value(arch.as_str()) {
+            if let Some((found, versions)) = packages.get_key_value(arch.as_str())
+                && has_indexed_version(versions)
+            {
                 return Some(found);
             }
         }
-        packages.keys().next()
+        packages
+            .iter()
+            .find(|(_, versions)| has_indexed_version(versions))
+            .map(|(arch, _)| arch)
     }
 
     fn select_arch<'a>(&'a self, name: &str, qualifier: Option<&str>) -> Option<&'a Arch> {
@@ -380,12 +396,20 @@ impl AptState {
             Some(Arch::ALL) | Some(Arch::NATIVE) => self
                 .packages(name)
                 .get_key_value(self.native.as_str())
+                .filter(|(_, versions)| has_indexed_version(versions))
                 .map(|(arch, _)| arch),
-            Some(Arch::ANY) => self.package_order.get(name).and_then(|order| order.first()),
+            Some(Arch::ANY) => self.package_order.get(name).and_then(|order| {
+                order.iter().find(|arch| {
+                    self.packages(name)
+                        .get(arch.as_str())
+                        .is_some_and(|versions| has_indexed_version(versions))
+                })
+            }),
             None => self.preferred_arch(name),
             Some(arch) => self
                 .packages(name)
                 .get_key_value(arch)
+                .filter(|(_, versions)| has_indexed_version(versions))
                 .map(|(arch, _)| arch),
         }
     }
@@ -495,6 +519,10 @@ impl AptState {
 
         Ok(())
     }
+}
+
+fn has_indexed_version(versions: &[Version]) -> bool {
+    versions.iter().any(|version| !version.is_local_deb())
 }
 
 fn push_or_merge(versions: &mut Vec<Version>, version: Version) {

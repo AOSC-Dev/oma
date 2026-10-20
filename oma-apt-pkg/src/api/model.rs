@@ -31,6 +31,12 @@ impl Version {
         self.arch.is_all()
     }
 
+    /// Whether this version came from a local `.deb` rather than an index or
+    /// the dpkg status file.
+    pub fn is_local_deb(&self) -> bool {
+        self.sources.iter().any(Source::is_local_deb)
+    }
+
     /// The architecture apt would display for this version (`all` or the
     /// package architecture).
     pub fn arch(&self) -> &Arch {
