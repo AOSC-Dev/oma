@@ -1447,10 +1447,8 @@ fn mark_install(
 }
 
 fn mark_install_inner(pkg: &Package) -> bool {
-    // 根据 Packagekit 的源码
-    // https://github.com/PackageKit/PackageKit/blob/a0a52ce90adb75a5df7ad1f0b1c9888f2eaf1a7b/backends/apt/apt-job.cpp#L388
-    // 先标记 auto_inst 为 true 把所有该包的依赖标记为自动安装
-    // 再把本包的 auto_inst 标记为 false，检查依赖问题
+    // apt 的 TryToInstall + doAutoInstall：
+    // 先标记请求本身，再跑自动安装 pass，把依赖和推荐作为自动安装加入。
     pkg.mark_install(false, true);
     pkg.mark_install(true, true)
 }
