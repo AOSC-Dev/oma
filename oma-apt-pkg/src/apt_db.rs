@@ -16,6 +16,7 @@ use rayon::prelude::*;
 use rkyv::vec::ArchivedVec;
 
 use crate::AptConfig;
+use crate::DpkgState;
 use crate::apt_lists::{
     ArchivedPackageVersion, IndexSource, PackageEntry, PackageVersion,
     parse_apt_lists_dir_with_sources,
@@ -171,6 +172,16 @@ pub struct ResolvedPackage<'a> {
     /// (`pkg/suite`) or a local `.deb`'s own version. Versions borrowed
     /// from the database when no filtering needed them owned.
     pub versions: Vec<Cow<'a, PackageVersion>>,
+    /// The `:arch` qualifier the query carried, if any. It lets `show` rank
+    /// a status-only package's records by the architecture the user asked
+    /// for (`:i386`) or by the native one - no qualifier or `:native` (same
+    /// as no-prefix/`:amd64` on amd64), then `:any`.
+    pub arch: Option<String>,
+    /// Whether the queried package comes from a local path
+    /// (`/path/to/foo.deb`). When the query was made with `--all`, expand
+    /// this query to every version of the package, otherwise, only show
+    /// information on the specified local package.
+    pub local: bool,
 }
 
 /// Result of resolving package queries.
@@ -180,6 +191,40 @@ pub struct QueryResolution<'a> {
     pub resolved: Vec<ResolvedPackage<'a>>,
     /// Queries that matched no package.
     pub no_match: Vec<String>,
+}
+
+/// Search schema - package name is the part of a user query before `=` (used
+/// to match exact versions (say, bash=5.3), `/` to match exact branch/origin
+/// (say, bash/stable, for package `bash` from the `stable` branch).
+///
+/// We keep, however, the `:` in the query to help distinguish between packages
+/// of native and foreign architectures (`bash`, `bash:amd64`, etc.).
+fn query_package(query: &str) -> (&str, Option<&str>) {
+    let name = query.split_once('=').map_or(query, |(name, _)| name);
+    let name = name.split_once('/').map_or(name, |(name, _)| name);
+    match name.split_once(':') {
+        Some((package, arch)) => (package, Some(arch)),
+        None => (name, None),
+    }
+}
+
+fn status_pattern(query: &str, native_arch: &str) -> Option<String> {
+    if query.contains('/') {
+        return None;
+    }
+
+    let (package, arch) = query_package(query);
+    if package.is_empty() {
+        return None;
+    }
+
+    let foreign =
+        arch.is_some_and(|arch| !matches!(arch, "all" | "any" | "native") && arch != native_arch);
+    Some(if foreign {
+        format!("{package}:{}", arch.expect("foreign implies a qualifier"))
+    } else {
+        package.to_string()
+    })
 }
 
 /// Build the `file:` URI source for a local `.deb` path, e.g.
@@ -417,6 +462,7 @@ impl AptDb {
     pub fn resolve_queries<'a>(
         &'a mut self,
         queries: Vec<String>,
+        dpkg: &DpkgState,
     ) -> Result<QueryResolution<'a>, QueryError> {
         let (deb_files, names): (Vec<String>, Vec<String>) = queries
             .into_iter()
@@ -439,6 +485,14 @@ impl AptDb {
             self.insert_with_source(entry, source);
         }
 
+        // A package that is installed but is not recorded in any known source
+        // is what we consider a vendor-supplied package, or one that was
+        // dropped (removed or moved out from enabled distro repositories).
+        //
+        // We consider such a package's source (`APT-Source:`) as
+        // `/var/lib/dpkg/status`, such is also how apt handles it.
+        self.add_status_entries(&names, dpkg);
+
         let matcher = PackageMatcher::new(self);
         let mut no_match = Vec::new();
         let mut resolved = Vec::new();
@@ -460,13 +514,23 @@ impl AptDb {
                     .into_iter()
                     .next()
                     .expect("a `.deb` resolves to exactly one group"),
+                // A local `.deb` query that carried no architecture qualifier.
+                arch: None,
+                local: true,
             });
         }
 
-        // Resolve the remaining name/glob/version/branch expressions.
-        if !names.is_empty() {
-            let (matched, no_result) =
-                matcher.match_pkgs_and_versions(names.iter().map(String::as_str))?;
+        // Resolve the remaining name/glob/version/branch expressions one
+        // keyword at a time, so each group keeps the architecture its query
+        // asked for.
+        for keyword in &names {
+            let arch = query_package(keyword).1.map(str::to_owned);
+            let (matched, _no_result) = matcher.match_pkgs_and_versions([keyword.as_str()])?;
+
+            if matched.is_empty() {
+                no_match.push(keyword.clone());
+                continue;
+            }
 
             for versions in matched {
                 // Groups are never empty (the matcher drops empty matches),
@@ -480,13 +544,67 @@ impl AptDb {
                 resolved.push(ResolvedPackage {
                     pkg: Package::new(self, name),
                     versions,
+                    arch: arch.clone(),
+                    local: false,
                 });
             }
-
-            no_match = no_result.into_iter().map(str::to_owned).collect();
         }
 
         Ok(QueryResolution { resolved, no_match })
+    }
+
+    /// Add the status entries for packages with no known source.
+    ///
+    /// Only names with no known source are taken from the status file,
+    /// packages with known source keep their repository versions and sources.
+    fn add_status_entries(&mut self, queries: &[String], dpkg: &DpkgState) {
+        let patterns: Vec<String> = queries
+            .iter()
+            .filter_map(|query| status_pattern(query, &self.native_arch))
+            .collect();
+        if patterns.is_empty() {
+            return;
+        }
+
+        let source = IndexSource::dpkg_status(dpkg.path().display().to_string());
+
+        // Group packages by name, `apt:amd64` and `apt:i386` share the same
+        // name - we group them together as `apt` regardless of version,
+        // source, or architecture qualifier.
+        let mut by_name: HashMap<String, Vec<PackageEntry>> = HashMap::new();
+        for entry in dpkg.entries(patterns.iter().map(String::as_str)) {
+            by_name
+                .entry(entry.package.clone())
+                .or_default()
+                .push(entry);
+        }
+
+        for (name, entries) in by_name {
+            if self.has_indexed_package(&name) {
+                continue;
+            }
+            for entry in entries {
+                self.insert_status_entry(entry, source.clone());
+            }
+        }
+    }
+
+    /// Insert a status record without merging it into an existing version: a
+    /// package installed for several architectures has one record per
+    /// architecture, and merging them would drop one.
+    fn insert_status_entry(&mut self, entry: PackageEntry, source: IndexSource) {
+        let name = entry.package.clone();
+        let versions = self.mutate_versions(&name);
+        let duplicate = versions.iter().any(|version| {
+            version.entry.version == entry.version
+                && version.entry.architecture == entry.architecture
+        });
+        if !duplicate {
+            versions.push(PackageVersion {
+                entry,
+                sources: vec![source],
+            });
+        }
     }
 
     /// Build from entries with parallel source tracking. Test-only: the
@@ -590,6 +708,18 @@ impl AptDb {
         }
     }
 
+    /// Whether `name` is backed by something other than the dpkg status file,
+    /// either a repository, a local `.deb`, etc.
+    fn has_indexed_package(&self, name: &str) -> bool {
+        self.versions(name).iter().any(|version| {
+            version.sources.is_empty()
+                || version
+                    .sources
+                    .iter()
+                    .any(|source| !source.is_dpkg_status())
+        })
+    }
+
     /// The display full name of an entry, `name:arch`, using this database's
     /// native architecture (from `APT::Architecture` in the stored config)
     /// for the pretty form.
@@ -685,6 +815,11 @@ impl AptDb {
 mod tests {
     use super::*;
 
+    /// A state whose status file does not exist: the fallback finds nothing.
+    fn no_status() -> DpkgState {
+        DpkgState::from_file_lazy("/nonexistent/oma-status")
+    }
+
     fn entry(name: &str, version: &str) -> PackageEntry {
         PackageEntry {
             package: name.to_string(),
@@ -755,16 +890,161 @@ mod tests {
         );
 
         let resolution = db
-            .resolve_queries(vec!["fish".into(), "nosuchpkg".into()])
+            .resolve_queries(vec!["fish".into(), "nosuchpkg".into()], &no_status())
             .unwrap();
 
         assert_eq!(resolution.resolved.len(), 1);
         let versions = &resolution.resolved[0].versions;
         assert_eq!(versions.len(), 2);
         assert!(versions.iter().all(|v| v.entry.package == "fish"));
+        assert!(!resolution.resolved[0].local);
         // two distinct versions (3.6, 3.7)
         assert_eq!(resolution.resolved[0].pkg.version_count(), 2);
         assert_eq!(resolution.no_match, vec!["nosuchpkg"]);
+    }
+
+    /// A package not found from any known repository carries resolves from
+    /// the status file, with the file as its source. 
+    ///
+    /// An indexed package (with known source) keeps its repository answer.
+    #[test]
+    fn test_resolve_queries_falls_back_to_status() {
+        let mut db = AptDb::from_entries_with_sources(
+            "amd64",
+            vec![entry("indexed", "1")],
+            vec![IndexSource {
+                base_url: "file:/repo".to_string(),
+                suite: "stable".to_string(),
+                component: Some("main".to_string()),
+                arch: Some("amd64".to_string()),
+            }],
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let status = dir.path().join("status");
+        std::fs::write(
+            &status,
+            "\
+Package: vendor-tool
+Version: 7
+Architecture: i386
+Status: install ok installed
+
+Package: vendor-tool
+Version: 7
+Architecture: amd64
+Status: install ok installed
+
+Package: removed-tool
+Version: 1
+Architecture: amd64
+Status: deinstall ok config-files
+
+Package: all-tool
+Version: 2
+Architecture: all
+Status: install ok installed
+
+",
+        )
+        .unwrap();
+        let dpkg = DpkgState::from_file_lazy(&status);
+
+        let resolution = db
+            .resolve_queries(
+                vec![
+                    "vendor-tool:i386".into(),
+                    "vendor-tool=7".into(),
+                    "all-tool:i386".into(),
+                    "removed-tool".into(),
+                    "indexed".into(),
+                ],
+                &dpkg,
+            )
+            .unwrap();
+
+        // A package with only configuration files left is not shown.
+        assert_eq!(resolution.no_match, vec!["removed-tool"]);
+        assert_eq!(resolution.resolved.len(), 4);
+
+        let foreign = &resolution.resolved[0].versions;
+        assert_eq!(foreign.len(), 1);
+        assert_eq!(foreign[0].entry.architecture.as_deref(), Some("i386"));
+        assert!(foreign[0].sources[0].is_dpkg_status());
+
+        // Both installed architectures are kept as records of their own.
+        assert_eq!(resolution.resolved[1].pkg.version_count(), 2);
+        assert!(
+            resolution.resolved[1]
+                .versions
+                .iter()
+                .all(|version| version.sources[0].is_dpkg_status())
+        );
+
+        // An `Architecture: all` status record satisfies a concrete
+        // qualifier, as the matcher treats it.
+        let all_build = &resolution.resolved[2].versions;
+        assert_eq!(all_build.len(), 1);
+        assert_eq!(all_build[0].entry.architecture.as_deref(), Some("all"));
+        assert!(all_build[0].sources[0].is_dpkg_status());
+
+        // The indexed package still comes from the repository.
+        assert!(
+            resolution.resolved[3]
+                .versions
+                .iter()
+                .all(|version| !version.sources.iter().any(|source| source.is_dpkg_status()))
+        );
+    }
+
+    /// Resolving one architecture first must not stop a later resolution from
+    /// adding the status record another architecture asks for.
+    #[test]
+    fn status_records_merge_across_resolutions() {
+        let mut db = AptDb::from_entries("amd64", Vec::new());
+
+        let dir = tempfile::tempdir().unwrap();
+        let status = dir.path().join("status");
+        std::fs::write(
+            &status,
+            "\
+Package: vendor-tool
+Version: 7
+Architecture: i386
+Status: install ok installed
+
+Package: vendor-tool
+Version: 7
+Architecture: amd64
+Status: install ok installed
+
+",
+        )
+        .unwrap();
+        let dpkg = DpkgState::from_file_lazy(&status);
+
+        {
+            let first = db
+                .resolve_queries(vec!["vendor-tool:i386".into()], &dpkg)
+                .unwrap();
+            assert_eq!(first.resolved.len(), 1);
+            assert_eq!(
+                first.resolved[0].versions[0].entry.architecture.as_deref(),
+                Some("i386")
+            );
+        }
+
+        let second = db
+            .resolve_queries(vec!["vendor-tool:amd64".into()], &dpkg)
+            .unwrap();
+        assert_eq!(second.resolved.len(), 1);
+        assert_eq!(
+            second.resolved[0].versions[0].entry.architecture.as_deref(),
+            Some("amd64")
+        );
+
+        // Both records are kept, not replaced.
+        assert_eq!(second.resolved[0].pkg.version_count(), 2);
     }
 
     #[test]
@@ -777,11 +1057,12 @@ mod tests {
 
         let mut db = AptDb::from_entries("", Vec::new());
         let resolution = db
-            .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
+            .resolve_queries(vec![deb_path.to_string_lossy().into_owned()], &no_status())
             .unwrap();
 
         assert!(resolution.no_match.is_empty());
         assert_eq!(resolution.resolved.len(), 1);
+        assert!(resolution.resolved[0].local);
         let versions = &resolution.resolved[0].versions;
         assert_eq!(versions.len(), 1);
         assert_eq!(versions[0].entry.package, "hello");
@@ -813,7 +1094,7 @@ mod tests {
             }],
         );
         let resolution = db
-            .resolve_queries(vec![deb_path.to_string_lossy().into_owned()])
+            .resolve_queries(vec![deb_path.to_string_lossy().into_owned()], &no_status())
             .unwrap();
 
         assert_eq!(resolution.resolved.len(), 1);
@@ -958,7 +1239,7 @@ mod tests {
         };
 
         let resolution = db
-            .resolve_queries(vec!["fish".into(), "nosuchpkg".into()])
+            .resolve_queries(vec!["fish".into(), "nosuchpkg".into()], &no_status())
             .unwrap();
 
         assert_eq!(resolution.resolved.len(), 1);
