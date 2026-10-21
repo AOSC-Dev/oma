@@ -17,10 +17,8 @@ pub enum AptListsError {
 }
 
 /// A single package entry from a Packages file
-#[derive(Debug, Clone, FromDeb822, Serialize)]
-#[cfg_attr(
-    feature = "apt-lists",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+#[derive(
+    Debug, Clone, FromDeb822, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
 #[serde(rename_all = "PascalCase")]
 pub struct PackageEntry {
@@ -83,10 +81,8 @@ impl PackageEntry {
 }
 
 /// What kind of source an [`IndexSource`] describes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(
-    feature = "apt-lists",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
 pub enum SourceKind {
     /// A configured repository index (`Packages`).
@@ -103,10 +99,8 @@ pub enum SourceKind {
 /// Consumers — download URLs, the `APT-Sources` display, branch matching —
 /// read these fields directly; no `sources.list` re-resolution is needed
 /// after the database is built.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(
-    feature = "apt-lists",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
 pub struct IndexSource {
     /// What produced this entry. Never infer this from `suite`: a repository

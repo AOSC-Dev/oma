@@ -30,10 +30,17 @@ type IndexSet<T> = indexmap::IndexSet<T, RandomState>;
 type IndexMap<K, V> = indexmap::IndexMap<K, V, RandomState>;
 
 /// Status of the package.
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "apt-lists",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+#[derive(
+    PartialEq,
+    Eq,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
 )]
 pub enum PackageStatus {
     Avail,
@@ -70,11 +77,7 @@ impl Ord for PackageStatus {
 }
 
 /// A single entry in the search index.
-#[derive(Clone)]
-#[cfg_attr(
-    feature = "apt-lists",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
-)]
+#[derive(Clone, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct SearchEntry {
     /// The name of the package
     pub name: String,
@@ -175,10 +178,7 @@ const SEARCH_CACHE_MAGIC: &[u8; 8] = b"OMASCH\x00\x00";
 
 /// On-disk form of the search cache: the package map plus the lists files
 /// it was built from.
-#[cfg_attr(
-    feature = "apt-lists",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
-)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 struct SearchCache {
     pkg_map: IndexMap<String, SearchEntry>,
     files: Vec<CacheFile>,
