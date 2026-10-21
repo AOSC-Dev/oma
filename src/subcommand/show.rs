@@ -139,12 +139,7 @@ fn display_group(
     // `--all` on a local `.deb` shows every version the package has in the
     // database, not just the version read from the file. Without `--all`
     // the default stays on the file's version.
-    let is_local = resolved.versions.iter().all(|version| {
-        version
-            .sources
-            .iter()
-            .any(|source| source.suite == "local-deb")
-    });
+    let is_local = resolved.versions.iter().all(Version::is_local_deb);
     let versions: &[Version] = if all && is_local {
         pkg.versions()
     } else {
