@@ -904,7 +904,7 @@ mod tests {
     }
 
     /// A package not found from any known repository carries resolves from
-    /// the status file, with the file as its source. 
+    /// the status file, with the file as its source.
     ///
     /// An indexed package (with known source) keeps its repository answer.
     #[test]
