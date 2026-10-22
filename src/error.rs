@@ -339,6 +339,7 @@ impl From<RefreshError> for OutputError {
             },
             RefreshError::NoMetadataToDownload => fl!("oma-refresh-no-metadata-to-download").into(),
             RefreshError::CreateTokioRuntime(error) => error.to_string().into(),
+            RefreshError::Canceled => fl!("refresh-canceled").into(),
         }
     }
 }

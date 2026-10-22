@@ -2,7 +2,10 @@ use std::{
     borrow::Cow,
     fs::DirEntry,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use ahash::{AHashMap, HashSet, HashSetExt};
@@ -23,7 +26,7 @@ use oma_fetch::{
     },
 };
 
-use oma_fetch::{SingleDownloadError, Summary};
+use oma_fetch::{SingleDownloadError, Summary, TaskTracker};
 #[cfg(feature = "aosc")]
 use oma_topics::TopicManager;
 
@@ -94,9 +97,43 @@ pub enum RefreshError {
     DownloadManagerBuilderError(BuilderError),
     #[error("No metadata file to download")]
     NoMetadataToDownload,
+    #[error("Refresh was canceled")]
+    Canceled,
 }
 
 type Result<T> = std::result::Result<T, RefreshError>;
+
+/// 取消通道的句柄：需要取消的一方持有它，调用 [`CancelHandle::cancel`]
+/// 即可中止对应的刷新。句柄与令牌通过 [`cancel_channel`] 一起创建。
+#[derive(Clone)]
+pub struct CancelHandle(flume::Sender<()>, Arc<AtomicBool>);
+
+impl CancelHandle {
+    /// 请求取消刷新；重复调用无副作用。
+    pub fn cancel(&self) {
+        // 先置位标志再发消息：标志只置位、不清除，谁先“看到”取消都不会
+        // 丢（消息可能被事件泵或刷新任务先取走）；消息只负责唤醒等待中
+        // 的 selector。
+        self.1.store(true, Ordering::SeqCst);
+        let _ = self.0.try_send(());
+    }
+}
+
+/// 取消通道的令牌：交给 `OmaRefresh` 构建器的 `cancel_token`，刷新收到
+/// 取消信号后会立即中止并返回 [`RefreshError::Canceled`]。句柄被丢弃但
+/// 未发出信号时，刷新照常进行。
+pub struct CancelToken(flume::Receiver<()>, Arc<AtomicBool>);
+
+/// 创建一对取消句柄与令牌：句柄留给需要取消的一方，令牌交给刷新。
+pub fn cancel_channel() -> (CancelHandle, CancelToken) {
+    let (tx, rx) = flume::bounded(1);
+    let canceled = Arc::new(AtomicBool::new(false));
+
+    (
+        CancelHandle(tx, canceled.clone()),
+        CancelToken(rx, canceled),
+    )
+}
 
 #[derive(Builder)]
 pub struct OmaRefresh {
@@ -115,6 +152,10 @@ pub struct OmaRefresh {
     /// omitted, a fresh one is built from the system defaults inside
     /// [`OmaRefresh`].
     apt_config: Option<Arc<AptConfig>>,
+    /// 可选的取消令牌（见 [`cancel_channel`]）：一旦收到取消信号，正在
+    /// 进行的刷新会立即中止（尚未完成的下载被丢弃）并返回
+    /// [`RefreshError::Canceled`]。句柄被丢弃但未发出信号时刷新照常进行。
+    cancel_token: Option<CancelToken>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -135,6 +176,10 @@ impl OmaRefresh {
     ) -> Result<Vec<SuccessSummary>> {
         if self.threads == 0 || self.threads > 255 {
             return Err(RefreshError::WrongThreadCount(self.threads));
+        }
+
+        if is_canceled(self.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
         }
 
         let apt_cfg = self.init_apt_config();
@@ -209,13 +254,47 @@ impl OmaRefresh {
             h
         };
 
-        let mirror_sources = MirrorSources::from_sourcelist(&sourcelist)?;
-        let (mut mirror_sources, not_found) =
-            run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
-                sc.download_releases(mirror_sources, tx).await
-            })?;
+        // 下载子任务的追踪器（见 `run_task_with_pump` 的取消分支）：取消时
+        // 要等所有子任务真正退出，列表目录锁的释放才不会早于子任务落盘。
+        let tracker = TaskTracker::new();
 
-        self_arc.refresh_topics(not_found, &mut mirror_sources, &mut callback)?;
+        let mirror_sources = MirrorSources::from_sourcelist(&sourcelist)?;
+        let tracker_for_release = tracker.clone();
+        let (mirror_sources, not_found) = run_task_with_pump(
+            &async_rt_handle,
+            &rx,
+            &mut callback,
+            self_arc.cancel_token.as_ref(),
+            Some(&tracker),
+            async move {
+                sc.download_releases(mirror_sources, tx, tracker_for_release)
+                    .await
+            },
+        )?;
+
+        // topic 抓取会联网（可能还会初始化空的 atm 状态文件）：先检查一次
+        // 取消，再放进和下载一样的可取消事件泵里。取消能中断网络请求，
+        // 也不会留下写了一半的主题文件——真正的写入在下面的提交收尾里做。
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
+
+        // 阶段 1（可取消）：联网抓取主题、算出调整后的源集合；不写盘。
+        // 取消发生在联网或纯计算里都只会丢掉计算结果，不会留下半提交状态。
+        let sc_topic = self_arc.clone();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (mirror_sources, topics) = run_task_with_pump(
+            &async_rt_handle,
+            &rx,
+            &mut callback,
+            self_arc.cancel_token.as_ref(),
+            None,
+            async move { sc_topic.fetch_topics(not_found, mirror_sources, tx).await },
+        )?;
+
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
+        }
 
         download_list.extend(
             mirror_sources
@@ -229,8 +308,13 @@ impl OmaRefresh {
 
         debug!("oma will download source metadata: {tasks:#?}");
 
-        if tasks.is_empty() {
-            return Err(RefreshError::NoMetadataToDownload);
+        // 提交边界：跨过去之后到列表清理完成都不再观察取消——主题写入、
+        // 旧列表清理、（必要时）通知在取消语义下要么整段做完、要么整段
+        // 不做；半提交的磁盘状态比多花几毫秒做完收尾危险得多。进入前若
+        // 已取消就直接退出，此时还没有任何写盘。写入本身发错时由
+        // `write_topic_files` 尽力回滚，见那里的注释。
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            return Err(RefreshError::Canceled);
         }
 
         for i in &tasks {
@@ -238,17 +322,72 @@ impl OmaRefresh {
         }
 
         // 退出 topic / 移除源时，列表状态的变化可能只是清理掉失效的列表文件
-        // （不涉及任何下载）。记录是否真的删了文件，供下面的 success invoke
-        // 判断使用——否则下游（如 amo 的搜索索引）永远不会得知源集合变了。
-        let removed_unused =
-            remove_unused_db(&self_arc.download_dir, download_list).unwrap_or(false);
+        // （不涉及任何下载）。`removed_unused` 记录是否真的删了文件，供
+        // 下面的 success invoke 判断使用——否则下游（如 amo 的搜索索引）
+        // 永远不会得知源集合变了。
+        //
+        // 阶段 2（不可中断的提交收尾）。`tasks.is_empty()` 的检查放在收尾
+        // 之后：关闭最后一个主题仓库时，失效列表照样要清干净。
+        let topics_committed = topics.is_some();
+        let removed_unused = finish_commit(
+            self_arc.cancel_token.as_ref(),
+            &self_arc.download_dir,
+            download_list,
+            topics_committed,
+            || self_arc.write_topic_files(topics, &mut callback),
+            || notify_lists_changed(&apt_cfg, None),
+        )?;
+
+        // 提交期间的列表改动（源列表被重写 / 失效列表被清理）需要通知下游
+        // 索引。记录「待通知」状态：之后的阶段若被取消，成功钩子不会运行，
+        // 但这条通知不能漏——每个取消路径都会补一次（见下面各处）。
+        let mut notify_pending = topics_committed || removed_unused;
+
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+            return Err(RefreshError::Canceled);
+        }
+
+        if tasks.is_empty() {
+            // 没有可下载的元数据也要把这次提交的通知发出去（比如关掉了
+            // 最后一个主题仓库，列表已经清空）。
+            notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+            return Err(RefreshError::NoMetadataToDownload);
+        }
 
         let sc2 = self_arc.clone();
+        let tracker_for_data = tracker.clone();
         let (tx, rx) = flume::unbounded::<Event>();
-        let res = run_task_with_pump(&async_rt_handle, &rx, &mut callback, async move {
-            sc2.download_release_data(tx, tasks, total, optional_index_files)
-                .await
-        })?;
+        let res = match run_task_with_pump(
+            &async_rt_handle,
+            &rx,
+            &mut callback,
+            self_arc.cancel_token.as_ref(),
+            Some(&tracker),
+            async move {
+                sc2.download_release_data(tx, tasks, total, optional_index_files, tracker_for_data)
+                    .await
+            },
+        ) {
+            Ok(res) => res,
+            Err(RefreshError::Canceled) => {
+                // 提交之后的取消：成功钩子不跑了，但列表改动的通知要补上。
+                notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+                return Err(RefreshError::Canceled);
+            }
+            Err(e) => {
+                // 下载失败退出时，同样要把这次提交的通知发出去。
+                notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+                return Err(e);
+            }
+        };
+
+        // 结果就绪与取消信号可能同时到达，事件泵不保证优先选中取消；
+        // 各阶段返回后都再确认一次，避免带着未处理的取消继续收尾。
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+            return Err(RefreshError::Canceled);
+        }
 
         // 有元数据更新、或清理了失效的列表文件（如退出 topic），
         // 才执行 success invoke；否则列表状态虽然变了，下游缓存
@@ -256,8 +395,27 @@ impl OmaRefresh {
         let should_run_invoke = res.has_wrote() || removed_unused;
 
         if should_run_invoke {
+            // 钩子马上会跑，但只有它完整跑完才算通知过：先保持「待通知」，
+            // 被取消打断时下面补一次（不可中断）；完整跑完才清掉。
+            notify_pending = true;
             callback(Event::RunInvokeScript);
-            self_arc.run_success_post_invoke(&apt_cfg);
+
+            // 钩子执行期间会盯着取消信号（必要时终止整个进程组）；被
+            // 取消就不再继续收尾。
+            if !run_success_post_invoke(&apt_cfg, self_arc.cancel_token.as_ref()) {
+                // 钩子被杀掉了，通知可能没跑完：补跑一次（脚本要能容忍
+                // 重复执行——失效类脚本通常如此）。
+                notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+                return Err(RefreshError::Canceled);
+            }
+
+            notify_pending = false;
+        }
+
+        // 报告完成前最后再确认一次取消（比如信号恰好在钩子收尾时到达）。
+        if is_canceled(self_arc.cancel_token.as_ref()) {
+            notify_lists_changed_once(&mut notify_pending, &apt_cfg);
+            return Err(RefreshError::Canceled);
         }
 
         callback(Event::Done);
@@ -306,12 +464,14 @@ impl OmaRefresh {
         tasks: Vec<DownloadEntry>,
         total: u64,
         optional_index_files: HashSet<String>,
+        tracker: TaskTracker,
     ) -> Result<Summary> {
         let dm = DownloadManager::builder()
             .client(self.client.clone())
             .download_list(tasks.into())
             .threads(self.threads)
             .total_size(total)
+            .tracker(tracker)
             .build();
 
         let optional_index_files = Arc::new(optional_index_files);
@@ -355,45 +515,11 @@ impl OmaRefresh {
         Ok(res)
     }
 
-    fn run_success_post_invoke(&self, cfg: &AptConfig) {
-        // 本 crate 的配置解析器把列表项存为 `KEY::{item}`（见
-        // `config_parser::handle_list_value`），不是 apt 的 `KEY#N` 约定，
-        // 因此要像 `sourceslist::ignores` 一样用 `keys_under` + `get(KEY::{k})`
-        // 读取，否则永远取不到任何命令。
-        let cmds: Vec<String> = cfg
-            .keys_under("APT::Update::Post-Invoke-Success")
-            .map(|k| cfg.get(&format!("APT::Update::Post-Invoke-Success::{k}"), ""))
-            .filter(|s| !s.is_empty())
-            .collect();
-
-        for cmd in &cmds {
-            use std::process::Command;
-
-            debug!("Running post-invoke script: {cmd}");
-            let output = Command::new("sh").arg("-c").arg(cmd).output();
-
-            match output {
-                Ok(output) => {
-                    if !output.status.success() {
-                        warn!(
-                            "Command {cmd} returned non-zero exit code: {}",
-                            output.status.code().unwrap_or(1)
-                        );
-                        continue;
-                    }
-                    debug!("Command {cmd} completed successfully.");
-                }
-                Err(e) => {
-                    warn!("Command {cmd} exited with error: {e}");
-                }
-            }
-        }
-    }
-
     async fn download_releases(
         &self,
         mut mirror_sources: MirrorSources,
         sender: Sender<Event>,
+        tracker: TaskTracker,
     ) -> Result<(MirrorSources, Vec<Url>)> {
         #[cfg(feature = "aosc")]
         let mut not_found = vec![];
@@ -407,6 +533,7 @@ impl OmaRefresh {
                 Arc::from(self.download_dir.as_ref()),
                 self.threads,
                 sender.clone(),
+                tracker,
             )
             .await;
 
@@ -438,19 +565,24 @@ impl OmaRefresh {
         Ok((mirror_sources, not_found))
     }
 
+    /// 阶段 1（可取消）：联网抓取主题、算出调整后的源集合；**不写盘**。
+    ///
+    /// 真正的写入（atm 状态与源列表）在 `start` 的提交收尾里做——那里不
+    /// 可中断，确保不会留下写了一半的文件；取消发生在这里只会丢掉计算
+    /// 结果，不会留下任何半提交状态。
     #[cfg(feature = "aosc")]
-    fn refresh_topics(
+    async fn fetch_topics(
         &self,
         not_found: Vec<url::Url>,
-        sources: &mut MirrorSources,
-        callback: &mut (impl FnMut(Event) + 'static),
-    ) -> Result<()> {
-        use std::cell::RefCell;
-
+        mut sources: MirrorSources,
+        tx: Sender<Event>,
+    ) -> Result<(MirrorSources, Option<TopicManager>)> {
         if !self.refresh_topics || not_found.is_empty() {
-            return Ok(());
+            return Ok((sources, None));
         }
 
+        // `TopicManager::new` 在状态文件缺失时会顺手建一个空的（与「文件
+        // 不存在」语义相同），这不构成提交。
         let mut tm = TopicManager::new(
             self.client.clone(),
             &self.source,
@@ -458,7 +590,8 @@ impl OmaRefresh {
             false,
         )?;
 
-        tm.refresh()?;
+        tm.refresh_async().await?;
+
         let removed_suites = tm.remove_closed_topics()?;
 
         debug!("Removed suites: {:?}", removed_suites);
@@ -478,28 +611,66 @@ impl OmaRefresh {
             let pos = sources.0.iter().position(|x| x.suite() == suite).unwrap();
             sources.0.remove(pos);
 
-            callback(Event::ClosingTopic(suite));
+            let _ = tx.send(Event::ClosingTopic(suite));
         }
 
-        tm.write_enabled(false)?;
+        Ok((sources, Some(tm)))
+    }
 
-        let cb_cell = RefCell::new(&mut *callback);
+    #[cfg(not(feature = "aosc"))]
+    async fn fetch_topics(
+        &self,
+        _not_found: Vec<url::Url>,
+        sources: MirrorSources,
+        _tx: Sender<Event>,
+    ) -> Result<(MirrorSources, Option<()>)> {
+        Ok((sources, None))
+    }
 
-        tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
-            let mut cb = cb_cell.borrow_mut();
-            cb(Event::TopicNotInMirror { topic, mirror });
-        })?;
+    /// 阶段 2 的主题写入部分：把抓取阶段算好的结果写进 atm 状态与源列表。
+    ///
+    /// 这段不可中断（在 `finish_commit` 里整体跑完），事件因此不经事件泵、
+    /// 直接交给回调。
+    #[cfg(feature = "aosc")]
+    fn write_topic_files(
+        &self,
+        topics: Option<TopicManager>,
+        callback: &mut (impl FnMut(Event) + 'static),
+    ) -> Result<()> {
+        let Some(mut tm) = topics else {
+            return Ok(());
+        };
 
+        let not_in_mirror = std::cell::RefCell::new(Vec::new());
+        // 先记下状态文件与源列表文件的原内容：任一处写入失败时按字节恢复
+        // 原文件，而不是根据（可能已经变化的新）主题数据重新生成旧内容。
+        let snapshot = tm.snapshot_files();
+        if let Err(e) = tm.write_enabled(false) {
+            let _ = snapshot.restore();
+            return Err(e.into());
+        }
+        if let Err(e) = tm.write_sources_list(&self.topic_msg, false, |topic, mirror| {
+            not_in_mirror.borrow_mut().push((topic, mirror));
+        }) {
+            // 状态文件已经写进去了，源列表却没写成功：把两个文件都恢复成
+            // 写入前的内容，别让它们停在「状态已变、源列表没变」的中间态。
+            // 磁盘故障时恢复也可能失败，只能尽力而为；错误照常上报，下次
+            // 刷新会重做这次变更。
+            let _ = snapshot.restore();
+            return Err(e.into());
+        }
+        for (topic, mirror) in not_in_mirror.into_inner() {
+            callback(Event::TopicNotInMirror { topic, mirror });
+        }
         callback(Event::DownloadEvent(oma_fetch::Event::ProgressDone(1)));
 
         Ok(())
     }
 
     #[cfg(not(feature = "aosc"))]
-    fn refresh_topics(
+    fn write_topic_files(
         &self,
-        _not_found: Vec<url::Url>,
-        _sources: &mut MirrorSources,
+        _topics: Option<()>,
         _callback: &mut (impl FnMut(Event) + 'static),
     ) -> Result<()> {
         Ok(())
@@ -941,34 +1112,801 @@ fn compress_type_of(name: &str) -> CompressType {
     }
 }
 
+/// 令牌是否已收到取消信号；`None` 表示调用方没有提供令牌，永远不取消。
+/// 句柄已断开但未发送信号的令牌不算取消；标志只置位、不清除，可以反复
+/// 查询（唤醒消息留给事件泵用）。
+fn is_canceled(cancel_token: Option<&CancelToken>) -> bool {
+    cancel_token.is_some_and(|token| token.1.load(Ordering::SeqCst))
+}
+
+/// 提交收尾（不可中断）：主题写入 → 清理旧列表 →（必要时）通知。
+///
+/// 调用方进入前必须先检查一次取消——一旦进入，整段都要跑完：写到一半才
+/// 发现取消时，先补上通知（提交已经发生，依赖钩子的下游索引必须失效），
+/// 再返回 `Err(Canceled)`。返回 `true` 表示清理掉了失效的列表文件。
+fn finish_commit(
+    cancel_token: Option<&CancelToken>,
+    download_dir: &Path,
+    download_list: HashSet<String>,
+    topics_committed: bool,
+    write_topics: impl FnOnce() -> Result<()>,
+    notify: impl FnOnce(),
+) -> Result<bool> {
+    write_topics()?;
+
+    let removed_unused = remove_unused_db(download_dir, download_list).unwrap_or(false);
+
+    if is_canceled(cancel_token) {
+        if topics_committed || removed_unused {
+            notify();
+        }
+        return Err(RefreshError::Canceled);
+    }
+
+    Ok(removed_unused)
+}
+
+/// 执行 `APT::Update::Post-Invoke-Success` 里的钩子（失败只告警）。
+///
+/// 返回 `false` 表示执行期间收到了取消信号（当前钩子的进程组已被终止）。
+/// `cancel_token` 为 `None` 时不观察取消，把钩子跑完（提交后的通知需要）。
+fn run_success_post_invoke(cfg: &AptConfig, cancel_token: Option<&CancelToken>) -> bool {
+    // 本 crate 的配置解析器把列表项存为 `KEY::{item}`（见
+    // `config_parser::handle_list_value`），不是 apt 的 `KEY#N` 约定，
+    // 因此要像 `sourceslist::ignores` 一样用 `keys_under` + `get(KEY::{k})`
+    // 读取，否则永远取不到任何命令。
+    let cmds: Vec<String> = cfg
+        .keys_under("APT::Update::Post-Invoke-Success")
+        .map(|k| cfg.get(&format!("APT::Update::Post-Invoke-Success::{k}"), ""))
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    run_post_invoke_commands(&cmds, cancel_token)
+}
+
+/// 列表状态已改动（源列表被重写 / 失效列表被清理）时的下游通知，
+/// 例如让 amo 的搜索索引失效。
+///
+/// 目前复用 `APT::Update::Post-Invoke-Success` 这条通道；`cancel_token`
+/// 为 `None` 表示不观察取消——提交已经发生，取消路径也要把通知补完。
+fn notify_lists_changed(cfg: &AptConfig, cancel_token: Option<&CancelToken>) {
+    let _ = run_success_post_invoke(cfg, cancel_token);
+}
+
+/// 若列表改动还没通知过，补一次不可中断的下游通知（提交后的取消路径用）。
+fn notify_lists_changed_once(pending: &mut bool, cfg: &AptConfig) {
+    if *pending {
+        *pending = false;
+        notify_lists_changed(cfg, None);
+    }
+}
+
+/// 逐个执行钩子命令，期间盯着取消信号：收到就终止当前钩子的整个进程组、
+/// 不再跑后续命令并返回 `false`；全部跑完返回 `true`。
+///
+/// 命令的 stdin/stdout/stderr 与原来的 `Command::output()` 一样不落到
+/// 终端、也不接输入（stdin 是空的）；不用 `output()` 是因为它阻塞等待、
+/// 看不到取消信号，慢的或卡死的钩子会把取消卡住。
+fn run_post_invoke_commands(cmds: &[String], cancel_token: Option<&CancelToken>) -> bool {
+    use std::{
+        os::unix::process::CommandExt,
+        process::{Command, Stdio},
+        time::Duration,
+    };
+
+    for cmd in cmds {
+        if is_canceled(cancel_token) {
+            return false;
+        }
+
+        debug!("Running post-invoke script: {cmd}");
+
+        let mut child = match Command::new("sh")
+            .arg("-c")
+            .arg(cmd)
+            // stdin 同 `Command::output()` 一样关闭：不让钩子读到刷新
+            // 进程的输入，也避免它在没有数据的 stdin 上一直等。
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            // 让钩子自成进程组（组长 pid 就是子进程 pid）：取消时才能连
+            // 它拉起的子进程一起终止，只杀 sh 会留下后台进程继续跑。
+            .process_group(0)
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(e) => {
+                warn!("Command {cmd} exited with error: {e}");
+                continue;
+            }
+        };
+
+        let canceled = loop {
+            if is_canceled(cancel_token) {
+                debug!("Command {cmd} canceled, terminating it and its process group");
+                // 终止整个进程组，避免钩子拉起的子进程留在后台继续
+                // 更新缓存之类的东西。
+                let pgid = child.id() as libc::pid_t;
+                // Safety: 子进程由 `process_group(0)` 启动，它的进程组
+                // 只包含自己和后代（不含本进程）；killpg 失败（如组已空）
+                // 也只是返回错误码。
+                unsafe {
+                    libc::killpg(pgid, libc::SIGKILL);
+                }
+                // 兜底：万一整组信号没生效，至少保证 sh 退出，后面的
+                // `wait` 不会把取消卡住。
+                let _ = child.kill();
+                let _ = child.wait();
+                break true;
+            }
+
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    if status.success() {
+                        debug!("Command {cmd} completed successfully.");
+                    } else {
+                        warn!(
+                            "Command {cmd} returned non-zero exit code: {}",
+                            status.code().unwrap_or(1)
+                        );
+                    }
+                    break false;
+                }
+                Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+                Err(e) => {
+                    warn!("Command {cmd} exited with error: {e}");
+                    break false;
+                }
+            }
+        };
+
+        if canceled {
+            return false;
+        }
+    }
+
+    true
+}
+
 fn run_task_with_pump<Fut, T>(
     handle: &tokio::runtime::Handle,
     rx: &flume::Receiver<Event>,
     callback: &mut (impl FnMut(Event) + 'static),
+    cancel_token: Option<&CancelToken>,
+    tracker: Option<&TaskTracker>,
     task: Fut,
 ) -> Result<T>
 where
     Fut: std::future::Future<Output = Result<T>> + Send + 'static,
     T: Send + 'static,
 {
+    // 事件泵可被唤醒的事件。
+    enum Pumped<T> {
+        Event(Event),
+        // 事件发送端已全部断开：事件流结束，但任务可能还在收尾。
+        EventsDone,
+        // 任务结束，结果已就绪。
+        TaskDone(Result<T>),
+        // 结果通道断开但没有结果（任务被丢弃或 panic）。
+        TaskResultGone,
+        // 收到取消信号。
+        Canceled,
+        // 取消通道断开但未发送信号：之后只泵事件。
+        CancelGone,
+    }
+
     let (result_tx, result_rx) = flume::bounded(1);
-    handle.spawn(async move {
+    let task_handle = handle.spawn(async move {
         let res = task.await;
         let _ = result_tx.send(res);
     });
 
-    while let Ok(event) = rx.recv() {
-        callback(event);
-    }
+    // 事件流可能先于任务结束（例如最后一个事件发送端在任务收尾前就被
+    // 丢弃）：之后改为等结果，但取消信号要一直盯着——只等结果会把这段
+    // 窗口里的取消漏掉，刷新会照跑不误地返回成功。
+    let mut events_done = false;
+    let mut cancel_token = cancel_token;
+    loop {
+        // 在事件、结果和取消信号之间阻塞等待：任意一个到达都会唤醒，
+        // 无需轮询。取消时 abort 丢弃包装 future，oma-fetch 放在
+        // `JoinSet` 里的下载任务随之取消。
+        let mut selector = if events_done {
+            flume::Selector::new().recv(&result_rx, |result| match result {
+                Ok(result) => Pumped::TaskDone(result),
+                Err(_) => Pumped::TaskResultGone,
+            })
+        } else {
+            flume::Selector::new().recv(rx, |result| match result {
+                Ok(event) => Pumped::Event(event),
+                Err(_) => Pumped::EventsDone,
+            })
+        };
+        if let Some(token) = cancel_token {
+            selector = selector.recv(&token.0, |result| match result {
+                Ok(()) => Pumped::Canceled,
+                Err(_) => Pumped::CancelGone,
+            });
+        }
 
-    result_rx
-        .recv()
-        .map_err(|_| RefreshError::DownloadFailed(None))?
+        match selector.wait() {
+            Pumped::Event(event) => callback(event),
+            // 事件流结束：继续等结果（或等取消）。
+            //
+            // 走到这里说明事件一定已经排空：flume 会先把队列里的消息全部
+            // 取完，只有队列为空且发送端全部断开才报 `Disconnected`，之后
+            // 也不会再有新事件。结果阶段因此不会丢下仍在排队的事件。
+            Pumped::EventsDone => events_done = true,
+            Pumped::TaskDone(result) => return result,
+            Pumped::TaskResultGone => return Err(RefreshError::DownloadFailed(None)),
+            Pumped::Canceled => {
+                task_handle.abort();
+                // 取消不是立即生效的：`abort` 只发出信号，运行时要到下一次
+                // 调度才会丢弃包装任务。若在这里直接返回，`start` 会先释放
+                // `download_dir/lock`，而任务 future 里 `JoinSet` 持有的下载
+                // 子任务可能还没收到取消信号，已经下载完成的文件仍会被
+                // rename 进列表目录，覆盖随后启动的新刷新写入的元数据。
+                // 这里是同步上下文，用 `futures::executor::block_on` 等
+                // JoinHandle 结束：tokio 保证此时任务析构已完成、子任务的
+                // 取消信号已全部发出。
+                let _ = futures::executor::block_on(task_handle);
+                // 但 `JoinSet` 析构只是给子任务发取消信号、不等它们退出，
+                // 还要等 tracker 归零；子任务对列表目录的写入（rename /
+                // symlink / 删除）都是同步系统调用，不会变成在途的后台
+                // 操作，因此 tracker 归零后，锁的释放就不会早于子任务的
+                // 收尾。
+                if let Some(tracker) = tracker {
+                    tracker.wait();
+                }
+                return Err(RefreshError::Canceled);
+            }
+            Pumped::CancelGone => cancel_token = None,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    #[test]
+    fn cancel_handle_aborts_pump() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            handle_for_thread.cancel();
+        });
+
+        // 任务永不完成、也不发事件：只有取消句柄能中止事件泵。
+        let mut callback = |_event: Event| {};
+        let result: Result<()> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            None,
+            async {
+                std::future::pending::<()>().await;
+                Ok(())
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        drop(tx);
+    }
+
+    #[test]
+    fn cancel_waits_for_task_shutdown() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            handle_for_thread.cancel();
+        });
+
+        // 任务永不完成、也不发事件，但带一个析构标记。
+        struct SetOnDrop(Arc<AtomicBool>);
+        impl Drop for SetOnDrop {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let dropped = Arc::new(AtomicBool::new(false));
+        let dropped_in_task = dropped.clone();
+
+        let mut callback = |_event: Event| {};
+        let result: Result<()> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            None,
+            async move {
+                let _guard = SetOnDrop(dropped_in_task);
+                std::future::pending::<()>().await;
+                Ok(())
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        // 返回时必须已完成任务析构，锁的释放才不会早于取消收尾。
+        assert!(
+            dropped.load(Ordering::SeqCst),
+            "run_task_with_pump returned before the task finished dropping"
+        );
+        drop(tx);
+    }
+
+    #[test]
+    fn cancel_waits_for_tracked_children() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+        let tracker = TaskTracker::new();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            handle_for_thread.cancel();
+        });
+
+        // 子任务永不完成；每个子任务析构时打一个标记。字段声明顺序保证
+        // 先打标记、后注销（guard 最后被丢弃）。
+        struct MarkedChild {
+            _mark: MarkOnDrop,
+            _guard: oma_fetch::TaskGuard,
+        }
+
+        struct MarkOnDrop(Arc<AtomicUsize>);
+
+        impl Drop for MarkOnDrop {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        const CHILDREN: usize = 4;
+
+        let marked = Arc::new(AtomicUsize::new(0));
+        let marked_in_task = marked.clone();
+        let tracker_in_task = tracker.clone();
+
+        let mut callback = |_event: Event| {};
+        let result: Result<()> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            Some(&tracker),
+            async move {
+                let mut set = tokio::task::JoinSet::new();
+
+                for _ in 0..CHILDREN {
+                    let guard = tracker_in_task.guard();
+                    let mark = MarkOnDrop(marked_in_task.clone());
+
+                    set.spawn(async move {
+                        let _child = MarkedChild {
+                            _mark: mark,
+                            _guard: guard,
+                        };
+                        std::future::pending::<()>().await;
+                    });
+                }
+
+                while set.join_next().await.is_some() {}
+                Ok(())
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        // 返回时所有子任务都必须已析构（标记全部落地），否则它们还可能
+        // 在锁释放后继续落盘。
+        assert_eq!(marked.load(Ordering::SeqCst), CHILDREN);
+        drop(tx);
+    }
+
+    #[test]
+    fn cancel_observed_while_waiting_for_result() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(80));
+            handle_for_thread.cancel();
+        });
+
+        // 任务先丢弃事件发送端（事件流就此结束），但要很晚才返回结果：
+        // 80ms 时的取消落在「等结果」阶段，必须被观察到。
+        let (finish_tx, finish_rx) = flume::bounded::<()>(1);
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(500));
+            let _ = finish_tx.send(());
+        });
+
+        let mut callback = |_event: Event| {};
+        let result: Result<()> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            None,
+            async move {
+                drop(tx);
+                let _ = finish_rx.recv_async().await;
+                Ok(())
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+    }
+
+    #[test]
+    fn queued_events_are_delivered_before_the_result() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+
+        // 慢回调：任务早已结束、结果就绪时，事件还在队列里排着。结果阶段
+        // 只有在事件通道排空（且发送端断开）之后才会被进入，队列里的事件
+        // 一个都不能少。
+        let seen = Arc::new(AtomicUsize::new(0));
+        let seen_in_callback = seen.clone();
+        let mut callback = move |_event: Event| {
+            std::thread::sleep(Duration::from_millis(1));
+            seen_in_callback.fetch_add(1, Ordering::Relaxed);
+        };
+
+        let result: Result<u32> =
+            run_task_with_pump(rt.handle(), &rx, &mut callback, None, None, async move {
+                for _ in 0..50 {
+                    tx.send(Event::Done).unwrap();
+                }
+                // 事件发完立刻返回：结果先于事件泵就绪。
+                Ok(42)
+            });
+
+        assert!(matches!(result, Ok(42)));
+        assert_eq!(
+            seen.load(Ordering::Relaxed),
+            50,
+            "the pump must deliver every queued event before returning the result"
+        );
+    }
+
+    #[test]
+    fn post_invoke_hook_stdin_is_closed() {
+        let out =
+            std::env::temp_dir().join(format!("oma-post-invoke-stdin-{}", std::process::id()));
+        let _ = std::fs::remove_file(&out);
+
+        // 钩子把 stdin 指向哪里记下来：必须和 `Command::output()` 一样是
+        // 关闭的（/dev/null），而不是继承刷新进程的 stdin——否则钩子可能
+        // 吃掉终端输入，或在没有数据的 stdin 上永远等下去。
+        let cmds = vec![format!("readlink /proc/self/fd/0 > {}", out.display())];
+        let completed = run_post_invoke_commands(&cmds, None);
+        assert!(completed);
+
+        let target = std::fs::read_to_string(&out)
+            .expect("the hook should have recorded where its stdin points to");
+        let _ = std::fs::remove_file(&out);
+        assert_eq!(
+            target.trim(),
+            "/dev/null",
+            "the hook must not inherit the refresh's stdin"
+        );
+    }
+
+    #[test]
+    fn post_invoke_stops_on_cancel() {
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            handle_for_thread.cancel();
+        });
+
+        // 慢钩子（sleep 5）：取消到达时应把它终止，而不是等它跑完；
+        // 后面的命令也不应再执行。
+        let marker = std::env::temp_dir().join(format!(
+            "oma-post-invoke-test-marker-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&marker);
+        let cmds = vec!["sleep 5".to_string(), format!("touch {}", marker.display())];
+
+        let start = std::time::Instant::now();
+        let completed = run_post_invoke_commands(&cmds, Some(&cancel_token));
+        let elapsed = start.elapsed();
+
+        assert!(!completed, "post-invoke should report cancellation");
+        assert!(
+            elapsed < Duration::from_secs(3),
+            "the running hook should be terminated on cancel, took {elapsed:?}"
+        );
+        assert!(
+            !marker.exists(),
+            "commands after a canceled hook should not run"
+        );
+    }
+
+    #[test]
+    fn post_invoke_cancel_kills_whole_process_group() {
+        let (cancel_handle, cancel_token) = cancel_channel();
+
+        let handle_for_thread = cancel_handle.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(200));
+            handle_for_thread.cancel();
+        });
+
+        // 钩子把自己和它拉起的后台子进程的 pid 记下来，然后挂着等。
+        // 取消时必须终止整个进程组：只杀 sh 的话，后台的 sleep 会留下。
+        let pids_file =
+            std::env::temp_dir().join(format!("oma-post-invoke-pgids-{}", std::process::id()));
+        let _ = std::fs::remove_file(&pids_file);
+        let cmd = format!(
+            "echo $$ > {f}; sleep 30 & echo $! >> {f}; wait",
+            f = pids_file.display()
+        );
+
+        let completed = run_post_invoke_commands(&[cmd], Some(&cancel_token));
+        assert!(!completed, "post-invoke should report cancellation");
+
+        let pids: Vec<u32> = std::fs::read_to_string(&pids_file)
+            .expect("the hook should have recorded its pids")
+            .lines()
+            .filter_map(|line| line.trim().parse().ok())
+            .collect();
+        assert_eq!(
+            pids.len(),
+            2,
+            "expected the sh and sleep pids, got {pids:?}"
+        );
+
+        // SIGKILL 的送达与 init 的回收都是异步的：留出一点观察时间。
+        let all_gone = || {
+            pids.iter()
+                .all(|pid| !std::path::Path::new(&format!("/proc/{pid}")).exists())
+        };
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !all_gone() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        let _ = std::fs::remove_file(&pids_file);
+        assert!(
+            all_gone(),
+            "the whole process group should be terminated, still alive: {:?}",
+            pids.iter()
+                .filter(|pid| std::path::Path::new(&format!("/proc/{pid}")).exists())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn dropped_cancel_handle_does_not_cancel() {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (tx, rx) = flume::unbounded::<Event>();
+        let (cancel_handle, cancel_token) = cancel_channel();
+        // 句柄直接断开：不算取消，事件照常泵完、结果照常返回。
+        drop(cancel_handle);
+
+        let seen = Arc::new(AtomicUsize::new(0));
+        let seen_in_callback = seen.clone();
+        let mut callback = move |_event: Event| {
+            seen_in_callback.fetch_add(1, Ordering::Relaxed);
+        };
+        let result: Result<u32> = run_task_with_pump(
+            rt.handle(),
+            &rx,
+            &mut callback,
+            Some(&cancel_token),
+            None,
+            async move {
+                tx.send(Event::Done).unwrap();
+                Ok(42)
+            },
+        );
+
+        assert!(matches!(result, Ok(42)));
+        assert_eq!(seen.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn cancel_flag_persists_after_message_consumed() {
+        let (cancel_handle, cancel_token) = cancel_channel();
+        cancel_handle.cancel();
+
+        // 模拟唤醒消息被事件泵先取走：标志不受影响，可以反复查询，
+        // 刷新任务内部的取消检查点因此不会漏。
+        let _ = cancel_token.0.try_recv();
+
+        assert!(is_canceled(Some(&cancel_token)));
+        assert!(is_canceled(Some(&cancel_token)));
+    }
+
+    #[test]
+    fn notify_lists_changed_ignores_a_latched_cancel() {
+        let marker =
+            std::env::temp_dir().join(format!("oma-notify-lists-test-{}", std::process::id()));
+        let _ = std::fs::remove_file(&marker);
+
+        let mut cfg = AptConfig::new();
+        cfg.set_list(
+            "APT::Update::Post-Invoke-Success",
+            &format!("touch {}", marker.display()),
+        );
+
+        let (cancel_handle, cancel_token) = cancel_channel();
+        cancel_handle.cancel();
+
+        // 观察取消的成功钩子会被取消信号拦下……
+        assert!(!run_success_post_invoke(&cfg, Some(&cancel_token)));
+        assert!(!marker.exists());
+
+        // ……但提交后的「待通知」状态必须不可中断地补跑一次，且只跑一次。
+        let mut pending = true;
+        notify_lists_changed_once(&mut pending, &cfg);
+        assert!(!pending, "通知过后状态要清掉");
+        assert!(marker.exists(), "提交后的取消路径也要完成一次通知");
+
+        let _ = std::fs::remove_file(&marker);
+        notify_lists_changed_once(&mut pending, &cfg);
+        assert!(!marker.exists(), "清掉的待通知状态不应重复通知");
+
+        let _ = std::fs::remove_file(&marker);
+    }
+
+    #[test]
+    fn finish_commit_completes_cleanup_and_notifies_when_canceled() {
+        let dir =
+            std::env::temp_dir().join(format!("oma-finish-commit-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // 仍在列表里的、失效的、以及永远保留的 lock 文件。
+        std::fs::write(dir.join("stable_Packages"), b"x").unwrap();
+        std::fs::write(dir.join("stale_Packages"), b"x").unwrap();
+        std::fs::write(dir.join("lock"), b"x").unwrap();
+
+        let (cancel_handle, cancel_token) = cancel_channel();
+        let wrote = Arc::new(AtomicBool::new(false));
+        let notified = Arc::new(AtomicBool::new(false));
+        let wrote_in_commit = wrote.clone();
+        let notified_in_commit = notified.clone();
+
+        let keep: HashSet<String> = ["stable_Packages".to_string()].into_iter().collect();
+        let result = finish_commit(
+            Some(&cancel_token),
+            &dir,
+            keep,
+            true,
+            || {
+                // 主题写入进行中（或刚写完）时收到取消：整段收尾仍要跑完。
+                wrote_in_commit.store(true, Ordering::Relaxed);
+                cancel_handle.cancel();
+                Ok(())
+            },
+            || {
+                notified_in_commit.store(true, Ordering::Relaxed);
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        assert!(wrote.load(Ordering::Relaxed), "主题写入不能被截断");
+        assert!(
+            notified.load(Ordering::Relaxed),
+            "提交后的取消必须补上通知：下游索引依赖它失效"
+        );
+        assert!(
+            !dir.join("stale_Packages").exists(),
+            "取消上报前必须把失效列表清理完"
+        );
+        assert!(dir.join("stable_Packages").exists());
+        assert!(dir.join("lock").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn finish_commit_without_cancel_reports_removed() {
+        let dir =
+            std::env::temp_dir().join(format!("oma-finish-commit-ok-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("stale_Packages"), b"x").unwrap();
+        std::fs::write(dir.join("lock"), b"x").unwrap();
+
+        let (_handle, cancel_token) = cancel_channel();
+        let notified = Arc::new(AtomicBool::new(false));
+        let notified_in_commit = notified.clone();
+
+        // 空 keep 集合：最后一个主题仓库被关闭时的路径。
+        let keep: HashSet<String> = HashSet::new();
+        let result = finish_commit(
+            Some(&cancel_token),
+            &dir,
+            keep,
+            true,
+            || Ok(()),
+            || {
+                notified_in_commit.store(true, Ordering::Relaxed);
+            },
+        );
+
+        assert!(matches!(result, Ok(true)), "清理掉失效列表要如实返回");
+        assert!(
+            !notified.load(Ordering::Relaxed),
+            "没取消时通知照旧走成功路径"
+        );
+        assert!(!dir.join("stale_Packages").exists());
+        assert!(dir.join("lock").exists(), "lock 永远保留");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn finish_commit_skips_notify_when_nothing_changed() {
+        // 取消到位，但既没有主题提交也没有清理掉任何东西：无须通知。
+        let dir = std::env::temp_dir().join(format!(
+            "oma-finish-commit-noop-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("stable_Packages"), b"x").unwrap();
+
+        let (cancel_handle, cancel_token) = cancel_channel();
+        cancel_handle.cancel();
+        let notified = Arc::new(AtomicBool::new(false));
+        let notified_in_commit = notified.clone();
+
+        let keep: HashSet<String> = ["stable_Packages".to_string()].into_iter().collect();
+        let result = finish_commit(
+            Some(&cancel_token),
+            &dir,
+            keep,
+            false,
+            || Ok(()),
+            || {
+                notified_in_commit.store(true, Ordering::Relaxed);
+            },
+        );
+
+        assert!(matches!(result, Err(RefreshError::Canceled)));
+        assert!(
+            !notified.load(Ordering::Relaxed),
+            "没发生过提交就不应打扰下游索引"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn remove_unused_db_reports_and_removes_stale_files() {
