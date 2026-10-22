@@ -3153,7 +3153,7 @@ version = "7.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2578a3627c28fefb60f1680e20e85f38bd8c8bf98c288b370489a573b0640907"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "libc",
  "nettle-sys",
  "thiserror 2.0.21",
@@ -3462,8 +3462,9 @@ dependencies = [
 
 [[package]]
 name = "oma-apt"
-version = "0.13.0"
-source = "git+https://github.com/AOSC-Tracking/oma-apt.git?branch=mark-and-sweep#43edc79ad0bf2e06a6551b3857c42e3638378ef8"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f2a2d053e84aa43dc47305a0df13befb679a156036f86df55cf4a9cbcb37f16"
 dependencies = [
  "cxx",
  "cxx-build",
@@ -3474,7 +3475,7 @@ dependencies = [
 
 [[package]]
 name = "oma-apt-pkg"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "ahash",
  "aho-corasick",
@@ -3633,7 +3634,7 @@ dependencies = [
 
 [[package]]
 name = "oma-pm"
-version = "0.64.3"
+version = "0.65.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -5544,7 +5545,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
