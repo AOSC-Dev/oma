@@ -8,7 +8,7 @@ use oma_utils::{
         session_name, take_wake_lock,
     },
     is_termux,
-    zbus::{Connection, zvariant::OwnedFd},
+    zbus::{Connection, OwnedFd},
 };
 
 use crate::{

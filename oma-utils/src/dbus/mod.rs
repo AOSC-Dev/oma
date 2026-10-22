@@ -1,8 +1,7 @@
 use std::fmt::Display;
 
-use logind_zbus::session::SessionProxy;
 use oma_logger::debug;
-use zbus::{Result as zResult, proxy, zvariant::OwnedFd};
+use zbus::{OwnedFd, Result as zResult, proxy};
 
 pub use zbus::Connection;
 
@@ -66,19 +65,24 @@ pub async fn get_another_oma_status(conn: &Connection) -> OmaDbusResult<String> 
 }
 
 #[proxy(
+    interface = "org.freedesktop.login1.Session",
+    default_service = "org.freedesktop.login1",
+    default_path = "/org/freedesktop/login1/session/auto"
+)]
+trait Session {
+    /// The session's service name.
+    #[zbus(property)]
+    fn service(&self) -> zResult<String>;
+}
+
+#[proxy(
     interface = "org.freedesktop.login1.Manager",
     default_service = "org.freedesktop.login1",
     default_path = "/org/freedesktop/login1"
 )]
 trait Login1 {
     /// Inhibit method
-    fn inhibit(
-        &self,
-        what: &str,
-        who: &str,
-        why: &str,
-        mode: &str,
-    ) -> zResult<zbus::zvariant::OwnedFd>;
+    fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zResult<OwnedFd>;
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -163,10 +167,7 @@ pub async fn take_wake_lock(
 
 /// Get session name
 pub async fn session_name(conn: &Connection) -> OmaDbusResult<String> {
-    let session = SessionProxy::builder(conn)
-        .path("/org/freedesktop/login1/session/auto")
-        .map_err(|e| OmaDbusError::FailedCreateProxy("login1", Box::new(e)))?
-        .build()
+    let session = SessionProxy::new(conn)
         .await
         .map_err(|e| OmaDbusError::FailedCreateProxy("login1", Box::new(e)))?;
 

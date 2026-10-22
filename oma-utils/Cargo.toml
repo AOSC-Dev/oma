@@ -14,12 +14,11 @@ os-release = { workspace = true }
 zbus = { workspace = true, optional = true }
 url-escape = { workspace = true, optional = true }
 oma-logger = { workspace = true }
-logind-zbus = { workspace = true, optional = true }
 nix = { workspace = true, features = ["fs"] }
 sysinfo = { workspace = true }
 
 [features]
 dpkg = []
 human-bytes = ["dep:number_prefix"]
-dbus = ["dep:zbus", "dep:logind-zbus"]
+dbus = ["dep:zbus"]
 url-no-escape = ["dep:url-escape"]
