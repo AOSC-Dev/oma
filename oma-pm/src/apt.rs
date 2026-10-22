@@ -220,8 +220,12 @@ impl OmaApt {
         let sysroot = args.sysroot.clone();
         Self::init_config(args)?;
 
+        let cache = new_cache!(&local_debs).map_err(OmaAptError::CreateCache)?;
+        cache.depcache().apply_status();
+        cache.depcache().mark_and_sweep();
+
         Ok(Self {
-            cache: new_cache!(&local_debs).map_err(OmaAptError::CreateCache)?,
+            cache,
             autoremove: HashSet::with_hasher(ahash::RandomState::new()),
             dry_run,
             select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
@@ -558,7 +562,7 @@ impl OmaApt {
 
         if !no_autoremove {
             // 需要先计算依赖才知道后面多少软件包是不必要的
-            self.resolve(false, purge)?;
+            self.resolve(purge)?;
 
             // 删除不必要的软件包
             self.autoremove(purge)?;
@@ -734,8 +738,9 @@ impl OmaApt {
     }
 
     /// Resolve apt dependencies
-    pub fn resolve(&mut self, no_fixbroken: bool, all_purge: bool) -> OmaAptResult<()> {
-        self.resolve_inner(no_fixbroken)?;
+    pub fn resolve(&mut self, all_purge: bool) -> OmaAptResult<()> {
+        self.resolve_inner()?;
+        self.drop_new_garbage();
 
         if all_purge {
             self.cache
@@ -746,14 +751,39 @@ impl OmaApt {
                     pkg.protect();
                 });
 
-            self.resolve_inner(no_fixbroken)?;
+            self.resolve_inner()?;
         }
 
         Ok(())
     }
 
-    fn resolve_inner(&mut self, no_fixbroken: bool) -> Result<(), OmaAptError> {
-        if let Err(e) = self.cache.resolve(!no_fixbroken) {
+    /// apt's `DoAutomaticRemove`: after dependency resolution, drop packages
+    /// that would not be needed by any dependee (reverse dependency), or those
+    /// that would result in conflicts, from the resolution. If dropping said
+    /// package(s) would break the transaction, put them back.
+    fn drop_new_garbage(&self) {
+        self.cache.depcache().mark_and_sweep();
+
+        let too_much: Vec<_> = self
+            .cache
+            .get_changes(false)
+            .filter(|pkg| pkg.marked_install() && !pkg.is_installed() && pkg.is_auto_removable())
+            .collect();
+
+        let broken = self.cache.depcache().broken_count();
+        for pkg in &too_much {
+            pkg.mark_delete(false);
+        }
+
+        if self.cache.depcache().broken_count() > broken {
+            for pkg in too_much {
+                pkg.mark_install(true, true);
+            }
+        }
+    }
+
+    fn resolve_inner(&mut self) -> Result<(), OmaAptError> {
+        if let Err(e) = self.cache.resolve(true) {
             debug!("{e:#?}");
             for pkg in self.cache.iter() {
                 let res = broken_pkg(&self.cache, &pkg, false);
@@ -1418,12 +1448,11 @@ fn mark_install(
 }
 
 fn mark_install_inner(pkg: &Package) -> bool {
-    // 根据 Packagekit 的源码
-    // https://github.com/PackageKit/PackageKit/blob/a0a52ce90adb75a5df7ad1f0b1c9888f2eaf1a7b/backends/apt/apt-job.cpp#L388
-    // 先标记 auto_inst 为 true 把所有该包的依赖标记为自动安装
-    // 再把本包的 auto_inst 标记为 false，检查依赖问题
-    pkg.mark_install(true, true);
-    pkg.mark_install(false, true)
+    // apt's TryToInstall + doAutoInstall：
+    // Mark the install request first, then run resolution, adding dependencies,
+    // recommendations, and suggestions (if enabled) into the resolution.
+    pkg.mark_install(false, true);
+    pkg.mark_install(true, true)
 }
 
 #[cfg(feature = "aosc")]

@@ -131,6 +131,30 @@ pub struct IndexSource {
     pub arch: Option<String>,
 }
 
+impl IndexSource {
+    /// The dpkg status file, where a package that is installed but no longer
+    /// available from any repository comes from.
+    ///
+    /// It is not a repository: apt names instead the file where the package is
+    /// recorded itself - most likely the dpkg status file (i.e.,
+    /// `APT-Sources: /var/lib/dpkg/status`), so it has no suite, component, or
+    /// architecture recorded in the source.
+    pub fn dpkg_status(path: impl Into<String>) -> Self {
+        Self {
+            base_url: path.into(),
+            suite: String::new(),
+            component: None,
+            arch: None,
+        }
+    }
+
+    /// Whether this source is the dpkg status file (see
+    /// [`Self::dpkg_status`]).
+    pub fn is_dpkg_status(&self) -> bool {
+        self.suite.is_empty()
+    }
+}
+
 /// Parse `/var/lib/apt/lists/` and return all package entries paired with
 /// the [`IndexSource`] each came from.
 ///

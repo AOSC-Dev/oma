@@ -9,6 +9,11 @@ use deb822_fast::{Deb822, FromDeb822Paragraph};
 
 use crate::dpkg::{DpkgPackage, parse_dpkg_status};
 
+#[cfg(feature = "apt-lists")]
+use crate::PackageEntry;
+#[cfg(feature = "apt-lists")]
+use glob_match::glob_match;
+
 /// Parsed dpkg status information.
 ///
 /// [`Self::from_file`] parses the whole file eagerly, for consumers that need
@@ -23,6 +28,8 @@ pub struct DpkgState {
     pub(crate) installed: HashSet<String>,
     /// Map from installed package name to its version string (eager mode).
     pub(crate) installed_versions: HashMap<String, String>,
+    /// The status file this state was built from.
+    path: PathBuf,
     /// Status file path, kept when constructed lazily (`None` in eager mode).
     lazy_path: Option<PathBuf>,
     /// Lazily-answered `is_installed` results (name → installed), filled by
@@ -56,7 +63,8 @@ fn load_installed_versions(path: &Path) -> HashMap<String, String> {
 impl DpkgState {
     /// Parse dpkg status from the given status file path, eagerly.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, crate::error::Error> {
-        let dpkg_packages = parse_dpkg_status(path)?;
+        let path = path.as_ref().to_path_buf();
+        let dpkg_packages = parse_dpkg_status(&path)?;
 
         let mut installed = HashSet::new();
         for p in &dpkg_packages {
@@ -68,6 +76,7 @@ impl DpkgState {
         Ok(Self {
             installed,
             installed_versions: installed_versions_map(&dpkg_packages),
+            path,
             lazy_path: None,
             lazy_answers: RefCell::new(HashMap::new()),
             lazy_versions: OnceLock::new(),
@@ -83,10 +92,16 @@ impl DpkgState {
         Self {
             installed: HashSet::new(),
             installed_versions: HashMap::new(),
+            path: path.as_ref().to_path_buf(),
             lazy_path: Some(path.as_ref().to_path_buf()),
             lazy_answers: RefCell::new(HashMap::new()),
             lazy_versions: OnceLock::new(),
         }
+    }
+
+    /// The status file this state answers from.
+    pub fn path(&self) -> &Path {
+        &self.path
     }
 
     /// Whether a package is installed.
@@ -144,6 +159,55 @@ impl DpkgState {
             self.installed_versions.get(name).map(|s| s.as_str())
         }
     }
+
+    /// The status entries of the packages matching `patterns`, shaped like
+    /// apt index entries.
+    ///
+    /// `patterns` are `package` or `package:arch` globs; a package installed
+    /// for several architectures has one paragraph per architecture. A
+    /// paragraph whose current state means dpkg holds no version
+    /// (`config-files`, `not-installed`) is skipped, as in apt's cache.
+    #[cfg(feature = "apt-lists")]
+    pub fn entries<'a>(&self, patterns: impl IntoIterator<Item = &'a str>) -> Vec<PackageEntry> {
+        let patterns: Vec<(&str, Option<&str>)> = patterns
+            .into_iter()
+            .map(|pattern| match pattern.split_once(':') {
+                Some((name, arch)) => (name, Some(arch)),
+                None => (pattern, None),
+            })
+            .collect();
+        if patterns.is_empty() {
+            return Vec::new();
+        }
+
+        let Ok(paragraphs) = crate::dpkg::paragraphs(&self.path) else {
+            return Vec::new();
+        };
+
+        paragraphs
+            .filter_map(Result::ok)
+            .filter(|paragraph| {
+                let Some(name) = paragraph.get("Package") else {
+                    return false;
+                };
+                patterns.iter().any(|(glob, arch)| {
+                    glob_match(glob, name)
+                        && arch.is_none_or(|arch| {
+                            // `Architecture: all` runs on every architecture,
+                            // as the matcher's `arch_matches` treats it.
+                            paragraph
+                                .get("Architecture")
+                                .is_some_and(|entry_arch| entry_arch == arch || entry_arch == "all")
+                        })
+                })
+            })
+            .filter_map(|paragraph| {
+                let pkg = DpkgPackage::from_paragraph(&paragraph).ok()?;
+                pkg.has_version().then_some(())?;
+                PackageEntry::from_paragraph(&paragraph).ok()
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -170,6 +234,26 @@ Status: deinstall ok config-files
 Package: fish
 Version: 4.0.0
 Architecture: amd64
+Status: install ok installed
+
+Package: vendor-tool
+Version: 7
+Architecture: amd64
+Status: install ok installed
+
+Package: vendor-tool
+Version: 7
+Architecture: i386
+Status: install ok installed
+
+Package: unpacked-tool
+Version: 3
+Architecture: amd64
+Status: install ok unpacked
+
+Package: all-tool
+Version: 2
+Architecture: all
 Status: install ok installed
 ";
 
@@ -215,5 +299,40 @@ Status: install ok installed
                 "mismatch for {name}"
             );
         }
+    }
+
+    /// The status records a package name asks for - every architecture, the
+    /// requested one, and only paragraphs that still hold a version.
+    #[cfg(feature = "apt-lists")]
+    #[test]
+    fn entries_match_names_architectures_and_versions() {
+        let dir = write_status();
+        let state = DpkgState::from_file_lazy(dir.path().join("status"));
+
+        let all: Vec<_> = state
+            .entries(["vendor-tool"])
+            .into_iter()
+            .map(|entry| entry.architecture.unwrap())
+            .collect();
+        assert_eq!(all, vec!["amd64", "i386"]);
+
+        let foreign = state.entries(["vendor-tool:i386"]);
+        assert_eq!(foreign.len(), 1);
+        assert_eq!(foreign[0].architecture.as_deref(), Some("i386"));
+
+        // `Architecture: all` satisfies every concrete architecture, as the
+        // matcher treats it.
+        let all_build = state.entries(["all-tool:i386"]);
+        assert_eq!(all_build.len(), 1);
+        assert_eq!(all_build[0].architecture.as_deref(), Some("all"));
+
+        let glob = state.entries(["*-tool"]);
+        assert_eq!(glob.len(), 4, "two vendor builds + unpacked + all");
+
+        // A package with only configuration files left has no version; an
+        // unpacked one does.
+        assert!(state.entries(["notinstalled"]).is_empty());
+        assert_eq!(state.entries(["unpacked-tool"]).len(), 1);
+        assert!(state.entries(Vec::<&str>::new()).is_empty());
     }
 }
