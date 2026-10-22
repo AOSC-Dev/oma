@@ -67,7 +67,10 @@ impl AptConfig {
     /// Every key here can be overridden by the system configuration
     /// (`load_system`, e.g. `/etc/apt/apt.conf.d` and friends).
     pub fn init_defaults(&mut self) -> std::io::Result<()> {
-        self.set("APT::Architecture", &crate::config_parser::detect_arch()?);
+        self.set(
+            "APT::Architecture",
+            &crate::internal::config_parser::detect_arch()?,
+        );
         self.set_list("APT::Build-Essential", "build-essential");
         self.set("APT::Install-Recommends", "true");
         self.set("APT::Install-Suggests", "false");
@@ -216,7 +219,7 @@ impl AptConfig {
     ///
     /// Resolves ancestor values (using `PathBuf::push` which naturally
     /// handles absolute-path replacement), prepends `RootDir` (if set),
-    /// and normalizes via [`fl_normalize`].
+    /// and normalizes via `fl_normalize`.
     pub fn get_file(&self, key: &str, default: &str) -> String {
         let mut buf = PathBuf::new();
 

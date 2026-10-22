@@ -7,8 +7,7 @@ use clap_complete::ArgValueCompleter;
 use dialoguer::console::{StyledObject, style};
 use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
 use oma_apt_pkg::{
-    AptConfig, AptDb, AptExtendedStates, DpkgState, IndexSource, PackageEntry, PackageVersion,
-    ResolvedPackage,
+    AptConfig, AptExtendedStates, AptState, Control, Package, ResolvedPackage, Source, Version,
 };
 use oma_logger::info;
 use oma_utils::human_bytes::HumanBytes;
@@ -63,13 +62,23 @@ impl CliExecuter for Show {
         } = self;
 
         let apt_cfg = config.apt_config();
-        let (mut apt_db, dpkg, ext_states) = load_apt_db_and_dpkg(apt_cfg)?;
+        let (mut state, ext_states) = load_state(apt_cfg)?;
 
-        // Resolve each query: local `.deb` files are parsed directly,
-        // everything else is matched against the package database.
-        let resolution = apt_db
-            .resolve_queries(packages, &dpkg)
-            .context("Failed to resolve package queries")?;
+        // Local `.deb` files insert into the state; `resolve` then finds
+        // them without needing a mutable borrow.
+        for path in packages
+            .iter()
+            .filter(|query| query.ends_with(".deb") && std::path::Path::new(query).is_file())
+        {
+            state
+                .insert_deb(path)
+                .map_err(|e| OutputError::with_source("Failed to read local package", e))?;
+        }
+
+        // Resolve each query against the unified package state — apt lists
+        // plus the live dpkg status, selected by architecture the way apt
+        // selects a package.
+        let resolution = state.resolve(packages);
 
         handle_no_result(
             resolution.no_match.iter().map(String::as_str).collect(),
@@ -82,7 +91,7 @@ impl CliExecuter for Show {
             display_group(
                 &mut stdout,
                 resolved,
-                &dpkg,
+                &state,
                 &ext_states,
                 all,
                 json,
@@ -94,20 +103,12 @@ impl CliExecuter for Show {
             }
 
             // Show "N additional versions" hint for a single package without
-            // --all. For repository and local-file queries the version count
-            // comes from the whole database: a query may be version-filtered
-            // (a local `.deb` resolves to `pkg=<version>`), yet the hint reports every
-            // other available version, matching `apt` and old oma
-            // (`pkg.versions().count() - 1`).
+            // --all. The count comes from the package the query selected, so
+            // `foo:amd64` only advertises versions of that architecture.
             let additional = if !all && !json && resolution.resolved.len() == 1 {
-                let count = if status_only(&resolved.versions) {
-                    // Status contributes separate architecture records - only
-                    // advertise the ones this query can actually display.
-                    resolved.versions.len()
-                } else {
-                    resolved.pkg.version_count()
-                };
-                count.saturating_sub(1)
+                state
+                    .package(resolved.key.name(), resolved.key.arch())
+                    .map_or(0, |pkg| pkg.version_count().saturating_sub(1))
             } else {
                 0
             };
@@ -124,87 +125,54 @@ impl CliExecuter for Show {
 /// Display one resolved query, honoring the JSON flag.
 fn display_group(
     stdout: &mut impl Write,
-    resolved: &ResolvedPackage<'_>,
-    dpkg: &DpkgState,
+    resolved: &ResolvedPackage,
+    state: &AptState,
     ext_states: &AptExtendedStates,
     all: bool,
     json: bool,
     apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
+    let Some(pkg) = state.package(resolved.key.name(), resolved.key.arch()) else {
+        return Ok(());
+    };
+
     // `--all` on a local `.deb` shows every version the package has in the
-    // database, not just the version read from the file.
-    let expanded: Vec<Cow<'_, PackageVersion>>;
-    let versions: &[Cow<'_, PackageVersion>] = if all && resolved.local {
-        expanded = match resolved.pkg.versions() {
-            Cow::Borrowed(versions) => versions.iter().map(Cow::Borrowed).collect(),
-            Cow::Owned(versions) => versions.into_iter().map(Cow::Owned).collect(),
-        };
-        &expanded
+    // database, not just the version read from the file. Without `--all`
+    // the default stays on the file's version.
+    let is_local = resolved.versions.iter().all(Version::is_local_deb);
+    let versions: &[Version] = if all && is_local {
+        pkg.versions()
     } else {
         &resolved.versions
     };
 
     if json {
-        display_versions_to_json(stdout, versions, dpkg, apt_cfg)?;
+        display_versions_to_json(stdout, resolved, versions, state, apt_cfg)?;
     } else {
-        display_versions(stdout, resolved, versions, dpkg, ext_states, all, apt_cfg);
+        display_versions(stdout, &pkg, versions, state, ext_states, all, apt_cfg);
     }
     Ok(())
 }
 
-fn status_only(versions: &[Cow<'_, PackageVersion>]) -> bool {
-    versions.iter().all(|version| {
-        !version.sources.is_empty() && version.sources.iter().all(IndexSource::is_dpkg_status)
-    })
-}
-
-/// The version displayed without `--all`.
-///
-/// Indexed and local-file queries keep the highest version. For a package
-/// only found in the dpkg status file (i.e., vendored or dropped from all
-/// known sources), the query's architecture is taken as the first factor.
-///
-/// An explicit foreign query (i.e., `:i386` on `:amd64` shows that package,
-/// while an unqualified (or `:native`/`:any`) query shows this system's
-/// package, as apt does.
-///
-/// The highest version is picked and displayed by architecture specification.
-fn default_version<'a>(
-    versions: &'a [Cow<'_, PackageVersion>],
-    native_arch: &str,
-    query_arch: Option<&str>,
-) -> Option<&'a Cow<'a, PackageVersion>> {
-    let status_only = status_only(versions);
-    let foreign = query_arch
-        .filter(|arch| !matches!(*arch, "all" | "any" | "native") && *arch != native_arch);
-
-    versions.iter().max_by_key(|version| {
-        let entry_arch = version.entry.architecture.as_deref();
-        let preferred = match foreign {
-            Some(arch) => entry_arch == Some(arch),
-            None => entry_arch.is_none_or(|arch| arch == native_arch || arch == "all"),
-        };
-        (!status_only || preferred, version.parsed_version())
-    })
+/// The version displayed without `--all`: the highest one of the package the
+/// query selected. Architecture was already decided by [`AptState::resolve`].
+fn default_version(versions: &[Version]) -> Option<&Version> {
+    versions
+        .iter()
+        .max_by(|a, b| a.parsed_version().cmp(&b.parsed_version()))
 }
 
 fn display_versions(
     stdout: &mut impl Write,
-    resolved: &ResolvedPackage<'_>,
-    versions: &[Cow<'_, PackageVersion>],
-    dpkg: &DpkgState,
+    pkg: &Package<'_>,
+    versions: &[Version],
+    state: &AptState,
     ext_states: &AptExtendedStates,
     show_all: bool,
     apt_cfg: &AptConfig,
 ) {
-    if !show_all
-        && let Some(version) = default_version(
-            versions,
-            &apt_cfg.get("APT::Architecture", ""),
-            resolved.arch.as_deref(),
-        )
-    {
-        display_version(stdout, resolved, version, dpkg, ext_states, apt_cfg);
+    if !show_all && let Some(version) = default_version(versions) {
+        display_version(stdout, pkg, version, state, ext_states, apt_cfg);
         return;
     }
 
@@ -212,7 +180,7 @@ fn display_versions(
     // versions instead of re-parsing each version string. Unstable is fine:
     // ties only occur between versions that compare equal (e.g. unparsable
     // version strings), whose display order is meaningless.
-    let mut shown: Vec<&Cow<'_, PackageVersion>> = versions.iter().collect();
+    let mut shown: Vec<&Version> = versions.iter().collect();
     shown.sort_unstable_by_key(|a| a.parsed_version());
 
     for (idx, version) in shown.iter().enumerate() {
@@ -220,13 +188,13 @@ fn display_versions(
             writeln!(stdout).ok();
         }
 
-        display_version(stdout, resolved, version, dpkg, ext_states, apt_cfg);
+        display_version(stdout, pkg, version, state, ext_states, apt_cfg);
     }
 }
 
 /// Resolve one display field from a package entry, in the order of
 /// [`DISPLAY_FIELDS`].
-fn field_value<'a>(entry: &'a PackageEntry, field: &str) -> Option<Cow<'a, str>> {
+fn field_value<'a>(entry: &'a Control, field: &str) -> Option<Cow<'a, str>> {
     match field {
         "Package" => Some(Cow::Borrowed(&entry.package)),
         "Version" => entry.version.as_deref().map(Cow::Borrowed),
@@ -254,9 +222,9 @@ fn field_value<'a>(entry: &'a PackageEntry, field: &str) -> Option<Cow<'a, str>>
 /// from the [`Package`] view, the rest from this specific version.
 fn display_version(
     stdout: &mut impl Write,
-    resolved: &ResolvedPackage<'_>,
-    version: &PackageVersion,
-    dpkg: &DpkgState,
+    pkg: &Package<'_>,
+    version: &Version,
+    state: &AptState,
     ext_states: &AptExtendedStates,
     apt_cfg: &AptConfig,
 ) {
@@ -266,9 +234,9 @@ fn display_version(
         // the displayed version so an arch-filtered query (`foo:i386`) or
         // `--all` labels each block with its own architecture.
         let value = if *field == "Package" {
-            Some(resolved.pkg.fullname_of(version, true))
+            Some(pkg.fullname(version, true))
         } else {
-            field_value(&version.entry, field)
+            field_value(&version.control, field)
         };
         let Some(value) = value else {
             continue;
@@ -295,14 +263,14 @@ fn display_version(
     }
 
     // APT-Manual-Installed: check dpkg status and auto-installed flag.
-    if resolved.pkg.is_installed(dpkg) {
+    if state.is_installed_of(pkg.name(), pkg.arch()) {
         write!(
             stdout,
             "{}",
             key_style(Cow::Borrowed("APT-Manual-Installed: "))
         )
         .ok();
-        if resolved.pkg.is_auto_installed(dpkg, ext_states) {
+        if ext_states.is_auto_installed(pkg.name()) {
             writeln!(stdout, "no").ok();
         } else {
             writeln!(stdout, "yes").ok();
@@ -313,7 +281,7 @@ fn display_version(
 #[derive(Serialize)]
 struct PackageJson<'a> {
     #[serde(flatten)]
-    entry: &'a PackageEntry,
+    entry: &'a Control,
     #[serde(rename = "APT-Sources")]
     apt_sources: Vec<String>,
     installed: bool,
@@ -321,20 +289,22 @@ struct PackageJson<'a> {
 
 fn display_versions_to_json(
     stdout: &mut impl Write,
-    versions: &[Cow<'_, PackageVersion>],
-    dpkg: &DpkgState,
+    resolved: &ResolvedPackage,
+    versions: &[Version],
+    state: &AptState,
     apt_cfg: &AptConfig,
 ) -> Result<(), OutputError> {
+    let installed = state.is_installed_of(resolved.key.name(), resolved.key.arch());
     let json_entries: Vec<PackageJson<'_>> = versions
         .iter()
         .map(|v| PackageJson {
-            entry: &v.entry,
+            entry: &v.control,
             apt_sources: v
                 .sources
                 .iter()
                 .map(|s| format_apt_source(s, apt_cfg))
                 .collect(),
-            installed: v.entry.is_installed(dpkg),
+            installed,
         })
         .collect();
 
@@ -343,22 +313,13 @@ fn display_versions_to_json(
     Ok(())
 }
 
-fn load_apt_db_and_dpkg(
-    cfg: &AptConfig,
-) -> Result<(AptDb, DpkgState, AptExtendedStates), OutputError> {
-    let dpkg_path = cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
+fn load_state(cfg: &AptConfig) -> Result<(AptState, AptExtendedStates), OutputError> {
     let ext_path = cfg.get_file("Dir::State::extended_states", "var/lib/apt/extended_states");
 
-    let apt_db = AptDb::load_or_build(cfg).context("Failed to load apt database")?;
-
-    // Lazy: show only needs `is_installed` for the displayed package(s), so
-    // the status file is scanned just until the queried package is found
-    // instead of parsing every installed package.
-    let dpkg = DpkgState::from_file_lazy(&dpkg_path);
-
+    let state = AptState::load(cfg).context("Failed to load package state")?;
     let ext_states = AptExtendedStates::from_file_lazy(ext_path);
 
-    Ok((apt_db, dpkg, ext_states))
+    Ok((state, ext_states))
 }
 
 #[inline]
@@ -375,9 +336,9 @@ fn key_style(key: Cow<str>) -> StyledObject<Cow<str>> {
 /// local `.deb` carries a `file:` base URL and the conventional
 /// `local-deb/local-deb` suite/component, so it renders through the same
 /// path.
-fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
-    // The dpkg status file is not an index, it is only named by apt, and by
-    // convention, as `APT-Sources: /var/lib/dpkg/status`.
+fn format_apt_source(source: &Source, apt_cfg: &AptConfig) -> String {
+    // The dpkg status file is not an index: apt names the file itself, e.g.
+    // `APT-Sources: /var/lib/dpkg/status`.
     if source.is_dpkg_status() {
         return source.base_url.clone();
     }
@@ -438,115 +399,30 @@ fn format_apt_source(source: &IndexSource, apt_cfg: &AptConfig) -> String {
 mod tests {
     use super::*;
 
-    fn version(version: &str, arch: &str, source: IndexSource) -> Cow<'static, PackageVersion> {
-        Cow::Owned(PackageVersion {
-            entry: oma_apt_pkg::parse_control_entry(&format!(
+    fn version(version: &str, arch: &str, source: Source) -> Version {
+        Version {
+            control: oma_apt_pkg::deb::parse_control_entry(&format!(
                 "Package: vendor-tool\nVersion: {version}\nArchitecture: {arch}\n\n"
             ))
             .unwrap(),
             sources: vec![source],
-        })
+            arch: oma_apt_pkg::Arch::new(arch),
+        }
     }
 
     #[test]
-    fn status_default_ranks_the_query_architecture_first() {
-        let status = IndexSource::dpkg_status("/var/lib/dpkg/status");
-
-        // Different versions per architecture: an unqualified (or native /
-        // any) query shows the native build, even though i386 is newer.
-        let mut versions = vec![
+    fn default_version_is_the_highest_one() {
+        let status = Source::dpkg_status("/var/lib/dpkg/status");
+        let versions = vec![
             version("1", "amd64", status.clone()),
-            version("3", "i386", status.clone()),
+            version("3", "i386", status),
         ];
-        for query in [None, Some("native"), Some("any"), Some("amd64")] {
-            for _ in 0..2 {
-                assert_eq!(
-                    default_version(&versions, "amd64", query)
-                        .unwrap()
-                        .entry
-                        .architecture
-                        .as_deref(),
-                    Some("amd64"),
-                    "query {query:?}"
-                );
-                versions.reverse();
-            }
-        }
-
-        // An explicit foreign query keeps that build.
-        assert_eq!(
-            default_version(&versions, "amd64", Some("i386"))
-                .unwrap()
-                .entry
-                .architecture
-                .as_deref(),
-            Some("i386")
-        );
-
-        // `Architecture: all` is native: the highest native-view version
-        // wins there.
-        let mixed = vec![
-            version("1", "amd64", status.clone()),
-            version("3", "all", status.clone()),
-        ];
-        assert_eq!(
-            default_version(&mixed, "amd64", None)
-                .unwrap()
-                .entry
-                .version
-                .as_deref(),
-            Some("3")
-        );
-
-        // An explicit foreign build beats an `all` record even when newer.
-        let mixed = vec![
-            version("3", "all", status.clone()),
-            version("1", "i386", status),
-        ];
-        assert_eq!(
-            default_version(&mixed, "amd64", Some("i386"))
-                .unwrap()
-                .entry
-                .version
-                .as_deref(),
-            Some("1")
-        );
-    }
-
-    #[test]
-    fn indexed_and_local_queries_keep_the_highest_version() {
-        for source in [
-            IndexSource {
-                base_url: "file:/repo".into(),
-                suite: "stable".into(),
-                component: Some("main".into()),
-                arch: Some("amd64".into()),
-            },
-            IndexSource {
-                base_url: "file:/vendor-tool.deb".into(),
-                suite: "local-deb".into(),
-                component: Some("local-deb".into()),
-                arch: None,
-            },
-        ] {
-            let versions = vec![
-                version("1", "amd64", source.clone()),
-                version("3", "i386", source),
-            ];
-            assert_eq!(
-                default_version(&versions, "amd64", None)
-                    .unwrap()
-                    .entry
-                    .version
-                    .as_deref(),
-                Some("3")
-            );
-        }
+        assert_eq!(default_version(&versions).unwrap().version(), Some("3"));
     }
 
     #[test]
     fn status_source_is_named_by_its_file() {
-        let source = IndexSource::dpkg_status("/var/lib/dpkg/status");
+        let source = Source::dpkg_status("/var/lib/dpkg/status");
         assert_eq!(
             format_apt_source(&source, &AptConfig::new()),
             "/var/lib/dpkg/status"

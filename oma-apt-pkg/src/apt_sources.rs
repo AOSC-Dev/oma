@@ -6,9 +6,9 @@ use oma_apt_sources_lists::{SourceEntry, SourceLine, SourceListType, SourcesList
 
 use crate::AptConfig;
 #[cfg(feature = "apt-lists")]
-use crate::apt_lists::IndexSource;
-#[cfg(feature = "apt-lists")]
 use crate::filename::AptListFilename;
+#[cfg(feature = "apt-lists")]
+use crate::internal::lists::{IndexSource, SourceKind};
 
 /// Scan the filesystem for sources list files, returning their paths.
 ///
@@ -116,7 +116,7 @@ impl SourceLookup {
     /// the files in this list that exist under `Dir::State::lists` — lists
     /// files that no configured source produces are never read.
     #[cfg(feature = "apt-lists")]
-    pub fn index_files(&self, archs: &[String]) -> Vec<(String, IndexSource)> {
+    pub(crate) fn index_files(&self, archs: &[String]) -> Vec<(String, IndexSource)> {
         let cvt = AptListFilename::new();
         let mut out = Vec::new();
         for entry in &self.entries {
@@ -129,6 +129,7 @@ impl SourceLookup {
                     out.push((
                         filename,
                         IndexSource {
+                            kind: SourceKind::Repository,
                             base_url: base.to_string(),
                             suite: suite.to_string(),
                             component: None,
@@ -149,6 +150,7 @@ impl SourceLookup {
                         out.push((
                             filename,
                             IndexSource {
+                                kind: SourceKind::Repository,
                                 base_url: base.to_string(),
                                 suite: suite.to_string(),
                                 component: Some(component.clone()),

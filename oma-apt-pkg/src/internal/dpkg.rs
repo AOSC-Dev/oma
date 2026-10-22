@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph, ParagraphReader};
+#[cfg(test)]
+use deb822_fast::FromDeb822Paragraph;
+use deb822_fast::{Deb822, FromDeb822, ParagraphReader};
 
 /// Errors that can occur when parsing dpkg status files.
 #[derive(Debug, thiserror::Error)]
@@ -9,6 +11,8 @@ pub enum DpkgError {
     Io(#[from] std::io::Error),
     #[error("Failed to parse deb822 data: {0}")]
     Deb822(#[from] deb822_fast::Error),
+    #[error("Malformed deb822 paragraph: {0}")]
+    Malformed(String),
 }
 
 /// Represents the desired (or current) selection state of a package.
@@ -88,6 +92,7 @@ pub(crate) fn paragraphs(
 }
 
 /// Parse `/var/lib/dpkg/status` and return full package information.
+#[cfg(test)]
 pub fn parse_dpkg_status(path: impl AsRef<Path>) -> Result<Vec<DpkgPackage>, DpkgError> {
     paragraphs(path)?
         .map(|para| {

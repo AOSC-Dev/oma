@@ -1,8 +1,8 @@
 //! Crate-level error type for oma-apt-pkg.
 
+use crate::internal::dpkg::DpkgError;
 #[cfg(feature = "apt-lists")]
-use crate::apt_lists::AptListsError;
-use crate::dpkg::DpkgError;
+use crate::internal::lists::AptListsError;
 
 /// Errors that can occur in oma-apt-pkg operations.
 #[derive(Debug, thiserror::Error)]
@@ -17,4 +17,7 @@ pub enum Error {
     /// APT-Sources formatting failed (e.g. missing architecture).
     #[error("{0}")]
     AptSources(String),
+    /// The APT configuration is incomplete.
+    #[error("{0}")]
+    Config(String),
 }
