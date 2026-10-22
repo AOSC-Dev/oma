@@ -528,8 +528,8 @@ async fn amo_connect() -> anyhow::Result<AmoProxy<'static>> {
     let conn = Connection::system().await?;
 
     let peer_proxy = zbus::fdo::PeerProxy::builder(&conn)
-        .destination("io.aosc.Amo")?
-        .path("/io/aosc/Amo")?
+        .destination("io.aosc.Amo")
+        .path("/io/aosc/Amo")
         .build()
         .await?;
 

@@ -180,7 +180,7 @@ indicium = "0.6"
 cxx = "1.0.196"
 deb822-lossless = "0.5"
 deb822-fast = { version = "0.2", features = ["derive"] }
-zbus = { version = "5", default-features = false, features = ["tokio"] }
+zbus = { version = "6", default-features = false, features = ["tokio", "proxy", "service"] }
 num_enum = "0.7.3"
 sys-locale = "0.3"
 fancy-regex = "0.19"
@@ -190,9 +190,6 @@ logos = "0.16"
 number_prefix = "0.4"
 os-release = "0.1"
 url-escape = "0.1"
-logind-zbus = { version = "5.1", default-features = false, features = [
-    "tokio",
-], package = "logind-zbus-tokio" }
 nix = "0.31"
 reqwest-middleware = "0.5"
 http = "1.4.2"

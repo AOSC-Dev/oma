@@ -227,8 +227,8 @@ async fn amo_search(query: &str) -> anyhow::Result<Vec<SearchResult>> {
     let connection = Connection::system().await?;
 
     let peer_proxy = zbus::fdo::PeerProxy::builder(&connection)
-        .destination("io.aosc.Amo")?
-        .path("/io/aosc/Amo")?
+        .destination("io.aosc.Amo")
+        .path("/io/aosc/Amo")
         .build()
         .await?;
 
