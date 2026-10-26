@@ -112,10 +112,10 @@ impl AptListFilename {
                 let path = if let Some(host) = host {
                     input.split_once(host).map(|(_, p)| p).unwrap_or(input)
                 } else {
-                    input
-                        .strip_prefix("file://")
-                        .or_else(|| input.strip_prefix("file:"))
-                        .unwrap_or(input)
+                    // No host: apt's URItoFileName removes the scheme and an
+                    // empty `//` authority. This covers `file:`, `mirror+file:`
+                    // and `copy:` URLs.
+                    strip_scheme_and_empty_authority(input)
                 };
 
                 if let Some(host) = host {
@@ -160,6 +160,13 @@ impl AptListFilename {
     }
 }
 
+/// Strip the scheme and an empty `//` authority from a host-less URL,
+/// matching apt's `::URI` + `URItoFileName` treatment.
+fn strip_scheme_and_empty_authority(input: &str) -> &str {
+    let rest = input.split_once(':').map_or(input, |(_, rest)| rest);
+    rest.strip_prefix("//").unwrap_or(rest)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,6 +201,48 @@ mod tests {
     fn test_encode_file_protocol() {
         let cvt = cvt();
         assert_eq!(cvt.encode("/debs").unwrap(), "_debs");
+        assert_eq!(
+            cvt.encode("file:/etc/apt/mirrors.list").unwrap(),
+            "_etc_apt_mirrors.list"
+        );
+        assert_eq!(
+            cvt.encode("file:///etc/apt/mirrors.list").unwrap(),
+            "_etc_apt_mirrors.list"
+        );
+    }
+
+    #[test]
+    fn test_encode_mirror_file_protocol() {
+        let cvt = cvt();
+
+        // The scheme is stripped even without a host; apt names these
+        // `_etc_...`, not `mirror%252bfile:_etc_...`.
+        assert_eq!(
+            cvt.encode("mirror+file:/etc/apt/mirrors.list/dists/bookworm/InRelease")
+                .unwrap(),
+            "_etc_apt_mirrors.list_dists_bookworm_InRelease"
+        );
+        assert_eq!(
+            cvt.encode("mirror+file:///etc/apt/mirrors.list/dists/bookworm/InRelease")
+                .unwrap(),
+            "_etc_apt_mirrors.list_dists_bookworm_InRelease"
+        );
+    }
+
+    #[test]
+    fn test_encode_mirror_http_protocol() {
+        let cvt = cvt();
+
+        assert_eq!(
+            cvt.encode("mirror+http://host/list/dists/bookworm/InRelease")
+                .unwrap(),
+            "host_list_dists_bookworm_InRelease"
+        );
+        assert_eq!(
+            cvt.encode("mirror://host/list/dists/bookworm/InRelease")
+                .unwrap(),
+            "host_list_dists_bookworm_InRelease"
+        );
     }
 
     #[test]
