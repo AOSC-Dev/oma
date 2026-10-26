@@ -344,6 +344,10 @@ impl From<RefreshError> for OutputError {
                 fl!("failed-refresh"),
                 io::Error::other(format!("Mirror list for {uri} was not loaded")),
             ),
+            RefreshError::ReleaseSignatureMissing(uri) => Self::with_source(
+                fl!("failed-refresh"),
+                io::Error::other(format!("Release for {uri} has no Release.gpg")),
+            ),
         }
     }
 }
