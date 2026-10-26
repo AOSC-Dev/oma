@@ -30,15 +30,15 @@ pub fn parse_mirror_uri(uri: &str) -> Result<MirrorListLocation, MirrorError> {
     if let Some(rest) = uri.strip_prefix("mirror://") {
         let url = format!("http://{rest}");
         validate_http_uri(uri, &url)?;
-        Ok(MirrorListLocation::Http(url))
+        Ok(MirrorListLocation::Http(normalize_http_url(&url)))
     } else if let Some(rest) = uri.strip_prefix("mirror+http://") {
         let url = format!("http://{rest}");
         validate_http_uri(uri, &url)?;
-        Ok(MirrorListLocation::Http(url))
+        Ok(MirrorListLocation::Http(normalize_http_url(&url)))
     } else if let Some(rest) = uri.strip_prefix("mirror+https://") {
         let url = format!("https://{rest}");
         validate_http_uri(uri, &url)?;
-        Ok(MirrorListLocation::Http(url))
+        Ok(MirrorListLocation::Http(normalize_http_url(&url)))
     } else if let Some(rest) = uri.strip_prefix("mirror+file:") {
         // Require an absolute path. `url::Url` happily turns `file:relative`
         // into `/relative`, which would be a surprising interpretation of a
@@ -62,12 +62,34 @@ pub fn parse_mirror_uri(uri: &str) -> Result<MirrorListLocation, MirrorError> {
             });
         }
 
-        Ok(MirrorListLocation::File(path))
+        Ok(MirrorListLocation::File(normalize_file_path(path)))
     } else {
         Err(MirrorError::UnsupportedScheme {
             uri: uri.to_string(),
         })
     }
+}
+
+/// Drop one trailing slash from a mirror list URL. The list is a file, not a
+/// directory; apt does the same before acquiring it.
+fn normalize_http_url(url: &str) -> String {
+    let Ok(mut parsed) = Url::parse(url) else {
+        return url.to_string();
+    };
+
+    if parsed.path().len() <= 1 || !parsed.path().ends_with('/') {
+        return url.to_string();
+    }
+
+    if let Ok(mut segments) = parsed.path_segments_mut() {
+        segments.pop_if_empty();
+    }
+
+    parsed.to_string()
+}
+
+fn normalize_file_path(path: PathBuf) -> PathBuf {
+    path.components().as_path().to_path_buf()
 }
 
 fn validate_http_uri(uri: &str, url: &str) -> Result<(), MirrorError> {
@@ -109,6 +131,22 @@ mod tests {
         assert_eq!(
             parse_mirror_uri("mirror+file:///etc/apt/mirrors.list").unwrap(),
             MirrorListLocation::File(PathBuf::from("/etc/apt/mirrors.list"))
+        );
+        assert_eq!(
+            parse_mirror_uri("mirror+file:/etc/apt/mirrors.list/").unwrap(),
+            MirrorListLocation::File(PathBuf::from("/etc/apt/mirrors.list"))
+        );
+        assert_eq!(
+            parse_mirror_uri("mirror+http://host/mirrors.txt/").unwrap(),
+            MirrorListLocation::Http("http://host/mirrors.txt".into())
+        );
+        assert_eq!(
+            parse_mirror_uri("mirror+file:/").unwrap(),
+            MirrorListLocation::File(PathBuf::from("/"))
+        );
+        assert_eq!(
+            parse_mirror_uri("mirror+http://host/").unwrap(),
+            MirrorListLocation::Http("http://host/".into())
         );
         assert!(parse_mirror_uri("mirror+https://").is_err());
         assert!(parse_mirror_uri("mirror://").is_err());

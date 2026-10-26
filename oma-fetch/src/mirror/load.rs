@@ -153,6 +153,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn loads_a_local_list_with_trailing_slash() {
+        let path = temp_path("trailing.list");
+        tokio::fs::write(&path, "http://m1.example.com/\n")
+            .await
+            .unwrap();
+        let uri = format!("mirror+file:{}/", path.display());
+
+        let list = MirrorList::load(&uri, &client()).await.unwrap();
+
+        assert_eq!(list.len(), 1);
+
+        let _ = tokio::fs::remove_file(&path).await;
+    }
+
+    #[tokio::test]
     async fn rejects_compressed_local_lists() {
         let path = temp_path("mirrors.list.gz");
         let uri = format!("mirror+file:{}", path.display());
