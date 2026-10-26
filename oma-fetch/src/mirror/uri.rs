@@ -29,16 +29,16 @@ impl MirrorListLocation {
 pub fn parse_mirror_uri(uri: &str) -> Result<MirrorListLocation, MirrorError> {
     if let Some(rest) = uri.strip_prefix("mirror://") {
         let url = format!("http://{rest}");
-        validate_http_uri(uri, &url)?;
-        Ok(MirrorListLocation::Http(normalize_http_url(&url)))
+        let parsed = validate_http_uri(uri, &url)?;
+        Ok(MirrorListLocation::Http(normalize_http_url(&parsed, &url)))
     } else if let Some(rest) = uri.strip_prefix("mirror+http://") {
         let url = format!("http://{rest}");
-        validate_http_uri(uri, &url)?;
-        Ok(MirrorListLocation::Http(normalize_http_url(&url)))
+        let parsed = validate_http_uri(uri, &url)?;
+        Ok(MirrorListLocation::Http(normalize_http_url(&parsed, &url)))
     } else if let Some(rest) = uri.strip_prefix("mirror+https://") {
         let url = format!("https://{rest}");
-        validate_http_uri(uri, &url)?;
-        Ok(MirrorListLocation::Http(normalize_http_url(&url)))
+        let parsed = validate_http_uri(uri, &url)?;
+        Ok(MirrorListLocation::Http(normalize_http_url(&parsed, &url)))
     } else if let Some(rest) = uri.strip_prefix("mirror+file:") {
         // Require an absolute path. `url::Url` happily turns `file:relative`
         // into `/relative`, which would be a surprising interpretation of a
@@ -70,29 +70,34 @@ pub fn parse_mirror_uri(uri: &str) -> Result<MirrorListLocation, MirrorError> {
     }
 }
 
-/// Drop one trailing slash from a mirror list URL. The list is a file, not a
-/// directory; apt does the same before acquiring it.
-fn normalize_http_url(url: &str) -> String {
-    let Ok(mut parsed) = Url::parse(url) else {
-        return url.to_string();
-    };
-
-    if parsed.path().len() <= 1 || !parsed.path().ends_with('/') {
-        return url.to_string();
+/// Drop one trailing slash from the mirror list URL's path. The list is a
+/// file, not a directory; apt does the same before acquiring it.
+///
+/// The URL is edited as text so parsing does not rewrite the host, default
+/// port or dot segments; `parsed` is only used to identify the root and the
+/// path's trailing slash.
+fn normalize_http_url(parsed: &Url, original: &str) -> String {
+    if parsed.path() == "/" || !parsed.path().ends_with('/') {
+        return original.to_string();
     }
 
-    if let Ok(mut segments) = parsed.path_segments_mut() {
-        segments.pop_if_empty();
+    let path_end = original.find(['?', '#']).unwrap_or(original.len());
+
+    if !original[..path_end].ends_with('/') {
+        return original.to_string();
     }
 
-    parsed.to_string()
+    let mut normalized = String::with_capacity(original.len() - 1);
+    normalized.push_str(&original[..path_end - 1]);
+    normalized.push_str(&original[path_end..]);
+    normalized
 }
 
 fn normalize_file_path(path: PathBuf) -> PathBuf {
     path.components().as_path().to_path_buf()
 }
 
-fn validate_http_uri(uri: &str, url: &str) -> Result<(), MirrorError> {
+fn validate_http_uri(uri: &str, url: &str) -> Result<Url, MirrorError> {
     let parsed = Url::parse(url).map_err(|_| MirrorError::InvalidUri {
         uri: uri.to_string(),
     })?;
@@ -103,7 +108,7 @@ fn validate_http_uri(uri: &str, url: &str) -> Result<(), MirrorError> {
         });
     }
 
-    Ok(())
+    Ok(parsed)
 }
 
 #[cfg(test)]
@@ -147,6 +152,20 @@ mod tests {
         assert_eq!(
             parse_mirror_uri("mirror+http://host/").unwrap(),
             MirrorListLocation::Http("http://host/".into())
+        );
+        // Only the path's trailing slash is removed; the rest of the URL is
+        // kept as written.
+        assert_eq!(
+            parse_mirror_uri("mirror+http://HOST:80/mirrors.txt/").unwrap(),
+            MirrorListLocation::Http("http://HOST:80/mirrors.txt".into())
+        );
+        assert_eq!(
+            parse_mirror_uri("mirror+http://host/mirrors.txt/?cache=1/").unwrap(),
+            MirrorListLocation::Http("http://host/mirrors.txt?cache=1/".into())
+        );
+        assert_eq!(
+            parse_mirror_uri("mirror+http://host").unwrap(),
+            MirrorListLocation::Http("http://host".into())
         );
         assert!(parse_mirror_uri("mirror+https://").is_err());
         assert!(parse_mirror_uri("mirror://").is_err());
