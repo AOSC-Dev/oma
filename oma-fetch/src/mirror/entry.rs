@@ -97,7 +97,7 @@ pub(super) fn parse_entries(text: &str) -> Vec<MirrorEntry> {
                     if let Some(first) = key.get_mut(0..1) {
                         first.make_ascii_uppercase();
                     }
-                    push_tag(&mut entry.tags, &key, value);
+                    push_tag_owned(&mut entry.tags, key, value);
                 }
             }
         }
@@ -109,9 +109,19 @@ pub(super) fn parse_entries(text: &str) -> Vec<MirrorEntry> {
 }
 
 fn push_tag(tags: &mut HashMap<String, Vec<String>>, key: &str, value: &str) {
-    tags.entry(key.to_string())
-        .or_default()
-        .push(value.to_string());
+    if let Some(values) = tags.get_mut(key) {
+        values.push(value.to_string());
+    } else {
+        tags.insert(key.to_string(), vec![value.to_string()]);
+    }
+}
+
+fn push_tag_owned(tags: &mut HashMap<String, Vec<String>>, key: String, value: &str) {
+    if let Some(values) = tags.get_mut(key.as_str()) {
+        values.push(value.to_string());
+    } else {
+        tags.insert(key, vec![value.to_string()]);
+    }
 }
 
 pub(super) fn entry_supported(entry: &MirrorEntry, from_network: bool) -> bool {

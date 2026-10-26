@@ -100,26 +100,6 @@ impl MirrorList {
         self.entries.is_empty()
     }
 
-    /// Selected mirror base URLs in try order (before appending a request
-    /// path). Prefer [`Self::resolve`] for download URLs.
-    pub fn candidates(
-        &self,
-        target: &MirrorTarget<'_>,
-    ) -> Result<Vec<MirrorCandidate>, MirrorError> {
-        let selected = self.select(target)?;
-
-        Ok(selected
-            .into_iter()
-            .filter_map(|entry| {
-                transport_of(&entry.uri).map(|transport| MirrorCandidate {
-                    url: entry.uri.clone(),
-                    transport,
-                    priority: entry.priority,
-                })
-            })
-            .collect())
-    }
-
     /// Expand a file URL of a mirror source into one download URL per
     /// selected mirror, in try order.
     ///

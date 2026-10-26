@@ -297,14 +297,3 @@ fn rejects_urls_outside_the_source() {
         .expect_err("an unrelated URL must not match");
     assert!(matches!(err, MirrorError::UrlMismatch { .. }));
 }
-
-#[test]
-fn candidates_returns_mirror_bases() {
-    let list = list("http://m1.example.com/debian/\n");
-
-    let candidates = list.candidates(&MirrorTarget::default()).unwrap();
-
-    assert_eq!(candidates.len(), 1);
-    assert_eq!(candidates[0].url, "http://m1.example.com/debian/");
-    assert_eq!(candidates[0].transport, MirrorTransport::Http);
-}

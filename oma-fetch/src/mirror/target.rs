@@ -56,8 +56,7 @@ pub enum MirrorTransport {
 /// One concrete download URL produced from a mirror list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirrorCandidate {
-    /// Base URL of the mirror (for [`crate::mirror::MirrorList::candidates`])
-    /// or the full download URL (for [`crate::mirror::MirrorList::resolve`]).
+    /// Full download URL for [`crate::mirror::MirrorList::resolve`].
     pub url: String,
     pub transport: MirrorTransport,
     /// The mirror's `priority:` tag; lower is tried first, `u64::MAX` when

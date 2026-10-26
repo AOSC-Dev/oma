@@ -12,21 +12,20 @@ use super::uri::MirrorListLocation;
 pub const MAX_MIRROR_LIST_SIZE: u64 = 1024 * 1024;
 
 pub(super) fn compressed_extension(location: &MirrorListLocation) -> Option<String> {
-    let path = match location {
+    match location {
         MirrorListLocation::Http(url) => {
             let parsed = Url::parse(url).ok()?;
-            Path::new(parsed.path()).to_path_buf()
+            compressed_suffix(Path::new(parsed.path()).extension()?.to_str()?)
         }
-        MirrorListLocation::File(path) => path.clone(),
-    };
+        MirrorListLocation::File(path) => compressed_suffix(path.extension()?.to_str()?),
+    }
+}
 
-    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
-
-    matches!(
-        extension.as_str(),
-        "gz" | "xz" | "bz2" | "zst" | "zstd" | "lz4" | "lzma"
-    )
-    .then_some(extension)
+fn compressed_suffix(extension: &str) -> Option<String> {
+    ["gz", "xz", "bz2", "zst", "zstd", "lz4", "lzma"]
+        .iter()
+        .find(|known| extension.eq_ignore_ascii_case(known))
+        .map(|known| (*known).to_string())
 }
 
 pub(super) async fn fetch_text(

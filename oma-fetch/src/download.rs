@@ -41,8 +41,8 @@ const DOWNLOAD_BUFSIZE: usize = 8192;
 /// order within the same transport. When the caller already ordered the
 /// candidates (e.g. apt mirror priority), it sets `preserve_source_order` and
 /// the order is kept verbatim.
-fn ordered_sources(entry: &DownloadEntry) -> Vec<DownloadSource> {
-    let mut sources = entry.source.clone();
+fn ordered_sources(entry: &DownloadEntry) -> Vec<&DownloadSource> {
+    let mut sources: Vec<&DownloadSource> = entry.source.iter().collect();
 
     if !entry.preserve_source_order {
         // A stable sort keeps equal transports in the given order.
@@ -327,8 +327,9 @@ impl SingleDownloader {
 
         let sources = ordered_sources(&self.entry);
         assert!(!sources.is_empty());
+        let source_count = sources.len();
 
-        for (index, c) in sources.iter().enumerate() {
+        for (index, c) in sources.into_iter().enumerate() {
             let download_res = match &c.source_type {
                 DownloadSourceType::Http => self.try_http_download(c, callback).await,
                 DownloadSourceType::Local(as_symlink) => {
@@ -388,7 +389,7 @@ impl SingleDownloader {
                     });
                 }
                 Err(e) => {
-                    if index == sources.len() - 1 {
+                    if index == source_count - 1 {
                         callback(Event::Failed {
                             file_name: self.entry.filename.clone(),
                             error: e,
@@ -1241,14 +1242,16 @@ mod tests {
 
     #[test]
     fn prefers_local_sources_by_default() {
-        let sources = ordered_sources(&entry(false));
+        let entry = entry(false);
+        let sources = ordered_sources(&entry);
         assert_eq!(sources[0].url, "file:/srv/pkg.deb");
         assert_eq!(sources[1].url, "http://example.com/pkg.deb");
     }
 
     #[test]
     fn preserve_source_order_keeps_callers_order() {
-        let sources = ordered_sources(&entry(true));
+        let entry = entry(true);
+        let sources = ordered_sources(&entry);
         assert_eq!(sources[0].url, "http://example.com/pkg.deb");
         assert_eq!(sources[1].url, "file:/srv/pkg.deb");
     }
