@@ -494,6 +494,8 @@ impl MirrorSource {
             spinner_done = true;
         }
 
+        let mut release_found = false;
+
         for (release_candidate, gpg_candidate) in release_candidates.into_iter().zip(gpg_candidates)
         {
             if !self
@@ -512,6 +514,8 @@ impl MirrorSource {
             {
                 continue;
             }
+
+            release_found = true;
 
             if trusted {
                 self.set_release_file_name(release_name);
@@ -539,6 +543,14 @@ impl MirrorSource {
             // The pair is incomplete; do not leave a Release behind from a
             // mirror whose signature could not be fetched.
             let _ = fs::remove_file(download_dir.join(&release_name)).await;
+        }
+
+        if release_found {
+            // A Release existed but no mirror could provide its signature.
+            // Do not fall back to an unsigned flat repository.
+            return Err(RefreshError::ReleaseSignatureMissing(
+                self.url().to_string(),
+            ));
         }
 
         if self.is_flat() {
@@ -632,7 +644,7 @@ impl MirrorSource {
 
                 let dst = download_dir.join(file_name);
 
-                if dst.exists() {
+                if dst.exists() || dst.is_symlink() {
                     fs::remove_file(&dst)
                         .await
                         .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
@@ -751,7 +763,7 @@ impl MirrorSource {
             let dst = download_dir.join(&file_name);
 
             if p.exists() {
-                if dst.exists() {
+                if dst.exists() || dst.is_symlink() {
                     debug!("get_release_file: Removing {} ...", dst.display());
                     fs::remove_file(&dst)
                         .await
@@ -783,7 +795,7 @@ impl MirrorSource {
             let dst = download_dir.join(&file_name);
 
             if p.exists() {
-                if dst.exists() {
+                if dst.exists() || dst.is_symlink() {
                     fs::remove_file(&dst)
                         .await
                         .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
@@ -1358,6 +1370,12 @@ async fn test_mirror_release_from_local_mirror() {
     std::fs::create_dir_all(&download_dir).unwrap();
     let tmp_dir = download_dir.join("partial");
 
+    // A previous refresh may have left a symlink to a mirror that no longer
+    // has the file; the new symlink must still be installable.
+    let expected = source.get_download_file_name(Some("InRelease")).unwrap();
+    let dst = download_dir.join(&expected);
+    std::os::unix::fs::symlink("/nonexistent-oma-mirror", &dst).unwrap();
+
     let client: reqwest_middleware::ClientWithMiddleware = oma_fetch::reqwest::ClientBuilder::new()
         .build()
         .unwrap()
@@ -1369,9 +1387,68 @@ async fn test_mirror_release_from_local_mirror() {
         .await
         .unwrap();
 
-    let expected = source.get_download_file_name(Some("InRelease")).unwrap();
     assert_eq!(source.file_name(), Some(expected.as_str()));
-    assert!(download_dir.join(&expected).is_symlink());
+    assert!(dst.is_symlink());
+    assert_eq!(std::fs::read_link(&dst).unwrap(), dist.join("InRelease"));
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[tokio::test]
+async fn test_flat_mirror_release_requires_signature() {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .ok();
+
+    let root = std::env::temp_dir().join(format!(
+        "oma-refresh-flat-mirror-sig-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let repo = root.join("repo");
+    std::fs::create_dir_all(&repo).unwrap();
+    std::fs::write(repo.join("Release"), "Origin: test\n").unwrap();
+
+    let list_path = root.join("mirrors.list");
+    std::fs::write(&list_path, format!("file:{}\n", repo.display())).unwrap();
+
+    let entry: SourceEntry = format!("deb mirror+file:{} /", list_path.display())
+        .parse()
+        .unwrap();
+    let ose = OmaSourceEntry::new(entry, Arc::from("amd64"));
+    let mut sources = MirrorSources::from_sourcelist(&[ose]).unwrap();
+    let source = sources.0.pop().unwrap();
+
+    let list = MirrorList::parse(
+        source.url(),
+        &std::fs::read_to_string(&list_path).unwrap(),
+        false,
+    )
+    .unwrap();
+    source.set_mirror_list(Arc::new(list));
+
+    let download_dir = root.join("lists");
+    std::fs::create_dir_all(&download_dir).unwrap();
+    let tmp_dir = download_dir.join("partial");
+
+    let client: reqwest_middleware::ClientWithMiddleware = oma_fetch::reqwest::ClientBuilder::new()
+        .build()
+        .unwrap()
+        .into();
+    let (tx, _rx) = flume::unbounded();
+
+    let err = source
+        .fetch(&client, 0, 1, &tmp_dir, &download_dir, tx)
+        .await
+        .unwrap_err();
+
+    assert!(
+        matches!(&err, RefreshError::ReleaseSignatureMissing(_)),
+        "{err:?}"
+    );
 
     std::fs::remove_dir_all(&root).ok();
 }
