@@ -7,6 +7,7 @@ use oma_apt_pkg::AptConfig;
 use oma_apt_sources_lists::{Signature, SourceEntry};
 use oma_fetch::{
     SingleDownloadError,
+    mirror::{MirrorCandidate, MirrorList, MirrorTarget, MirrorTransport, TargetKind},
     reqwest::{Method, Response, StatusCode},
     send_request_with_url_and_method,
 };
@@ -94,6 +95,13 @@ impl OmaSourceEntry {
                 x => Err(RefreshError::UnsupportedProtocol(x.to_string())),
             }
         })
+    }
+
+    /// Whether this entry uses apt's mirror protocol. Such a source does not
+    /// name a transport itself; its mirror list must be resolved first.
+    pub fn is_mirror(&self) -> bool {
+        let url = self.url();
+        url.starts_with("mirror:") || url.starts_with("mirror+")
     }
 
     pub fn components(&self) -> &[String] {
@@ -199,6 +207,8 @@ pub struct MirrorSources(pub Vec<MirrorSource>);
 pub struct MirrorSource {
     pub sources: Vec<OmaSourceEntry>,
     release_file_name: OnceCell<String>,
+    /// Mirror list for a `mirror://` source, resolved before any download.
+    mirror_list: OnceCell<Arc<MirrorList>>,
 }
 
 impl MirrorSource {
@@ -206,6 +216,21 @@ impl MirrorSource {
         self.release_file_name
             .set(file_name)
             .expect("Release file name was init");
+    }
+
+    /// Whether this source group uses apt's mirror protocol.
+    pub fn is_mirror(&self) -> bool {
+        self.sources.first().is_some_and(OmaSourceEntry::is_mirror)
+    }
+
+    /// Attach the already-loaded mirror list. Called once per refresh before
+    /// any release or index download.
+    pub fn set_mirror_list(&self, list: Arc<MirrorList>) {
+        let _ = self.mirror_list.set(list);
+    }
+
+    pub fn mirror_list(&self) -> Option<&MirrorList> {
+        self.mirror_list.get().map(Arc::as_ref)
     }
 
     pub fn dist_path(&self) -> &str {
@@ -276,6 +301,12 @@ impl MirrorSource {
         download_dir: &Path,
         tx: Sender<Event>,
     ) -> Result<(), RefreshError> {
+        if self.is_mirror() {
+            return self
+                .fetch_mirror_release(client, index, total, tmp_dir, download_dir, tx)
+                .await;
+        }
+
         match self.from()? {
             OmaSourceEntryFrom::Http => {
                 self.fetch_http_release(client, index, total, tmp_dir, download_dir, tx)
@@ -386,6 +417,248 @@ impl MirrorSource {
         Ok(())
     }
 
+    /// Fetch `InRelease`/`Release` for a mirror source, trying each resolved
+    /// mirror in priority order. `InRelease` is tried on every mirror first;
+    /// then `Release` and `Release.gpg` are fetched from the same mirror.
+    #[allow(clippy::too_many_arguments)]
+    async fn fetch_mirror_release(
+        &self,
+        client: &ClientWithMiddleware,
+        index: usize,
+        total: usize,
+        tmp_dir: &Path,
+        download_dir: &Path,
+        tx: Sender<Event>,
+    ) -> Result<(), RefreshError> {
+        let list = self
+            .mirror_list()
+            .ok_or_else(|| RefreshError::MirrorListNotLoaded(self.url().to_string()))?;
+
+        let source_uri = self.url();
+        let suite = self.sources.first().unwrap().suite();
+        let target = MirrorTarget {
+            release: (!self.is_flat()).then_some(suite),
+            kind: TargetKind::Index,
+            ..Default::default()
+        };
+
+        let inrelease_name = self.get_download_file_name(Some("InRelease"))?;
+        let inrelease_url = self.get_download_url("InRelease");
+        let inrelease_candidates = list.resolve(source_uri, &inrelease_url, &target)?;
+
+        let release_name = self.get_download_file_name(Some("Release"))?;
+        let gpg_name = self.get_download_file_name(Some("Release.gpg"))?;
+        let release_url = self.get_download_url("Release");
+        let gpg_url = self.get_download_url("Release.gpg");
+
+        let release_candidates = list.resolve(source_uri, &release_url, &target)?;
+        let gpg_candidates = list.resolve(source_uri, &gpg_url, &target)?;
+        let trusted = self.trusted();
+
+        let msg = self.get_human_download_message(None)?;
+
+        let _ = tx
+            .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressSpinner {
+                index,
+                total,
+                msg,
+            }))
+            .await;
+
+        let mut spinner_done = false;
+
+        for candidate in inrelease_candidates {
+            if self
+                .try_mirror_file(
+                    client,
+                    &candidate,
+                    &inrelease_name,
+                    index,
+                    total,
+                    tmp_dir,
+                    download_dir,
+                    &tx,
+                    &mut spinner_done,
+                )
+                .await?
+            {
+                self.set_release_file_name(inrelease_name);
+                return Ok(());
+            }
+        }
+
+        if !spinner_done {
+            let _ = tx
+                .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+                .await;
+            spinner_done = true;
+        }
+
+        let mut release_found = false;
+
+        for (release_candidate, gpg_candidate) in release_candidates.into_iter().zip(gpg_candidates)
+        {
+            if !self
+                .try_mirror_file(
+                    client,
+                    &release_candidate,
+                    &release_name,
+                    index,
+                    total,
+                    tmp_dir,
+                    download_dir,
+                    &tx,
+                    &mut spinner_done,
+                )
+                .await?
+            {
+                continue;
+            }
+
+            release_found = true;
+
+            if trusted {
+                self.set_release_file_name(release_name);
+                return Ok(());
+            }
+
+            if self
+                .try_mirror_file(
+                    client,
+                    &gpg_candidate,
+                    &gpg_name,
+                    index,
+                    total,
+                    tmp_dir,
+                    download_dir,
+                    &tx,
+                    &mut spinner_done,
+                )
+                .await?
+            {
+                self.set_release_file_name(release_name);
+                return Ok(());
+            }
+
+            // The pair is incomplete; do not leave a Release behind from a
+            // mirror whose signature could not be fetched.
+            let _ = fs::remove_file(download_dir.join(&release_name)).await;
+        }
+
+        if release_found {
+            // A Release existed but no mirror could provide its signature.
+            // Do not fall back to an unsigned flat repository.
+            return Err(RefreshError::ReleaseSignatureMissing(
+                self.url().to_string(),
+            ));
+        }
+
+        if self.is_flat() {
+            // Flat repo without a release file.
+            return Ok(());
+        }
+
+        Err(RefreshError::NoInReleaseFile(self.url().to_string()))
+    }
+
+    /// Try one concrete mirror URL for a release metadata file. Returns
+    /// `false` when the mirror cannot serve it, so the caller can try the
+    /// next mirror. Progress bars opened by a failed body transfer are closed
+    /// before returning.
+    #[allow(clippy::too_many_arguments)]
+    async fn try_mirror_file(
+        &self,
+        client: &ClientWithMiddleware,
+        candidate: &MirrorCandidate,
+        file_name: &str,
+        index: usize,
+        total: usize,
+        tmp_dir: &Path,
+        download_dir: &Path,
+        tx: &Sender<Event>,
+        spinner_done: &mut bool,
+    ) -> Result<bool, RefreshError> {
+        match candidate.transport {
+            MirrorTransport::Http => {
+                let resp =
+                    match send_request_with_url_and_method(&candidate.url, client, Method::GET)
+                        .await
+                    {
+                        Ok(resp) => resp,
+                        Err(e) => {
+                            debug!("Mirror {} cannot serve {file_name}: {e}", candidate.url);
+                            return Ok(false);
+                        }
+                    };
+
+                if !*spinner_done {
+                    let _ = tx
+                        .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+                        .await;
+                    *spinner_done = true;
+                }
+
+                match self
+                    .download_file(
+                        file_name,
+                        resp,
+                        index,
+                        total,
+                        tmp_dir,
+                        download_dir,
+                        tx.clone(),
+                    )
+                    .await
+                {
+                    Ok(()) => Ok(true),
+                    Err(SingleDownloadError::ReqwestMiddlewareError { source }) => {
+                        debug!("Mirror {} dropped {file_name}: {source}", candidate.url);
+                        let _ = tx
+                            .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+                            .await;
+                        let _ = fs::remove_file(tmp_dir.join(file_name)).await;
+                        Ok(false)
+                    }
+                    Err(e) => Err(RefreshError::DownloadFailed(Some(e))),
+                }
+            }
+            MirrorTransport::File => {
+                let path = Path::new(
+                    candidate
+                        .url
+                        .strip_prefix("file:")
+                        .unwrap_or(candidate.url.as_str()),
+                );
+
+                if !path.exists() {
+                    debug!("Mirror {} does not have {file_name}", candidate.url);
+                    return Ok(false);
+                }
+
+                if !*spinner_done {
+                    let _ = tx
+                        .send_async(Event::DownloadEvent(oma_fetch::Event::ProgressDone(index)))
+                        .await;
+                    *spinner_done = true;
+                }
+
+                let dst = download_dir.join(file_name);
+
+                if dst.exists() || dst.is_symlink() {
+                    fs::remove_file(&dst)
+                        .await
+                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                }
+
+                fs::symlink(path, &dst)
+                    .await
+                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+
+                Ok(true)
+            }
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     async fn download_file(
         &self,
@@ -490,7 +763,7 @@ impl MirrorSource {
             let dst = download_dir.join(&file_name);
 
             if p.exists() {
-                if dst.exists() {
+                if dst.exists() || dst.is_symlink() {
                     debug!("get_release_file: Removing {} ...", dst.display());
                     fs::remove_file(&dst)
                         .await
@@ -522,7 +795,7 @@ impl MirrorSource {
             let dst = download_dir.join(&file_name);
 
             if p.exists() {
-                if dst.exists() {
+                if dst.exists() || dst.is_symlink() {
                     fs::remove_file(&dst)
                         .await
                         .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
@@ -566,6 +839,7 @@ impl MirrorSources {
             res.push(MirrorSource {
                 sources: v,
                 release_file_name: OnceCell::new(),
+                mirror_list: OnceCell::new(),
             });
         }
 
@@ -1028,4 +1302,153 @@ fn test_flat_repo_file_name_4() {
     let ose = OmaSourceEntry::new(entry, arch);
     let res = ose.get_download_file_name(Some("Packages")).unwrap();
     assert_eq!(res, "_debs___.___Packages");
+}
+
+#[test]
+fn test_mirror_source_file_names() {
+    let entry: SourceEntry = "deb [trusted=yes] mirror+file:/etc/apt/mirrors.list bookworm main"
+        .parse()
+        .unwrap();
+    let ose = OmaSourceEntry::new(entry, Arc::from("amd64"));
+
+    assert!(ose.is_mirror());
+    assert_eq!(
+        ose.get_download_file_name(None).unwrap(),
+        "_etc_apt_mirrors.list_dists_bookworm"
+    );
+    assert_eq!(
+        ose.get_download_file_name(Some("InRelease")).unwrap(),
+        "_etc_apt_mirrors.list_dists_bookworm_InRelease"
+    );
+
+    let sources = MirrorSources::from_sourcelist(&[ose]).unwrap();
+    assert_eq!(sources.0.len(), 1);
+    assert!(sources.0[0].is_mirror());
+}
+
+#[tokio::test]
+async fn test_mirror_release_from_local_mirror() {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .ok();
+
+    let root = std::env::temp_dir().join(format!(
+        "oma-refresh-mirror-release-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let repo = root.join("repo");
+    let dist = repo.join("dists/bookworm");
+    std::fs::create_dir_all(&dist).unwrap();
+    std::fs::write(dist.join("InRelease"), "Origin: test\n").unwrap();
+
+    let list_path = root.join("mirrors.list");
+    std::fs::write(&list_path, format!("file:{}\n", repo.display())).unwrap();
+
+    let entry: SourceEntry = format!(
+        "deb [trusted=yes] mirror+file:{} bookworm main",
+        list_path.display()
+    )
+    .parse()
+    .unwrap();
+    let ose = OmaSourceEntry::new(entry, Arc::from("amd64"));
+    let mut sources = MirrorSources::from_sourcelist(&[ose]).unwrap();
+    let source = sources.0.pop().unwrap();
+
+    let list = MirrorList::parse(
+        source.url(),
+        &std::fs::read_to_string(&list_path).unwrap(),
+        false,
+    )
+    .unwrap();
+    source.set_mirror_list(Arc::new(list));
+
+    let download_dir = root.join("lists");
+    std::fs::create_dir_all(&download_dir).unwrap();
+    let tmp_dir = download_dir.join("partial");
+
+    // A previous refresh may have left a symlink to a mirror that no longer
+    // has the file; the new symlink must still be installable.
+    let expected = source.get_download_file_name(Some("InRelease")).unwrap();
+    let dst = download_dir.join(&expected);
+    std::os::unix::fs::symlink("/nonexistent-oma-mirror", &dst).unwrap();
+
+    let client: reqwest_middleware::ClientWithMiddleware = oma_fetch::reqwest::ClientBuilder::new()
+        .build()
+        .unwrap()
+        .into();
+    let (tx, _rx) = flume::unbounded();
+
+    source
+        .fetch(&client, 0, 1, &tmp_dir, &download_dir, tx)
+        .await
+        .unwrap();
+
+    assert_eq!(source.file_name(), Some(expected.as_str()));
+    assert!(dst.is_symlink());
+    assert_eq!(std::fs::read_link(&dst).unwrap(), dist.join("InRelease"));
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[tokio::test]
+async fn test_flat_mirror_release_requires_signature() {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .ok();
+
+    let root = std::env::temp_dir().join(format!(
+        "oma-refresh-flat-mirror-sig-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let repo = root.join("repo");
+    std::fs::create_dir_all(&repo).unwrap();
+    std::fs::write(repo.join("Release"), "Origin: test\n").unwrap();
+
+    let list_path = root.join("mirrors.list");
+    std::fs::write(&list_path, format!("file:{}\n", repo.display())).unwrap();
+
+    let entry: SourceEntry = format!("deb mirror+file:{} /", list_path.display())
+        .parse()
+        .unwrap();
+    let ose = OmaSourceEntry::new(entry, Arc::from("amd64"));
+    let mut sources = MirrorSources::from_sourcelist(&[ose]).unwrap();
+    let source = sources.0.pop().unwrap();
+
+    let list = MirrorList::parse(
+        source.url(),
+        &std::fs::read_to_string(&list_path).unwrap(),
+        false,
+    )
+    .unwrap();
+    source.set_mirror_list(Arc::new(list));
+
+    let download_dir = root.join("lists");
+    std::fs::create_dir_all(&download_dir).unwrap();
+    let tmp_dir = download_dir.join("partial");
+
+    let client: reqwest_middleware::ClientWithMiddleware = oma_fetch::reqwest::ClientBuilder::new()
+        .build()
+        .unwrap()
+        .into();
+    let (tx, _rx) = flume::unbounded();
+
+    let err = source
+        .fetch(&client, 0, 1, &tmp_dir, &download_dir, tx)
+        .await
+        .unwrap_err();
+
+    assert!(
+        matches!(&err, RefreshError::ReleaseSignatureMissing(_)),
+        "{err:?}"
+    );
+
+    std::fs::remove_dir_all(&root).ok();
 }
