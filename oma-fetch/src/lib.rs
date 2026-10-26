@@ -13,6 +13,7 @@ use tokio::task::JoinSet;
 
 pub mod checksum;
 pub mod download;
+pub mod mirror;
 pub use crate::download::SingleDownloadError;
 
 pub use reqwest;
@@ -32,6 +33,11 @@ pub struct DownloadEntry {
     /// different mirror.
     #[builder(default)]
     by_hash_fallback: bool,
+    /// Try the sources in the exact order given instead of preferring local
+    /// sources over HTTP ones. Callers that already ordered their fallback
+    /// candidates (for example apt `mirror://` priority) should set this.
+    #[builder(default)]
+    preserve_source_order: bool,
 }
 
 impl Debug for DownloadEntry {
@@ -44,6 +50,7 @@ impl Debug for DownloadEntry {
             .field("allow_resume", &self.allow_resume)
             .field("msg", &self.msg)
             .field("by_hash_fallback", &self.by_hash_fallback)
+            .field("preserve_source_order", &self.preserve_source_order)
             .finish()
     }
 }

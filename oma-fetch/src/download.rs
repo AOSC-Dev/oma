@@ -35,6 +35,23 @@ use crate::{DownloadEntry, DownloadSourceType};
 const READ_FILE_BUFSIZE: usize = 65536;
 const DOWNLOAD_BUFSIZE: usize = 8192;
 
+/// Return the entry's sources in the order they should be tried.
+///
+/// By default local sources are preferred over HTTP ones, keeping the given
+/// order within the same transport. When the caller already ordered the
+/// candidates (e.g. apt mirror priority), it sets `preserve_source_order` and
+/// the order is kept verbatim.
+fn ordered_sources(entry: &DownloadEntry) -> Vec<DownloadSource> {
+    let mut sources = entry.source.clone();
+
+    if !entry.preserve_source_order {
+        // A stable sort keeps equal transports in the given order.
+        sources.sort_by(|a, b| b.source_type.cmp(&a.source_type));
+    }
+
+    sources
+}
+
 #[derive(Debug, Snafu)]
 pub enum BuilderError {
     #[snafu(display("Download task {file_name} sources is empty"))]
@@ -308,12 +325,8 @@ impl SingleDownloader {
             }
         }
 
-        let mut sources = self.entry.source.clone();
+        let sources = ordered_sources(&self.entry);
         assert!(!sources.is_empty());
-
-        // Use a stable sort so that sources with the same priority keep their
-        // given order: the primary source first, fallbacks after it.
-        sources.sort_by(|a, b| b.source_type.cmp(&a.source_type));
 
         for (index, c) in sources.iter().enumerate() {
             let download_res = match &c.source_type {
@@ -1196,5 +1209,47 @@ impl<R: AsyncBufRead + Unpin> AsyncBufRead for Counter<'_, R> {
         counter.bytes.fetch_add(amt, Ordering::AcqRel);
         let pin = Pin::new(&mut counter.inner);
         pin.consume(amt);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::CompressType;
+    use std::path::PathBuf;
+
+    fn source(url: &str, source_type: DownloadSourceType) -> DownloadSource {
+        DownloadSource {
+            url: url.to_string(),
+            source_type,
+            file_type: CompressType::None,
+        }
+    }
+
+    fn entry(preserve_source_order: bool) -> DownloadEntry {
+        DownloadEntry::builder()
+            .source(vec![
+                source("http://example.com/pkg.deb", DownloadSourceType::Http),
+                source("file:/srv/pkg.deb", DownloadSourceType::Local(false)),
+            ])
+            .filename("pkg.deb".to_string())
+            .dir(PathBuf::from("/tmp/oma-fetch-order-test"))
+            .allow_resume(false)
+            .preserve_source_order(preserve_source_order)
+            .build()
+    }
+
+    #[test]
+    fn prefers_local_sources_by_default() {
+        let sources = ordered_sources(&entry(false));
+        assert_eq!(sources[0].url, "file:/srv/pkg.deb");
+        assert_eq!(sources[1].url, "http://example.com/pkg.deb");
+    }
+
+    #[test]
+    fn preserve_source_order_keeps_callers_order() {
+        let sources = ordered_sources(&entry(true));
+        assert_eq!(sources[0].url, "http://example.com/pkg.deb");
+        assert_eq!(sources[1].url, "file:/srv/pkg.deb");
     }
 }
