@@ -17,6 +17,7 @@ use oma_fetch::{
     CompressType, DownloadEntry, DownloadManager, DownloadSource, DownloadSourceType,
     checksum::{Checksum, ChecksumError},
     download::{BuilderError, SuccessSummary},
+    mirror::{MirrorCandidate, MirrorList, MirrorTarget, MirrorTransport, TargetKind},
     reqwest::{
         Response,
         header::{CONTENT_LENGTH, HeaderValue},
@@ -59,6 +60,10 @@ pub enum RefreshError {
     ScanSourceError(SourcesListError),
     #[error("Unsupported Protocol: {0}")]
     UnsupportedProtocol(String),
+    #[error(transparent)]
+    Mirror(#[from] oma_fetch::mirror::MirrorError),
+    #[error("Mirror list for {0} was not loaded")]
+    MirrorListNotLoaded(String),
     #[error("Failed to download some metadata")]
     DownloadFailed(Option<SingleDownloadError>),
     #[cfg(feature = "aosc")]
@@ -400,6 +405,28 @@ impl OmaRefresh {
 
         #[cfg(not(feature = "aosc"))]
         let not_found = vec![];
+
+        // Load each mirror list once per refresh and attach it to every source
+        // group sharing that list. Release and index downloads then resolve
+        // their own per-file targets from it.
+        let mut loaded_lists: AHashMap<String, Arc<MirrorList>> = AHashMap::new();
+        for source in &mirror_sources.0 {
+            if !source.is_mirror() {
+                continue;
+            }
+
+            let uri = source.url().to_string();
+            let list = match loaded_lists.get(&uri) {
+                Some(list) => list.clone(),
+                None => {
+                    let list = Arc::new(MirrorList::load(&uri, &self.client).await?);
+                    loaded_lists.insert(uri, list.clone());
+                    list
+                }
+            };
+
+            source.set_mirror_list(list);
+        }
 
         let results = mirror_sources
             .fetch_all_release(
@@ -763,26 +790,43 @@ fn collect_flat_repo_no_release(
     let msg = mirror_source.get_human_download_message(Some("Packages"))?;
 
     let dist_url = mirror_source.dist_path();
-
-    let from = match mirror_source.from()? {
-        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
-    };
-
     let download_url = format!("{dist_url}/Packages");
     let file_path = format!("{dist_url}Packages");
 
-    let sources = vec![DownloadSource {
-        url: download_url.clone(),
-        source_type: from,
-        file_type: CompressType::None,
-    }];
+    let mut sources = vec![];
+
+    if let Some(list) = mirror_source.mirror_list() {
+        let target = MirrorTarget {
+            kind: TargetKind::Index,
+            ..Default::default()
+        };
+
+        for candidate in list.resolve(mirror_source.url(), &download_url, &target)? {
+            sources.push(mirror_download_source(
+                candidate,
+                mirror_source.is_flat(),
+                CompressType::None,
+            ));
+        }
+    } else {
+        let from = match mirror_source.from()? {
+            OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+            OmaSourceEntryFrom::Local => DownloadSourceType::Local(mirror_source.is_flat()),
+        };
+
+        sources.push(DownloadSource {
+            url: download_url.clone(),
+            source_type: from,
+            file_type: CompressType::None,
+        });
+    }
 
     let task = DownloadEntry::builder()
         .source(sources)
         .filename(url_to_list_filename(&file_path)?)
         .dir(download_dir.to_path_buf())
         .allow_resume(false)
+        .preserve_source_order(mirror_source.is_mirror())
         .msg(msg.into())
         .build();
 
@@ -808,14 +852,8 @@ fn collect_download_task(
 
     let msg = mirror_source.get_human_download_message(Some(file_type))?;
 
-    let from = match mirror_source.from()? {
-        OmaSourceEntryFrom::Http => DownloadSourceType::Http,
-        OmaSourceEntryFrom::Local => DownloadSourceType::Local(
-            mirror_source.is_flat()
-                && (!file_is_compress(&item.name)
-                    || (file_is_compress(&item.name) && c.keep_compress)),
-        ),
-    };
+    let local_as_symlink = mirror_source.is_flat()
+        && (!file_is_compress(&item.name) || (file_is_compress(&item.name) && c.keep_compress));
 
     let not_compress_filename_before = if file_is_compress(&item.name) {
         Cow::Owned(split_ext_and_filename(&item.name).1)
@@ -854,43 +892,107 @@ fn collect_download_task(
 
     let mut sources = vec![];
 
-    for variant in variants {
-        // KeepCompressed means the downloaded bytes must be stored as-is.
-        // The checksum in that mode is for the compressed variant, so passing
-        // its decompressor here would both corrupt the stored file and make
-        // checksum verification fail.
-        let variant_file_type = if c.keep_compress {
-            CompressType::None
-        } else {
-            compress_type_of(&variant.name)
+    if let Some(list) = mirror_source.mirror_list() {
+        let target = MirrorTarget {
+            arch: c.target.arch.as_deref(),
+            component: c.target.component.as_deref(),
+            language: c.target.language.as_deref(),
+            release: (!mirror_source.is_flat())
+                .then(|| mirror_source.sources.first().unwrap().suite()),
+            kind: TargetKind::Index,
+            ..Default::default()
         };
 
-        // When `Acquire-By-Hash: yes` is set, prefer the by-hash path, but
-        // fall back to the traditional by-name path if the by-hash file is
-        // missing (e.g. HTTP 404).
-        if release.acquire_by_hash() {
-            let path = Path::new(&variant.name);
-            let parent = path.parent().unwrap_or(path);
-            let dir = match release.checksum_type_and_list().0 {
-                InReleaseChecksum::Sha256 => "SHA256",
-                InReleaseChecksum::Sha512 => "SHA512",
-                InReleaseChecksum::Md5 => "MD5Sum",
+        for variant in variants {
+            // KeepCompressed means the downloaded bytes must be stored as-is.
+            // The checksum in that mode is for the compressed variant, so
+            // passing its decompressor here would corrupt the stored file and
+            // make checksum verification fail.
+            let variant_file_type = if c.keep_compress {
+                CompressType::None
+            } else {
+                compress_type_of(&variant.name)
             };
 
-            let path = parent.join("by-hash").join(dir).join(&variant.checksum);
+            let by_name_url = mirror_source.get_download_url(&variant.name);
+            let by_name = list.resolve(mirror_source.url(), &by_name_url, &target)?;
+
+            // When `Acquire-By-Hash: yes` is set, prefer the by-hash path, but
+            // fall back to the traditional by-name path on the same mirror.
+            if release.acquire_by_hash() {
+                let path = Path::new(&variant.name);
+                let parent = path.parent().unwrap_or(path);
+                let dir = match release.checksum_type_and_list().0 {
+                    InReleaseChecksum::Sha256 => "SHA256",
+                    InReleaseChecksum::Sha512 => "SHA512",
+                    InReleaseChecksum::Md5 => "MD5Sum",
+                };
+
+                let path = parent.join("by-hash").join(dir).join(&variant.checksum);
+                let by_hash_url = mirror_source.get_download_url(&path.display().to_string());
+                let by_hash = list.resolve(mirror_source.url(), &by_hash_url, &target)?;
+
+                debug_assert_eq!(
+                    by_hash.len(),
+                    by_name.len(),
+                    "mirror selection must be stable for one target"
+                );
+
+                for (hash, name) in by_hash.into_iter().zip(by_name) {
+                    sources.push(mirror_download_source(
+                        hash,
+                        local_as_symlink,
+                        variant_file_type,
+                    ));
+                    sources.push(mirror_download_source(
+                        name,
+                        local_as_symlink,
+                        variant_file_type,
+                    ));
+                }
+            } else {
+                sources.extend(by_name.into_iter().map(|candidate| {
+                    mirror_download_source(candidate, local_as_symlink, variant_file_type)
+                }));
+            }
+        }
+    } else {
+        let from = match mirror_source.from()? {
+            OmaSourceEntryFrom::Http => DownloadSourceType::Http,
+            OmaSourceEntryFrom::Local => DownloadSourceType::Local(local_as_symlink),
+        };
+
+        for variant in variants {
+            let variant_file_type = if c.keep_compress {
+                CompressType::None
+            } else {
+                compress_type_of(&variant.name)
+            };
+
+            if release.acquire_by_hash() {
+                let path = Path::new(&variant.name);
+                let parent = path.parent().unwrap_or(path);
+                let dir = match release.checksum_type_and_list().0 {
+                    InReleaseChecksum::Sha256 => "SHA256",
+                    InReleaseChecksum::Sha512 => "SHA512",
+                    InReleaseChecksum::Md5 => "MD5Sum",
+                };
+
+                let path = parent.join("by-hash").join(dir).join(&variant.checksum);
+
+                sources.push(DownloadSource {
+                    url: mirror_source.get_download_url(&path.display().to_string()),
+                    source_type: from.clone(),
+                    file_type: variant_file_type,
+                });
+            }
 
             sources.push(DownloadSource {
-                url: mirror_source.get_download_url(&path.display().to_string()),
+                url: mirror_source.get_download_url(&variant.name),
                 source_type: from.clone(),
                 file_type: variant_file_type,
             });
         }
-
-        sources.push(DownloadSource {
-            url: mirror_source.get_download_url(&variant.name),
-            source_type: from.clone(),
-            file_type: variant_file_type,
-        });
     }
 
     let file_name = if c.keep_compress {
@@ -908,6 +1010,7 @@ fn collect_download_task(
         .filename(file_name)
         .dir(download_dir.join("partial"))
         .allow_resume(false)
+        .preserve_source_order(mirror_source.is_mirror())
         .msg(msg.into())
         .final_dir(download_dir.to_path_buf())
         .by_hash_fallback(release.acquire_by_hash())
@@ -925,6 +1028,21 @@ fn collect_download_task(
     tasks.push(task);
 
     Ok(())
+}
+
+fn mirror_download_source(
+    candidate: MirrorCandidate,
+    local_as_symlink: bool,
+    file_type: CompressType,
+) -> DownloadSource {
+    DownloadSource {
+        url: candidate.url,
+        source_type: match candidate.transport {
+            MirrorTransport::Http => DownloadSourceType::Http,
+            MirrorTransport::File => DownloadSourceType::Local(local_as_symlink),
+        },
+        file_type,
+    }
 }
 
 /// Map a file name to its [`CompressType`], used to pick the correct
@@ -969,6 +1087,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::IndexTargetMeta;
+    use crate::sourceslist::{MirrorSources, OmaSourceEntry};
+    use oma_apt_sources_lists::SourceEntry;
 
     #[test]
     fn remove_unused_db_reports_and_removes_stale_files() {
@@ -996,5 +1117,181 @@ mod tests {
         assert!(!removed_again, "nothing left to remove");
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn collect_download_task_expands_mirror_indexes() {
+        let entry: SourceEntry =
+            "deb [trusted=yes] mirror+file:/etc/apt/mirrors.list bookworm main"
+                .parse()
+                .unwrap();
+        let ose = OmaSourceEntry::new(entry, Arc::from("amd64"));
+        let sources = MirrorSources::from_sourcelist(&[ose]).unwrap();
+        let source = &sources.0[0];
+
+        let list = MirrorList::parse(
+            source.url(),
+            "http://m1.example.com/debian/\tpriority:1\nfile:/srv/repo\tpriority:2\n",
+            false,
+        )
+        .unwrap();
+        source.set_mirror_list(Arc::new(list));
+
+        let release: Release = format!(
+            "SHA256:\n {} 1 main/binary-amd64/Packages.xz\n",
+            "0".repeat(64)
+        )
+        .parse()
+        .unwrap();
+
+        let c = ChecksumDownloadEntry {
+            items: vec![ChecksumItem {
+                name: "main/binary-amd64/Packages.xz".to_string(),
+                size: 1,
+                checksum: "0".repeat(64),
+            }],
+            keep_compress: false,
+            msg: "Packages".to_string(),
+            optional: false,
+            config_key: "Packages".to_string(),
+            fallback_of: None,
+            target: IndexTargetMeta {
+                arch: Some("amd64".to_string()),
+                component: Some("main".to_string()),
+                language: None,
+            },
+        };
+
+        let mut tasks = vec![];
+        let mut optional = HashSet::new();
+
+        collect_download_task(
+            &c,
+            source,
+            Path::new("/tmp/oma-refresh-index-test"),
+            &mut tasks,
+            &release,
+            &mut optional,
+        )
+        .unwrap();
+
+        assert_eq!(tasks.len(), 1);
+        let task = &tasks[0];
+        assert_eq!(task.source.len(), 2);
+        assert_eq!(
+            task.source[0].url,
+            "http://m1.example.com/debian/dists/bookworm/main/binary-amd64/Packages.xz"
+        );
+        assert_eq!(task.source[0].source_type, DownloadSourceType::Http);
+        assert_eq!(
+            task.source[1].url,
+            "file:/srv/repo/dists/bookworm/main/binary-amd64/Packages.xz"
+        );
+        assert_eq!(task.source[1].source_type, DownloadSourceType::Local(false));
+    }
+
+    #[test]
+    fn refresh_local_mirror_end_to_end() {
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .ok();
+
+        let root = std::env::temp_dir().join(format!(
+            "oma-refresh-e2e-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+
+        let repo = root.join("repo");
+        let dist = repo.join("dists/bookworm");
+        let packages_dir = dist.join("main/binary-amd64");
+        std::fs::create_dir_all(&packages_dir).unwrap();
+
+        let packages = packages_dir.join("Packages");
+        std::fs::write(
+            &packages,
+            "Package: test\nVersion: 1\nArchitecture: amd64\nDescription: test\n\n",
+        )
+        .unwrap();
+        let size = std::fs::metadata(&packages).unwrap().len();
+        let hash = {
+            let output = std::process::Command::new("sha256sum")
+                .arg(&packages)
+                .output()
+                .unwrap();
+            String::from_utf8(output.stdout)
+                .unwrap()
+                .split_whitespace()
+                .next()
+                .unwrap()
+                .to_string()
+        };
+
+        std::fs::write(
+            dist.join("InRelease"),
+            format!(
+                "Date: Mon, 01 Jan 2024 00:00:00 +0000\n\
+                 Architectures: amd64\n\
+                 SHA256:\n {hash} {size} main/binary-amd64/Packages\n"
+            ),
+        )
+        .unwrap();
+
+        let mirrors = root.join("mirrors.list");
+        std::fs::write(&mirrors, format!("file:{}\n", repo.display())).unwrap();
+
+        let sources = root.join("sources.list");
+        std::fs::write(
+            &sources,
+            format!(
+                "deb [trusted=yes] mirror+file:{} bookworm main\n",
+                mirrors.display()
+            ),
+        )
+        .unwrap();
+
+        let lists = root.join("lists");
+        std::fs::create_dir_all(&lists).unwrap();
+
+        let mut apt_cfg = AptConfig::new();
+        apt_cfg.init_defaults().unwrap();
+        let client = oma_fetch::reqwest::ClientBuilder::new().build().unwrap();
+
+        let refresh = OmaRefresh::builder()
+            .client(client.into())
+            .arch("amd64".to_string())
+            .download_dir(lists.clone())
+            .source(root.clone())
+            .sources_lists_paths(vec![sources])
+            .apt_config(Arc::new(apt_cfg));
+
+        #[cfg(feature = "aosc")]
+        let refresh = refresh.refresh_topics(false).topic_msg("test".into());
+
+        refresh.build().start(|_| {}).unwrap();
+
+        let names: Vec<String> = std::fs::read_dir(&lists)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+
+        assert!(
+            names
+                .iter()
+                .any(|name| name.ends_with("_dists_bookworm_InRelease")),
+            "{names:?}"
+        );
+        assert!(
+            names
+                .iter()
+                .any(|name| name.ends_with("_dists_bookworm_main_binary-amd64_Packages")),
+            "{names:?}"
+        );
+
+        std::fs::remove_dir_all(&root).ok();
     }
 }
