@@ -64,6 +64,8 @@ pub enum RefreshError {
     Mirror(#[from] oma_fetch::mirror::MirrorError),
     #[error("Mirror list for {0} was not loaded")]
     MirrorListNotLoaded(String),
+    #[error("Release for {0} was found, but no Release.gpg could be fetched")]
+    ReleaseSignatureMissing(String),
     #[error("Failed to download some metadata")]
     DownloadFailed(Option<SingleDownloadError>),
     #[cfg(feature = "aosc")]
