@@ -74,7 +74,15 @@ impl Display for MirrorDisplay {
             .1
             .description
             .get(&*SYSTEM_LANG)
-            .unwrap_or_else(|| self.0.1.description.get("default").unwrap());
+            .map(|s| s.as_str())
+            .unwrap_or_else(|| {
+                self.0
+                    .1
+                    .description
+                    .get("default")
+                    .map(|s| s.as_str())
+                    .unwrap_or("No description")
+            });
 
         write!(
             f,
