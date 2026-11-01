@@ -340,14 +340,12 @@ impl From<RefreshError> for OutputError {
             RefreshError::NoMetadataToDownload => fl!("oma-refresh-no-metadata-to-download").into(),
             RefreshError::CreateTokioRuntime(error) => error.to_string().into(),
             RefreshError::Mirror(error) => Self::with_source(fl!("failed-refresh"), error),
-            RefreshError::MirrorListNotLoaded(uri) => Self::with_source(
-                fl!("failed-refresh"),
-                io::Error::other(format!("Mirror list for {uri} was not loaded")),
-            ),
-            RefreshError::ReleaseSignatureMissing(uri) => Self::with_source(
-                fl!("failed-refresh"),
-                io::Error::other(format!("Release for {uri} has no Release.gpg")),
-            ),
+            RefreshError::MirrorListNotLoaded(uri) => {
+                fl!("mirror-list-load-failed", uri = uri).into()
+            }
+            RefreshError::ReleaseSignatureMissing(uri) => {
+                fl!("release-signature-missing", uri = uri).into()
+            }
         }
     }
 }

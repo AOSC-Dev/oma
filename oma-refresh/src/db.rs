@@ -62,9 +62,9 @@ pub enum RefreshError {
     UnsupportedProtocol(String),
     #[error(transparent)]
     Mirror(#[from] oma_fetch::mirror::MirrorError),
-    #[error("Mirror list for {0} was not loaded")]
+    #[error("Mirror list for {0} could not be loaded")]
     MirrorListNotLoaded(String),
-    #[error("Release for {0} was found, but no Release.gpg could be fetched")]
+    #[error("Release.gpg for {0} could not be fetched")]
     ReleaseSignatureMissing(String),
     #[error("Failed to download some metadata")]
     DownloadFailed(Option<SingleDownloadError>),
