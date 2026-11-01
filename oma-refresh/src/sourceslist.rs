@@ -420,6 +420,14 @@ impl MirrorSource {
     /// Fetch `InRelease`/`Release` for a mirror source, trying each resolved
     /// mirror in priority order. `InRelease` is tried on every mirror first;
     /// then `Release` and `Release.gpg` are fetched from the same mirror.
+    ///
+    /// This is intentionally separate from `fetch_http_release` and
+    /// `fetch_local_release`: those single-source paths fall back to
+    /// `Release` only on HTTP 404 (or local existence), while a mirror source
+    /// tries every mirror and requires the signature to come from the same
+    /// mirror as `Release`. The per-file transfer and local symlink pieces are
+    /// shared through `download_file`, `try_mirror_file`, and
+    /// `link_local_release`.
     #[allow(clippy::too_many_arguments)]
     async fn fetch_mirror_release(
         &self,
@@ -642,17 +650,8 @@ impl MirrorSource {
                     *spinner_done = true;
                 }
 
-                let dst = download_dir.join(file_name);
-
-                if dst.exists() || dst.is_symlink() {
-                    fs::remove_file(&dst)
-                        .await
-                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
-                }
-
-                fs::symlink(path, &dst)
-                    .await
-                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                self.link_local_release(path, file_name, download_dir)
+                    .await?;
 
                 Ok(true)
             }
@@ -730,6 +729,31 @@ impl MirrorSource {
         Ok(())
     }
 
+    /// Install a local release file at its cached lists path, replacing any
+    /// previous (possibly dangling) symlink.
+    async fn link_local_release(
+        &self,
+        source: &Path,
+        file_name: &str,
+        download_dir: &Path,
+    ) -> Result<(), RefreshError> {
+        let dst = download_dir.join(file_name);
+
+        if dst.exists() || dst.is_symlink() {
+            debug!("Removing cached release file {} ...", dst.display());
+            fs::remove_file(&dst)
+                .await
+                .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+        }
+
+        debug!("Symlinking {} to {} ...", dst.display(), source.display());
+        fs::symlink(source, &dst)
+            .await
+            .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+
+        Ok(())
+    }
+
     async fn fetch_local_release(
         &self,
         index: usize,
@@ -760,20 +784,10 @@ impl MirrorSource {
         for (index, entry) in ["InRelease", "Release"].iter().enumerate() {
             let p = dist_path.join(entry);
             let file_name = self.get_download_file_name(Some(entry))?;
-            let dst = download_dir.join(&file_name);
 
             if p.exists() {
-                if dst.exists() || dst.is_symlink() {
-                    debug!("get_release_file: Removing {} ...", dst.display());
-                    fs::remove_file(&dst)
-                        .await
-                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
-                }
-
-                debug!("get_release_file: Symlinking {} ...", dst.display());
-                fs::symlink(p, &dst)
-                    .await
-                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                self.link_local_release(&p, &file_name, download_dir)
+                    .await?;
 
                 if index == 1 {
                     is_release = true;
@@ -792,18 +806,10 @@ impl MirrorSource {
         if is_release {
             let p = dist_path.join("Release.gpg");
             let file_name = self.get_download_file_name(Some("Release.gpg"))?;
-            let dst = download_dir.join(&file_name);
 
             if p.exists() {
-                if dst.exists() || dst.is_symlink() {
-                    fs::remove_file(&dst)
-                        .await
-                        .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
-                }
-
-                fs::symlink(p, download_dir.join(file_name))
-                    .await
-                    .map_err(|e| RefreshError::OperateFile(dst.clone(), e))?;
+                self.link_local_release(&p, &file_name, download_dir)
+                    .await?;
             }
         }
 
