@@ -243,13 +243,16 @@ fn check_is_current_kernel_deleting(
             &image_name,
             pkg.raw_pkg.name(),
             current_kernel_ver,
-        ) && (config.protect_essentials
-            || !ask_user_delete_current_kernel(pkg.raw_pkg.name()).unwrap_or(false))
-        {
-            return Err(OutputError::msg(fl!(
-                "not-allow-delete-using-kernel",
-                ver = current_kernel_ver
-            )));
+        ) {
+            let allow =
+                config.protect_essentials || ask_user_delete_current_kernel(pkg.raw_pkg.name())?;
+
+            if !allow {
+                return Err(OutputError::msg(fl!(
+                    "not-allow-delete-using-kernel",
+                    ver = current_kernel_ver
+                )));
+            }
         }
     }
 
@@ -257,7 +260,7 @@ fn check_is_current_kernel_deleting(
 }
 
 /// "Yes Do as I say" steps
-pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
+pub fn ask_user_do_as_i_say(pkg: &str) -> Result<bool, OutputError> {
     let theme = ColorfulTheme::default();
 
     warn!("{}", fl!("essential-tips", pkg = pkg));
@@ -269,7 +272,7 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
             .interact(),
     )?
     else {
-        return Ok(false);
+        return Err(OutputError::msg(fl!("user-aborted-op")));
     };
 
     if !delete {
@@ -290,7 +293,7 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
             .interact(),
     )?
     else {
-        return Ok(false);
+        return Err(OutputError::msg(fl!("user-aborted-op")));
     };
 
     if input != "Do as I say!" {
@@ -302,7 +305,7 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
 }
 
 #[cfg(feature = "aosc")]
-fn ask_user_delete_current_kernel(pkg: &str) -> anyhow::Result<bool> {
+fn ask_user_delete_current_kernel(pkg: &str) -> Result<bool, OutputError> {
     let theme = ColorfulTheme::default();
 
     warn!("{}", fl!("delete-current-kernel-tips", kernel = pkg));
@@ -314,7 +317,7 @@ fn ask_user_delete_current_kernel(pkg: &str) -> anyhow::Result<bool> {
             .interact(),
     )?
     else {
-        return Ok(false);
+        return Err(OutputError::msg(fl!("user-aborted-op")));
     };
 
     if !delete {
