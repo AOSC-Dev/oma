@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fs, path::Path, sync::atomic::Ordering, thread};
+use std::{cell::Cell, fs, path::Path, sync::atomic::Ordering, thread};
 
 use ahash::{HashMap, HashSet};
 use bon::Builder;
@@ -103,8 +103,8 @@ impl CommitChanges<'_> {
 
         apt.ensure_apt_frontend_locked()?;
 
-        let essential_error = RefCell::new(None);
-        let features_error = RefCell::new(None);
+        let essential_error: Cell<Option<OutputError>> = Cell::new(None);
+        let features_error: Cell<Option<OutputError>> = Cell::new(None);
 
         let op = apt.build_transaction(
             SummarySort::default().names().operation(),
@@ -117,7 +117,7 @@ impl CommitChanges<'_> {
                     match ask_user_do_as_i_say(pkg) {
                         Ok(allow) => allow,
                         Err(e) => {
-                            essential_error.borrow_mut().replace(e);
+                            essential_error.set(Some(e));
                             false
                         }
                     }
@@ -130,7 +130,7 @@ impl CommitChanges<'_> {
                     match handle_features(features, config.protect_essentials) {
                         Ok(allow) => allow,
                         Err(e) => {
-                            features_error.borrow_mut().replace(e);
+                            features_error.set(Some(e));
                             false
                         }
                     }
@@ -138,10 +138,7 @@ impl CommitChanges<'_> {
             },
         );
 
-        if let Some(e) = essential_error
-            .into_inner()
-            .or_else(|| features_error.into_inner())
-        {
+        if let Some(e) = essential_error.take().or_else(|| features_error.take()) {
             return Err(e);
         }
 
@@ -493,7 +490,7 @@ fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, 
                     .interact(),
             )?
             else {
-                return Err(OutputError::msg(fl!("user-aborted-op")));
+                return Err(OutputError::user_aborted());
             };
 
             return Ok(delete);
@@ -516,7 +513,7 @@ fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, 
             .interact(),
     )?
     else {
-        return Err(OutputError::msg(fl!("user-aborted-op")));
+        return Err(OutputError::user_aborted());
     };
 
     Ok(delete)

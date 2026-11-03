@@ -272,7 +272,7 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> Result<bool, OutputError> {
             .interact(),
     )?
     else {
-        return Err(OutputError::msg(fl!("user-aborted-op")));
+        return Err(OutputError::user_aborted());
     };
 
     if !delete {
@@ -293,7 +293,7 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> Result<bool, OutputError> {
             .interact(),
     )?
     else {
-        return Err(OutputError::msg(fl!("user-aborted-op")));
+        return Err(OutputError::user_aborted());
     };
 
     if input != "Do as I say!" {
@@ -317,7 +317,7 @@ fn ask_user_delete_current_kernel(pkg: &str) -> Result<bool, OutputError> {
             .interact(),
     )?
     else {
-        return Err(OutputError::msg(fl!("user-aborted-op")));
+        return Err(OutputError::user_aborted());
     };
 
     if !delete {
