@@ -14,7 +14,7 @@ use crate::{
     dbus::dbus_check,
     error::OutputError,
     exit_handle::ExitHandle,
-    menu::tui_select_list_size,
+    menu::{dialoguer_result, tui_select_list_size},
 };
 use crate::{fl, root::root};
 use anyhow::anyhow;
@@ -166,7 +166,9 @@ impl CliExecuter for Pick {
         let size = tui_select_list_size();
         dialoguer = dialoguer.max_length(size.into());
 
-        let sel = dialoguer.interact().map_err(|_| anyhow!(""))?;
+        let Some(sel) = dialoguer_result(dialoguer.interact())? else {
+            return Ok(ExitHandle::interrupted());
+        };
 
         let pkgs = vec![OmaPackage::new(&versions[sel], &pkg)?];
 

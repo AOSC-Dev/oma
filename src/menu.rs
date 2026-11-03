@@ -38,6 +38,20 @@ pub fn multiselect<T: Display>(
     }
 }
 
+/// Run a dialoguer prompt, returning `Ok(None)` when interrupted by Ctrl-C.
+pub fn dialoguer_result<T>(result: Result<T, dialoguer::Error>) -> Result<Option<T>, OutputError> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(e) if is_dialoguer_interrupted(&e) => Ok(None),
+        Err(e) => Err(OutputError::from(anyhow::Error::new(e))),
+    }
+}
+
+fn is_dialoguer_interrupted(error: &dialoguer::Error) -> bool {
+    let dialoguer::Error::IO(e) = error;
+    e.kind() == std::io::ErrorKind::Interrupted
+}
+
 pub fn tui_select_list_size() -> u16 {
     match WRITER.get_height() {
         0 => panic!("Terminal height must be greater than 0"),
@@ -60,5 +74,18 @@ pub fn select_tui_display_msg(s: &str, is_inquire: bool) -> Cow<'_, str> {
         console::truncate_str(s, term_width - indent - 3, "...")
     } else {
         s.into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Error, ErrorKind};
+
+    #[test]
+    fn dialoguer_interrupt_returns_none() {
+        let result: Result<(), dialoguer::Error> =
+            Err(dialoguer::Error::IO(Error::from(ErrorKind::Interrupted)));
+        assert!(dialoguer_result(result).unwrap().is_none());
     }
 }
