@@ -76,6 +76,18 @@ impl Display for AlreadyReported {
 
 impl Error for AlreadyReported {}
 
+/// Error returned when the user cancels a confirmation prompt.
+#[derive(Debug)]
+pub struct UserAborted;
+
+impl Display for UserAborted {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", fl!("user-aborted-op"))
+    }
+}
+
+impl Error for UserAborted {}
+
 impl OutputError {
     /// Wrap a localized message with no underlying cause.
     pub fn msg(message: impl Into<Cow<'static, str>>) -> Self {
@@ -91,6 +103,11 @@ impl OutputError {
     /// Whether the full details of this error were already printed elsewhere.
     pub fn is_already_reported(&self) -> bool {
         self.0.is::<AlreadyReported>()
+    }
+
+    /// A confirmation prompt was cancelled by the user.
+    pub fn user_aborted() -> Self {
+        OutputError(anyhow::Error::new(UserAborted))
     }
 
     /// Wrap a localized message over an underlying cause.
