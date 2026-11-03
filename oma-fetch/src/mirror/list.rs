@@ -104,7 +104,8 @@ impl MirrorList {
     /// `mirror+...` URI, with or without a trailing `/`). `download_url` is
     /// the full URL that would have been used without the mirror protocol,
     /// e.g. `mirror+file:/etc/apt/mirrors.list/dists/bookworm/InRelease`.
-    /// The path after `source_uri` is appended to every selected mirror.
+    /// The remainder after `source_uri`, e.g. `/dists/bookworm/InRelease`, is
+    /// appended to every selected mirror.
     ///
     /// The URL is joined by string concatenation, not `Url::join`, so a
     /// base path is preserved and percent-encoding is not reinterpreted.
@@ -115,7 +116,7 @@ impl MirrorList {
         target: &MirrorTarget<'_>,
     ) -> Result<Vec<MirrorCandidate>, MirrorError> {
         let source_base = source_uri.trim_end_matches('/');
-        let suffix =
+        let repo_path =
             download_url
                 .strip_prefix(source_base)
                 .ok_or_else(|| MirrorError::UrlMismatch {
@@ -123,16 +124,17 @@ impl MirrorList {
                     url: download_url.to_string(),
                 })?;
 
-        // `source_base` must be a path prefix, not a random string prefix
-        // (`/x` must not match `/xy`).
-        if !suffix.is_empty() && !suffix.starts_with('/') {
+        // The remainder must be empty or start with `/`: `/x` matches
+        // `/x/y` but not `/xy`. A plain string-prefix match would wrongly
+        // treat `/xy` as a child of `/x`.
+        if !repo_path.is_empty() && !repo_path.starts_with('/') {
             return Err(MirrorError::UrlMismatch {
                 source_uri: source_uri.to_string(),
                 url: download_url.to_string(),
             });
         }
 
-        let path = suffix.trim_start_matches('/');
+        let path = repo_path.trim_start_matches('/');
         let selected = self.select(target)?;
         let mut candidates = Vec::with_capacity(selected.len());
 

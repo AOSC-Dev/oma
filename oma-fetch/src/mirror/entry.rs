@@ -132,8 +132,8 @@ pub(super) fn entry_supported(entry: &MirrorEntry, from_network: bool) -> bool {
     if scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https") {
         true
     } else if scheme.eq_ignore_ascii_case("file") {
-        // A network-fetched list must not point at local files
-        // (CVE-2018-0501).
+        // apt's disallowLocal: a network-fetched list must not redirect to
+        // a local file.
         !from_network
     } else {
         false

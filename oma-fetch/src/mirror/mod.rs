@@ -43,10 +43,12 @@
 //! A tag that is absent from a mirror entry never filters it out; a tag whose
 //! values do not contain the target value does. This is the same rule as apt.
 //!
-//! Security: a mirror list fetched over the network may only contain
-//! `http(s)` mirrors, never `file:` (apt's CVE-2018-0501 fix). A local list
-//! may contain both. Unsupported transports (`ftp`, `copy`, nested mirror
-//! transports) are skipped with a debug log.
+//! Security: a mirror list fetched over a non-local transport may only
+//! redirect to network transports, never `file:` (apt's `disallowLocal` rule,
+//! commit 4df548399). A local list may use any supported transport.
+//! Unsupported transports (`ftp`, `copy`, nested mirror transports) are
+//! skipped with a debug log. CVE-2018-0501 is unrelated: it concerns clearing
+//! alternate URIs between download and verification.
 //!
 //! Remote mirror lists are capped at [`MAX_MIRROR_LIST_SIZE`], matching the
 //! `Maximum-Size` apt attaches to its mirror-list auxiliary request; local

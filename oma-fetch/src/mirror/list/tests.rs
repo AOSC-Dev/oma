@@ -273,6 +273,22 @@ fn resolve_accepts_trailing_slashes() {
 }
 
 #[test]
+fn requires_a_path_boundary() {
+    let list = list("http://m1.example.com/debian/\n");
+    let target = MirrorTarget::default();
+
+    let selected = list
+        .resolve("mirror+file:/x", "mirror+file:/x/y/InRelease", &target)
+        .unwrap();
+    assert_eq!(selected[0].url, "http://m1.example.com/debian/y/InRelease");
+
+    let err = list
+        .resolve("mirror+file:/x", "mirror+file:/xy/InRelease", &target)
+        .expect_err("a string prefix without a path boundary must not match");
+    assert!(matches!(err, MirrorError::UrlMismatch { .. }));
+}
+
+#[test]
 fn rejects_urls_outside_the_source() {
     let list = list("http://m1.example.com/debian/\n");
 
