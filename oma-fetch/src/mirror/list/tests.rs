@@ -8,12 +8,6 @@ fn list(text: &str) -> MirrorList {
     MirrorList::parse(SOURCE, text, false).unwrap()
 }
 
-fn seeded_list(text: &str, seed: u64) -> MirrorList {
-    let mut list = list(text);
-    list.seed = seed;
-    list
-}
-
 fn urls(list: &MirrorList, target: &MirrorTarget<'_>) -> Vec<String> {
     list.resolve(SOURCE, INRELEASE, target)
         .unwrap()
@@ -52,7 +46,7 @@ fn rejects_empty_lists() {
 
 #[test]
 fn filters_by_arch_component_language_and_type() {
-    let list = seeded_list(
+    let list = list(
         "\
          http://plain.example.com/\n\
          http://amd.example.com/\tarch:amd64\n\
@@ -63,7 +57,6 @@ fn filters_by_arch_component_language_and_type() {
          http://contrib.example.com/\tcomponent:contrib\n\
          http://zh.example.com/\tlang:zh_CN\n\
          http://en.example.com/\tlang:en\n",
-        1,
     );
 
     // Package-style target: architecture + component + language + type.
@@ -118,14 +111,13 @@ fn filters_by_arch_component_language_and_type() {
 
 #[test]
 fn matches_suite_and_codename_like_apt() {
-    let list = seeded_list(
+    let list = list(
         "\
          http://suite.example.com/\tsuite:bookworm\n\
          http://suite-other.example.com/\tsuite:trixie\n\
          http://codename.example.com/\tcodename:bookworm\n\
          http://codename-other.example.com/\tcodename:trixie\n\
          http://release.example.com/\trelease:bookworm\n",
-        1,
     );
 
     // Target-Release (sources.list suite) matches every spelling of the
@@ -176,13 +168,12 @@ fn matches_suite_and_codename_like_apt() {
 
 #[test]
 fn orders_by_priority_and_keeps_untagged_last() {
-    let list = seeded_list(
+    let list = list(
         "\
          http://p2.example.com/\tpriority:2\n\
          http://p1.example.com/\tpriority:1\n\
          http://p9.example.com/\tpriority:9\n\
          http://untagged.example.com/\n",
-        7,
     );
 
     let selected = list
@@ -198,18 +189,25 @@ fn orders_by_priority_and_keeps_untagged_last() {
 }
 
 #[test]
-fn equal_priority_order_is_stable_within_one_list() {
-    let text = "http://a.example.com/\nhttp://b.example.com/\nhttp://c.example.com/\n";
+fn equal_priority_mirrors_are_all_returned() {
+    let list = list("http://a.example.com/\nhttp://b.example.com/\nhttp://c.example.com/\n");
 
-    let first = seeded_list(text, 42)
+    let mut urls: Vec<String> = list
         .resolve(SOURCE, INRELEASE, &MirrorTarget::default())
-        .unwrap();
-    let second = seeded_list(text, 42)
-        .resolve(SOURCE, INRELEASE, &MirrorTarget::default())
-        .unwrap();
+        .unwrap()
+        .into_iter()
+        .map(|candidate| candidate.url)
+        .collect();
+    urls.sort();
 
-    assert_eq!(first, second);
-    assert_eq!(first.len(), 3);
+    assert_eq!(
+        urls,
+        vec![
+            "http://a.example.com/InRelease",
+            "http://b.example.com/InRelease",
+            "http://c.example.com/InRelease",
+        ]
+    );
 }
 
 #[test]
@@ -228,11 +226,10 @@ fn errors_when_no_mirror_matches() {
 
 #[test]
 fn resolves_urls_against_mirror_bases() {
-    let list = seeded_list(
+    let list = list(
         "\
          http://m1.example.com/debian/\tpriority:1\n\
          file:/srv/repo\tpriority:2\n",
-        1,
     );
     let target = MirrorTarget {
         arch: Some("amd64"),

@@ -27,9 +27,9 @@
 //!
 //! The URI and its tags are separated by a tab; tags are separated by tabs or
 //! spaces. `priority` sorts mirrors (lower first, untagged last); mirrors with
-//! equal priority are shuffled so that a plain list such as Ubuntu's
-//! `mirrors.txt` does not always hit its first entry. The remaining tags are
-//! matched against [`MirrorTarget`]:
+//! equal priority are shuffled on every request so that a plain list such as
+//! Ubuntu's `mirrors.txt` does not always hit its first entry. The remaining
+//! tags are matched against [`MirrorTarget`]:
 //!
 //! * `arch`       → `Architecture`
 //! * `component`  → `Component`

@@ -15,8 +15,6 @@ use super::uri::{MirrorListLocation, parse_mirror_uri};
 pub struct MirrorList {
     uri: String,
     entries: Vec<MirrorEntry>,
-    /// Per-list seed for the random tie-break between equal priorities.
-    seed: u64,
 }
 
 impl MirrorList {
@@ -60,7 +58,6 @@ impl MirrorList {
         Ok(Self {
             uri: uri.to_string(),
             entries,
-            seed: random_seed(),
         })
     }
 
@@ -184,14 +181,11 @@ impl MirrorList {
             });
         }
 
-        // Lower priority first; equal priorities use the per-list seed so a
-        // plain list is spread across mirrors instead of always trying the
-        // first entry. The sort is stable, so duplicate URIs keep their order.
-        mirrors.sort_by(|a, b| {
-            a.priority
-                .cmp(&b.priority)
-                .then_with(|| tie_hash(self.seed, &a.uri).cmp(&tie_hash(self.seed, &b.uri)))
-        });
+        // Lower priority first; equal priorities get a fresh random order for
+        // every request, like apt's per-request shuffle. The sort is stable, so
+        // duplicate URIs keep their input order.
+        let seed = random_seed();
+        mirrors.sort_by_cached_key(|entry| (entry.priority, tie_hash(seed, &entry.uri)));
 
         Ok(mirrors)
     }
