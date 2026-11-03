@@ -51,6 +51,7 @@ use crate::error::OutputError;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
 use crate::lang::SYSTEM_LANG;
+use crate::menu::dialoguer_result;
 use crate::menu::multiselect;
 use crate::menu::select_tui_display_msg;
 use crate::menu::tui_select_list_size;
@@ -356,12 +357,16 @@ fn set_order(no_refresh: bool, config: &OmaConfig) -> Result<ExitHandle, OutputE
 
     let page_size = tui_select_list_size();
 
-    let sorted = Sort::with_theme(&ColorfulTheme::default())
-        .with_prompt(fl!("set-mirror-order-prompt"))
-        .items(&mirrors)
-        .max_length(page_size.into())
-        .interact()
-        .map_err(|_| anyhow!(""))?;
+    let Some(sorted) = dialoguer_result(
+        Sort::with_theme(&ColorfulTheme::default())
+            .with_prompt(fl!("set-mirror-order-prompt"))
+            .items(&mirrors)
+            .max_length(page_size.into())
+            .interact(),
+    )?
+    else {
+        return Ok(ExitHandle::interrupted());
+    };
 
     mm.set_order(&sorted);
     mm.write_status(Some(&fl!("do-not-edit-topic-sources-list")))?;

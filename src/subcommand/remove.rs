@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
@@ -13,6 +12,7 @@ use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
+use crate::menu::dialoguer_result;
 use crate::pb::ProgressBar;
 use crate::{dbus::dbus_check, error::OutputError, root::root};
 
@@ -262,11 +262,15 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
 
     warn!("{}", fl!("essential-tips", pkg = pkg));
 
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(fl!("essential-continue"))
-        .default(false)
-        .interact()
-        .map_err(|_| anyhow!(""))?;
+    let Some(delete) = dialoguer_result(
+        Confirm::with_theme(&theme)
+            .with_prompt(fl!("essential-continue"))
+            .default(false)
+            .interact(),
+    )?
+    else {
+        return Ok(false);
+    };
 
     if !delete {
         return Ok(false);
@@ -280,11 +284,16 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
         ),
     );
 
-    if Input::<String>::with_theme(&theme)
-        .with_prompt(fl!("yes-do-as-i-say-prompt"))
-        .interact()?
-        != "Do as I say!"
-    {
+    let Some(input) = dialoguer_result(
+        Input::<String>::with_theme(&theme)
+            .with_prompt(fl!("yes-do-as-i-say-prompt"))
+            .interact(),
+    )?
+    else {
+        return Ok(false);
+    };
+
+    if input != "Do as I say!" {
         info!("{}", fl!("yes-do-as-i-say-abort"));
         return Ok(false);
     }
@@ -298,11 +307,15 @@ fn ask_user_delete_current_kernel(pkg: &str) -> anyhow::Result<bool> {
 
     warn!("{}", fl!("delete-current-kernel-tips", kernel = pkg));
 
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(fl!("essential-continue"))
-        .default(false)
-        .interact()
-        .map_err(|_| anyhow!(""))?;
+    let Some(delete) = dialoguer_result(
+        Confirm::with_theme(&theme)
+            .with_prompt(fl!("essential-continue"))
+            .default(false)
+            .interact(),
+    )?
+    else {
+        return Ok(false);
+    };
 
     if !delete {
         return Ok(false);

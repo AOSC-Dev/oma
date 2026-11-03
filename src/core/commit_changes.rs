@@ -28,6 +28,7 @@ use crate::{
     fl,
     install_progress::{NoInstallProgressManager, OSC94, OmaInstallProgressManager},
     lang::{DEFAULT_LANGUAGE, SYSTEM_LANG},
+    menu::dialoguer_result,
     msg,
     pb::{ProgressBar, ProgressRenderer},
     subcommand::{
@@ -461,11 +462,15 @@ fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, 
 
             warn!("{}", fl!("features-without-value"));
 
-            let delete = Confirm::with_theme(&theme)
-                .with_prompt(fl!("features-continue-prompt"))
-                .default(false)
-                .interact()
-                .map_err(|_| anyhow::anyhow!(""))?;
+            let Some(delete) = dialoguer_result(
+                Confirm::with_theme(&theme)
+                    .with_prompt(fl!("features-continue-prompt"))
+                    .default(false)
+                    .interact(),
+            )?
+            else {
+                return Ok(false);
+            };
 
             return Ok(delete);
         }
@@ -480,11 +485,15 @@ fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, 
     warn!("{}", fl!("features-tips-1"));
     msg!("\n{}\n", features);
 
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(fl!("features-continue-prompt"))
-        .default(false)
-        .interact()
-        .map_err(|_| anyhow::anyhow!(""))?;
+    let Some(delete) = dialoguer_result(
+        Confirm::with_theme(&theme)
+            .with_prompt(fl!("features-continue-prompt"))
+            .default(false)
+            .interact(),
+    )?
+    else {
+        return Ok(false);
+    };
 
     Ok(delete)
 }
