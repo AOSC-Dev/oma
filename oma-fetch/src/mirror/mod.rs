@@ -48,9 +48,11 @@
 //! may contain both. Unsupported transports (`ftp`, `copy`, nested mirror
 //! transports) are skipped with a debug log.
 //!
-//! Mirror lists are capped at [`MAX_MIRROR_LIST_SIZE`], matching apt's
-//! `MaximumSize`. Compressed lists (`.gz`, `.xz`, …) are recognised but not
-//! decoded yet and produce [`MirrorError::UnsupportedCompression`].
+//! Remote mirror lists are capped at [`MAX_MIRROR_LIST_SIZE`], matching the
+//! `Maximum-Size` apt attaches to its mirror-list auxiliary request; local
+//! lists are read without that cap. Compressed lists (`.gz`, `.xz`, …) are
+//! recognised but not decoded yet and produce
+//! [`MirrorError::UnsupportedCompression`].
 //!
 //! This module does not persist or share mirror lists between calls; callers
 //! should cache a [`MirrorList`] by its source URI for the duration of one

@@ -8,7 +8,8 @@ use crate::send_request_with_url_and_method;
 use super::error::MirrorError;
 use super::uri::MirrorListLocation;
 
-/// Maximum accepted size of a mirror list, matching apt's `MaximumSize`.
+/// Maximum size of a remote mirror list, matching the `Maximum-Size` (1 MiB)
+/// apt attaches to its mirror-list auxiliary request.
 pub const MAX_MIRROR_LIST_SIZE: u64 = 1024 * 1024;
 
 pub(super) fn compressed_extension(location: &MirrorListLocation) -> Option<String> {
@@ -71,33 +72,12 @@ pub(super) async fn fetch_text(
 }
 
 pub(super) async fn read_text(uri: &str, path: &Path) -> Result<String, MirrorError> {
-    let metadata = tokio::fs::metadata(path)
-        .await
-        .map_err(|source| MirrorError::ReadFile {
-            path: path.to_path_buf(),
-            source,
-        })?;
-
-    if metadata.len() > MAX_MIRROR_LIST_SIZE {
-        return Err(MirrorError::TooLarge {
-            uri: uri.to_string(),
-            limit: MAX_MIRROR_LIST_SIZE,
-        });
-    }
-
     let bytes = tokio::fs::read(path)
         .await
         .map_err(|source| MirrorError::ReadFile {
             path: path.to_path_buf(),
             source,
         })?;
-
-    if bytes.len() as u64 > MAX_MIRROR_LIST_SIZE {
-        return Err(MirrorError::TooLarge {
-            uri: uri.to_string(),
-            limit: MAX_MIRROR_LIST_SIZE,
-        });
-    }
 
     String::from_utf8(bytes).map_err(|_| MirrorError::InvalidEncoding {
         uri: uri.to_string(),
@@ -177,16 +157,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_oversized_local_lists() {
-        let path = temp_path("big.list");
-        tokio::fs::write(&path, vec![b'#'; (MAX_MIRROR_LIST_SIZE + 1) as usize])
-            .await
-            .unwrap();
+    async fn loads_large_local_lists() {
+        // apt only applies Maximum-Size to the network auxiliary request, not
+        // to a mirror list read from a local file.
+        const MIRROR: &str = "http://m1.example.com/\n";
+        let path = temp_path("large.list");
+        let mut text = String::with_capacity(MAX_MIRROR_LIST_SIZE as usize + MIRROR.len());
+        while text.len() as u64 <= MAX_MIRROR_LIST_SIZE {
+            text.push_str("# padding\n");
+        }
+        text.push_str(MIRROR);
+        tokio::fs::write(&path, text).await.unwrap();
         let uri = format!("mirror+file:{}", path.display());
 
-        let err = MirrorList::load(&uri, &client()).await.unwrap_err();
+        let list = MirrorList::load(&uri, &client()).await.unwrap();
 
-        assert!(matches!(err, MirrorError::TooLarge { .. }));
+        // All padding lines are comments; only MIRROR is a usable entry.
+        assert_eq!(list.len(), 1);
 
         let _ = tokio::fs::remove_file(&path).await;
     }
