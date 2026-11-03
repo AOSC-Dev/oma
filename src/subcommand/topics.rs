@@ -103,6 +103,9 @@ struct TopicChanged {
     downgrade_pkgs: Vec<String>,
 }
 
+/// `(opt_in, opt_out)` selected by the user.
+type TopicSelection = (Vec<String>, Vec<String>);
+
 struct TopicDisplay<'a> {
     topic: &'a Topic,
 }
@@ -163,13 +166,16 @@ impl CliExecuter for Topics {
             config.dry_run,
         )?;
 
-        let topics_changed = RT.block_on(topics_inner(
+        let Some(topics_changed) = RT.block_on(topics_inner(
             &mut opt_in,
             &mut opt_out,
             config.no_progress(),
             &mut tm,
             all,
-        ))?;
+        ))?
+        else {
+            return Ok(ExitHandle::interrupted());
+        };
 
         let enabled_pkgs = topics_changed.enabled_pkgs;
         let downgrade_pkgs = topics_changed.downgrade_pkgs;
@@ -385,7 +391,7 @@ async fn topics_inner(
     no_progress: bool,
     tm: &mut TopicManager,
     all: bool,
-) -> Result<TopicChanged, OutputError> {
+) -> Result<Option<TopicChanged>, OutputError> {
     refresh_topics(no_progress, tm)?;
 
     let all_topics = tm
@@ -397,10 +403,16 @@ async fn topics_inner(
     let enabled_topics = Box::from(tm.enabled_topics());
 
     if opt_in.is_empty() && opt_out.is_empty() {
-        (*opt_in, *opt_out) =
+        let Some((selected_opt_in, selected_opt_out)) =
             spawn_blocking(move || select_prompt(all_topics, &enabled_topics, all))
                 .await
-                .unwrap()?;
+                .unwrap()?
+        else {
+            return Ok(None);
+        };
+
+        *opt_in = selected_opt_in;
+        *opt_out = selected_opt_out;
     }
 
     for i in opt_in {
@@ -419,17 +431,17 @@ async fn topics_inner(
         .flat_map(|x| x.packages.clone())
         .collect::<Vec<_>>();
 
-    Ok(TopicChanged {
+    Ok(Some(TopicChanged {
         enabled_pkgs,
         downgrade_pkgs,
-    })
+    }))
 }
 
 fn select_prompt(
     all_topics: Vec<Topic>,
     enabled_topics: &[Topic],
     all: bool,
-) -> anyhow::Result<(Vec<String>, Vec<String>)> {
+) -> Result<Option<TopicSelection>, OutputError> {
     let mut opt_in = vec![];
     let mut opt_out = vec![];
 
@@ -477,14 +489,17 @@ fn select_prompt(
     // 空行（最多两行）+ tips (最多两行) + prompt（最多两行）
     let page_size = tui_select_list_size();
 
-    let ans = multiselect(
+    let Some(ans) = multiselect(
         &fl!("select-topics-dialog"),
         display,
         formatter,
         render_config,
         page_size,
         default,
-    )?;
+    )?
+    else {
+        return Ok(None);
+    };
 
     for i in &ans {
         if !enabled_topics.contains(i.topic) {
@@ -498,7 +513,7 @@ fn select_prompt(
         }
     }
 
-    Ok((opt_in, opt_out))
+    Ok(Some((opt_in, opt_out)))
 }
 
 fn refresh_topics(no_progress: bool, tm: &mut TopicManager) -> Result<(), OutputError> {

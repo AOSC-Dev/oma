@@ -283,14 +283,17 @@ pub fn tui(no_refresh: bool, config: &OmaConfig) -> Result<ExitHandle, OutputErr
 
     let default = (0..enabled.len()).collect::<Vec<_>>();
 
-    let ans = multiselect(
+    let Some(ans) = multiselect(
         &fl!("select-mirror-prompt"),
         mirrors,
         formatter,
         render_config,
         page_size,
         default,
-    )?;
+    )?
+    else {
+        return Ok(ExitHandle::interrupted());
+    };
 
     let set = ans.iter().map(|x| x.0.0.as_ref()).collect::<Vec<_>>();
 

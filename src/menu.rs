@@ -7,8 +7,9 @@ use std::{
 use dialoguer::console;
 use inquire::{MultiSelect, ui::RenderConfig};
 
-use crate::{WRITER, fl};
+use crate::{WRITER, error::OutputError, fl};
 
+/// Returns `Ok(None)` when the user interrupts the prompt with Ctrl-C.
 #[allow(dead_code)]
 #[inline]
 pub fn multiselect<T: Display>(
@@ -18,21 +19,23 @@ pub fn multiselect<T: Display>(
     render_config: RenderConfig<'_>,
     page_size: u16,
     default: Vec<usize>,
-) -> Result<Vec<T>, anyhow::Error> {
-    MultiSelect::new(msg, opts)
+) -> Result<Option<Vec<T>>, OutputError> {
+    let result = MultiSelect::new(msg, opts)
         .with_help_message(&fl!("tips"))
         .with_formatter(formatter)
         .with_default(&default)
         .with_page_size(page_size as usize)
         .with_render_config(render_config)
-        .prompt()
-        .map_err(|e| match e {
-            inquire::InquireError::OperationInterrupted => {
-                stderr().write_all(b"\n").ok();
-                anyhow::anyhow!("")
-            }
-            e => e.into(),
-        })
+        .prompt();
+
+    match result {
+        Ok(selection) => Ok(Some(selection)),
+        Err(inquire::InquireError::OperationInterrupted) => {
+            stderr().write_all(b"\n").ok();
+            Ok(None)
+        }
+        Err(e) => Err(OutputError::from(anyhow::Error::new(e))),
+    }
 }
 
 pub fn tui_select_list_size() -> u16 {
