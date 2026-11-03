@@ -51,6 +51,11 @@ impl ExitHandle {
         self
     }
 
+    /// Exit handle for an operation cancelled by the user (Ctrl-C).
+    pub fn interrupted() -> Self {
+        Self::default().status(ExitStatus::Other(130))
+    }
+
     pub fn get_status(&self) -> ExitStatus {
         self.status
     }
@@ -95,4 +100,17 @@ pub fn signal_handler() {
     }
 
     std::process::exit(130);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interrupted_uses_sigint_status() {
+        assert_eq!(
+            ExitHandle::interrupted().get_status(),
+            ExitStatus::Other(130)
+        );
+    }
 }
