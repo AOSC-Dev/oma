@@ -252,6 +252,7 @@ security = 安全更新
 verify-error = 在验证 { $p } 的签名时遇到错误。
 sources-list-empty = 软件源配置为空。
 failed-refresh = 无法刷新软件源数据。
+refresh-canceled = 刷新已被取消。
 unsupported-sources-list = APT 软件源配置文件 { $p } 不受支持：仅支持单行 ({ $list }) 及 DEB822 ({ $sources }) 格式的配置文件。
 set-permission = 设置权限失败
 open-file-as-write-mode = 无法打开文件为写模式

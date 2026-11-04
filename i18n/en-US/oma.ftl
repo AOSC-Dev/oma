@@ -261,6 +261,7 @@ security = security update(s)
 verify-error = An error occurred while verifying the signature for { $p }.
 sources-list-empty = Mirror source configuration is empty.
 failed-refresh = Failed to refresh repository metadata.
+refresh-canceled = Refresh was canceled.
 unsupported-sources-list = Unsupported APT repository configuration files: { $p }. Only line-style ({ $list }) and DEB822-formatted ({ $sources }) configuration files are supported.
 set-permission = Failed to set permissions
 open-file-as-write-mode = Unable to open file in write mode

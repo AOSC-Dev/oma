@@ -32,12 +32,14 @@ ahash = { workspace = true }
 aho-corasick = { workspace = true }
 bon = { workspace = true }
 once_cell = { workspace = true }
+libc = { workspace = true }
 deb822-fast = { workspace = true }
 sys-locale = { workspace = true }
 fancy-regex = { workspace = true }
 oma-utils = { workspace = true, default-features = false }
 reqwest-middleware = { workspace = true }
 flume = { workspace = true }
+futures = { workspace = true }
 serde = { workspace = true }
 
 [features]

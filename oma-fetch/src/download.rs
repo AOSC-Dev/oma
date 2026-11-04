@@ -3,7 +3,7 @@ use crate::{
     send_request,
 };
 use std::{
-    io::{self, SeekFrom},
+    io::{self, Read as _, Seek as _, SeekFrom, Write as _},
     path::Path,
     pin::Pin,
     sync::atomic::{AtomicUsize, Ordering},
@@ -23,7 +23,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use snafu::{ResultExt, Snafu};
 use tokio::{
     fs::{self, File},
-    io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncSeekExt, AsyncWriteExt},
+    io::{AsyncBufReadExt as _, AsyncReadExt as _},
     time::timeout,
 };
 
@@ -254,12 +254,20 @@ impl SingleDownloader {
         })
     }
 
+    /// 依次尝试各个来源下载。
+    ///
+    /// 对 partial / lists 目录的修改（建目录、创建与写入文件、截断、删除、
+    /// 建符号链接、改名）一律用同步系统调用：`tokio::fs` 的操作在
+    /// `spawn_blocking` 里执行，任务被取消（future 被丢弃）也拦不住已经
+    /// 派发、排队的操作——它们会在 `TaskTracker` 归零、目录锁释放后继续
+    /// 动 partial 目录，和紧接着启动的新刷新抢同一个文件。只读操作保持
+    /// 异步。
     pub(crate) async fn try_download<F, Fut>(self, callback: &F) -> DownloadResult
     where
         F: Fn(Event) -> Fut + Send + Sync + 'static,
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
-        if let Err(e) = tokio::fs::create_dir_all(&self.entry.dir).await {
+        if let Err(e) = std::fs::create_dir_all(&self.entry.dir) {
             callback(Event::Failed {
                 file_name: self.entry.filename.clone(),
                 error: SingleDownloadError::Create { source: e },
@@ -330,7 +338,7 @@ impl SingleDownloader {
                         let target_path = final_dir.join(&*self.entry.filename);
 
                         if !final_dir.is_dir()
-                            && let Err(e) = tokio::fs::create_dir_all(final_dir).await
+                            && let Err(e) = std::fs::create_dir_all(final_dir)
                         {
                             callback(Event::Failed {
                                 file_name: final_dir.to_string_lossy().to_string(),
@@ -348,7 +356,10 @@ impl SingleDownloader {
                                 current_path.display(),
                                 target_path.display()
                             );
-                            if let Err(e) = tokio::fs::rename(&current_path, &target_path).await {
+                            // 同步 rename：任务被取消丢弃后不会留下仍在落盘
+                            // 的后台操作（`tokio::fs` 的 rename 走
+                            // spawn_blocking，丢弃 future 也取消不掉）。
+                            if let Err(e) = std::fs::rename(&current_path, &target_path) {
                                 callback(Event::Failed {
                                     file_name: self.entry.filename.clone(),
                                     error: SingleDownloadError::Write { source: e },
@@ -500,7 +511,7 @@ impl SingleDownloader {
         let mut old_downloaded_size: u64 = 0;
 
         if is_symlink {
-            tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
+            std::fs::remove_file(&file).context(RemoveSnafu)?;
         }
 
         let mut validator = self
@@ -558,13 +569,17 @@ impl SingleDownloader {
         .await;
 
         // open destination file
-        let mut dest = match tokio::fs::OpenOptions::new()
+        //
+        // 打开与后续的 seek/读回/截断/写入全部走同步系统调用：取消只会让
+        // future 在下一个 await 点被丢弃，而 `tokio::fs` 的操作一旦派发到
+        // spawn_blocking，即使任务被丢弃也会继续执行——可能在锁释放后
+        // 继续写这个 partial 文件。
+        let mut dest = match std::fs::OpenOptions::new()
             .write(true)
             .read(true)
             .create(true)
             .truncate(false)
             .open(&file)
-            .await
         {
             Ok(f) => f,
             Err(e) => {
@@ -710,7 +725,7 @@ impl SingleDownloader {
             if downloaded_size != old_downloaded_size {
                 assert!(downloaded_size == 0 || source.file_type == CompressType::None);
                 debug!("moving writer from {old_downloaded_size} to {downloaded_size}");
-                if let Err(e) = dest.seek(SeekFrom::Start(0)).await {
+                if let Err(e) = dest.seek(SeekFrom::Start(0)) {
                     callback(Event::ProgressDone(self.download_list_index)).await;
                     return Err(ProgressedError::new(
                         SingleDownloadError::Seek { source: e },
@@ -724,7 +739,7 @@ impl SingleDownloader {
                     {
                         // refresh hasher state
                         let mut dest_buf = Vec::with_capacity(downloaded_size.try_into().unwrap());
-                        if let Err(e) = dest.read_to_end(&mut dest_buf).await {
+                        if let Err(e) = dest.read_to_end(&mut dest_buf) {
                             callback(Event::ProgressDone(self.download_list_index)).await;
                             return Err(ProgressedError::new(
                                 SingleDownloadError::Seek { source: e },
@@ -735,7 +750,7 @@ impl SingleDownloader {
                         validator.update(dest_buf);
                     }
 
-                    if let Err(e) = dest.seek(SeekFrom::Start(downloaded_size)).await {
+                    if let Err(e) = dest.seek(SeekFrom::Start(downloaded_size)) {
                         callback(Event::ProgressDone(self.download_list_index)).await;
                         return Err(ProgressedError::new(
                             SingleDownloadError::Seek { source: e },
@@ -743,7 +758,7 @@ impl SingleDownloader {
                         ));
                     }
                 }
-            } else if let Err(e) = dest.seek(SeekFrom::Start(downloaded_size)).await {
+            } else if let Err(e) = dest.seek(SeekFrom::Start(downloaded_size)) {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(ProgressedError::new(
                     SingleDownloadError::Seek { source: e },
@@ -752,7 +767,7 @@ impl SingleDownloader {
             }
 
             // truncate file
-            if let Err(e) = dest.set_len(downloaded_size).await {
+            if let Err(e) = dest.set_len(downloaded_size) {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(ProgressedError::new(
                     SingleDownloadError::Write { source: e },
@@ -843,7 +858,7 @@ impl SingleDownloader {
                 if buf_size == 0 {
                     break; // EOF
                 }
-                if let Err(e) = dest.write_all(&buf[..buf_size]).await {
+                if let Err(e) = dest.write_all(&buf[..buf_size]) {
                     callback(Event::ProgressDone(self.download_list_index)).await;
                     return Err(ProgressedError::new(
                         SingleDownloadError::Write { source: e },
@@ -886,7 +901,7 @@ impl SingleDownloader {
             callback(Event::ProgressDone(self.download_list_index)).await;
 
             // truncate file, avoid attempts to reuse it in retries
-            if let Err(e) = dest.set_len(0).await {
+            if let Err(e) = dest.set_len(0) {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(ProgressedError::new(
                     SingleDownloadError::Write { source: e },
@@ -906,14 +921,8 @@ impl SingleDownloader {
             );
         }
 
-        // flush
-        if let Err(e) = dest.shutdown().await {
-            callback(Event::ProgressDone(self.download_list_index)).await;
-            return Err(ProgressedError::new(
-                SingleDownloadError::Flush { source: e },
-                reported,
-            ));
-        }
+        // 写入是同步的：到这里数据已经全部交给内核，不再需要（也不可能
+        // 再有）等待后台写操作完成的 shutdown。
 
         callback(Event::ProgressDone(self.download_list_index)).await;
         Ok(true)
@@ -943,7 +952,7 @@ impl SingleDownloader {
 
         let file = self.entry.dir.join(&*self.entry.filename);
         if file.is_symlink() || (as_symlink && file.is_file()) {
-            tokio::fs::remove_file(&file).await.context(RemoveSnafu)?;
+            std::fs::remove_file(&file).context(RemoveSnafu)?;
         }
 
         if as_symlink {
@@ -951,9 +960,7 @@ impl SingleDownloader {
                 self.checksum_local(callback, url_path, hash).await?;
             }
 
-            tokio::fs::symlink(url_path, file)
-                .await
-                .context(CreateSymlinkSnafu)?;
+            std::os::unix::fs::symlink(url_path, file).context(CreateSymlinkSnafu)?;
 
             return Ok(true);
         }
@@ -973,8 +980,8 @@ impl SingleDownloader {
 
         trace!("Successfully opened file: {}", url_path.display());
 
-        let mut to = File::create(self.entry.dir.join(&*self.entry.filename))
-            .await
+        // 同 `try_download`：写 partial 目录用同步系统调用。
+        let mut to = std::fs::File::create(self.entry.dir.join(&*self.entry.filename))
             .context(CreateSnafu)?;
 
         let reader: &mut (dyn AsyncRead + Unpin + Send) = match source.file_type {
@@ -1019,7 +1026,7 @@ impl SingleDownloader {
     /// can undo them.
     async fn download_local_copy<R, F, Fut>(
         &self,
-        to: &mut File,
+        to: &mut std::fs::File,
         reader: &mut R,
         callback: &F,
     ) -> Result<(), ProgressedError>
@@ -1054,7 +1061,7 @@ impl SingleDownloader {
                 break;
             }
 
-            if let Err(e) = to.write_all(&buf[..size]).await {
+            if let Err(e) = to.write_all(&buf[..size]) {
                 callback(Event::ProgressDone(self.download_list_index)).await;
                 return Err(ProgressedError::new(
                     SingleDownloadError::Write { source: e },
