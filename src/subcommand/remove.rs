@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::console::style;
@@ -13,6 +12,7 @@ use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
+use crate::menu::dialoguer_result;
 use crate::pb::ProgressBar;
 use crate::{dbus::dbus_check, error::OutputError, root::root};
 
@@ -243,13 +243,16 @@ fn check_is_current_kernel_deleting(
             &image_name,
             pkg.raw_pkg.name(),
             current_kernel_ver,
-        ) && (config.protect_essentials
-            || !ask_user_delete_current_kernel(pkg.raw_pkg.name()).unwrap_or(false))
-        {
-            return Err(OutputError::msg(fl!(
-                "not-allow-delete-using-kernel",
-                ver = current_kernel_ver
-            )));
+        ) {
+            let allow =
+                config.protect_essentials || ask_user_delete_current_kernel(pkg.raw_pkg.name())?;
+
+            if !allow {
+                return Err(OutputError::msg(fl!(
+                    "not-allow-delete-using-kernel",
+                    ver = current_kernel_ver
+                )));
+            }
         }
     }
 
@@ -257,16 +260,20 @@ fn check_is_current_kernel_deleting(
 }
 
 /// "Yes Do as I say" steps
-pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
+pub fn ask_user_do_as_i_say(pkg: &str) -> Result<bool, OutputError> {
     let theme = ColorfulTheme::default();
 
     warn!("{}", fl!("essential-tips", pkg = pkg));
 
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(fl!("essential-continue"))
-        .default(false)
-        .interact()
-        .map_err(|_| anyhow!(""))?;
+    let Some(delete) = dialoguer_result(
+        Confirm::with_theme(&theme)
+            .with_prompt(fl!("essential-continue"))
+            .default(false)
+            .interact(),
+    )?
+    else {
+        return Err(OutputError::user_aborted());
+    };
 
     if !delete {
         return Ok(false);
@@ -280,11 +287,16 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
         ),
     );
 
-    if Input::<String>::with_theme(&theme)
-        .with_prompt(fl!("yes-do-as-i-say-prompt"))
-        .interact()?
-        != "Do as I say!"
-    {
+    let Some(input) = dialoguer_result(
+        Input::<String>::with_theme(&theme)
+            .with_prompt(fl!("yes-do-as-i-say-prompt"))
+            .interact(),
+    )?
+    else {
+        return Err(OutputError::user_aborted());
+    };
+
+    if input != "Do as I say!" {
         info!("{}", fl!("yes-do-as-i-say-abort"));
         return Ok(false);
     }
@@ -293,16 +305,20 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> anyhow::Result<bool> {
 }
 
 #[cfg(feature = "aosc")]
-fn ask_user_delete_current_kernel(pkg: &str) -> anyhow::Result<bool> {
+fn ask_user_delete_current_kernel(pkg: &str) -> Result<bool, OutputError> {
     let theme = ColorfulTheme::default();
 
     warn!("{}", fl!("delete-current-kernel-tips", kernel = pkg));
 
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(fl!("essential-continue"))
-        .default(false)
-        .interact()
-        .map_err(|_| anyhow!(""))?;
+    let Some(delete) = dialoguer_result(
+        Confirm::with_theme(&theme)
+            .with_prompt(fl!("essential-continue"))
+            .default(false)
+            .interact(),
+    )?
+    else {
+        return Err(OutputError::user_aborted());
+    };
 
     if !delete {
         return Ok(false);

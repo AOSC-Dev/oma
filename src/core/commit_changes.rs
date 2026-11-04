@@ -1,4 +1,4 @@
-use std::{fs, path::Path, sync::atomic::Ordering, thread};
+use std::{cell::Cell, fs, path::Path, sync::atomic::Ordering, thread};
 
 use ahash::{HashMap, HashSet};
 use bon::Builder;
@@ -28,6 +28,7 @@ use crate::{
     fl,
     install_progress::{NoInstallProgressManager, OSC94, OmaInstallProgressManager},
     lang::{DEFAULT_LANGUAGE, SYSTEM_LANG},
+    menu::dialoguer_result,
     msg,
     pb::{ProgressBar, ProgressRenderer},
     subcommand::{
@@ -102,6 +103,9 @@ impl CommitChanges<'_> {
 
         apt.ensure_apt_frontend_locked()?;
 
+        let essential_error: Cell<Option<OutputError>> = Cell::new(None);
+        let features_error: Cell<Option<OutputError>> = Cell::new(None);
+
         let op = apt.build_transaction(
             SummarySort::default().names().operation(),
             |pkg| {
@@ -110,17 +114,35 @@ impl CommitChanges<'_> {
                 } else if config.protect_essentials {
                     false
                 } else {
-                    ask_user_do_as_i_say(pkg).unwrap_or(false)
+                    match ask_user_do_as_i_say(pkg) {
+                        Ok(allow) => allow,
+                        Err(e) => {
+                            essential_error.set(Some(e));
+                            false
+                        }
+                    }
                 }
             },
             |features| {
                 if dry_run {
                     true
                 } else {
-                    handle_features(features, config.protect_essentials).unwrap_or(false)
+                    match handle_features(features, config.protect_essentials) {
+                        Ok(allow) => allow,
+                        Err(e) => {
+                            features_error.set(Some(e));
+                            false
+                        }
+                    }
                 }
             },
-        )?;
+        );
+
+        if let Some(e) = essential_error.take().or_else(|| features_error.take()) {
+            return Err(e);
+        }
+
+        let op = op?;
 
         debug!("{op}");
 
@@ -461,11 +483,15 @@ fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, 
 
             warn!("{}", fl!("features-without-value"));
 
-            let delete = Confirm::with_theme(&theme)
-                .with_prompt(fl!("features-continue-prompt"))
-                .default(false)
-                .interact()
-                .map_err(|_| anyhow::anyhow!(""))?;
+            let Some(delete) = dialoguer_result(
+                Confirm::with_theme(&theme)
+                    .with_prompt(fl!("features-continue-prompt"))
+                    .default(false)
+                    .interact(),
+            )?
+            else {
+                return Err(OutputError::user_aborted());
+            };
 
             return Ok(delete);
         }
@@ -480,11 +506,15 @@ fn handle_features(features: &HashSet<Box<str>>, protect: bool) -> Result<bool, 
     warn!("{}", fl!("features-tips-1"));
     msg!("\n{}\n", features);
 
-    let delete = Confirm::with_theme(&theme)
-        .with_prompt(fl!("features-continue-prompt"))
-        .default(false)
-        .interact()
-        .map_err(|_| anyhow::anyhow!(""))?;
+    let Some(delete) = dialoguer_result(
+        Confirm::with_theme(&theme)
+            .with_prompt(fl!("features-continue-prompt"))
+            .default(false)
+            .interact(),
+    )?
+    else {
+        return Err(OutputError::user_aborted());
+    };
 
     Ok(delete)
 }
