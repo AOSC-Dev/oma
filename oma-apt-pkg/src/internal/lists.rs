@@ -1,14 +1,11 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::path::Path;
 
 use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
-use debversion::Version;
 use rayon::prelude::*;
 use serde::Serialize;
 
 use crate::apt_sources::SourceLookup;
-use crate::{DpkgState, extended_states::AptExtendedStates};
 
 /// Errors that can occur when parsing APT list files.
 #[derive(Debug, thiserror::Error)]
@@ -20,10 +17,8 @@ pub enum AptListsError {
 }
 
 /// A single package entry from a Packages file
-#[derive(Debug, Clone, FromDeb822, Serialize)]
-#[cfg_attr(
-    feature = "apt-lists",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+#[derive(
+    Debug, Clone, FromDeb822, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
 #[serde(rename_all = "PascalCase")]
 pub struct PackageEntry {
@@ -62,19 +57,6 @@ pub struct PackageEntry {
 }
 
 impl PackageEntry {
-    /// Whether this package is currently installed on the system.
-    pub fn is_installed(&self, dpkg: &DpkgState) -> bool {
-        dpkg.is_installed(&self.package)
-    }
-
-    /// Whether this package was automatically installed as a dependency.
-    ///
-    /// Requires an `AptExtendedStates` instance (parsed from
-    /// `/var/lib/apt/extended_states`); returns `false` if unavailable.
-    pub fn is_auto_installed(&self, dpkg: &DpkgState, ext: &AptExtendedStates) -> bool {
-        dpkg.is_installed(&self.package) && ext.is_auto_installed(&self.package)
-    }
-
     /// The display full name, `name:arch`, like apt's `Package:` line.
     ///
     /// Mirrors apt's `PkgIterator::FullName(Pretty)`: with `pretty == false`
@@ -98,12 +80,17 @@ impl PackageEntry {
     }
 }
 
-/// Parse contents of a single Packages file
-#[derive(Debug, Clone)]
-pub struct PackagesFile {
-    /// The source filename (e.g. `archive_dists_sid_main_binary-amd64_Packages`)
-    pub source: String,
-    pub entries: Vec<PackageEntry>,
+/// What kind of source an [`IndexSource`] describes.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
+)]
+pub enum SourceKind {
+    /// A configured repository index (`Packages`).
+    Repository,
+    /// A local `.deb` inserted with `oma show ./foo.deb`.
+    LocalDeb,
+    /// The live dpkg status file.
+    DpkgStatus,
 }
 
 /// The source an index entry came from, resolved against `sources.list`
@@ -112,17 +99,19 @@ pub struct PackagesFile {
 /// Consumers — download URLs, the `APT-Sources` display, branch matching —
 /// read these fields directly; no `sources.list` re-resolution is needed
 /// after the database is built.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(
-    feature = "apt-lists",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
 pub struct IndexSource {
+    /// What produced this entry. Never infer this from `suite`: a repository
+    /// may legitimately use `local-deb` as its suite name.
+    pub kind: SourceKind,
     /// Canonical base URL from `sources.list` (e.g.
     /// `https://mirrors.example.com/debian`). For a local `.deb` this is
     /// its `file:` URI.
     pub base_url: String,
-    /// The suite (e.g. `stable`), or `local-deb` for local `.deb`s.
+    /// The repository suite (e.g. `stable`), or the conventional `local-deb`
+    /// label for a local `.deb`.
     pub suite: String,
     /// The component (e.g. `main`), or `local-deb` for local `.deb`s;
     /// `None` for flat repositories.
@@ -135,12 +124,12 @@ impl IndexSource {
     /// The dpkg status file, where a package that is installed but no longer
     /// available from any repository comes from.
     ///
-    /// It is not a repository: apt names instead the file where the package is
-    /// recorded itself - most likely the dpkg status file (i.e.,
-    /// `APT-Sources: /var/lib/dpkg/status`), so it has no suite, component, or
-    /// architecture recorded in the source.
+    /// It is not a repository: apt names the file itself
+    /// (`APT-Sources: /var/lib/dpkg/status`), so it has no suite, component
+    /// or architecture; [`SourceKind::DpkgStatus`] marks it.
     pub fn dpkg_status(path: impl Into<String>) -> Self {
         Self {
+            kind: SourceKind::DpkgStatus,
             base_url: path.into(),
             suite: String::new(),
             component: None,
@@ -151,7 +140,12 @@ impl IndexSource {
     /// Whether this source is the dpkg status file (see
     /// [`Self::dpkg_status`]).
     pub fn is_dpkg_status(&self) -> bool {
-        self.suite.is_empty()
+        matches!(self.kind, SourceKind::DpkgStatus)
+    }
+
+    /// Whether this source is a local `.deb` file.
+    pub fn is_local_deb(&self) -> bool {
+        matches!(self.kind, SourceKind::LocalDeb)
     }
 }
 
@@ -239,50 +233,6 @@ pub fn parse_single_packages_file(
             .collect::<Result<Vec<_>, _>>()?;
 
     Ok(entries)
-}
-
-/// Build a description cache map (package name → summary) from parsed entries.
-pub fn build_description_map(entries: &[PackageEntry]) -> HashMap<String, String> {
-    let mut map = HashMap::new();
-    for entry in entries {
-        if let Some(ref desc) = entry.description {
-            // Description field format: first line is the summary
-            let summary = desc.lines().next().unwrap_or(desc);
-            map.entry(entry.package.clone())
-                .or_insert_with(|| summary.to_string());
-        }
-    }
-    map
-}
-
-/// One `PackageVersion` per (package, version): a version seen in several
-/// mirrors/suites/components is stored once, with `sources` listing each
-/// place it appears. This mirrors apt's `pkgCache::Version` + `VerFile`
-/// model — a version carries a list of index files instead of duplicating
-/// the record once per source.
-#[derive(Debug, Clone)]
-#[cfg_attr(
-    feature = "apt-lists",
-    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
-)]
-pub struct PackageVersion {
-    /// The version metadata (name, version, description, dependencies, ...).
-    pub entry: PackageEntry,
-    /// Every source this version is available from, resolved against
-    /// `sources.list` at build time. Empty for entries built without source
-    /// tracking.
-    pub sources: Vec<IndexSource>,
-}
-
-impl PackageVersion {
-    /// The parsed version. Parsed on demand (a version parse is
-    /// microseconds; the `OnceCell` cache was dropped when the database
-    /// moved to an immutable memory-mapped archive). Returns `None` when
-    /// the version is absent or fails to parse; `None` compares less than
-    /// any parsed version.
-    pub fn parsed_version(&self) -> Option<Version> {
-        self.entry.version.as_deref().and_then(|v| v.parse().ok())
-    }
 }
 
 #[cfg(test)]
@@ -393,64 +343,6 @@ Status: deinstall ok config-files
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].package, "foo");
         assert_eq!(entries[1].package, "bar");
-    }
-
-    #[test]
-    fn test_build_description_map() {
-        let entries = vec![
-            PackageEntry {
-                package: "foo".into(),
-                version: Some("1.0".into()),
-                architecture: None,
-                description: Some("First line\nSecond line".into()),
-                description_md5: None,
-                maintainer: None,
-                installed_size: None,
-                depends: None,
-                pre_depends: None,
-                recommends: None,
-                suggests: None,
-                breaks: None,
-                conflicts: None,
-                replaces: None,
-                provides: None,
-                section: None,
-                priority: None,
-                homepage: None,
-                multi_arch: None,
-                filename: None,
-                size: None,
-                sha256: None,
-            },
-            PackageEntry {
-                package: "bar".into(),
-                version: Some("2.0".into()),
-                architecture: None,
-                description: Some("Bar description".into()),
-                description_md5: None,
-                maintainer: None,
-                installed_size: None,
-                depends: None,
-                pre_depends: None,
-                recommends: None,
-                suggests: None,
-                breaks: None,
-                conflicts: None,
-                replaces: None,
-                provides: None,
-                section: None,
-                priority: None,
-                homepage: None,
-                multi_arch: None,
-                filename: None,
-                size: None,
-                sha256: None,
-            },
-        ];
-
-        let map = build_description_map(&entries);
-        assert_eq!(map.get("foo").map(|s| s.as_str()), Some("First line"));
-        assert_eq!(map.get("bar").map(|s| s.as_str()), Some("Bar description"));
     }
 
     #[test]

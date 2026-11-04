@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use clap::Args;
-use oma_apt_pkg::AptConfig;
 use oma_apt_pkg::search::{IndiciumSearch, OmaSearch, SearchResult, SearchType};
+use oma_apt_pkg::{AptConfig, AptState};
 use oma_logger::{debug, info};
 use oma_pager::{exit_tui, prepare_create_tui};
 use oma_pm::apt::{OmaApt, OmaAptArgs, Upgrade};
@@ -97,9 +97,9 @@ impl Searcher {
 
     #[allow(dead_code)]
     /// Refresh status metadata from fresh dpkg status data.
-    pub(crate) fn refresh(&mut self, apt_db: &oma_apt_pkg::AptDb, dpkg: &oma_apt_pkg::DpkgState) {
+    pub(crate) fn refresh(&mut self, state: &AptState) {
         if let Searcher::Local(indicium_search) = self {
-            indicium_search.refresh_from(apt_db, dpkg);
+            indicium_search.refresh_from(state);
         }
     }
 }
@@ -222,14 +222,10 @@ fn local_searcher(
     apt_cfg: &AptConfig,
     pb: &crate::pb::ProgressBar,
 ) -> Result<Searcher, OutputError> {
-    let dpkg_path = apt_cfg.get_file("Dir::State::status", "var/lib/dpkg/status");
+    let state = AptState::load(apt_cfg)?;
 
-    let dpkg = oma_apt_pkg::DpkgState::from_file(&dpkg_path)?;
-    let apt_db = oma_apt_pkg::AptDb::load_or_build(apt_cfg)?;
-
-    let searcher =
-        IndiciumSearch::new_with_cache(&apt_db, &dpkg, apt_cfg, SearchType::Live, |n| {
-            pb.set_message(fl!("reading-database-with-count", count = n));
-        })?;
+    let searcher = IndiciumSearch::new_with_cache(&state, apt_cfg, SearchType::Live, |n| {
+        pb.set_message(fl!("reading-database-with-count", count = n));
+    })?;
     Ok(Searcher::Local(Box::new(searcher)))
 }

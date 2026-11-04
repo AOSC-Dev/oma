@@ -1,0 +1,407 @@
+use super::*;
+use crate::SourceKind;
+use std::io::Write;
+
+fn control(name: &str, version: &str, arch: &str, description: &str) -> Control {
+    crate::deb::parse_control_entry(&format!(
+        "Package: {name}\nVersion: {version}\nArchitecture: {arch}\nDescription: {description}\n\n"
+    ))
+    .unwrap()
+}
+
+fn source(arch: &str, suite: &str) -> Source {
+    Source {
+        kind: SourceKind::Repository,
+        base_url: "file:/repo".to_string(),
+        suite: suite.to_string(),
+        component: Some("main".to_string()),
+        arch: Some(arch.to_string()),
+    }
+}
+
+fn state(native: &str, archs: &[&str]) -> AptState {
+    AptState {
+        native: Arch::new(native),
+        architectures: archs.iter().map(|arch| Arch::new(*arch)).collect(),
+        groups: HashMap::new(),
+        package_order: HashMap::new(),
+        installed: HashMap::new(),
+        status_path: PathBuf::new(),
+        files: Vec::new(),
+    }
+}
+
+fn add(state: &mut AptState, name: &str, version: &str, arch: &str) {
+    state.add_index(
+        vec![control(name, version, arch, "test")],
+        vec![source(arch, "stable")],
+    );
+}
+
+fn versions(package: &Package<'_>) -> Vec<(String, String)> {
+    package
+        .versions()
+        .iter()
+        .map(|version| {
+            (
+                version.version().unwrap_or_default().to_string(),
+                version.arch().as_str().to_string(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn all_is_a_version_flag_not_a_package_arch() {
+    let mut state = state("amd64", &["amd64", "i386"]);
+    add(&mut state, "foo", "1", "amd64");
+    add(&mut state, "foo", "2", "i386");
+    add(&mut state, "foo", "3", "all");
+
+    let group = state.group("foo").unwrap();
+    let mut arches: Vec<_> = group.packages().map(|pkg| pkg.arch().to_string()).collect();
+    arches.sort();
+    assert_eq!(arches, vec!["amd64", "i386"]);
+
+    let native = state.package("foo", &Arch::new("amd64")).unwrap();
+    assert_eq!(
+        versions(&native),
+        vec![
+            ("1".to_string(), "amd64".to_string()),
+            ("3".to_string(), "all".to_string())
+        ]
+    );
+    let foreign = state.package("foo", &Arch::new("i386")).unwrap();
+    assert_eq!(
+        versions(&foreign),
+        vec![("2".to_string(), "i386".to_string())]
+    );
+}
+
+#[test]
+fn resolve_uses_apt_architecture_views() {
+    let mut state = state("amd64", &["amd64", "i386"]);
+    add(&mut state, "foo", "1", "amd64");
+    add(&mut state, "foo", "2", "i386");
+    add(&mut state, "foo", "3", "all");
+    add(&mut state, "bar", "1", "i386");
+    add(&mut state, "baz", "1", "all");
+
+    assert_eq!(
+        state.resolve(vec!["foo".into()]).resolved[0]
+            .key
+            .arch
+            .as_str(),
+        "amd64"
+    );
+    for query in ["foo:native", "foo:any", "foo:all", "foo:amd64"] {
+        let resolution = state.resolve(vec![query.into()]);
+        assert_eq!(resolution.resolved[0].key.arch.as_str(), "amd64", "{query}");
+    }
+    let foreign = state.resolve(vec!["foo:i386".into()]);
+    assert_eq!(foreign.resolved[0].key.arch.as_str(), "i386");
+
+    // A package only a foreign architecture has falls back for a plain
+    // query, but `:native`/`:all` do not.
+    let fallback = state.resolve(vec!["bar".into()]);
+    assert_eq!(fallback.resolved[0].key.arch.as_str(), "i386");
+    for query in ["bar:native", "bar:all"] {
+        assert_eq!(state.resolve(vec![query.into()]).no_match, vec![query]);
+    }
+
+    // An `all`-only package belongs to the native package.
+    let all_only = state.resolve(vec!["baz".into()]);
+    assert_eq!(all_only.resolved[0].key.arch.as_str(), "amd64");
+    assert_eq!(all_only.resolved[0].versions[0].arch().as_str(), "all");
+    assert_eq!(
+        state.resolve(vec!["baz:i386".into()]).no_match,
+        vec!["baz:i386"]
+    );
+}
+
+#[test]
+fn version_and_branch_queries_filter_one_package() {
+    let mut state = state("amd64", &["amd64"]);
+    add(&mut state, "foo", "1", "amd64");
+    state.add_index(
+        vec![control("foo", "2", "amd64", "preview")],
+        vec![source("amd64", "preview")],
+    );
+
+    let exact = state.resolve(vec!["foo=1".into()]);
+    assert_eq!(exact.resolved[0].versions.len(), 1);
+    assert_eq!(exact.resolved[0].versions[0].version(), Some("1"));
+
+    let branch = state.resolve(vec!["foo/preview".into()]);
+    assert_eq!(branch.resolved[0].versions.len(), 1);
+    assert_eq!(branch.resolved[0].versions[0].version(), Some("2"));
+}
+
+#[test]
+fn status_merges_into_packages_and_adds_missing_ones() {
+    let mut state = state("amd64", &["amd64", "i386"]);
+    add(&mut state, "foo", "1", "amd64");
+    add(&mut state, "libfoo", "2", "amd64");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("status");
+    let mut file = std::fs::File::create(&path).unwrap();
+    file.write_all(
+        b"Package: foo\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n\n\
+Package: vendor-tool\nVersion: 7\nArchitecture: amd64\nStatus: install ok installed\n\n\
+Package: vendor-tool\nVersion: 7\nArchitecture: i386\nStatus: install ok installed\n\n\
+Package: libfoo\nVersion: 1\nArchitecture: i386\nStatus: install ok installed\n\n\
+Package: removed-tool\nVersion: 1\nArchitecture: amd64\nStatus: deinstall ok config-files\n\n",
+    )
+    .unwrap();
+    state.status_path = path;
+    state.merge_status().unwrap();
+
+    let foo = state.package("foo", &Arch::new("amd64")).unwrap();
+    assert_eq!(foo.installed_version(), Some("1"));
+    assert!(
+        foo.versions()
+            .iter()
+            .any(|version| version.sources.iter().any(Source::is_dpkg_status))
+    );
+
+    let plain = state.resolve(vec!["vendor-tool".into()]);
+    assert_eq!(plain.resolved[0].key.arch.as_str(), "amd64");
+    assert!(state.is_installed(&plain.resolved[0].key));
+    assert_eq!(
+        state.resolve(vec!["vendor-tool:i386".into()]).resolved[0]
+            .key
+            .arch
+            .as_str(),
+        "i386"
+    );
+    // A status-only package records its architectures in package order too,
+    // so `:any` resolves.
+    let any = state.resolve(vec!["vendor-tool:any".into()]);
+    assert_eq!(any.resolved[0].key.arch.as_str(), "amd64");
+
+    // One search result per group: an installed foreign build still counts
+    // as installed even though the preferred package is the native one.
+    let libfoo = state.group("libfoo").unwrap();
+    assert_eq!(libfoo.installed_version(), Some("1"));
+    assert_eq!(
+        libfoo.installed_package().unwrap().arch().as_str(),
+        "i386",
+        "the installed package is selected, not the preferred native one"
+    );
+
+    assert_eq!(
+        state.resolve(vec!["removed-tool".into()]).no_match,
+        vec!["removed-tool"]
+    );
+}
+
+#[test]
+fn local_deb_resolves_only_its_own_version() {
+    let mut state = state("amd64", &["amd64"]);
+    add(&mut state, "foo", "1", "amd64");
+    add(&mut state, "foo", "2", "amd64");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("foo_9_amd64.deb");
+    std::fs::write(
+        &path,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 9\nArchitecture: amd64\nDescription: local\n",
+        ),
+    )
+    .unwrap();
+    state.insert_deb(&path).unwrap();
+
+    let resolution = state.resolve(vec![path.to_string_lossy().into_owned()]);
+    assert_eq!(resolution.resolved.len(), 1);
+    let versions = &resolution.resolved[0].versions;
+    assert_eq!(versions.len(), 1, "only the .deb's version is selected");
+    assert_eq!(versions[0].version(), Some("9"));
+}
+
+#[test]
+fn state_cache_roundtrips() {
+    let mut state = state("amd64", &["amd64", "i386"]);
+    add(&mut state, "foo", "1", "amd64");
+    add(&mut state, "foo", "2", "i386");
+    add(&mut state, "foo", "3", "all");
+
+    let data = AptStateData {
+        groups: state.groups.clone(),
+        package_order: state.package_order.clone(),
+        native_arch: state.native.clone(),
+        architectures: state.architectures.clone(),
+        files: Vec::new(),
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("oma-aptdb.bincode");
+    save_state_cache(path.to_str().unwrap(), &data).unwrap();
+
+    let loaded = load_state_cache(path.to_str().unwrap()).unwrap();
+    assert_eq!(loaded.groups.len(), 1);
+    let packages = &loaded.groups["foo"];
+    assert_eq!(packages.len(), 2);
+    assert_eq!(
+        loaded.package_order["foo"],
+        vec![Arch::new("amd64"), Arch::new("i386")]
+    );
+    assert_eq!(packages[&Arch::new("amd64")].len(), 2);
+}
+
+#[test]
+fn missing_status_file_is_an_error() {
+    let mut state = state("amd64", &["amd64"]);
+    state.status_path = std::path::PathBuf::from("/nonexistent/oma-status");
+    assert!(state.merge_status().is_err());
+}
+
+#[test]
+fn malformed_status_paragraph_is_an_error() {
+    let mut state = state("amd64", &["amd64"]);
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("status");
+    std::fs::write(
+        &path,
+        b"Package: foo\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n\nnot a field\n\n",
+    )
+    .unwrap();
+    state.status_path = path;
+    assert!(state.merge_status().is_err());
+}
+
+#[test]
+fn local_deb_keeps_its_control_when_the_repo_has_the_same_version() {
+    let mut state = state("amd64", &["amd64"]);
+    add(&mut state, "foo", "1", "amd64");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("foo_1_amd64.deb");
+    std::fs::write(
+        &path,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 1\nArchitecture: amd64\nDescription: local control\n",
+        ),
+    )
+    .unwrap();
+    state.insert_deb(&path).unwrap();
+
+    let resolution = state.resolve(vec![path.to_string_lossy().into_owned()]);
+    let versions = &resolution.resolved[0].versions;
+    assert_eq!(versions.len(), 1);
+    assert_eq!(
+        versions[0].control.description.as_deref(),
+        Some("local control")
+    );
+    assert!(versions[0].sources.iter().all(Source::is_local_deb));
+
+    // Mixing a path with a name in one invocation: the name query must see
+    // the repository record only, never the inserted local one.
+    let mixed = state.resolve(vec!["foo".into(), path.to_string_lossy().into_owned()]);
+    assert_eq!(mixed.resolved.len(), 2);
+    let repo = &mixed.resolved[0];
+    assert_eq!(repo.versions.len(), 1);
+    assert!(
+        repo.versions[0]
+            .sources
+            .iter()
+            .all(|source| !source.is_local_deb())
+    );
+    assert_eq!(
+        repo.versions[0].control.description.as_deref(),
+        Some("test")
+    );
+    assert!(
+        mixed.resolved[1]
+            .versions
+            .iter()
+            .all(|version| version.is_local_deb())
+    );
+}
+
+#[test]
+fn distinct_local_debs_with_the_same_identity_stay_separate() {
+    let mut state = state("amd64", &["amd64"]);
+
+    let dir = tempfile::tempdir().unwrap();
+    let one = dir.path().join("foo_1_amd64.deb");
+    let two = dir.path().join("foo_1_amd64-copy.deb");
+    std::fs::write(
+        &one,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 1\nArchitecture: amd64\nDescription: first local\n",
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        &two,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 1\nArchitecture: amd64\nDescription: second local\n",
+        ),
+    )
+    .unwrap();
+    state.insert_deb(&one).unwrap();
+    state.insert_deb(&two).unwrap();
+
+    for (path, description) in [(&one, "first local"), (&two, "second local")] {
+        let resolution = state.resolve(vec![path.to_string_lossy().into_owned()]);
+        let versions = &resolution.resolved[0].versions;
+        assert_eq!(versions.len(), 1);
+        assert_eq!(
+            versions[0].control.description.as_deref(),
+            Some(description)
+        );
+    }
+}
+
+#[test]
+fn local_deb_does_not_shadow_an_indexed_architecture() {
+    let mut state = state("amd64", &["amd64", "i386"]);
+    add(&mut state, "foo", "1", "i386");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("foo_2_amd64.deb");
+    std::fs::write(
+        &path,
+        crate::deb::test_util::build_deb(
+            "Package: foo\nVersion: 2\nArchitecture: amd64\nDescription: local native\n",
+        ),
+    )
+    .unwrap();
+    state.insert_deb(&path).unwrap();
+
+    // The local native record is not an indexed native package: a plain query
+    // falls back to the indexed i386 package instead of selecting it.
+    let plain = state.resolve(vec!["foo".into()]);
+    assert_eq!(plain.resolved.len(), 1);
+    assert_eq!(plain.resolved[0].key.arch.as_str(), "i386");
+    assert_eq!(plain.resolved[0].versions[0].version(), Some("1"));
+    assert!(
+        plain.resolved[0]
+            .versions
+            .iter()
+            .all(|version| !version.is_local_deb())
+    );
+
+    // An explicit native query must not match the local-only native arch.
+    assert_eq!(
+        state.resolve(vec!["foo:native".into()]).no_match,
+        vec!["foo:native"]
+    );
+}
+
+#[test]
+fn repository_suite_named_local_deb_is_still_a_repository() {
+    let mut state = state("amd64", &["amd64"]);
+    state.add_index(
+        vec![control("foo", "1", "amd64", "from a suite named local-deb")],
+        vec![source("amd64", "local-deb")],
+    );
+
+    let resolution = state.resolve(vec!["foo".into()]);
+    assert_eq!(resolution.resolved.len(), 1);
+    let versions = &resolution.resolved[0].versions;
+    assert_eq!(versions.len(), 1);
+    assert!(!versions[0].is_local_deb());
+    assert_eq!(versions[0].sources[0].kind, SourceKind::Repository);
+}
