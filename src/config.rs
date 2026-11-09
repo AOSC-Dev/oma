@@ -231,9 +231,12 @@ impl OmaConfig {
             .expect("failed to initialize APT configuration");
         cfg.load_system().expect("failed to load APT config files");
 
-        if !is_termux() {
-            cfg.set("Dir", &self.sysroot.to_string_lossy());
-        }
+        // Unlike libapt-pkg, the pure-Rust AptConfig does not inherit the
+        // compile-time APT root. Anchor it at the sysroot explicitly: on
+        // Termux the sysroot defaults to $PREFIX, while without this the
+        // config resolves paths against `/` and looks for the dpkg status
+        // file at /var/lib/dpkg/status instead of $PREFIX/var/lib/dpkg/status.
+        cfg.set("Dir", &self.sysroot.to_string_lossy());
 
         for kv in &self.apt_options {
             let (k, v) = kv.split_once('=').unwrap_or((kv.as_str(), ""));
