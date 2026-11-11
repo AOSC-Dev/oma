@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use aho_corasick::{AhoCorasick, BuildError};
-use oma_apt_sources_lists::{SourceEntry, SourceLine, SourceListType, SourcesList};
+pub use oma_apt_sources::scan_sources_list_paths;
+use oma_apt_sources::{ConfiguredSources, SourceEntry};
 
 use crate::AptConfig;
 #[cfg(feature = "apt-lists")]
@@ -10,42 +11,11 @@ use crate::apt_lists::IndexSource;
 #[cfg(feature = "apt-lists")]
 use crate::filename::AptListFilename;
 
-/// Scan the filesystem for sources list files, returning their paths.
-///
-/// Like APT's `GetListOfFilesInDir`, this looks for the default
-/// `sourcelist` file and scans `sourceparts` directory for additional
-/// regular files. Errors are silently skipped (empty vec on failure).
-pub fn scan_sources_list_paths(
-    list_file: impl AsRef<str>,
-    list_dir: impl AsRef<str>,
-) -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-    let default = Path::new(list_file.as_ref());
-    let list_dir_path = Path::new(list_dir.as_ref());
-
-    if default.exists() {
-        paths.push(default.to_path_buf());
-    }
-
-    if list_dir_path.exists()
-        && let Ok(dir) = std::fs::read_dir(list_dir_path)
-    {
-        for entry in dir.flatten() {
-            let path = entry.path();
-            if path.is_file() {
-                paths.push(path);
-            }
-        }
-    }
-
-    paths
-}
-
 /// The configured sources parsed from `sources.list`, the driver of the
 /// package database: it generates the lists files to read (forward), so
 /// nothing ever looks a filename up again.
 pub struct SourceLookup {
-    entries: Vec<SourceEntry>,
+    sources: Arc<ConfiguredSources>,
 }
 
 impl SourceLookup {
@@ -57,8 +27,9 @@ impl SourceLookup {
     pub fn build(apt_cfg: &AptConfig) -> Self {
         let list_file = apt_cfg.get_file("Dir::Etc::sourcelist", "etc/apt/sources.list");
         let list_dir = apt_cfg.get_dir("Dir::Etc::sourceparts", "etc/apt/sources.list.d");
-        let paths = scan_sources_list_paths(&list_file, &list_dir);
-        Self::from_paths(&paths, |_: &Path| {})
+        Self {
+            sources: oma_apt_sources::configured_sources(list_file, list_dir),
+        }
     }
 
     /// Build from an .list and .sources file of paths.
@@ -67,40 +38,18 @@ impl SourceLookup {
     ///   neither `.list` nor `.sources` (matching APT's `UnknownFile`
     ///   behavior). The callback can inspect the file and decide whether
     ///   to warn (e.g. skip files matching `Dir::Ignore-Files-Silently`).
-    pub fn from_paths<G>(paths: &[PathBuf], mut on_unknown_file: G) -> Self
+    pub fn from_paths<G>(paths: &[PathBuf], on_unknown_file: G) -> Self
     where
         G: FnMut(&Path),
     {
-        let mut entries = Vec::new();
-
-        for path in paths {
-            let Ok(s) = SourcesList::new(path) else {
-                on_unknown_file(path);
-                continue;
-            };
-
-            let parsed: Box<dyn Iterator<Item = SourceEntry>> = match s.entries {
-                SourceListType::SourceLine(lines) => {
-                    Box::new(lines.0.into_iter().filter_map(|l| {
-                        if let SourceLine::Entry(e) = l {
-                            Some(e)
-                        } else {
-                            None
-                        }
-                    }))
-                }
-                SourceListType::Deb822(deb822) => Box::new(deb822.entries.into_iter()),
-            };
-
-            entries.extend(parsed.filter(|e| e.enabled));
+        Self {
+            sources: Arc::new(ConfiguredSources::from_paths(paths, on_unknown_file)),
         }
-
-        Self { entries }
     }
 
     /// All parsed entries (enabled only).
     pub fn entries(&self) -> &[SourceEntry] {
-        &self.entries
+        self.sources.entries()
     }
 
     /// The (lists filename, [`IndexSource`]) pairs this source list
@@ -119,7 +68,7 @@ impl SourceLookup {
     pub fn index_files(&self, archs: &[String]) -> Vec<(String, IndexSource)> {
         let cvt = AptListFilename::new();
         let mut out = Vec::new();
-        for entry in &self.entries {
+        for entry in self.sources.entries() {
             let base = entry.url().trim_end_matches('/');
             let suite = entry.suite.trim_end_matches('/');
             if entry.components.is_empty() {
