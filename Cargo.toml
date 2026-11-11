@@ -263,6 +263,8 @@ openssl = [
 nice-setup = ["sequoia-nettle-backend", "rustls"]
 openssl-setup = ["sequoia-openssl-backend", "openssl"]
 decompress-parallel = ["oma-fetch/xz-parallel"]
+# Enabled by the Termux package build; refuses to run as root.
+termux = []
 default = ["aosc", "nice-setup"]
 
 [workspace]

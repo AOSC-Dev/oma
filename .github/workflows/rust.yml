@@ -53,6 +53,8 @@ jobs:
         run: cargo build
       - name: Build without aosc feature
         run: cargo build --no-default-features --features nice-setup
+      - name: Check with termux feature
+        run: cargo check -p oma --no-default-features --features nice-setup,termux
       - name: Test
         run: cargo test --workspace
       - name: Generate manpages
