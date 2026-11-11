@@ -132,9 +132,15 @@ pub struct InstallEntry {
 pub struct PackageUrl {
     pub download_url: String,
     pub index_url: String,
+    /// The configured suite from sources.list (e.g. `bookworm`).
+    #[serde(default)]
+    pub release: Option<String>,
     /// The Release `Archive` field (e.g. `stable`).
     #[serde(default)]
     pub suite: Option<String>,
+    /// The Release `Codename` field (e.g. `bookworm`).
+    #[serde(default)]
+    pub codename: Option<String>,
     /// The repository component (e.g. `main`).
     #[serde(default)]
     pub component: Option<String>,

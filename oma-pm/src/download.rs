@@ -44,9 +44,11 @@ async fn package_sources(
             };
 
             let target = MirrorTarget {
-                arch: pkg_url.arch.as_deref(),
+                release: pkg_url.release.as_deref(),
+                suite: pkg_url.suite.as_deref(),
+                codename: pkg_url.codename.as_deref(),
                 component: pkg_url.component.as_deref(),
-                release: pkg_url.suite.as_deref(),
+                arch: pkg_url.arch.as_deref(),
                 kind: TargetKind::File("deb"),
                 ..Default::default()
             };
@@ -265,7 +267,9 @@ mod tests {
             let entry = install_entry(PackageUrl {
                 download_url,
                 index_url: source_uri,
+                release: Some("bookworm".to_string()),
                 suite: Some("bookworm".to_string()),
+                codename: None,
                 component: Some("main".to_string()),
                 arch: Some("amd64".to_string()),
             });
@@ -302,7 +306,9 @@ mod tests {
             let entry = install_entry(PackageUrl {
                 download_url: format!("{source_uri}/pool/main/g/go/go_1.0_amd64.deb"),
                 index_url: source_uri,
+                release: None,
                 suite: None,
+                codename: None,
                 component: None,
                 arch: Some("amd64".to_string()),
             });
@@ -333,11 +339,46 @@ mod tests {
     }
 
     #[test]
+    fn uses_configured_release_for_mirror_targeting() {
+        block_on(async {
+            let list_path = temp_path("release.list");
+            std::fs::write(
+                &list_path,
+                "file:/repo-b\tpriority:1\trelease:bookworm\tcomponent:main\tarch:amd64\ttype:deb\n",
+            )
+            .unwrap();
+
+            let source_uri = format!("mirror+file:{}", list_path.display());
+            let entry = install_entry(PackageUrl {
+                download_url: format!("{source_uri}/pool/main/g/go/go.deb"),
+                index_url: source_uri,
+                release: Some("bookworm".to_string()),
+                suite: Some("oldstable".to_string()),
+                codename: Some("bookworm".to_string()),
+                component: Some("main".to_string()),
+                arch: Some("amd64".to_string()),
+            });
+
+            let client: ClientWithMiddleware = Client::new().into();
+            let mut lists = HashMap::default();
+            let (sources, _) = package_sources(&client, &entry, true, &mut lists)
+                .await
+                .unwrap();
+
+            assert_eq!(sources.len(), 1);
+            assert_eq!(sources[0].url, "file:/repo-b/pool/main/g/go/go.deb");
+
+            let _ = std::fs::remove_file(&list_path);
+        });
+    }
+
+    #[test]
     fn keeps_plain_package_urls_as_http_sources() {
         block_on(async {
             let entry = install_entry(PackageUrl {
                 download_url: "https://example.com/pool/main/g/go/go.deb".to_string(),
                 index_url: "https://example.com/debian/".to_string(),
+                release: None,
                 ..Default::default()
             });
 
