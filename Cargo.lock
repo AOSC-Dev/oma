@@ -3568,7 +3568,7 @@ dependencies = [
  "glob-match",
  "jiff",
  "oma-apt",
- "oma-apt-sources-lists",
+ "oma-apt-sources",
  "oma-fetch",
  "oma-logger",
  "oma-pm-operation-type",
