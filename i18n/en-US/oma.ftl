@@ -142,7 +142,7 @@ sha256-bad-length = Malformed SHA256 checksum: bad length.
 can-not-checksum = Failed to parse SHA256 checksum.
 failed-to-open-to-checksum = BUG: Failed to open { $path } for checksum verification. Please report this issue at https://github.com/AOSC-Dev/oma.
 # config
-config-invalid = oma configuration file appears to be missing or broken (/etc/oma.toml)! Falling back to default configuration ...
+config-invalid = oma configuration file appears to be missing or broken ({ $path })! Falling back to default configuration ...
 cleaning = Clearing packages cache ...
 download-failed-with-len = { $len } package(s) failed to download.
 download-failed = Failed to download { $filename }!
@@ -200,7 +200,7 @@ reading-database-with-count = Building index for the package database, { $count 
 has-error-on-top = The operation you specified did not complete successfully. Please refer to the output above for details.
 mirror-is-not-trusted = Mirror { $mirror } is unsigned or not trusted, please check your repository settings.
 please-run-me-as-root = oma requires elevated privileges to perform system administration.
-termux-root-not-allowed = oma must not be run as root on Termux (including via sudo/su). Please run it as the Termux app user.
+termux-root-not-allowed = oma must not be run as root on Termux (or via sudo, su, tsu, etc.). Please run it as the Termux app user.
 topic-not-in-mirror = Topic { $topic } is inaccessible in mirror { $mirror }.
 skip-write-mirror = This is likely because the mirror(s) you specified are not yet synchronized. Skipping this mirror in favor of other options ...
 failed-to-decompress-contents = Failed to decompress contents.

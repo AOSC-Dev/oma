@@ -18,6 +18,8 @@ nix = { workspace = true, features = ["fs"] }
 sysinfo = { workspace = true }
 
 [features]
+# Set by the Termux package build; `is_termux()` returns true.
+termux = []
 dpkg = []
 human-bytes = ["dep:number_prefix"]
 dbus = ["dep:zbus"]

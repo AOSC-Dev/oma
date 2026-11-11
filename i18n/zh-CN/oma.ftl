@@ -139,7 +139,7 @@ sha256-bad-length = SHA256 校验和无效：长度不正确。
 can-not-checksum = 无法解析 SHA256 校验和。
 failed-to-open-to-checksum = BUG：无法打开用于验证校验和的路径 { $path }，请于 https://github.com/AOSC-Dev/oma 报告问题。
 # config
-config-invalid = oma 配置文件 (/etc/oma.toml) 缺失或已损坏！将使用默认配置 ...
+config-invalid = oma 配置文件 ({ $path }) 缺失或已损坏！将使用默认配置 ...
 cleaning = 正在清理本地软件包缓存 ...
 download-failed-with-len = { $len } 个软件包下载失败。
 download-failed = 下载 { $filename } 文件失败！
@@ -195,7 +195,7 @@ reading-database-with-count = 正在为软件包数据库建立索引，已索�
 has-error-on-top = 您指定的操作未成功完成，请查阅上方输出。
 mirror-is-not-trusted = 镜像源 { $mirror } 未签名或不受信任，请检查您的软件源配置。
 please-run-me-as-root = oma 需执行系统管理操作，请使用管理员权限执行 oma 命令。
-termux-root-not-allowed = oma 不能在 Termux 下以 root 身份运行（包括通过 sudo/su），请使用 Termux 应用用户运行。
+termux-root-not-allowed = oma 不能在 Termux 下以 root 身份（或通过 sudo、su 及 tsu 等工具提权）运行，请使用 Termux 应用用户运行。
 topic-not-in-mirror = 测试源 { $topic } 在镜像源 { $mirror } 上不可用。
 skip-write-mirror = 这一般是您指定的镜像源未同步导致的，将尝试从您开启的其他镜像源中刷新测试源信息 ...
 pkexec-tips-1 = 请在弹出的密码框输入密码以授权 oma 执行系统管理操作。
