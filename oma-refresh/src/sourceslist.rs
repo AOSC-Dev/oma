@@ -370,14 +370,13 @@ impl MirrorSource {
             }
         };
 
-        let file_name = if is_release {
-            self.get_download_file_name(Some("Release"))?
-        } else {
-            self.get_download_file_name(Some("InRelease"))?
-        };
+        let file_type = if is_release { "Release" } else { "InRelease" };
+        let file_name = self.get_download_file_name(Some(file_type))?;
+        let msg = self.get_human_download_message(Some(file_type))?;
 
         self.download_file(
             &file_name,
+            &msg,
             resp,
             index,
             total,
@@ -399,10 +398,13 @@ impl MirrorSource {
                 .map_err(|e| SingleDownloadError::ReqwestMiddlewareError { source: e })
                 .map_err(|e| RefreshError::DownloadFailed(Some(e)))?;
 
-            let file_name = self.get_download_file_name(Some("Release.gpg"))?;
+            let file_type = "Release.gpg";
+            let file_name = self.get_download_file_name(Some(file_type))?;
+            let msg = self.get_human_download_message(Some(file_type))?;
 
             self.download_file(
                 &file_name,
+                &msg,
                 resp,
                 index,
                 total,
@@ -454,8 +456,11 @@ impl MirrorSource {
         let inrelease_url = self.get_download_url("InRelease");
         let inrelease_candidates = list.resolve(source_uri, &inrelease_url, &target)?;
 
+        let inrelease_msg = self.get_human_download_message(Some("InRelease"))?;
         let release_name = self.get_download_file_name(Some("Release"))?;
+        let release_msg = self.get_human_download_message(Some("Release"))?;
         let gpg_name = self.get_download_file_name(Some("Release.gpg"))?;
+        let gpg_msg = self.get_human_download_message(Some("Release.gpg"))?;
         let release_url = self.get_download_url("Release");
         let gpg_url = self.get_download_url("Release.gpg");
 
@@ -481,6 +486,7 @@ impl MirrorSource {
                     client,
                     &candidate,
                     &inrelease_name,
+                    &inrelease_msg,
                     index,
                     total,
                     tmp_dir,
@@ -511,6 +517,7 @@ impl MirrorSource {
                     client,
                     &release_candidate,
                     &release_name,
+                    &release_msg,
                     index,
                     total,
                     tmp_dir,
@@ -535,6 +542,7 @@ impl MirrorSource {
                     client,
                     &gpg_candidate,
                     &gpg_name,
+                    &gpg_msg,
                     index,
                     total,
                     tmp_dir,
@@ -579,6 +587,7 @@ impl MirrorSource {
         client: &ClientWithMiddleware,
         candidate: &MirrorCandidate,
         file_name: &str,
+        msg: &str,
         index: usize,
         total: usize,
         tmp_dir: &Path,
@@ -609,6 +618,7 @@ impl MirrorSource {
                 match self
                     .download_file(
                         file_name,
+                        msg,
                         resp,
                         index,
                         total,
@@ -662,6 +672,7 @@ impl MirrorSource {
     async fn download_file(
         &self,
         file_name: &str,
+        msg: &str,
         mut resp: Response,
         index: usize,
         total: usize,
@@ -675,7 +686,7 @@ impl MirrorSource {
             .send_async(Event::DownloadEvent(oma_fetch::Event::NewProgressBar {
                 index,
                 total,
-                msg: self.get_human_download_message(Some(file_name)).unwrap(),
+                msg: msg.to_string(),
                 size: total_size,
             }))
             .await;
@@ -1330,6 +1341,12 @@ fn test_mirror_source_file_names() {
     let sources = MirrorSources::from_sourcelist(&[ose]).unwrap();
     assert_eq!(sources.0.len(), 1);
     assert!(sources.0[0].is_mirror());
+    assert_eq!(
+        sources.0[0]
+            .get_human_download_message(Some("InRelease"))
+            .unwrap(),
+        "/etc/apt/mirrors.list:bookworm InRelease"
+    );
 }
 
 #[tokio::test]
