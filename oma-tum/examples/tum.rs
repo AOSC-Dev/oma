@@ -19,6 +19,7 @@ fn main() {
                     .pkg_urls(vec![PackageUrl {
                         download_url: Default::default(),
                         index_url: Default::default(),
+                        ..Default::default()
                     }])
                     .arch("amd64".to_string())
                     .download_size(0)

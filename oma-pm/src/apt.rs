@@ -1222,9 +1222,15 @@ fn get_package_url(cand: &Version<'_>) -> Vec<PackageUrl> {
                 return None;
             }
 
+            let non_empty =
+                |value: Option<&str>| value.filter(|value| !value.is_empty()).map(str::to_string);
+
             Some(PackageUrl {
                 download_url: pkg_file.index_file().archive_uri(&v.lookup().filename()),
                 index_url: pkg_file.index_file().archive_uri(""),
+                suite: non_empty(pkg_file.archive()),
+                component: non_empty(pkg_file.component()),
+                arch: non_empty(pkg_file.arch()),
             })
         })
         .collect::<Vec<_>>()
