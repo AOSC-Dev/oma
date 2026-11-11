@@ -140,23 +140,16 @@ pub fn is_root() -> bool {
     process::geteuid().is_root()
 }
 
-/// Refuse to run as root when oma is built for Termux.
+/// Refuse to run as root in a Termux build.
 ///
-/// The Termux package enables the `termux` feature. `tsu`/`sudo` run oma
-/// with euid 0 and rebuild the environment, and root-owned files under
-/// `$PREFIX` break subsequent package operations.
-#[cfg(feature = "termux")]
+/// `tsu`/`sudo` run oma with euid 0 and rebuild the environment; root-owned
+/// files under `$PREFIX` break subsequent package operations. `is_termux()`
+/// is a build-time check, so this also covers `tsu`/`sudo`.
 pub fn ensure_not_root_on_termux() -> Result<()> {
-    if is_root() {
+    if is_termux() && is_root() {
         return Err(OutputError::msg(fl!("termux-root-not-allowed")));
     }
 
-    Ok(())
-}
-
-/// No-op for builds that are not explicitly marked as Termux builds.
-#[cfg(not(feature = "termux"))]
-pub fn ensure_not_root_on_termux() -> Result<()> {
     Ok(())
 }
 

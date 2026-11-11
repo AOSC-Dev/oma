@@ -27,9 +27,14 @@ pub mod human_bytes;
 #[cfg(feature = "url-no-escape")]
 pub mod url_no_escape;
 
+/// Whether this build is a Termux build.
+///
+/// The `termux` feature is enabled by the Termux package. Builds without the
+/// feature are treated as non-Termux builds, so source builds for Termux must
+/// pass `--features termux`.
 #[inline]
 pub fn is_termux() -> bool {
-    std::env::var("TERMUX_VERSION").is_ok_and(|v| !v.is_empty())
+    cfg!(feature = "termux")
 }
 
 /// True values are `y`, `yes`, `t`, `true`, `on`, and `1`; false values are
