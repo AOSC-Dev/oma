@@ -4,10 +4,10 @@ use std::{
     io::{self},
     path::{Path, PathBuf},
     process::Command,
-    sync::Arc,
+    sync::{Arc, OnceLock},
 };
 
-use ahash::HashSet;
+use ahash::{HashMap, HashSet};
 use bon::Builder;
 pub use oma_apt::cache::Upgrade;
 use once_cell::sync::OnceCell;
@@ -25,6 +25,7 @@ use oma_apt::{
     util::DiskSpace,
 };
 
+use oma_apt_sources_lists::SourcesLists;
 use oma_fetch::{Event, Summary, checksum::ChecksumError};
 use oma_utils::{GetLockError, dpkg::DpkgError, human_bytes::HumanBytes, is_termux};
 
@@ -1214,6 +1215,79 @@ fn dpkg_exit_status(mut cmd: std::process::Child) -> Result<(), OmaAptError> {
     }
 }
 
+static SOURCE_SUITES: OnceLock<HashMap<String, Vec<String>>> = OnceLock::new();
+
+/// Configured suites from sources.list, keyed by normalized repository URL.
+fn source_suites() -> &'static HashMap<String, Vec<String>> {
+    SOURCE_SUITES.get_or_init(|| {
+        let mut suites: HashMap<String, Vec<String>> = HashMap::default();
+        let list_file = apt_config::find("Dir::Etc::sourcelist".to_string(), String::new());
+        let list_dir = apt_config::find_dir("Dir::Etc::sourceparts".to_string(), String::new());
+
+        let mut paths = Vec::new();
+        if !list_file.is_empty() && Path::new(&list_file).is_file() {
+            paths.push(PathBuf::from(list_file));
+        }
+        if let Ok(dir) = std::fs::read_dir(&list_dir) {
+            for entry in dir.flatten() {
+                let path = entry.path();
+                if path.is_file()
+                    && path
+                        .extension()
+                        .is_some_and(|extension| extension == "list" || extension == "sources")
+                {
+                    paths.push(path);
+                }
+            }
+        }
+
+        let Ok(lists) = SourcesLists::new_from_paths(paths.iter()) else {
+            return suites;
+        };
+
+        for entry in lists.entries().filter(|entry| entry.enabled) {
+            if entry.suite.is_empty() {
+                continue;
+            }
+
+            let url = entry.url.trim_end_matches('/').to_string();
+            let suites_for_url = suites.entry(url).or_default();
+            if !suites_for_url.contains(&entry.suite) {
+                suites_for_url.push(entry.suite.clone());
+            }
+        }
+
+        suites
+    })
+}
+
+/// Pick the configured suite matching a package index source.
+fn configured_release(
+    index_url: &str,
+    archive: Option<&str>,
+    codename: Option<&str>,
+) -> Option<String> {
+    let suites = source_suites().get(index_url.trim_end_matches('/'))?;
+    choose_configured_suite(suites, archive, codename)
+}
+
+fn choose_configured_suite(
+    suites: &[String],
+    archive: Option<&str>,
+    codename: Option<&str>,
+) -> Option<String> {
+    if let [suite] = suites {
+        return Some(suite.clone());
+    }
+
+    let matches = suites
+        .iter()
+        .filter(|suite| Some(suite.as_str()) == archive || Some(suite.as_str()) == codename)
+        .collect::<Vec<_>>();
+
+    (matches.len() == 1).then(|| matches[0].clone())
+}
+
 fn get_package_url(cand: &Version<'_>) -> Vec<PackageUrl> {
     cand.version_files()
         .filter_map(|v| {
@@ -1222,9 +1296,22 @@ fn get_package_url(cand: &Version<'_>) -> Vec<PackageUrl> {
                 return None;
             }
 
+            let non_empty =
+                |value: Option<&str>| value.filter(|value| !value.is_empty()).map(str::to_string);
+
+            let index_url = pkg_file.index_file().archive_uri("");
+            let suite = non_empty(pkg_file.archive());
+            let codename = non_empty(pkg_file.codename());
+            let release = configured_release(&index_url, suite.as_deref(), codename.as_deref());
+
             Some(PackageUrl {
                 download_url: pkg_file.index_file().archive_uri(&v.lookup().filename()),
-                index_url: pkg_file.index_file().archive_uri(""),
+                index_url,
+                release,
+                suite,
+                codename,
+                component: non_empty(pkg_file.component()),
+                arch: non_empty(pkg_file.arch()),
             })
         })
         .collect::<Vec<_>>()
@@ -1586,4 +1673,32 @@ fn broken_pkg(cache: &Cache, pkg: &Package, now: bool) -> Vec<Vec<BrokenPackage>
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chooses_configured_suite_only_when_unambiguous() {
+        let one = vec!["bookworm".to_string()];
+        assert_eq!(
+            choose_configured_suite(&one, None, None),
+            Some("bookworm".to_string())
+        );
+
+        let many = vec!["bookworm".to_string(), "trixie".to_string()];
+        assert_eq!(
+            choose_configured_suite(&many, Some("oldstable"), Some("bookworm")),
+            Some("bookworm".to_string())
+        );
+        assert_eq!(
+            choose_configured_suite(&many, Some("oldstable"), None),
+            None
+        );
+        assert_eq!(
+            choose_configured_suite(&many, Some("bookworm"), Some("bookworm")),
+            Some("bookworm".to_string())
+        );
+    }
 }
