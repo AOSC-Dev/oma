@@ -3420,6 +3420,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "oma-apt-sources"
+version = "0.1.0"
+dependencies = [
+ "oma-apt-sources-lists",
+ "once_cell",
+]
+
+[[package]]
 name = "oma-apt-sources-lists"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"

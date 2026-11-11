@@ -1,0 +1,263 @@
+//! Load apt sources.list entries with a process-wide cache.
+
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
+
+use oma_apt_sources_lists::{SourceLine, SourceListType, SourcesList};
+use once_cell::sync::OnceCell;
+
+pub use oma_apt_sources_lists::SourceEntry;
+
+#[derive(Debug)]
+pub struct ConfiguredSources {
+    entries: Vec<SourceEntry>,
+    suites_by_url: HashMap<String, Vec<String>>,
+}
+
+impl ConfiguredSources {
+    /// Parse enabled entries from the given source-list paths.
+    ///
+    /// `on_unknown_file` is called for files that cannot be parsed as an
+    /// `apt` sources list, matching apt's `UnknownFile` handling.
+    pub fn from_paths<G>(paths: &[PathBuf], mut on_unknown_file: G) -> Self
+    where
+        G: FnMut(&Path),
+    {
+        let mut entries = Vec::new();
+
+        for path in paths {
+            let Ok(list) = SourcesList::new(path) else {
+                on_unknown_file(path);
+                continue;
+            };
+
+            let parsed: Box<dyn Iterator<Item = SourceEntry>> = match list.entries {
+                SourceListType::SourceLine(lines) => {
+                    Box::new(lines.0.into_iter().filter_map(|line| {
+                        if let SourceLine::Entry(entry) = line {
+                            Some(entry)
+                        } else {
+                            None
+                        }
+                    }))
+                }
+                SourceListType::Deb822(deb822) => Box::new(deb822.entries.into_iter()),
+            };
+
+            entries.extend(parsed.filter(|entry| entry.enabled));
+        }
+
+        Self::from_entries(entries)
+    }
+
+    fn from_entries(entries: Vec<SourceEntry>) -> Self {
+        let mut suites_by_url: HashMap<String, Vec<String>> = HashMap::new();
+
+        for entry in &entries {
+            if entry.suite.is_empty() {
+                continue;
+            }
+
+            let url = normalize_url(&entry.url).to_string();
+            let suites = suites_by_url.entry(url).or_default();
+            if !suites.contains(&entry.suite) {
+                suites.push(entry.suite.clone());
+            }
+        }
+
+        Self {
+            entries,
+            suites_by_url,
+        }
+    }
+
+    pub fn entries(&self) -> &[SourceEntry] {
+        &self.entries
+    }
+
+    /// Return the configured suite for a repository URL.
+    ///
+    /// A URL may be configured with several suites. In that case the
+    /// Release `Archive`/`Codename` are used to disambiguate; if they do not
+    /// identify exactly one suite, no configured suite is returned.
+    pub fn suite_for(
+        &self,
+        url: &str,
+        archive: Option<&str>,
+        codename: Option<&str>,
+    ) -> Option<&str> {
+        let suites = self.suites_by_url.get(normalize_url(url))?;
+        if let [suite] = suites.as_slice() {
+            return Some(suite);
+        }
+
+        let mut matches = suites
+            .iter()
+            .filter(|suite| Some(suite.as_str()) == archive || Some(suite.as_str()) == codename);
+        let first = matches.next()?;
+
+        matches.next().is_none().then_some(first)
+    }
+}
+
+fn normalize_url(url: &str) -> &str {
+    url.trim_end_matches('/')
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+struct SourcePaths {
+    list_file: String,
+    list_dir: String,
+}
+
+static CACHE: OnceCell<Mutex<HashMap<SourcePaths, Arc<ConfiguredSources>>>> = OnceCell::new();
+
+/// Scan the configured sources.list paths.
+///
+/// Like APT's `GetListOfFilesInDir`, this includes the configured
+/// `sourcelist` file and every regular file under `sourceparts`.
+pub fn scan_sources_list_paths(
+    list_file: impl AsRef<str>,
+    list_dir: impl AsRef<str>,
+) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    let default = Path::new(list_file.as_ref());
+    let list_dir_path = Path::new(list_dir.as_ref());
+
+    if default.exists() {
+        paths.push(default.to_path_buf());
+    }
+
+    if list_dir_path.exists()
+        && let Ok(dir) = std::fs::read_dir(list_dir_path)
+    {
+        for entry in dir.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                paths.push(path);
+            }
+        }
+    }
+
+    paths
+}
+
+/// Load and cache the configured sources for a `sourcelist`/`sourceparts`
+/// pair.
+pub fn configured_sources(
+    list_file: impl Into<String>,
+    list_dir: impl Into<String>,
+) -> Arc<ConfiguredSources> {
+    let key = SourcePaths {
+        list_file: list_file.into(),
+        list_dir: list_dir.into(),
+    };
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut cache = cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    if let Some(sources) = cache.get(&key) {
+        return Arc::clone(sources);
+    }
+
+    let paths = scan_sources_list_paths(&key.list_file, &key.list_dir);
+    let sources = Arc::new(ConfiguredSources::from_paths(&paths, |_| {}));
+    cache.insert(key, Arc::clone(&sources));
+
+    sources
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "oma-apt-sources-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn loads_caches_and_queries_entries() {
+        let dir = temp_dir();
+        std::fs::create_dir_all(&dir).unwrap();
+        let list = dir.join("sources.list");
+        std::fs::write(
+            &list,
+            "deb http://example.com/debian bookworm main\ndeb-src http://example.com/debian bookworm main\n",
+        )
+        .unwrap();
+
+        let path = list.to_string_lossy().to_string();
+        let missing_dir = dir.join("missing").to_string_lossy().to_string();
+        let first = configured_sources(path.clone(), missing_dir.clone());
+        assert_eq!(first.entries().len(), 2);
+        assert_eq!(
+            first.suite_for("http://example.com/debian", None, None),
+            Some("bookworm")
+        );
+
+        std::fs::write(&list, "deb http://example.com/debian trixie main\n").unwrap();
+        let second = configured_sources(path, missing_dir);
+        assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(
+            second.suite_for("http://example.com/debian", None, None),
+            Some("bookworm")
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn disambiguates_multiple_suites_with_release_metadata() {
+        let sources = ConfiguredSources::from_entries(vec![
+            SourceEntry {
+                enabled: true,
+                source: false,
+                options: vec![],
+                url: "http://example.com/debian/".to_string(),
+                suite: "bookworm".to_string(),
+                components: vec!["main".to_string()],
+                is_deb822: false,
+                archs: None,
+                signed_by: None,
+                trusted: false,
+            },
+            SourceEntry {
+                enabled: true,
+                source: false,
+                options: vec![],
+                url: "http://example.com/debian".to_string(),
+                suite: "trixie".to_string(),
+                components: vec!["main".to_string()],
+                is_deb822: false,
+                archs: None,
+                signed_by: None,
+                trusted: false,
+            },
+        ]);
+
+        assert_eq!(
+            sources.suite_for(
+                "http://example.com/debian/",
+                Some("oldstable"),
+                Some("bookworm")
+            ),
+            Some("bookworm")
+        );
+        assert_eq!(
+            sources.suite_for("http://example.com/debian", Some("oldstable"), None),
+            None
+        );
+    }
+}
