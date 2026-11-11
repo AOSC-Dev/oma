@@ -3567,6 +3567,7 @@ dependencies = [
  "oma-utils",
  "once_cell",
  "reqwest-middleware",
+ "rustls",
  "serde",
  "sysinfo",
  "thiserror 2.0.21",
