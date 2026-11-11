@@ -1351,10 +1351,6 @@ fn test_mirror_source_file_names() {
 
 #[tokio::test]
 async fn test_mirror_release_from_local_mirror() {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .ok();
-
     let root = std::env::temp_dir().join(format!(
         "oma-refresh-mirror-release-{}-{}",
         std::process::id(),
@@ -1419,10 +1415,6 @@ async fn test_mirror_release_from_local_mirror() {
 
 #[tokio::test]
 async fn test_flat_mirror_release_requires_signature() {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .ok();
-
     let root = std::env::temp_dir().join(format!(
         "oma-refresh-flat-mirror-sig-{}-{}",
         std::process::id(),

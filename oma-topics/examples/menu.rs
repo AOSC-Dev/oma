@@ -11,10 +11,6 @@ use oma_topics::{OmaTopicsError, Result};
 use reqwest::Client;
 
 fn main() -> Result<()> {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .expect("Failed to install rustls crypto provider");
-
     let client = Client::builder()
         .user_agent("oma")
         .build()

@@ -9,10 +9,6 @@ use tokio::{
 };
 
 fn client() -> ClientWithMiddleware {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .ok();
-
     ClientBuilder::new().build().unwrap().into()
 }
 

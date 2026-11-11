@@ -12,10 +12,6 @@ reqwest = { workspace = true, default-features = false, features = [
     "http2",
     "stream",
 ] }
-rustls = { workspace = true, default-features = false, features = [
-    "ring",
-    "tls12",
-], optional = true }
 tokio = { workspace = true, default-features = false, features = ["fs"] }
 serde = { workspace = true, features = ["derive"] }
 faster-hex = { workspace = true }
@@ -57,7 +53,7 @@ tokio = { workspace = true, features = [
 flume = { workspace = true }
 
 [features]
-rustls = ["reqwest/rustls-no-provider", "dep:rustls"]
+rustls = ["reqwest/default-tls"]
 native-tls = ["reqwest/native-tls"]
 default = ["rustls"]
 xz-parallel = ["async-compression/xz-parallel"]

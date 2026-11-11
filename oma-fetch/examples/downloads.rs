@@ -8,10 +8,6 @@ use reqwest::ClientBuilder;
 
 #[tokio::main]
 async fn main() {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .unwrap();
-
     let source_1 = DownloadSource {
         url: "https://mirrors.jlu.edu.cn/anthon/aosc-os/os-amd64/base/aosc-os_base_20260312_amd64.squashfs".to_string(),
         source_type: DownloadSourceType::Http,

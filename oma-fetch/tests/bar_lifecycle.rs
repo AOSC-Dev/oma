@@ -32,10 +32,6 @@ async fn stall_server() -> u16 {
 /// terminal show more progress entries than there are worker threads.
 #[tokio::test]
 async fn every_bar_is_closed_on_request_timeout() {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .unwrap();
-
     let port = stall_server().await;
     let source = DownloadSource {
         url: format!("http://127.0.0.1:{port}/pkg.deb"),
