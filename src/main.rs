@@ -178,20 +178,19 @@ fn main() {
     // 要适配额外的插件子命令，所以这里要保留 matches
     let (matches, oma) = parse_args();
 
-    // oma manages the Termux prefix as the app user. `tsu`/`sudo` run it as
-    // root with a rebuilt environment that drops TERMUX_VERSION, so refuse
-    // before the logger or apt config can create root-owned files under
-    // $PREFIX.
-    if let Err(e) = crate::root::ensure_not_root_on_termux() {
-        eprintln!("ERROR: {e}");
-        exit(1);
-    }
-
     #[cfg(feature = "tokio-console")]
     console_subscriber::init();
 
     #[cfg(not(feature = "tokio-console"))]
     let file = init_logger(&oma);
+
+    // oma manages the Termux prefix as the app user. `tsu`/`sudo` run it as
+    // root with a rebuilt environment; refuse before apt config or package
+    // operations can create root-owned files under $PREFIX.
+    if let Err(e) = crate::root::ensure_not_root_on_termux() {
+        log_error!("{e}");
+        exit(1);
+    }
 
     debug!(
         "Run oma with args: {} (pid: {})",
