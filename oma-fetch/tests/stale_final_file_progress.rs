@@ -36,10 +36,6 @@ async fn http_server(payload: Vec<u8>) -> u16 {
 /// inflate the global progress bar; its bytes are undone before re-download.
 #[tokio::test]
 async fn global_progress_not_inflated_by_stale_final_file() {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .unwrap();
-
     let payload = b"hello world".to_vec();
     let port = http_server(payload.clone()).await;
 

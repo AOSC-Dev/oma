@@ -12,10 +12,6 @@ reqwest = { workspace = true, features = [
     "json",
     "http2",
 ], default-features = false }
-rustls = { workspace = true, default-features = false, features = [
-    "ring",
-    "tls12",
-], optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { workspace = true, default-features = false, features = [
@@ -36,6 +32,6 @@ flume = { workspace = true }
 oma-inquire = { workspace = true }
 
 [features]
-rustls = ["reqwest/rustls-no-provider", "dep:rustls"]
+rustls = ["reqwest/default-tls"]
 native-tls = ["reqwest/native-tls"]
 default = ["rustls"]

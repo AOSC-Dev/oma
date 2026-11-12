@@ -48,7 +48,6 @@ pub struct OmaConfig {
     http_client: OnceCell<ClientWithMiddleware>,
     #[cfg(feature = "aosc")]
     http_client_blocking: OnceCell<reqwest::blocking::Client>,
-    rustls_crypto_provider: OnceCell<()>,
     pub amo: bool,
     apt_config: OnceLock<Arc<AptConfig>>,
 }
@@ -79,7 +78,6 @@ impl Default for OmaConfig {
             yn_mode: GeneralConfig::default_yn_mode(),
             subcmd: None,
             http_client: OnceCell::new(),
-            rustls_crypto_provider: OnceCell::new(),
             #[cfg(feature = "aosc")]
             http_client_blocking: OnceCell::new(),
             amo: GeneralConfig::default_amo(),
@@ -280,18 +278,8 @@ impl OmaConfig {
             .expect("AptConfig not initialized — call init_apt_config first")
     }
 
-    fn init_tls_config(&self) {
-        self.rustls_crypto_provider.get_or_init(|| {
-            #[cfg(feature = "rustls")]
-            rustls::crypto::ring::default_provider()
-                .install_default()
-                .expect("Failed to install rustls crypto provider");
-        });
-    }
-
     pub fn http_client(&self) -> Result<&ClientWithMiddleware, reqwest::Error> {
         self.http_client.get_or_try_init(|| {
-            self.init_tls_config();
             let auth = AuthConfig::system(&self.sysroot).ok();
 
             Client::builder()
@@ -312,7 +300,6 @@ impl OmaConfig {
     #[cfg(feature = "aosc")]
     pub fn http_client_blocking(&self) -> Result<&reqwest::blocking::Client, reqwest::Error> {
         self.http_client_blocking.get_or_try_init(|| {
-            self.init_tls_config();
             reqwest::blocking::Client::builder()
                 .user_agent(self.user_agent.as_ref())
                 .build()

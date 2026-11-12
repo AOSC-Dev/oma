@@ -5,9 +5,6 @@ use oma_refresh::db::{Event, OmaRefresh, RefreshError};
 use oma_utils::dpkg::dpkg_arch;
 
 fn main() -> Result<(), RefreshError> {
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .unwrap();
     let p = Path::new("./oma-fetcher-test");
     std::fs::create_dir_all(p).unwrap();
     let client = ClientBuilder::new().user_agent("oma").build().unwrap();

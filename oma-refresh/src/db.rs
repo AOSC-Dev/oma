@@ -1194,10 +1194,6 @@ mod tests {
 
     #[test]
     fn refresh_local_mirror_end_to_end() {
-        rustls::crypto::ring::default_provider()
-            .install_default()
-            .ok();
-
         let root = std::env::temp_dir().join(format!(
             "oma-refresh-e2e-{}-{}",
             std::process::id(),
