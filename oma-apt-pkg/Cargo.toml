@@ -24,7 +24,7 @@ apt-lists = [
     "dep:rayon",
     "dep:debversion",
 ]
-apt-sources = ["apt-config", "filename", "dep:oma-apt-sources-lists"]
+apt-sources = ["apt-config", "filename", "dep:oma-apt-sources"]
 dpkg-status = []
 filename = ["dep:aho-corasick", "dep:url"]
 search-indicium = [
@@ -58,7 +58,7 @@ search = ["search-indicium", "search-strsim", "search-text"]
 [dependencies]
 deb822-fast = { workspace = true }
 debian-control = { workspace = true }
-oma-apt-sources-lists = { workspace = true, optional = true }
+oma-apt-sources = { workspace = true, optional = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 rkyv = { workspace = true, optional = true }

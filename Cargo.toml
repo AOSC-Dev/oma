@@ -228,6 +228,7 @@ apt-auth-config = { version = "0.6.1", path = "./apt-auth-config" }
 oma-tum = { version = "0.6.2", path = "./oma-tum" }
 oma-pm-operation-type = { version = "0.10.2", path = "./oma-pm-operation-type" }
 oma-apt-pkg = { version = "0.4", path = "./oma-apt-pkg", default-features = false }
+oma-apt-sources = { version = "0.1", path = "oma-apt-sources" }
 oma-apt = "0.14"
 oma-apt-sources-lists = "0.9"
 oma-inquire = "0.6"
@@ -270,6 +271,7 @@ default = ["aosc", "nice-setup"]
 [workspace]
 members = [
     "oma-apt-pkg",
+    "oma-apt-sources",
     "oma-contents",
     "oma-console",
     "oma-pager",
