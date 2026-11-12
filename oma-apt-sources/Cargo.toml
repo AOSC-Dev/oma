@@ -1,0 +1,10 @@
+[package]
+name = "oma-apt-sources"
+version = "0.1.0"
+edition = "2024"
+description = "Load and cache apt sources.list entries"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+oma-apt-sources-lists.workspace = true
+once_cell.workspace = true

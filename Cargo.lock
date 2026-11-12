@@ -3459,7 +3459,7 @@ dependencies = [
  "liblzma",
  "memchr",
  "memmap2",
- "oma-apt-sources-lists",
+ "oma-apt-sources",
  "oma-logger",
  "rayon",
  "rkyv",
@@ -3472,6 +3472,14 @@ dependencies = [
  "tree-sitter-apt-config",
  "url",
  "zstd 0.14.3",
+]
+
+[[package]]
+name = "oma-apt-sources"
+version = "0.1.0"
+dependencies = [
+ "oma-apt-sources-lists",
+ "once_cell",
 ]
 
 [[package]]
@@ -3614,13 +3622,14 @@ dependencies = [
  "glob-match",
  "jiff",
  "oma-apt",
- "oma-apt-sources-lists",
+ "oma-apt-sources",
  "oma-fetch",
  "oma-logger",
  "oma-pm-operation-type",
  "oma-utils",
  "once_cell",
  "reqwest-middleware",
+ "rustls",
  "serde",
  "sysinfo",
  "thiserror 2.0.21",
