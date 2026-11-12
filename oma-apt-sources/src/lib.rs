@@ -2,8 +2,10 @@
 
 use std::{
     collections::HashMap,
+    io,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
+    time::SystemTime,
 };
 
 use oma_apt_sources_lists::{SourceLine, SourceListType, SourcesList};
@@ -113,7 +115,33 @@ struct SourcePaths {
     list_dir: String,
 }
 
-static CACHE: OnceCell<Mutex<HashMap<SourcePaths, Arc<ConfiguredSources>>>> = OnceCell::new();
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct SourceFingerprint {
+    path: PathBuf,
+    modified: SystemTime,
+    len: u64,
+}
+
+struct CachedSources {
+    fingerprint: Vec<SourceFingerprint>,
+    sources: Arc<ConfiguredSources>,
+}
+
+static CACHE: OnceCell<Mutex<HashMap<SourcePaths, CachedSources>>> = OnceCell::new();
+
+fn source_fingerprint(paths: &[PathBuf]) -> io::Result<Vec<SourceFingerprint>> {
+    paths
+        .iter()
+        .map(|path| {
+            let metadata = std::fs::metadata(path)?;
+            Ok(SourceFingerprint {
+                path: path.clone(),
+                modified: metadata.modified()?,
+                len: metadata.len(),
+            })
+        })
+        .collect()
+}
 
 /// Scan the configured sources.list paths.
 ///
@@ -160,13 +188,31 @@ pub fn configured_sources(
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    if let Some(sources) = cache.get(&key) {
-        return Arc::clone(sources);
+    let paths = scan_sources_list_paths(&key.list_file, &key.list_dir);
+    let fingerprint = source_fingerprint(&paths);
+
+    if let Ok(fingerprint) = &fingerprint
+        && let Some(cached) = cache.get(&key)
+        && cached.fingerprint == *fingerprint
+    {
+        return Arc::clone(&cached.sources);
     }
 
-    let paths = scan_sources_list_paths(&key.list_file, &key.list_dir);
     let sources = Arc::new(ConfiguredSources::from_paths(&paths, |_| {}));
-    cache.insert(key, Arc::clone(&sources));
+
+    // If any source file cannot be fingerprinted, do not cache the result:
+    // the next call must try the files again instead of serving stale data.
+    if let Ok(fingerprint) = fingerprint {
+        cache.insert(
+            key,
+            CachedSources {
+                fingerprint,
+                sources: Arc::clone(&sources),
+            },
+        );
+    } else {
+        cache.remove(&key);
+    }
 
     sources
 }
@@ -207,15 +253,25 @@ mod tests {
             Some("bookworm")
         );
 
+        let cached = configured_sources(path.clone(), missing_dir.clone());
+        assert!(Arc::ptr_eq(&first, &cached));
+
         std::fs::write(&list, "deb http://example.com/debian trixie main\n").unwrap();
-        let second = configured_sources(path, missing_dir);
-        assert!(Arc::ptr_eq(&first, &second));
+        let reloaded = configured_sources(path, missing_dir);
+        assert!(!Arc::ptr_eq(&first, &reloaded));
+        assert_eq!(reloaded.entries().len(), 1);
         assert_eq!(
-            second.suite_for("http://example.com/debian", None, None),
-            Some("bookworm")
+            reloaded.suite_for("http://example.com/debian", None, None),
+            Some("trixie")
         );
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fingerprint_reports_metadata_errors() {
+        let missing = temp_dir().join("missing");
+        assert!(source_fingerprint(&[missing]).is_err());
     }
 
     #[test]
