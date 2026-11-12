@@ -225,19 +225,6 @@ mod tests {
         tokio::runtime::Runtime::new().unwrap().block_on(future)
     }
 
-    fn test_client() -> ClientWithMiddleware {
-        use std::sync::Once;
-
-        static INSTALL_PROVIDER: Once = Once::new();
-        INSTALL_PROVIDER.call_once(|| {
-            rustls::crypto::ring::default_provider()
-                .install_default()
-                .ok();
-        });
-
-        Client::new().into()
-    }
-
     fn temp_path(name: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!(
             "oma-pm-mirror-download-{}-{}-{name}",
@@ -287,7 +274,7 @@ mod tests {
                 arch: Some("amd64".to_string()),
             });
 
-            let client = test_client();
+            let client: ClientWithMiddleware = Client::new().into();
             let mut lists = HashMap::default();
             let (sources, is_mirror) = package_sources(&client, &entry, true, &mut lists)
                 .await
@@ -331,7 +318,7 @@ mod tests {
             let (tx, _rx) = flume::unbounded();
 
             let summary = download_pkgs(
-                test_client(),
+                Client::new().into(),
                 Arc::from(vec![entry]),
                 DownloadConfig {
                     network_thread: Some(1),
@@ -372,7 +359,7 @@ mod tests {
                 arch: Some("amd64".to_string()),
             });
 
-            let client = test_client();
+            let client: ClientWithMiddleware = Client::new().into();
             let mut lists = HashMap::default();
             let (sources, _) = package_sources(&client, &entry, true, &mut lists)
                 .await
@@ -395,7 +382,7 @@ mod tests {
                 ..Default::default()
             });
 
-            let client = test_client();
+            let client: ClientWithMiddleware = Client::new().into();
             let mut lists = HashMap::default();
             let (sources, is_mirror) = package_sources(&client, &entry, true, &mut lists)
                 .await

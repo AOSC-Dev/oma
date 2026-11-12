@@ -41,7 +41,6 @@ anyhow = { workspace = true }
 
 [dev-dependencies]
 flume = { workspace = true }
-rustls = { workspace = true, features = ["ring", "tls12"] }
 
 [features]
 aosc = ["dep:sysinfo"]
