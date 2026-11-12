@@ -16,7 +16,6 @@ pub use oma_apt_sources_lists::SourceEntry;
 #[derive(Debug)]
 pub struct ConfiguredSources {
     entries: Vec<SourceEntry>,
-    suites_by_url: HashMap<String, Vec<String>>,
 }
 
 impl ConfiguredSources {
@@ -56,24 +55,7 @@ impl ConfiguredSources {
     }
 
     fn from_entries(entries: Vec<SourceEntry>) -> Self {
-        let mut suites_by_url: HashMap<String, Vec<String>> = HashMap::new();
-
-        for entry in &entries {
-            if entry.suite.is_empty() {
-                continue;
-            }
-
-            let url = normalize_url(&entry.url).to_string();
-            let suites = suites_by_url.entry(url).or_default();
-            if !suites.contains(&entry.suite) {
-                suites.push(entry.suite.clone());
-            }
-        }
-
-        Self {
-            entries,
-            suites_by_url,
-        }
+        Self { entries }
     }
 
     pub fn entries(&self) -> &[SourceEntry] {
@@ -91,14 +73,26 @@ impl ConfiguredSources {
         archive: Option<&str>,
         codename: Option<&str>,
     ) -> Option<&str> {
-        let suites = self.suites_by_url.get(normalize_url(url))?;
+        let url = normalize_url(url);
+        let mut suites = Vec::new();
+
+        for entry in &self.entries {
+            if normalize_url(&entry.url) == url
+                && !entry.suite.is_empty()
+                && !suites.contains(&entry.suite.as_str())
+            {
+                suites.push(entry.suite.as_str());
+            }
+        }
+
         if let [suite] = suites.as_slice() {
             return Some(suite);
         }
 
         let mut matches = suites
             .iter()
-            .filter(|suite| Some(suite.as_str()) == archive || Some(suite.as_str()) == codename);
+            .copied()
+            .filter(|suite| Some(*suite) == archive || Some(*suite) == codename);
         let first = matches.next()?;
 
         matches.next().is_none().then_some(first)
