@@ -59,21 +59,38 @@ impl SourceLookup {
     /// architecture plus `binary-all`, and the flat `Packages` for flat
     /// repositories.
     ///
-    /// `archs` come from [`AptConfig::architectures`](crate::AptConfig::architectures);
+    /// `apt_cfg` supplies the `Acquire::IndexTargets` templates; `archs`
+    /// come from [`AptConfig::architectures`](crate::AptConfig::architectures).
     /// `binary-all` is always included, like apt. The lists filename is the
     /// `URItoFileName` encoding of the index URI, so a parser reads exactly
     /// the files in this list that exist under `Dir::State::lists` — lists
     /// files that no configured source produces are never read.
     #[cfg(feature = "apt-lists")]
-    pub fn index_files(&self, archs: &[String]) -> Vec<(String, IndexSource)> {
+    pub fn index_files(&self, apt_cfg: &AptConfig, archs: &[String]) -> Vec<(String, IndexSource)> {
         let cvt = AptListFilename::new();
+        let templates = IndexTargetTemplates::new(apt_cfg);
+        let Some(package_key) = templates
+            .get_enabled_keys("Acquire::IndexTargets::deb")
+            .into_iter()
+            .find(|key| key.ends_with("::Packages"))
+        else {
+            return Vec::new();
+        };
+        let meta_key = apt_cfg.get(&format!("{package_key}::MetaKey"), "");
+        let flat_meta_key = apt_cfg.get(&format!("{package_key}::flatMetaKey"), "");
+        let native_arch = apt_cfg.get("APT::Architecture", "");
+
         let mut out = Vec::new();
         for entry in self.sources.entries() {
             let base = entry.url().trim_end_matches('/');
             let suite = entry.suite.trim_end_matches('/');
             if entry.components.is_empty() {
                 // Flat repository: the index lives at the repository root.
-                let uri = format!("{base}/Packages");
+                if flat_meta_key.is_empty() {
+                    continue;
+                }
+                let path = substitute(&flat_meta_key, suite, "", "", "", &native_arch);
+                let uri = format!("{base}/{path}");
                 if let Ok(filename) = cvt.encode(&uri) {
                     out.push((
                         filename,
@@ -87,13 +104,18 @@ impl SourceLookup {
                 }
                 continue;
             }
+
+            if meta_key.is_empty() {
+                continue;
+            }
             for component in &entry.components {
                 for arch in archs
                     .iter()
                     .map(|a| a.as_str())
                     .chain(std::iter::once("all"))
                 {
-                    let uri = format!("{base}/dists/{suite}/{component}/binary-{arch}/Packages");
+                    let path = substitute(&meta_key, suite, component, arch, "", &native_arch);
+                    let uri = format!("{base}/dists/{suite}/{path}");
                     if let Ok(filename) = cvt.encode(&uri) {
                         out.push((
                             filename,
@@ -268,36 +290,102 @@ pub fn substitute(
     }
 }
 
-/// The variables that made a template match, borrowed from the input
-/// `archs`/`components`/`langs` slices — no allocation per match.
-#[derive(Debug, Clone)]
-pub struct MatchResult<'a> {
-    pub arch: &'a str,
-    pub component: &'a str,
-    pub lang: &'a str,
+fn target_metadata(
+    template: &str,
+    arch: &str,
+    component: &str,
+    lang: &str,
+    native_arch: &str,
+) -> (String, String, String) {
+    (
+        if template.contains("$(ARCHITECTURE)") {
+            arch.to_string()
+        } else if template.contains("$(NATIVE_ARCHITECTURE)") {
+            native_arch.to_string()
+        } else {
+            String::new()
+        },
+        if template.contains("$(COMPONENT)") {
+            component.to_string()
+        } else {
+            String::new()
+        },
+        if template.contains("$(LANGUAGE)") {
+            lang.to_string()
+        } else {
+            String::new()
+        },
+    )
+}
+
+/// An IndexTarget template match.
+///
+/// Carries both the variables used to substitute the template and the
+/// `Target-*` metadata apt attaches to the request. Target metadata is
+/// set only when the corresponding placeholder appears in the template.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct MatchResult {
+    pub arch: String,
+    pub component: String,
+    pub language: String,
+}
+
+impl MatchResult {
+    /// Build a match from known template variables, without a filename
+    /// match. Used for flat repositories, where the target has no
+    /// architecture dimension.
+    pub fn from_template(
+        template: &str,
+        arch: &str,
+        component: &str,
+        lang: &str,
+        native_arch: &str,
+    ) -> Self {
+        let (arch, component, language) =
+            target_metadata(template, arch, component, lang, native_arch);
+        Self {
+            arch,
+            component,
+            language,
+        }
+    }
+
+    pub fn target_arch(&self) -> Option<&str> {
+        (!self.arch.is_empty()).then_some(self.arch.as_str())
+    }
+
+    pub fn target_component(&self) -> Option<&str> {
+        (!self.component.is_empty()).then_some(self.component.as_str())
+    }
+
+    pub fn target_language(&self) -> Option<&str> {
+        (!self.language.is_empty()).then_some(self.language.as_str())
+    }
 }
 
 /// Try all combinations of `release x archs × components × langs` and return every
 /// set of variables for which the template matches.
-pub fn find_matching_combinations<'a>(
+pub fn find_matching_combinations(
     template: &str,
     release: &str,
     filename: &str,
-    archs: &[&'a str],
-    components: &[&'a str],
-    langs: &[&'a str],
+    archs: &[&str],
+    components: &[&str],
+    langs: &[&str],
     native_arch: &str,
-) -> Vec<MatchResult<'a>> {
+) -> Vec<MatchResult> {
     let mut results = Vec::new();
     for &a in archs {
         for &comp in components {
             for &lang in langs {
                 if substitute(template, release, comp, a, lang, native_arch) == filename {
-                    results.push(MatchResult {
-                        arch: a,
-                        component: comp,
+                    results.push(MatchResult::from_template(
+                        template,
+                        a,
+                        comp,
                         lang,
-                    });
+                        native_arch,
+                    ));
                 }
             }
         }
@@ -322,6 +410,12 @@ mod tests {
     use super::*;
 
     /// Build a `SourceLookup` from a single `.sources` (deb822) file.
+    fn apt_cfg() -> AptConfig {
+        let mut cfg = AptConfig::new();
+        cfg.init_defaults().unwrap();
+        cfg
+    }
+
     fn lookup_from(text: &str) -> SourceLookup {
         let dir = tempfile::tempdir().unwrap();
         let list = dir.path().join("test.sources");
@@ -352,7 +446,7 @@ mod tests {
         assert_eq!(lookup.entries().len(), 2);
 
         let archs = vec!["amd64".to_string()];
-        let files = lookup.index_files(&archs);
+        let files = lookup.index_files(&apt_cfg(), &archs);
 
         // Every suite × (amd64, all) produces one lists filename, all
         // sharing the base URL but carrying their own suite/arch.
@@ -383,5 +477,46 @@ mod tests {
         // No orphan suite is ever generated: files come only from the
         // configured sources, so removed/disabled suites leave no traces.
         assert!(files.iter().all(|(_, s)| s.suite != "removed-suite"));
+    }
+    #[test]
+    fn match_result_follows_template_placeholders() {
+        let arch = MatchResult::from_template(
+            "main/binary-$(ARCHITECTURE)/Packages",
+            "amd64",
+            "main",
+            "",
+            "amd64",
+        );
+        assert_eq!(arch.target_arch(), Some("amd64"));
+        assert_eq!(arch.target_component(), None);
+        assert_eq!(arch.target_language(), None);
+
+        let component = MatchResult::from_template(
+            "$(COMPONENT)/binary-$(ARCHITECTURE)/Packages",
+            "amd64",
+            "main",
+            "",
+            "amd64",
+        );
+        assert_eq!(component.target_component(), Some("main"));
+
+        let language = MatchResult::from_template(
+            "main/i18n/Translation-$(LANGUAGE)",
+            "amd64",
+            "main",
+            "zh_CN",
+            "amd64",
+        );
+        assert_eq!(language.target_language(), Some("zh_CN"));
+        assert_eq!(language.target_arch(), None);
+
+        let native =
+            MatchResult::from_template("Packages-$(NATIVE_ARCHITECTURE)", "arm64", "", "", "amd64");
+        assert_eq!(native.target_arch(), Some("amd64"));
+
+        let plain = MatchResult::from_template("Sources", "amd64", "main", "zh_CN", "amd64");
+        assert_eq!(plain.target_arch(), None);
+        assert_eq!(plain.target_component(), None);
+        assert_eq!(plain.target_language(), None);
     }
 }

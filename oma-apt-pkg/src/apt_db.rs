@@ -663,7 +663,7 @@ impl AptDb {
                 .map(cache::from_archived::<CacheFile>)
                 .collect();
 
-            if cache::valid(&cache_path, &lists_dir, &lookup, &archs, &files) {
+            if cache::valid(&cache_path, &lists_dir, &lookup, apt_cfg, &archs, &files) {
                 let native_arch = archived.archived().native_arch.to_string();
                 debug!("oma packages database cache hit: {}", cache_path);
                 return Ok(Self {
@@ -676,8 +676,9 @@ impl AptDb {
 
         debug!("oma packages database cache miss: {}", cache_path);
 
-        let (entries, sources) = parse_apt_lists_dir_with_sources(&lists_dir, &lookup, &archs)?;
-        let files = cache::collect(&lists_dir, &lookup, &archs);
+        let (entries, sources) =
+            parse_apt_lists_dir_with_sources(&lists_dir, &lookup, apt_cfg, &archs)?;
+        let files = cache::collect(&lists_dir, &lookup, apt_cfg, &archs);
         let data = AptDbData {
             entries: build_map(entries, sources),
             native_arch: native_arch.to_string(),
