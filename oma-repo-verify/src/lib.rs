@@ -202,31 +202,35 @@ fn default_policy() -> StandardPolicy<'static> {
 
     let expire_20240201: SystemTime = date(2024, 2, 1)
         .at(0, 0, 0, 0)
-        .to_zoned(jiff::tz::TimeZone::UTC)
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
         .unwrap()
         .timestamp()
-        .into();
+        .try_into()
+        .unwrap();
 
     let expire_20280201: SystemTime = date(2028, 2, 1)
         .at(0, 0, 0, 0)
-        .to_zoned(jiff::tz::TimeZone::UTC)
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
         .unwrap()
         .timestamp()
-        .into();
+        .try_into()
+        .unwrap();
 
     let expire_20300201: SystemTime = date(2030, 2, 1)
         .at(0, 0, 0, 0)
-        .to_zoned(jiff::tz::TimeZone::UTC)
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
         .unwrap()
         .timestamp()
-        .into();
+        .try_into()
+        .unwrap();
 
     let expire_20260201: SystemTime = date(2026, 2, 1)
         .at(0, 0, 0, 0)
-        .to_zoned(jiff::tz::TimeZone::UTC)
+        .to_zoned_datetime(jiff::tz::TimeZone::UTC)
         .unwrap()
         .timestamp()
-        .into();
+        .try_into()
+        .unwrap();
 
     policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::DSA2048, Some(expire_20240201));
     policy.reject_asymmetric_algo_at(AsymmetricAlgorithm::DSA3072, Some(expire_20240201));

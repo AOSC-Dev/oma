@@ -84,6 +84,8 @@ pub fn concat_url(url: &str, path: &str) -> String {
 
 #[derive(thiserror::Error, Debug)]
 pub enum GetLockError {
+    #[error("Failed to initialize sysinfo")]
+    Initialize(sysinfo::Error),
     #[error("Set lock failed")]
     SetLock(Errno),
     #[error("Set lock failed: process {0} ({1}) is using.")]
@@ -128,7 +130,7 @@ pub fn get_file_lock(lock_path: &Path) -> Result<OwnedFd, GetLockError> {
         close(fd).map_err(GetLockError::SetLock)?;
 
         if fl.l_pid != -1 {
-            let mut sys = System::new();
+            let mut sys = System::new().map_err(GetLockError::Initialize)?;
             sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
             let Some(process) = sys.process(Pid::from(fl.l_pid as usize)) else {
                 return Err(GetLockError::SetLock(e));
