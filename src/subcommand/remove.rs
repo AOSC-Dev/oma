@@ -320,9 +320,5 @@ fn ask_user_delete_current_kernel(pkg: &str) -> Result<bool, OutputError> {
         return Err(OutputError::user_aborted());
     };
 
-    if !delete {
-        return Ok(false);
-    }
-
-    Ok(true)
+    Ok(delete)
 }
