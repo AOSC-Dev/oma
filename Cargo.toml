@@ -21,7 +21,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
 jiff = { workspace = true, features = ["tz-system", "tzdb-zoneinfo"] }
-rustix = { workspace = true, features = ["process", "stdio"] }
+rustix = { workspace = true, features = ["process", "stdio", "fs"] }
 libc = { workspace = true }
 reqwest = { workspace = true, default-features = false, features = ["http2"] }
 rustls = { workspace = true, default-features = false, features = [

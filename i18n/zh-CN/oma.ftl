@@ -195,6 +195,7 @@ reading-database-with-count = 正在为软件包数据库建立索引，已索�
 has-error-on-top = 您指定的操作未成功完成，请查阅上方输出。
 mirror-is-not-trusted = 镜像源 { $mirror } 未签名或不受信任，请检查您的软件源配置。
 please-run-me-as-root = oma 需执行系统管理操作，请使用管理员权限执行 oma 命令。
+fuse-cwd-relative-deb = 当前目录位于 FUSE 挂载上，提权时无法保留工作目录，因此不能使用相对 .deb 路径。请改用 root 可读位置的绝对路径，或先把文件复制到 FUSE 挂载之外。
 topic-not-in-mirror = 测试源 { $topic } 在镜像源 { $mirror } 上不可用。
 skip-write-mirror = 这一般是您指定的镜像源未同步导致的，将尝试从您开启的其他镜像源中刷新测试源信息 ...
 pkexec-tips-1 = 请在弹出的密码框输入密码以授权 oma 执行系统管理操作。
