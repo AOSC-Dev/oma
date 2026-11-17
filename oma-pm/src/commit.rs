@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use oma_apt::{
     error::AptErrors,
     progress::{AcquireProgress, InstallProgress},
@@ -185,7 +185,7 @@ impl<'a> DoInstall<'a> {
     }
 
     fn log(sysroot: &'a str, op: &OmaOperation) -> OmaAptResult<()> {
-        let end_time = Zoned::now().strftime(TIME_FORMAT).to_string();
+        let end_time = ZonedDateTime::now().strftime(TIME_FORMAT).to_string();
 
         let sysroot = Path::new(sysroot);
         let history = sysroot.join("var/log/oma/history");
@@ -202,7 +202,9 @@ impl<'a> DoInstall<'a> {
             .open(&history)
             .map_err(|e| OmaAptError::FailedOperateDirOrFile(history.display().to_string(), e))?;
 
-        let start_time = Zoned::now().strftime("%Y-%m-%d %H:%M:%S %:z").to_string();
+        let start_time = ZonedDateTime::now()
+            .strftime("%Y-%m-%d %H:%M:%S %:z")
+            .to_string();
         writeln!(log, "Start-Date: {start_time}").ok();
 
         let args = std::env::args().collect::<Vec<_>>().join(" ");

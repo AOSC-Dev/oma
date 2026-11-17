@@ -323,6 +323,7 @@ impl From<RefreshError> for OutputError {
             RefreshError::AhoCorasickBuilder(e) => e.to_string().into(),
             RefreshError::ReplaceAll(e) => Self::with_source("stream_replace_all failed", e),
             RefreshError::SetLock(e) => match e {
+                GetLockError::Initialize(e) => Self::with_source(fl!("oma-refresh-lock"), e),
                 GetLockError::SetLock(errno) => Self::with_source(fl!("oma-refresh-lock"), errno),
                 GetLockError::SetLockWithProcess(cmd, pid) => Self::with_source(
                     fl!("oma-refresh-lock"),
@@ -670,6 +671,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
         OmaAptError::WrongDpkgStatus(_) => anyhow::anyhow!("{err}").into(),
         OmaAptError::DpkgStatusBroken(_) => anyhow::anyhow!("{err}").into(),
         OmaAptError::FailedGetArchiveDirLock(get_lock_error) => match get_lock_error {
+            GetLockError::Initialize(e) => OutputError::with_source(fl!("oma-archive-lock"), e),
             GetLockError::SetLock(errno) => {
                 OutputError::with_source(fl!("oma-archive-lock"), errno)
             }

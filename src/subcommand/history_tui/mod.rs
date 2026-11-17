@@ -200,7 +200,7 @@ impl<'a> HistorySelectTui<'a> {
                 {
                     let dt = Timestamp::from_second(item.time)
                         .unwrap_or_default()
-                        .to_zoned(jiff::tz::TimeZone::system())
+                        .to_zoned_datetime(jiff::tz::TimeZone::system())
                         .strftime("%H:%M:%S on %Y-%m-%d")
                         .to_string();
 

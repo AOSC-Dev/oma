@@ -75,6 +75,7 @@ pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<OwnedFd, OutputError
     .context("Failed to create lock dir")?;
 
     let lock = get_file_lock(lock).map_err(|e| match e {
+        GetLockError::Initialize(e) => OutputError::with_source(fl!("failed-to-lock-oma"), e),
         GetLockError::SetLock(errno) => OutputError::with_source(fl!("failed-to-lock-oma"), errno),
         GetLockError::SetLockWithProcess(_, pid) => {
             let error_str = match find_another_oma() {
