@@ -374,10 +374,10 @@ pub fn get_lock(sysroot: &Path) -> &Path {
     LOCK.get_or_init(|| sysroot.join("run/lock/oma.lock"))
 }
 
-fn sysroot_default_value() -> &'static str {
+fn sysroot_default_value() -> String {
     if is_termux() {
-        "/data/data/com.termux/files/usr/"
+        format!("{}/", oma_utils::termux::prefix().display())
     } else {
-        "/"
+        "/".to_owned()
     }
 }
