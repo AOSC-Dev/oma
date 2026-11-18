@@ -1,3 +1,5 @@
+#[cfg(feature = "apt-lists")]
+pub mod api;
 pub mod apt_config;
 #[cfg(feature = "apt-lists")]
 mod apt_db;

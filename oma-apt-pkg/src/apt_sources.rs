@@ -7,7 +7,7 @@ use oma_apt_sources::{ConfiguredSources, SourceEntry};
 
 use crate::AptConfig;
 #[cfg(feature = "apt-lists")]
-use crate::apt_lists::IndexSource;
+use crate::apt_lists::{IndexSource, SourceKind};
 #[cfg(feature = "apt-lists")]
 use crate::filename::AptListFilename;
 
@@ -95,6 +95,7 @@ impl SourceLookup {
                     out.push((
                         filename,
                         IndexSource {
+                            kind: SourceKind::Repository,
                             base_url: base.to_string(),
                             suite: suite.to_string(),
                             component: None,
@@ -120,6 +121,7 @@ impl SourceLookup {
                         out.push((
                             filename,
                             IndexSource {
+                                kind: SourceKind::Repository,
                                 base_url: base.to_string(),
                                 suite: suite.to_string(),
                                 component: Some(component.clone()),

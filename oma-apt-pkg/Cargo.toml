@@ -81,6 +81,4 @@ tree-sitter = { workspace = true, optional = true }
 tree-sitter-apt-config = { workspace = true, optional = true }
 aho-corasick = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
-
-[dev-dependencies]
 tempfile = "3"
