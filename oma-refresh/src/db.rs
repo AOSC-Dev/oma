@@ -166,7 +166,7 @@ impl OmaRefresh {
             debug!("sources.list is: {list_file}");
             debug!("sources.list.d is: {list_dir}");
 
-            scan_sources_list_paths(&list_file, &list_dir)
+            scan_sources_list_paths(list_file.as_str(), list_dir.as_str())
         };
 
         let source_lookup = SourceLookup::from_paths(&paths, |path| {
