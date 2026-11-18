@@ -560,7 +560,13 @@ fn get_mirror_date(
         x => bail!("Unsupported protocol {x}"),
     };
 
-    let release = oma_repo_verify::verify_inrelease_by_sysroot(&inrelease, None, "/", false)?;
+    let release = oma_repo_verify::verify_inrelease_by_sysroot(
+        &inrelease,
+        None,
+        "/",
+        &crate::utils::policy_paths(std::path::Path::new("/")),
+        false,
+    )?;
 
     let release = Release::from_str(&release)?;
     let date = release

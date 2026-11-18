@@ -39,7 +39,7 @@ pub enum VerifyError {
     CertParseFileError(String, anyhow::Error),
     #[error("Cert file is bad: {0}")]
     BadCertFile(String, anyhow::Error),
-    #[error("Does not exist: /etc/apt/trusted.gpg.d")]
+    #[error("The APT trusted key directory does not exist")]
     TrustedDirNotExist,
     #[error("Failed to read decoded InRelease file: {0}")]
     FailedToReadInRelease(std::io::Error),
@@ -133,17 +133,39 @@ impl VerificationHelper for InReleaseVerifier {
     }
 }
 
+/// Files that configure the sequoia signature policy.
+#[derive(Clone, Debug)]
+pub struct PolicyPaths {
+    /// Distribution crypto policy.
+    pub custom: PathBuf,
+    /// apt's default policy.
+    pub default: PathBuf,
+}
+
+impl PolicyPaths {
+    /// Policy paths below a filesystem root, using the non-Termux layout.
+    pub fn for_rootfs(rootfs: impl AsRef<Path>) -> Self {
+        let rootfs = rootfs.as_ref();
+
+        Self {
+            custom: rootfs.join("etc/crypto-policies/back-ends/apt-sequoia.config"),
+            default: rootfs.join("usr/share/apt/default-sequoia.config"),
+        }
+    }
+}
+
 /// Verify InRelease PGP signature
 pub fn verify_inrelease_by_sysroot(
     inrelease: &str,
     signed_by: Option<&Signature>,
     rootfs: impl AsRef<Path>,
+    policy_paths: &PolicyPaths,
     trusted: bool,
 ) -> VerifyResult<String> {
     debug!("signed_by: {:?}", signed_by);
 
     let kob = find_certs(rootfs, signed_by)?;
-    let res = verify_inrelease_inner(inrelease, trusted, kob)?;
+    let res = verify_inrelease_inner(inrelease, trusted, kob, policy_paths)?;
 
     Ok(res)
 }
@@ -152,8 +174,9 @@ pub fn verify_inrelease_inner(
     inrelease: &str,
     trusted: bool,
     kob: KeyBlockOrPaths<'_>,
+    policy_paths: &PolicyPaths,
 ) -> Result<String, VerifyError> {
-    let p = POLICY.get_or_init(policy);
+    let p = POLICY.get_or_init(|| policy(policy_paths));
 
     let mut v = VerifierBuilder::from_bytes(inrelease.as_bytes())?.with_policy(
         p,
@@ -171,12 +194,10 @@ pub fn verify_inrelease_inner(
     Ok(res)
 }
 
-fn policy() -> StandardPolicy<'static> {
+fn policy(paths: &PolicyPaths) -> StandardPolicy<'static> {
     let mut p = ConfiguredStandardPolicy::new();
-    let default_configure_path = Path::new("/usr/share/apt/default-sequoia.config");
-    let custom_configure_path = Path::new("/etc/crypto-policies/back-ends/apt-sequoia.config");
 
-    for path in [custom_configure_path, default_configure_path] {
+    for path in [&paths.custom, &paths.default] {
         match p.parse_config_file(path) {
             Ok(true) => {
                 debug!("config file {} loaded", path.display());
@@ -257,10 +278,11 @@ pub fn verify_release_by_sysroot(
     detached: &[u8],
     signed_by: Option<&Signature>,
     rootfs: impl AsRef<Path>,
+    policy_paths: &PolicyPaths,
     trusted: bool,
 ) -> VerifyResult<()> {
     let kob = find_certs(rootfs, signed_by)?;
-    verify_release_inner(release, detached, trusted, kob)?;
+    verify_release_inner(release, detached, trusted, kob, policy_paths)?;
 
     Ok(())
 }
@@ -270,8 +292,9 @@ pub fn verify_release_inner(
     detached: &[u8],
     trusted: bool,
     bop: KeyBlockOrPaths<'_>,
+    policy_paths: &PolicyPaths,
 ) -> Result<(), VerifyError> {
-    let p = POLICY.get_or_init(policy);
+    let p = POLICY.get_or_init(|| policy(policy_paths));
 
     let mut v = DetachedVerifierBuilder::from_bytes(detached)?.with_policy(
         p,

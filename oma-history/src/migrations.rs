@@ -332,11 +332,7 @@ fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> 
 
     if has_fail {
         println!(
-            r#"oma ran into unexpected issues whilst migrating the history database, some entries were not migrated. Please consider sharing your oma history database file at:
-
-  `/var/lib/oma/history.db'
-
-with us to help with debugging."#
+            r#"oma ran into unexpected issues whilst migrating the history database, some entries were not migrated. Please consider sharing your oma history database file with us to help with debugging."#
         );
     }
 

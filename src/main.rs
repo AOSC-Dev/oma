@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::env::args;
 use std::ffi::CString;
 use std::io;
@@ -132,7 +133,7 @@ pub struct GlobalOptions {
     #[arg(short, long, action = ArgAction::Version, help = fl!("clap-version-help"))]
     version: Option<bool>,
     /// Set sysroot target directory
-    #[arg(long, global = true, default_value = sysroot_default_value(), env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
+    #[arg(long, global = true, default_value = &**SYSROOT_DEFAULT, env = "OMA_SYSROOT", help = fl!("clap-sysroot-help"))]
     sysroot: PathBuf,
     /// Set apt options
     #[arg(long, short = 'o', global = true, action = ArgAction::Append, help = fl!("clap-apt-options-help"))]
@@ -288,8 +289,10 @@ fn try_main(mut config: OmaConfig, matches: ArgMatches) -> Result<ExitHandle, Ou
         Some(subcmd) => subcmd.execute(config),
         None => {
             if let Some((subcommand, args)) = matches.subcommand() {
-                let mut plugin = Path::new("/usr/local/libexec").join(format!("oma-{subcommand}"));
-                let plugin_fallback = Path::new("/usr/libexec").join(format!("oma-{subcommand}"));
+                let mut plugin =
+                    oma_utils::termux::local_libexec_dir().join(format!("oma-{subcommand}"));
+                let plugin_fallback =
+                    oma_utils::termux::libexec_dir().join(format!("oma-{subcommand}"));
 
                 if !plugin.is_file() {
                     plugin = plugin_fallback;
@@ -371,13 +374,13 @@ fn display_error(e: OutputError) -> io::Result<()> {
 
 #[inline]
 pub fn get_lock(sysroot: &Path) -> &Path {
-    LOCK.get_or_init(|| sysroot.join("run/lock/oma.lock"))
+    LOCK.get_or_init(|| oma_utils::termux::lock_file(sysroot))
 }
 
-fn sysroot_default_value() -> &'static str {
+static SYSROOT_DEFAULT: LazyLock<Cow<'static, str>> = LazyLock::new(|| {
     if is_termux() {
-        "/data/data/com.termux/files/usr/"
+        Cow::Owned(format!("{}/", oma_utils::termux::prefix().display()))
     } else {
-        "/"
+        Cow::Borrowed("/")
     }
-}
+});

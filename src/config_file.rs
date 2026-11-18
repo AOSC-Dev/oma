@@ -160,21 +160,18 @@ impl GeneralConfig {
     }
 }
 
-#[cfg(feature = "termux")]
-const OMA_CONFIG_FILE: &str = "/data/data/com.termux/files/usr/etc/oma.toml";
-#[cfg(not(feature = "termux"))]
-const OMA_CONFIG_FILE: &str = "/etc/oma.toml";
-
 impl ConfigFile {
     pub fn read() -> Self {
-        let Ok(s) = std::fs::read_to_string(OMA_CONFIG_FILE) else {
-            warn!("{}", fl!("config-invalid", path = OMA_CONFIG_FILE));
+        let path = oma_utils::termux::oma_config_file();
+
+        let Ok(s) = std::fs::read_to_string(&path) else {
+            warn!("{}", fl!("config-invalid", path = path.display()));
             return Self::default();
         };
 
         toml::from_str(&s).unwrap_or_else(|e| {
             error!("Failed to read config: {e}");
-            warn!("{}", fl!("config-invalid", path = OMA_CONFIG_FILE));
+            warn!("{}", fl!("config-invalid", path = path.display()));
             Self::default()
         })
     }

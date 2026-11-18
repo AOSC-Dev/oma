@@ -1,5 +1,25 @@
 use oma_pm::oma_apt;
-use std::path::PathBuf;
+use oma_repo_verify::PolicyPaths;
+use std::path::{Path, PathBuf};
+
+/// Sequoia policy configuration paths for `sysroot`, honouring the Termux
+/// layout where `/usr` lives directly below the prefix.
+pub fn policy_paths(sysroot: &Path) -> PolicyPaths {
+    if oma_utils::is_termux() {
+        PolicyPaths {
+            custom: oma_utils::termux::host_path(
+                Path::new("/"),
+                "/etc/crypto-policies/back-ends/apt-sequoia.config",
+            ),
+            default: oma_utils::termux::host_path(
+                Path::new("/"),
+                "/usr/share/apt/default-sequoia.config",
+            ),
+        }
+    } else {
+        PolicyPaths::for_rootfs(sysroot)
+    }
+}
 
 #[inline]
 pub fn get_lists_dir() -> PathBuf {

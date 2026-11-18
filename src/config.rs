@@ -207,6 +207,13 @@ impl OmaConfig {
         self.subcmd.take()
     }
 
+    /// Archive directory override for Termux, where apt's cache lives outside
+    /// the prefix.
+    #[inline]
+    pub fn apt_archive_dir(&self) -> Option<PathBuf> {
+        is_termux().then(|| oma_utils::termux::apt_archive_dir())
+    }
+
     pub fn init_apt_config(&self) {
         // Legacy C FFI config (keep for backward compat)
         oma_apt::config::init_config_system();

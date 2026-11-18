@@ -78,7 +78,7 @@ pick-tips = 请指定要安装的 { $pkgname } 的版本：
 battery = 您的电脑目前似乎正在使用电池供电。oma 在执行任务时可能消耗大量电量，推荐您接入交流电源以防突然断电导致数据损坏。
 continue = 您确定要继续吗？
 changing-system = oma 正在修改您的系统。
-failed-to-lock-oma = 无法解锁 oma 进程锁文件 (/run/lock/oma.lock)
+failed-to-lock-oma = 无法解锁 oma 进程锁文件 ({ $path })
 # main
 user-aborted-op = 用户已中止操作。
 # formatter
@@ -165,7 +165,7 @@ failed-to-create-proxy = 无法创建系统消息总线 (D-Bus) 代理：{ $prox
 failed-check-dbus = 由于当前管理的系统尚未启动，oma 无法探测系统运行状态。
 failed-check-dbus-tips-1 = 在此状态下，oma 无法检查电源及用户会话等关键系统状态，如继续操作可能会导致系统故障！
 failed-check-dbus-tips-2 = 如果您正尝试用 chroot 等方式修复系统，请在 oma 命令后加 --no-check-dbus 参数。
-failed-check-dbus-tips-3 = 如果您的系统是长期在容器或 chroot 环境下运行的，请修改 oma 配置文件 (/etc/oma.toml) 下的 `no_check_dbus' 选项为 `true' 。
+failed-check-dbus-tips-3 = 如果您的系统是长期在容器或 chroot 环境下运行的，请修改 oma 配置文件 ({ $path }) 下的 `no_check_dbus' 选项为 `true' 。
 no-check-dbus-tips = 目前 oma 已被配置为不探测系统运行状态，将忽略电源及用户会话等关键系统状态；如继续操作可能会导致系统故障。
 oma-history-is-empty = oma 历史记录为空。
 tui-pending = 待办事项
@@ -241,7 +241,7 @@ doplicate-component = 源配置文件中包含重复条目：{ $url } { $c }。
 resolving-dependencies = 正在解析依赖关系 ...
 auth-need-permission = 软件包所在的软件源可能需要访问鉴权，请使用管理员权限以允许 oma 读取鉴权配置。
 lack-auth-config-1 = 由于缺少鉴权配置，oma 无法从软件源访问指定的软件包。
-lack-auth-config-2 = 请检查您的 APT 鉴权配置 (/etc/apt/auth.conf.d)。
+lack-auth-config-2 = 请检查您的 APT 鉴权配置 ({ $path })。
 success = 操作已成功完成。
 topics-unchanged = oma 在退出测试源时遇到错误，因此未保存测试源配置状态。
 status-pending = 等待操作中

@@ -79,7 +79,7 @@ pick-tips = Please select a version of { $pkgname } to install:
 battery = You seem to be on battery power. oma may deplete the battery rather quickly during the transaction. It is recommended to plug in your power supply to prevent accidental power loss.
 continue = Do you still wish to continue?
 changing-system = oma is modifying your system.
-failed-to-lock-oma = Another oma process lock (/run/lock/oma.lock) already exists
+failed-to-lock-oma = Another oma process lock ({ $path }) already exists
 # main
 user-aborted-op = User aborted the operation.
 # formatter
@@ -170,7 +170,7 @@ failed-to-create-proxy = Failed to create a system message bus (D-Bus) proxy: { 
 failed-check-dbus = oma is unable to detect the status of the currently managed system because it has not yet started up.
 failed-check-dbus-tips-1 = In this state, oma is unable to check the status of critical systems such as power supplies and user sessions, and continued operation may result in system failure!
 failed-check-dbus-tips-2 = If you are trying to repair the system using, for example, chroot, please add the --no-check-dbus parameter after the oma command.
-failed-check-dbus-tips-3 = If your system is permanently running in a container or chroot environment, modify the value of the `no_check_dbus' option in oma's configuration file (/etc/oma.toml) to `true'.
+failed-check-dbus-tips-3 = If your system is permanently running in a container or chroot environment, modify the value of the `no_check_dbus' option in oma's configuration file ({ $path }) to `true'.
 no-check-dbus-tips = oma is configured to ignore system operational status, which means that oma will not detect critical system states such as power supplies and user sessions. System failures may occur.
 oma-history-is-empty = oma history is empty.
 tui-pending = Pending
@@ -245,7 +245,7 @@ doplicate-component = Duplicate sources entries found in source configuration: {
 resolving-dependencies = Resolving dependencies ...
 auth-need-permission = The repository shipping the package(s) may require authorization. Please run oma with elevated privileges, as it needs to read the authorization configurations.
 lack-auth-config-1 = oma is unable to access the specified package(s) from the repository due to missing authorization configurations.
-lack-auth-config-2 = Please verify if your APT authorization configurations (/etc/apt/auth.conf.d) were set up correctly.
+lack-auth-config-2 = Please verify if your APT authorization configurations ({ $path }) were set up correctly.
 success = The operation was completed successfully.
 topics-unchanged = oma was unable complete topic opt-out operation(s) and has kept the topic status unchanged.
 status-pending = Pending

@@ -2,7 +2,7 @@ use deb822_fast::{FromDeb822, FromDeb822Paragraph, Paragraph};
 use jiff::Timestamp;
 use oma_apt_sources_lists::Signature;
 use oma_logger::{debug, trace};
-use oma_repo_verify::verify_release_by_sysroot;
+use oma_repo_verify::{PolicyPaths, verify_release_by_sysroot};
 use once_cell::sync::OnceCell;
 use std::{
     borrow::Cow,
@@ -228,12 +228,17 @@ pub fn verify_inrelease<'a>(
     inrelease: &'a str,
     signed_by: Option<&Signature>,
     rootfs: impl AsRef<Path>,
+    policy_paths: &PolicyPaths,
     file: impl AsRef<Path>,
     trusted: bool,
 ) -> Result<Cow<'a, str>, InReleaseError> {
     if inrelease.starts_with("-----BEGIN PGP SIGNED MESSAGE-----") {
         Ok(Cow::Owned(oma_repo_verify::verify_inrelease_by_sysroot(
-            inrelease, signed_by, rootfs, trusted,
+            inrelease,
+            signed_by,
+            rootfs,
+            policy_paths,
+            trusted,
         )?))
     } else {
         if trusted {
@@ -260,10 +265,11 @@ pub fn verify_inrelease<'a>(
         let bytes = fs::read(pub_file)
             .map_err(|e| InReleaseError::ReadGPGFileName(e, file_name.to_string()))?;
 
-        verify_release_by_sysroot(inrelease, &bytes, signed_by, rootfs, trusted).map_err(|e| {
-            debug!("{e}");
-            InReleaseError::NotTrusted
-        })?;
+        verify_release_by_sysroot(inrelease, &bytes, signed_by, rootfs, policy_paths, trusted)
+            .map_err(|e| {
+                debug!("{e}");
+                InReleaseError::NotTrusted
+            })?;
 
         Ok(Cow::Borrowed(inrelease))
     }

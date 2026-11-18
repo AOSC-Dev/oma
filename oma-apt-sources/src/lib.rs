@@ -142,12 +142,12 @@ fn source_fingerprint(paths: &[PathBuf]) -> io::Result<Vec<SourceFingerprint>> {
 /// Like APT's `GetListOfFilesInDir`, this includes the configured
 /// `sourcelist` file and every regular file under `sourceparts`.
 pub fn scan_sources_list_paths(
-    list_file: impl AsRef<str>,
-    list_dir: impl AsRef<str>,
+    list_file: impl AsRef<Path>,
+    list_dir: impl AsRef<Path>,
 ) -> Vec<PathBuf> {
     let mut paths = Vec::new();
-    let default = Path::new(list_file.as_ref());
-    let list_dir_path = Path::new(list_dir.as_ref());
+    let default = list_file.as_ref();
+    let list_dir_path = list_dir.as_ref();
 
     if default.exists() {
         paths.push(default.to_path_buf());
@@ -182,7 +182,7 @@ pub fn configured_sources(
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    let paths = scan_sources_list_paths(&key.list_file, &key.list_dir);
+    let paths = scan_sources_list_paths(key.list_file.as_str(), key.list_dir.as_str());
     let fingerprint = source_fingerprint(&paths);
 
     if let Ok(fingerprint) = &fingerprint

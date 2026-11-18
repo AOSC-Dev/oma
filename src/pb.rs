@@ -632,7 +632,13 @@ fn handle_download_error(file_name: String, is_refresh: bool, error: SingleDownl
             info!("{}", fl!("auth-need-permission"));
         } else {
             info!("{}", fl!("lack-auth-config-1"));
-            info!("{}", fl!("lack-auth-config-2"));
+            info!(
+                "{}",
+                fl!(
+                    "lack-auth-config-2",
+                    path = oma_utils::termux::apt_auth_conf_d().display()
+                )
+            );
         }
     }
 
