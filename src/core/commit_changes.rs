@@ -257,6 +257,7 @@ impl CommitChanges<'_> {
                     vec![],
                     OmaAptArgs::builder()
                         .sysroot(config.sysroot.to_string_lossy().to_string())
+                        .maybe_archive_dir(config.apt_archive_dir())
                         .build(),
                     false,
                 )?;

@@ -43,6 +43,8 @@ impl CliExecuter for Clean {
 
         let no_check_dbus = config.no_check_dbus();
 
+        let archive_dir = config.apt_archive_dir();
+
         let OmaConfig {
             sysroot,
             apt_options,
@@ -60,6 +62,7 @@ impl CliExecuter for Clean {
         let oma_apt_args = OmaAptArgs::builder()
             .sysroot(sysroot.to_string_lossy().to_string())
             .another_apt_options(&apt_options)
+            .maybe_archive_dir(archive_dir)
             .build();
 
         let apt = OmaApt::new(vec![], oma_apt_args, false)?;

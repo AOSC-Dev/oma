@@ -76,6 +76,8 @@ pub struct OmaAptArgs<'a> {
     dpkg_force_unsafe_io: bool,
     #[builder(default)]
     another_apt_options: &'a [String],
+    /// Archive directory override; defaults to `Dir::Cache::Archives`.
+    archive_dir: Option<PathBuf>,
 }
 
 pub struct OmaApt {
@@ -92,6 +94,7 @@ pub struct OmaApt {
     unmet: Vec<Vec<BrokenPackage>>,
     /// The path for archive.
     archive_dir: OnceCell<PathBuf>,
+    archive_dir_override: Option<PathBuf>,
     pub(crate) async_handler: OnceCell<Handle>,
     pub(crate) async_runtime: OnceCell<Runtime>,
     pub(crate) conn: OnceCell<Connection>,
@@ -218,6 +221,7 @@ impl OmaApt {
         }
 
         let sysroot = args.sysroot.clone();
+        let archive_dir_override = args.archive_dir.clone();
         Self::init_config(args)?;
 
         let cache = new_cache!(&local_debs).map_err(OmaAptError::CreateCache)?;
@@ -231,6 +235,7 @@ impl OmaApt {
             select_pkgs: HashSet::with_hasher(ahash::RandomState::new()),
             unmet: vec![],
             archive_dir: OnceCell::new(),
+            archive_dir_override,
             async_handler: OnceCell::new(),
             async_runtime: OnceCell::new(),
             conn: OnceCell::new(),
@@ -252,6 +257,7 @@ impl OmaApt {
             dpkg_force_confnew,
             dpkg_force_unsafe_io,
             another_apt_options,
+            archive_dir: _,
         } = args;
 
         // Termux 的 apt 会默认的设置根，所以无需变动
@@ -832,14 +838,12 @@ impl OmaApt {
     /// Get apt archive dir
     pub fn get_archive_dir(&self) -> &Path {
         self.archive_dir.get_or_init(|| {
-            if is_termux() {
-                return oma_utils::termux::apt_archive_dir();
-            }
-
-            PathBuf::from(apt_config::find_dir(
-                "Dir::Cache::Archives".to_string(),
-                "archives/".to_string(),
-            ))
+            self.archive_dir_override.clone().unwrap_or_else(|| {
+                PathBuf::from(apt_config::find_dir(
+                    "Dir::Cache::Archives".to_string(),
+                    "archives/".to_string(),
+                ))
+            })
         })
     }
 
