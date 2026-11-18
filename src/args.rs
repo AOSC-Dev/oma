@@ -1,4 +1,4 @@
-use std::{env, ffi::OsStr, fmt::Display, path::Path, sync::LazyLock};
+use std::{env, ffi::OsStr, fmt::Display, sync::LazyLock};
 
 use clap::{
     Arg, Args, ColorChoice, Command, Parser, Subcommand, builder::Styles, crate_name, crate_version,
@@ -305,9 +305,9 @@ fn custom_subcmds() -> Vec<Command> {
 
 fn list_helpers() -> Result<Vec<String>, anyhow::Error> {
     let mut plugins_dir: Box<dyn Iterator<Item = _>> =
-        Box::new(Path::new("/usr/libexec").read_dir()?);
+        Box::new(oma_utils::termux::libexec_dir().read_dir()?);
 
-    let plugins_local_dir = Path::new("/usr/local/libexec").read_dir();
+    let plugins_local_dir = oma_utils::termux::local_libexec_dir().read_dir();
 
     if let Ok(plugins_local_dir) = plugins_local_dir {
         plugins_dir = Box::new(plugins_dir.chain(plugins_local_dir));

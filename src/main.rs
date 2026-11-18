@@ -288,8 +288,10 @@ fn try_main(mut config: OmaConfig, matches: ArgMatches) -> Result<ExitHandle, Ou
         Some(subcmd) => subcmd.execute(config),
         None => {
             if let Some((subcommand, args)) = matches.subcommand() {
-                let mut plugin = Path::new("/usr/local/libexec").join(format!("oma-{subcommand}"));
-                let plugin_fallback = Path::new("/usr/libexec").join(format!("oma-{subcommand}"));
+                let mut plugin =
+                    oma_utils::termux::local_libexec_dir().join(format!("oma-{subcommand}"));
+                let plugin_fallback =
+                    oma_utils::termux::libexec_dir().join(format!("oma-{subcommand}"));
 
                 if !plugin.is_file() {
                     plugin = plugin_fallback;

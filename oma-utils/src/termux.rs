@@ -74,6 +74,16 @@ pub fn apt_archive_dir() -> PathBuf {
     data_dir().join("cache/apt/archives")
 }
 
+/// oma's system plugin directory.
+pub fn libexec_dir() -> PathBuf {
+    host_path(Path::new("/"), "/usr/libexec")
+}
+
+/// oma's local plugin directory.
+pub fn local_libexec_dir() -> PathBuf {
+    host_path(Path::new("/"), "/usr/local/libexec")
+}
+
 /// The oma lock file under the given root.
 ///
 /// Termux uses `$PREFIX/var/run` because `/run` is not available there.
