@@ -280,6 +280,7 @@ mod tests {
 
     fn source(base: &str, suite: &str, component: &str, arch: &str) -> IndexSource {
         IndexSource {
+            kind: crate::apt_lists::SourceKind::Repository,
             base_url: base.to_string(),
             suite: suite.to_string(),
             component: Some(component.to_string()),
