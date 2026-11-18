@@ -4,6 +4,7 @@
 //! zero-copy deserialization.
 
 use std::fs;
+use std::io::{self, Write};
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
@@ -147,6 +148,24 @@ fn mtime_secs(meta: &fs::Metadata) -> Option<i64> {
         .duration_since(UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs() as i64)
+}
+
+/// Write `bytes` to `path` through a uniquely named temporary file in the
+/// same directory, then rename it into place. `NamedTempFile` creates the
+/// file with `O_EXCL`, so concurrent writers cannot truncate each other, and
+/// the rename means a crash never leaves a half-written cache behind.
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let parent = match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
+    fs::create_dir_all(parent)?;
+
+    let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
+    tmp.write_all(bytes)?;
+    tmp.as_file().sync_all()?;
+    tmp.persist(path).map_err(|error| error.error)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -383,6 +402,23 @@ mod tests {
         assert!(header_ok(&buf, b"TESTMAG\x00"));
         assert!(!header_ok(&buf, b"WRONGMG\x00"));
         assert!(!header_ok(&buf[..8], b"TESTMAG\x00"));
+    }
+
+    #[test]
+    fn write_atomic_replaces_the_target_and_leaves_no_temp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("cache.bin");
+
+        write_atomic(&target, b"first").unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"first");
+        write_atomic(&target, b"second").unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"second");
+
+        let entries: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(entries, vec![std::ffi::OsString::from("cache.bin")]);
     }
 
     #[test]

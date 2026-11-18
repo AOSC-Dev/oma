@@ -1,6 +1,6 @@
 use super::*;
-use crate::api::Control;
 use crate::SourceKind;
+use std::io::Write;
 
 fn control(name: &str, version: &str, arch: &str, description: &str) -> Control {
     crate::deb::parse_control_entry(&format!(
@@ -26,6 +26,9 @@ fn state(native: &str, archs: &[&str]) -> AptState {
         groups: HashMap::new(),
         package_order: HashMap::new(),
         installed: HashMap::new(),
+        status_path: PathBuf::new(),
+        files: Vec::new(),
+        archive: None,
     }
 }
 
@@ -161,6 +164,65 @@ fn version_and_branch_queries_filter_one_package() {
 }
 
 #[test]
+fn status_merges_into_packages_and_adds_missing_ones() {
+    let mut state = state("amd64", &["amd64", "i386"]);
+    add(&mut state, "foo", "1", "amd64");
+    add(&mut state, "libfoo", "2", "amd64");
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("status");
+    let mut file = std::fs::File::create(&path).unwrap();
+    file.write_all(
+        b"Package: foo\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n\n\
+Package: vendor-tool\nVersion: 7\nArchitecture: amd64\nStatus: install ok installed\n\n\
+Package: vendor-tool\nVersion: 7\nArchitecture: i386\nStatus: install ok installed\n\n\
+Package: libfoo\nVersion: 1\nArchitecture: i386\nStatus: install ok installed\n\n\
+Package: removed-tool\nVersion: 1\nArchitecture: amd64\nStatus: deinstall ok config-files\n\n",
+    )
+    .unwrap();
+    state.status_path = path;
+    state.merge_status().unwrap();
+
+    let foo = state.package("foo", &Arch::new("amd64")).unwrap();
+    assert_eq!(foo.installed_version(), Some("1"));
+    assert!(
+        foo.versions()
+            .iter()
+            .any(|version| version.sources.iter().any(Source::is_dpkg_status))
+    );
+
+    let plain = state.resolve(vec!["vendor-tool".into()]);
+    assert_eq!(plain.resolved[0].key.arch.as_str(), "amd64");
+    assert!(state.is_installed(&plain.resolved[0].key));
+    assert_eq!(
+        state.resolve(vec!["vendor-tool:i386".into()]).resolved[0]
+            .key
+            .arch
+            .as_str(),
+        "i386"
+    );
+    // A status-only package records its architectures in package order too,
+    // so `:any` resolves.
+    let any = state.resolve(vec!["vendor-tool:any".into()]);
+    assert_eq!(any.resolved[0].key.arch.as_str(), "amd64");
+
+    // One search result per group: an installed foreign build still counts
+    // as installed even though the preferred package is the native one.
+    let libfoo = state.group("libfoo").unwrap();
+    assert_eq!(libfoo.installed_version(), Some("1"));
+    assert_eq!(
+        libfoo.installed_package().unwrap().arch().as_str(),
+        "i386",
+        "the installed package is selected, not the preferred native one"
+    );
+
+    assert_eq!(
+        state.resolve(vec!["removed-tool".into()]).no_match,
+        vec!["removed-tool"]
+    );
+}
+
+#[test]
 fn local_deb_resolves_only_its_own_version() {
     let mut state = state("amd64", &["amd64"]);
     add(&mut state, "foo", "1", "amd64");
@@ -182,6 +244,77 @@ fn local_deb_resolves_only_its_own_version() {
     let versions = &resolution.resolved[0].versions;
     assert_eq!(versions.len(), 1, "only the .deb's version is selected");
     assert_eq!(versions[0].version(), Some("9"));
+}
+
+#[test]
+fn state_cache_roundtrips() {
+    let mut state = state("amd64", &["amd64", "i386"]);
+    add(&mut state, "foo", "1", "amd64");
+    add(&mut state, "foo", "2", "i386");
+    add(&mut state, "foo", "3", "all");
+
+    let mut data = AptStateData {
+        groups: HashMap::new(),
+        package_order: HashMap::new(),
+        native_arch: Arch::new("amd64"),
+        architectures: vec![Arch::new("amd64"), Arch::new("i386")],
+        files: Vec::new(),
+    };
+    add_index(
+        &mut data,
+        &Arch::new("amd64"),
+        vec![
+            control("foo", "1", "amd64", "a"),
+            control("foo", "2", "i386", "b"),
+            control("foo", "3", "all", "c"),
+        ],
+        vec![
+            source("amd64", "stable"),
+            source("i386", "stable"),
+            source("amd64", "stable"),
+        ],
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("oma-aptdb.bincode");
+    save_state_cache(path.to_str().unwrap(), &data).unwrap();
+
+    let archive = StateCache::open(path.to_str().unwrap()).unwrap();
+    let loaded = AptState::from_cache(
+        archive,
+        Arch::new("amd64"),
+        vec![Arch::new("amd64"), Arch::new("i386")],
+        PathBuf::new(),
+        Vec::new(),
+    );
+    assert_eq!(loaded.groups.len(), 1);
+    assert_eq!(loaded.groups["foo"].len(), 2);
+    assert_eq!(
+        loaded.package_order["foo"],
+        vec![Arch::new("amd64"), Arch::new("i386")]
+    );
+    assert_eq!(loaded.versions_of("foo", &Arch::new("amd64")).len(), 2);
+}
+
+#[test]
+fn missing_status_file_is_an_error() {
+    let mut state = state("amd64", &["amd64"]);
+    state.status_path = std::path::PathBuf::from("/nonexistent/oma-status");
+    assert!(state.merge_status().is_err());
+}
+
+#[test]
+fn malformed_status_paragraph_is_an_error() {
+    let mut state = state("amd64", &["amd64"]);
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("status");
+    std::fs::write(
+        &path,
+        b"Package: foo\nVersion: 1\nArchitecture: amd64\nStatus: install ok installed\n\nnot a field\n\n",
+    )
+    .unwrap();
+    state.status_path = path;
+    assert!(state.merge_status().is_err());
 }
 
 #[test]

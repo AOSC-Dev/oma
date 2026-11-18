@@ -13,32 +13,263 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use glob_match::glob_match;
+use oma_logger::debug;
+
+use deb822_fast::FromDeb822Paragraph;
 
 use super::arch::{Arch, PackageKey};
 use super::model::{Group, Package, Version};
 use super::query::{Query, QueryResolution, ResolvedPackage, matches_version};
+mod cache;
+use super::{Control, Source};
+use crate::apt_sources::SourceLookup;
+use crate::cache::CacheFile;
+use crate::cache::from_archived;
+use crate::error::Error;
+use cache::{AptStateData, StateCache, save_state_cache};
 
 /// The unified package state: apt lists plus dpkg status.
 #[derive(Debug)]
 pub struct AptState {
     native: Arch,
     architectures: Vec<Arch>,
-    /// name → per-arch versions (apt's Group → Package → Version). A group
-    /// has a handful of architectures at most, so they live in a list.
-    groups: HashMap<String, Vec<(Arch, Vec<Version>)>>,
+    /// name → per-arch versions (apt's Group → Package → Version). Versions
+    /// read from the mapped cache are deserialized on first access. A group
+    /// has a handful of architectures at most, so they live in a list: one
+    /// small allocation per package instead of a hash table.
+    groups: HashMap<String, Vec<(Arch, Versions)>>,
     /// Package insertion order per group, which apt's `:any` follows.
     package_order: HashMap<String, Vec<Arch>>,
     /// name → arch → installed version. Nested so a package view can look
     /// itself up without building a [`PackageKey`].
     installed: HashMap<String, HashMap<Arch, String>>,
+    status_path: PathBuf,
+    /// The lists files this state was built from; the search cache checks
+    /// them before reusing its index.
+    #[allow(dead_code, reason = "read once search moves onto AptState")]
+    files: Vec<CacheFile>,
+    /// The mapped package cache backing every group still to be
+    /// deserialized.
+    archive: Option<StateCache>,
 }
 
 /// The versions of one package, possibly still only in the mapped cache.
+#[derive(Debug)]
+enum Versions {
+    /// Backed by the cache archive: deserialized on first access, with the
+    /// dpkg status records collected meanwhile merged in.
+    Mapped {
+        cell: OnceLock<Vec<Version>>,
+        pending: Vec<Pending>,
+    },
+    /// Owned: built from the indexes (cache miss), or present only in the
+    /// status file or a local `.deb`.
+    Owned(Vec<Version>),
+}
+
+/// A dpkg status record waiting for its package to be deserialized.
+#[derive(Debug)]
+enum Pending {
+    /// The status file carries a version no index has: keep the record.
+    Version(Box<Version>),
+    /// The version is already in the indexes; only its status source is new.
+    Source { version: String, source: Source },
+}
+
+impl Versions {
+    /// The versions, deserializing a mapped package on first access.
+    fn get(&self, load: impl FnOnce() -> Vec<Version>) -> &[Version] {
+        match self {
+            Self::Owned(versions) => versions,
+            Self::Mapped { cell, pending } => cell.get_or_init(|| {
+                let mut versions = load();
+                for record in pending {
+                    match record {
+                        Pending::Version(version) => {
+                            push_or_merge(&mut versions, (**version).clone())
+                        }
+                        Pending::Source { version, source } => {
+                            if let Some(existing) = versions
+                                .iter_mut()
+                                .find(|existing| existing.version() == Some(version.as_str()))
+                                && !existing.sources.contains(source)
+                            {
+                                existing.sources.push(source.clone());
+                            }
+                        }
+                    }
+                }
+                versions
+            }),
+        }
+    }
+
+    /// Merge one record, keeping a still-unmapped package in `pending` so
+    /// the deserialization sees it.
+    fn push(&mut self, version: Version) {
+        match self {
+            Self::Owned(versions) => push_or_merge(versions, version),
+            Self::Mapped { cell, pending } => match cell.get_mut() {
+                Some(versions) => push_or_merge(versions, version),
+                None => pending.push(Pending::Version(Box::new(version))),
+            },
+        }
+    }
+}
+
 impl AptState {
     /// Load the `Packages` indexes and merge the live dpkg status file.
+    pub fn load(cfg: &crate::apt_config::AptConfig) -> Result<Self, Error> {
+        let native = Arch::new(cfg.get("APT::Architecture", ""));
+        if native.as_str().is_empty() {
+            return Err(Error::Config("APT::Architecture is not set".to_string()));
+        }
+
+        let architectures: Vec<Arch> = cfg.architectures().into_iter().map(Arch::new).collect();
+        let lists_dir = cfg.get_dir("Dir::State::lists", "var/lib/apt/lists");
+        let cache_path = cfg.get_file("Dir::Cache::oma-aptdb", "var/cache/apt/oma-aptdb.bincode");
+        let status_path = PathBuf::from(cfg.get_file("Dir::State::status", "var/lib/dpkg/status"));
+        let lookup = SourceLookup::build(cfg);
+        let archs = cfg.architectures();
+
+        if let Some(archive) = StateCache::open(&cache_path) {
+            let files = archive.files();
+            let cache_matches = {
+                let data = archive.archived();
+                from_archived::<Arch>(&data.native_arch) == native
+                    && data
+                        .architectures
+                        .iter()
+                        .map(from_archived::<Arch>)
+                        .eq(architectures.iter().cloned())
+                    && crate::cache::valid(&cache_path, &lists_dir, &lookup, cfg, &archs, &files)
+            };
+
+            if cache_matches {
+                debug!("oma package state cache hit: {cache_path}");
+                let mut state =
+                    Self::from_cache(archive, native, architectures, status_path, files);
+                state.merge_status()?;
+                return Ok(state);
+            }
+        }
+
+        debug!("oma package state cache miss: {cache_path}");
+        let (entries, sources) =
+            crate::apt_lists::parse_apt_lists_dir_with_sources(&lists_dir, &lookup, cfg, &archs)?;
+
+        let mut data = AptStateData {
+            groups: HashMap::new(),
+            package_order: HashMap::new(),
+            native_arch: native.clone(),
+            architectures: architectures.clone(),
+            files: crate::cache::collect(&lists_dir, &lookup, cfg, &archs),
+        };
+        add_index(&mut data, &native, entries, sources);
+        if let Err(e) = save_state_cache(&cache_path, &data) {
+            debug!("Failed to save oma package state cache: {e}");
+        }
+
+        let mut state = Self::from_data(data, status_path);
+        state.merge_status()?;
+        Ok(state)
+    }
+
+    /// Index the mapped cache, leaving every package to be deserialized on
+    /// first access.
+    fn from_cache(
+        archive: StateCache,
+        native: Arch,
+        architectures: Vec<Arch>,
+        status_path: PathBuf,
+        files: Vec<CacheFile>,
+    ) -> Self {
+        let (groups, package_order) = {
+            let data = archive.archived();
+
+            let mut groups = HashMap::with_capacity(data.groups.len());
+            for (name, packages) in data.groups.iter() {
+                let arches = packages
+                    .iter()
+                    .map(|(arch, _)| {
+                        (
+                            from_archived::<Arch>(arch),
+                            Versions::Mapped {
+                                cell: OnceLock::new(),
+                                pending: Vec::new(),
+                            },
+                        )
+                    })
+                    .collect();
+                groups.insert(from_archived::<String>(name), arches);
+            }
+
+            let package_order = data
+                .package_order
+                .iter()
+                .map(|(name, order)| {
+                    (
+                        from_archived::<String>(name),
+                        order.iter().map(from_archived::<Arch>).collect(),
+                    )
+                })
+                .collect();
+
+            (groups, package_order)
+        };
+
+        Self {
+            native,
+            architectures,
+            groups,
+            package_order,
+            installed: HashMap::new(),
+            status_path,
+            files,
+            archive: Some(archive),
+        }
+    }
+
+    /// Take a freshly built state directly, without round-tripping it
+    /// through the cache.
+    fn from_data(data: AptStateData, status_path: PathBuf) -> Self {
+        let AptStateData {
+            groups,
+            package_order,
+            native_arch,
+            architectures,
+            files,
+        } = data;
+
+        let groups = groups
+            .into_iter()
+            .map(|(name, packages)| {
+                (
+                    name,
+                    packages
+                        .into_iter()
+                        .map(|(arch, versions)| (arch, Versions::Owned(versions)))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+
+        Self {
+            native: native_arch,
+            architectures,
+            groups,
+            package_order,
+            installed: HashMap::new(),
+            status_path,
+            files,
+            archive: None,
+        }
+    }
+
     /// The native architecture (`APT::Architecture`).
     pub fn native_arch(&self) -> &Arch {
         &self.native
@@ -47,6 +278,17 @@ impl AptState {
     /// The architectures the cache was built for.
     pub fn architectures(&self) -> &[Arch] {
         &self.architectures
+    }
+
+    /// The status file this state was built from.
+    pub fn status_path(&self) -> &Path {
+        &self.status_path
+    }
+
+    /// The Packages files this state was built from, for cache validation.
+    #[allow(dead_code, reason = "read once search moves onto AptState")]
+    pub(crate) fn files(&self) -> &[crate::cache::CacheFile] {
+        &self.files
     }
 
     /// The group with this package name, if any.
@@ -279,11 +521,13 @@ impl AptState {
         let Some(packages) = self.groups.get(name) else {
             return &[];
         };
-        packages
+        let Some((_, versions)) = packages
             .iter()
             .find(|(candidate, _)| candidate.as_str() == arch.as_str())
-            .map(|(_, versions)| versions.as_slice())
-            .unwrap_or(&[])
+        else {
+            return &[];
+        };
+        versions.get(|| self.deserialize(name, arch))
     }
 
     /// The architectures `name` has, in no particular order.
@@ -301,6 +545,28 @@ impl AptState {
             .iter()
             .find(|(candidate, _)| candidate.as_str() == arch)
             .map(|(arch, _)| arch)
+    }
+
+    /// Deserialize one package from the mapped cache.
+    fn deserialize(&self, name: &str, arch: &Arch) -> Vec<Version> {
+        let Some(archive) = &self.archive else {
+            return Vec::new();
+        };
+        let data = archive.archived();
+        let Some(packages) = data.groups.get(name) else {
+            return Vec::new();
+        };
+        // A group has a handful of architectures at most; the archived key
+        // type is not a `str`, so compare them one by one.
+        let Some(versions) = packages
+            .iter()
+            .find(|(candidate, _)| from_archived::<Arch>(candidate) == *arch)
+            .map(|(_, versions)| versions)
+        else {
+            return Vec::new();
+        };
+
+        versions.iter().map(from_archived::<Version>).collect()
     }
 
     pub(crate) fn preferred_arch<'a>(&'a self, name: &str) -> Option<&'a Arch> {
@@ -354,11 +620,198 @@ impl AptState {
                 .entry(key)
                 .or_default()
                 .push(arch.clone());
-            packages.push((arch, vec![version]));
+            packages.push((arch, Versions::Owned(vec![version])));
         }
+    }
+
+    /// Record that the status file carries `version` for `name:arch`, when
+    /// the mapped index already has it: only the status source is new.
+    /// Returns whether the record could be deferred.
+    fn defer_status_source(
+        &mut self,
+        name: &str,
+        arch: &Arch,
+        version: &str,
+        source: &Source,
+    ) -> bool {
+        if !self.index_has_version(name, arch, version) {
+            return false;
+        }
+        let Some(packages) = self.groups.get_mut(name) else {
+            return false;
+        };
+        let Some((_, slot)) = packages
+            .iter_mut()
+            .find(|(candidate, _)| candidate.as_str() == arch.as_str())
+        else {
+            return false;
+        };
+
+        match slot {
+            Versions::Owned(_) => false,
+            Versions::Mapped { cell, pending } => {
+                if cell.get_mut().is_some() {
+                    return false;
+                }
+                pending.push(Pending::Source {
+                    version: version.to_string(),
+                    source: source.clone(),
+                });
+                true
+            }
+        }
+    }
+
+    /// Whether the mapped index carries `version` for `name:arch`.
+    fn index_has_version(&self, name: &str, arch: &Arch, version: &str) -> bool {
+        let Some(archive) = &self.archive else {
+            return false;
+        };
+        let data = archive.archived();
+        let Some(packages) = data.groups.get(name) else {
+            return false;
+        };
+        let Some(versions) = packages
+            .iter()
+            .find(|(candidate, _)| from_archived::<Arch>(candidate) == *arch)
+            .map(|(_, versions)| versions)
+        else {
+            return false;
+        };
+
+        versions.iter().any(|entry| match &entry.control.version {
+            rkyv::option::ArchivedOption::Some(value) => value.as_str() == version,
+            rkyv::option::ArchivedOption::None => false,
+        })
+    }
+
+    fn merge_status(&mut self) -> Result<(), Error> {
+        let paragraphs = crate::dpkg::paragraphs(&self.status_path)?;
+        let source = Source::dpkg_status(self.status_path.display().to_string());
+
+        for paragraph in paragraphs {
+            let paragraph = paragraph.map_err(crate::dpkg::DpkgError::from)?;
+            let pkg = crate::dpkg::DpkgPackage::from_paragraph(&paragraph)
+                .map_err(crate::dpkg::DpkgError::Malformed)?;
+            if !pkg.has_version() {
+                continue;
+            }
+            let Some(version) = pkg.version.clone() else {
+                continue;
+            };
+            let version_arch = Arch::new(
+                pkg.architecture
+                    .clone()
+                    .unwrap_or_else(|| self.native.to_string()),
+            );
+            let package_arch = if version_arch.is_all() {
+                self.native.clone()
+            } else {
+                version_arch.clone()
+            };
+            // Parsing the whole control paragraph for every installed
+            // package dominates the merge; when the indexes already carry
+            // the version, its status source alone is enough.
+            if !self.defer_status_source(&pkg.name, &package_arch, &version, &source) {
+                let control = Control::from_paragraph(&paragraph)
+                    .map_err(crate::dpkg::DpkgError::Malformed)?;
+                self.insert_version(
+                    &pkg.name,
+                    package_arch.clone(),
+                    Version {
+                        control,
+                        sources: vec![source.clone()],
+                        arch: version_arch,
+                    },
+                );
+            }
+
+            if pkg.selection_state().is_installed() {
+                self.installed
+                    .entry(pkg.name.clone())
+                    .or_default()
+                    .insert(package_arch, version);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Fold the parsed `Packages` records into the cache payload.
+fn add_index(data: &mut AptStateData, native: &Arch, entries: Vec<Control>, sources: Vec<Source>) {
+    for (control, source) in entries.into_iter().zip(sources) {
+        let version_arch = Arch::new(
+            control
+                .architecture
+                .clone()
+                .unwrap_or_else(|| native.to_string()),
+        );
+        let package_arch = if version_arch.is_all() {
+            native.clone()
+        } else {
+            version_arch.clone()
+        };
+        let name = control.package.clone();
+        let version = Version {
+            control,
+            sources: vec![source],
+            arch: version_arch,
+        };
+
+        if !data
+            .groups
+            .get(&name)
+            .is_some_and(|packages| packages.contains_key(&package_arch))
+        {
+            data.package_order
+                .entry(name.clone())
+                .or_default()
+                .push(package_arch.clone());
+        }
+        push_or_merge(
+            data.groups
+                .entry(name)
+                .or_default()
+                .entry(package_arch)
+                .or_default(),
+            version,
+        );
     }
 }
 
 fn has_indexed_version(versions: &[Version]) -> bool {
     versions.iter().any(|version| !version.is_local_deb())
 }
+
+fn push_or_merge(versions: &mut Vec<Version>, version: Version) {
+    let new_is_local = version.sources.iter().any(Source::is_local_deb);
+    if let Some(existing) = versions.iter_mut().find(|existing| {
+        if existing.version() != version.version() || existing.arch != version.arch {
+            return false;
+        }
+        if new_is_local {
+            // Keep distinct local files separate, but coalesce re-inserting
+            // the same file.
+            existing
+                .sources
+                .iter()
+                .any(|source| source.is_local_deb() && version.sources.contains(source))
+        } else {
+            // A local `.deb` keeps its own control record; never merge it
+            // with an indexed version of the same identity.
+            !existing.sources.iter().any(Source::is_local_deb)
+        }
+    }) {
+        for source in version.sources {
+            if !existing.sources.contains(&source) {
+                existing.sources.push(source);
+            }
+        }
+    } else {
+        versions.push(version);
+    }
+}
+
+#[cfg(test)]
+mod tests;
