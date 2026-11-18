@@ -24,7 +24,7 @@ use oma_refresh::db::Event as RefreshEvent;
 use oma_logger::{debug, error, info, warn};
 use oma_utils::human_bytes::HumanBytes;
 
-const SPINNER_ANIME: &[&str] = &[
+const SPINNER_ANIMATION: &[&str] = &[
     "( ●    )",
     "(  ●   )",
     "(   ●  )",
@@ -138,7 +138,7 @@ pub fn spinner_style() -> (ProgressStyle, Duration) {
 
     let style = ProgressStyle::with_template(SPINNER_TEMPLATE)
         .unwrap()
-        .tick_strings(SPINNER_ANIME);
+        .tick_strings(SPINNER_ANIMATION);
 
     (style, inv)
 }
