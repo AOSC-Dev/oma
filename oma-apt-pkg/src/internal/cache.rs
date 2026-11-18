@@ -8,6 +8,8 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
+use tempfile::NamedTempFile;
+
 use crate::AptConfig;
 use crate::apt_sources::SourceLookup;
 
@@ -16,7 +18,10 @@ use crate::apt_sources::SourceLookup;
 /// starts at a 16-byte offset so it is 8-byte aligned (mapping bases and
 /// freshly allocated buffers are page/8-aligned).
 pub(crate) const CACHE_HEADER_LEN: usize = 16;
-// Bump when the generated index set or the archived cache layout changes.
+// Bump when the generated index set or the archived cache layout changes:
+// `2` is the architecture-keyed payload with source kinds, the
+// native/ordered architectures and the search entry's preferred
+// architecture; older caches are rebuilt.
 pub(crate) const CACHE_VERSION: u32 = 2;
 
 /// Whether `bytes` begins with a valid header for `magic` (magic + current
@@ -153,7 +158,7 @@ fn mtime_secs(meta: &fs::Metadata) -> Option<i64> {
 /// Write `bytes` to `path` through a uniquely named temporary file in the
 /// same directory, then rename it into place. `NamedTempFile` creates the
 /// file with `O_EXCL`, so concurrent writers cannot truncate each other, and
-/// the rename means a crash never leaves a half-written cache behind.
+/// removes it on drop if writing or renaming fails.
 pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let parent = match path.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
@@ -161,7 +166,7 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     };
     fs::create_dir_all(parent)?;
 
-    let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
+    let mut tmp = NamedTempFile::new_in(parent)?;
     tmp.write_all(bytes)?;
     tmp.as_file().sync_all()?;
     tmp.persist(path).map_err(|error| error.error)?;
@@ -172,6 +177,24 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    #[test]
+    fn write_atomic_replaces_the_target_and_leaves_no_temp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("cache.bin");
+
+        write_atomic(&target, b"first").unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"first");
+
+        write_atomic(&target, b"second").unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"second");
+
+        let entries: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(entries, vec![std::ffi::OsString::from("cache.bin")]);
+    }
 
     const STABLE: &str = "Types: deb\n\
         URIs: https://example.com/debs\n\
@@ -402,23 +425,6 @@ mod tests {
         assert!(header_ok(&buf, b"TESTMAG\x00"));
         assert!(!header_ok(&buf, b"WRONGMG\x00"));
         assert!(!header_ok(&buf[..8], b"TESTMAG\x00"));
-    }
-
-    #[test]
-    fn write_atomic_replaces_the_target_and_leaves_no_temp_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let target = dir.path().join("cache.bin");
-
-        write_atomic(&target, b"first").unwrap();
-        assert_eq!(std::fs::read(&target).unwrap(), b"first");
-        write_atomic(&target, b"second").unwrap();
-        assert_eq!(std::fs::read(&target).unwrap(), b"second");
-
-        let entries: Vec<_> = std::fs::read_dir(dir.path())
-            .unwrap()
-            .map(|entry| entry.unwrap().file_name())
-            .collect();
-        assert_eq!(entries, vec![std::ffi::OsString::from("cache.bin")]);
     }
 
     #[test]

@@ -27,9 +27,9 @@ use super::query::{Query, QueryResolution, ResolvedPackage, matches_version};
 mod cache;
 use super::{Control, Source};
 use crate::apt_sources::SourceLookup;
-use crate::cache::CacheFile;
-use crate::cache::from_archived;
 use crate::error::Error;
+use crate::internal::cache::CacheFile;
+use crate::internal::cache::from_archived;
 use cache::{AptStateData, StateCache, save_state_cache};
 
 /// The unified package state: apt lists plus dpkg status.
@@ -48,9 +48,6 @@ pub struct AptState {
     /// itself up without building a [`PackageKey`].
     installed: HashMap<String, HashMap<Arch, String>>,
     status_path: PathBuf,
-    /// The lists files this state was built from; the search cache checks
-    /// them before reusing its index.
-    #[allow(dead_code, reason = "read once search moves onto AptState")]
     files: Vec<CacheFile>,
     /// The mapped package cache backing every group still to be
     /// deserialized.
@@ -146,7 +143,14 @@ impl AptState {
                         .iter()
                         .map(from_archived::<Arch>)
                         .eq(architectures.iter().cloned())
-                    && crate::cache::valid(&cache_path, &lists_dir, &lookup, cfg, &archs, &files)
+                    && crate::internal::cache::valid(
+                        &cache_path,
+                        &lists_dir,
+                        &lookup,
+                        cfg,
+                        &archs,
+                        &files,
+                    )
             };
 
             if cache_matches {
@@ -159,15 +163,16 @@ impl AptState {
         }
 
         debug!("oma package state cache miss: {cache_path}");
-        let (entries, sources) =
-            crate::apt_lists::parse_apt_lists_dir_with_sources(&lists_dir, &lookup, cfg, &archs)?;
+        let (entries, sources) = crate::internal::lists::parse_apt_lists_dir_with_sources(
+            &lists_dir, &lookup, cfg, &archs,
+        )?;
 
         let mut data = AptStateData {
             groups: HashMap::new(),
             package_order: HashMap::new(),
             native_arch: native.clone(),
             architectures: architectures.clone(),
-            files: crate::cache::collect(&lists_dir, &lookup, cfg, &archs),
+            files: crate::internal::cache::collect(&lists_dir, &lookup, cfg, &archs),
         };
         add_index(&mut data, &native, entries, sources);
         if let Err(e) = save_state_cache(&cache_path, &data) {
@@ -286,8 +291,7 @@ impl AptState {
     }
 
     /// The Packages files this state was built from, for cache validation.
-    #[allow(dead_code, reason = "read once search moves onto AptState")]
-    pub(crate) fn files(&self) -> &[crate::cache::CacheFile] {
+    pub(crate) fn files(&self) -> &[crate::internal::cache::CacheFile] {
         &self.files
     }
 
@@ -691,13 +695,13 @@ impl AptState {
     }
 
     fn merge_status(&mut self) -> Result<(), Error> {
-        let paragraphs = crate::dpkg::paragraphs(&self.status_path)?;
+        let paragraphs = crate::internal::dpkg::paragraphs(&self.status_path)?;
         let source = Source::dpkg_status(self.status_path.display().to_string());
 
         for paragraph in paragraphs {
-            let paragraph = paragraph.map_err(crate::dpkg::DpkgError::from)?;
-            let pkg = crate::dpkg::DpkgPackage::from_paragraph(&paragraph)
-                .map_err(crate::dpkg::DpkgError::Malformed)?;
+            let paragraph = paragraph.map_err(crate::internal::dpkg::DpkgError::from)?;
+            let pkg = crate::internal::dpkg::DpkgPackage::from_paragraph(&paragraph)
+                .map_err(crate::internal::dpkg::DpkgError::Malformed)?;
             if !pkg.has_version() {
                 continue;
             }
@@ -719,7 +723,7 @@ impl AptState {
             // the version, its status source alone is enough.
             if !self.defer_status_source(&pkg.name, &package_arch, &version, &source) {
                 let control = Control::from_paragraph(&paragraph)
-                    .map_err(crate::dpkg::DpkgError::Malformed)?;
+                    .map_err(crate::internal::dpkg::DpkgError::Malformed)?;
                 self.insert_version(
                     &pkg.name,
                     package_arch.clone(),

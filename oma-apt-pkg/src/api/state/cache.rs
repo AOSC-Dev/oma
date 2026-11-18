@@ -5,7 +5,7 @@ use std::path::Path;
 
 use super::super::arch::Arch;
 use super::super::model::Version;
-use crate::cache::{CACHE_HEADER_LEN, CacheFile};
+use crate::internal::cache::{CACHE_HEADER_LEN, CacheFile};
 
 /// Magic for the package-database cache (`Dir::Cache::oma-aptdb`).
 const STATE_CACHE_MAGIC: &[u8; 8] = b"OMAST\x00\x00\x00";
@@ -46,7 +46,7 @@ impl StateCache {
         // stays valid even if the file is replaced or truncated.
         let mmap = unsafe { memmap2::MmapOptions::new().map_copy_read_only(&file).ok()? };
 
-        if !crate::cache::header_ok(&mmap, STATE_CACHE_MAGIC) {
+        if !crate::internal::cache::header_ok(&mmap, STATE_CACHE_MAGIC) {
             return None;
         }
         rkyv::access::<ArchivedAptStateData, rkyv::rancor::Error>(&mmap[CACHE_HEADER_LEN..])
@@ -87,8 +87,8 @@ impl std::fmt::Debug for StateCache {
 pub(super) fn save_state_cache(path: &str, data: &AptStateData) -> std::io::Result<()> {
     let archive = rkyv::to_bytes::<rkyv::rancor::Error>(data).map_err(std::io::Error::other)?;
     let mut buf = Vec::with_capacity(CACHE_HEADER_LEN + archive.len());
-    crate::cache::push_header(&mut buf, STATE_CACHE_MAGIC);
+    crate::internal::cache::push_header(&mut buf, STATE_CACHE_MAGIC);
     buf.extend_from_slice(&archive);
 
-    crate::cache::write_atomic(Path::new(path), &buf)
+    crate::internal::cache::write_atomic(Path::new(path), &buf)
 }
