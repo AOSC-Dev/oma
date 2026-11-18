@@ -175,6 +175,18 @@ fn has_relative_deb_arg() -> bool {
         .any(|a| a.ends_with(".deb") && Path::new(&a).is_relative())
 }
 
+/// Refuse to run as root on Termux.
+///
+/// `tsu`/`sudo` run oma with euid 0 and rebuild the environment; root-owned
+/// files under `$PREFIX` break subsequent package operations.
+pub fn ensure_not_root_on_termux() -> Result<()> {
+    if is_termux() && is_root() {
+        return Err(OutputError::msg(fl!("termux-root-not-allowed")));
+    }
+
+    Ok(())
+}
+
 // From `is_wsl` crate
 fn is_wsl() -> bool {
     let Ok(kernel_info) = std::fs::read_to_string("/proc/sys/kernel/osrelease") else {
