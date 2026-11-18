@@ -99,7 +99,13 @@ fn connect_dbus_impl() -> Option<Connection> {
         warn!("{}", fl!("failed-check-dbus"));
         warn!("{}", fl!("failed-check-dbus-tips-1"));
         info!("{}", fl!("failed-check-dbus-tips-2"));
-        info!("{}", fl!("failed-check-dbus-tips-3"));
+        info!(
+            "{}",
+            fl!(
+                "failed-check-dbus-tips-3",
+                path = oma_utils::termux::oma_config_file().display()
+            )
+        );
 
         let theme = ColorfulTheme::default();
         let ans = Confirm::with_theme(&theme)
