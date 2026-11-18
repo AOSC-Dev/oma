@@ -5,9 +5,10 @@ use anyhow::Context;
 use clap::Args;
 use clap_complete::ArgValueCompleter;
 use dialoguer::console::{StyledObject, style};
-use oma_apt_pkg::api::{AptState, Control, Package, ResolvedPackage, Source, Version};
 use oma_apt_pkg::apt_sources::{IndexTargetTemplates, substitute};
-use oma_apt_pkg::{AptConfig, AptExtendedStates};
+use oma_apt_pkg::{
+    AptConfig, AptExtendedStates, AptState, Control, Package, ResolvedPackage, Source, Version,
+};
 use oma_logger::info;
 use oma_utils::human_bytes::HumanBytes;
 use serde::Serialize;
@@ -405,7 +406,7 @@ mod tests {
             ))
             .unwrap(),
             sources: vec![source],
-            arch: oma_apt_pkg::api::Arch::new(arch),
+            arch: oma_apt_pkg::Arch::new(arch),
         }
     }
 

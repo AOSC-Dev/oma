@@ -3,7 +3,7 @@
 //! A `.deb` package is an `ar` archive containing three members:
 //! `debian-binary`, `control.tar.{gz,xz,zst,…}` and `data.tar.{gz,xz,zst,…}`.
 //! This module extracts the `./control` file out of the compressed
-//! `control.tar` member and parses it into a [`PackageEntry`] using the
+//! `control.tar` member and parses it into a [`Control`] using the
 //! `debian-control` crate.
 
 use std::fs::File;
@@ -14,7 +14,8 @@ use ar::Archive;
 use deb822_fast::{Deb822, FromDeb822Paragraph};
 use thiserror::Error;
 
-use crate::apt_lists::{IndexSource, PackageEntry, SourceKind};
+use crate::Control;
+use crate::internal::lists::{IndexSource, SourceKind};
 
 /// Errors that can occur while reading a `.deb` package.
 #[derive(Debug, Error)]
@@ -63,14 +64,14 @@ fn file_uri(path: impl AsRef<Path>) -> String {
 }
 
 /// Read and parse the `control` file from a `.deb` package into a
-/// [`PackageEntry`].
-pub fn parse_deb(path: impl AsRef<Path>) -> Result<PackageEntry, DebError> {
+/// [`Control`].
+pub fn parse_deb(path: impl AsRef<Path>) -> Result<Control, DebError> {
     parse_deb_reader(File::open(path)?)
 }
 
 /// Parse a `.deb` package from any reader (e.g. in-memory bytes) into a
-/// [`PackageEntry`].
-pub fn parse_deb_reader(reader: impl Read) -> Result<PackageEntry, DebError> {
+/// [`Control`].
+pub fn parse_deb_reader(reader: impl Read) -> Result<Control, DebError> {
     let control = read_control_from_reader(reader)?;
     parse_control_entry(&control)
 }
@@ -97,11 +98,11 @@ pub fn read_control_from_reader(reader: impl Read) -> Result<String, DebError> {
     Err(DebError::MissingControlTar)
 }
 
-/// Parse the `control` file text into a [`PackageEntry`] using the same
+/// Parse the `control` file text into a [`Control`] using the same
 /// deb822-fast path as the apt lists files. Dependency fields stay as raw
 /// text — no `Relations` parsing happens here; consumers that need the
 /// parsed form (e.g. search for `Provides` names) parse on demand.
-pub fn parse_control_entry(control: &str) -> Result<PackageEntry, DebError> {
+pub fn parse_control_entry(control: &str) -> Result<Control, DebError> {
     let deb822 = control
         .parse::<Deb822>()
         .map_err(|e| DebError::Parse(e.to_string()))?;
@@ -110,7 +111,7 @@ pub fn parse_control_entry(control: &str) -> Result<PackageEntry, DebError> {
         .next()
         .ok_or_else(|| DebError::Parse("missing control paragraph".to_string()))?;
 
-    PackageEntry::from_paragraph(paragraph).map_err(DebError::Parse)
+    Control::from_paragraph(paragraph).map_err(DebError::Parse)
 }
 
 /// Decompress a `control.tar.*` member into a streaming reader.
