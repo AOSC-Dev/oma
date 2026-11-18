@@ -35,11 +35,13 @@ use oma_logger::debug;
 use oma_logger::warn;
 
 pub use oma_pm_operation_type::*;
+#[cfg(feature = "dbus")]
 use oma_utils::zbus::Connection;
 
+#[cfg(feature = "dbus")]
+use crate::dbus::create_session;
 use crate::{
     commit::{CommitConfig, CustomDownloadMessage, DoInstall},
-    dbus::create_session,
     download::download_pkgs,
     lock::AptLockGuard,
     matches::MatcherError,
@@ -94,6 +96,7 @@ pub struct OmaApt {
     archive_dir: OnceCell<PathBuf>,
     pub(crate) async_handler: OnceCell<Handle>,
     pub(crate) async_runtime: OnceCell<Runtime>,
+    #[cfg(feature = "dbus")]
     pub(crate) conn: OnceCell<Connection>,
     sysroot: PathBuf,
     pub(crate) apt_lock: RefCell<Option<AptLockGuard>>,
@@ -233,6 +236,7 @@ impl OmaApt {
             archive_dir: OnceCell::new(),
             async_handler: OnceCell::new(),
             async_runtime: OnceCell::new(),
+            #[cfg(feature = "dbus")]
             conn: OnceCell::new(),
             sysroot: sysroot.into(),
             apt_lock: RefCell::new(None),
@@ -380,6 +384,7 @@ impl OmaApt {
         self.cache.packages(&sort).count()
     }
 
+    #[cfg(feature = "dbus")]
     pub fn init_dbus_status(&mut self) -> OmaAptResult<()> {
         let tokio = self.get_or_init_async_runtime()?;
 

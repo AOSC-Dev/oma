@@ -3,19 +3,27 @@ use std::time::Duration;
 use clap::Args;
 use oma_apt_pkg::AptConfig;
 use oma_apt_pkg::search::{IndiciumSearch, OmaSearch, SearchResult, SearchType};
-use oma_logger::{debug, info};
+#[cfg(feature = "dbus")]
+use oma_logger::debug;
+use oma_logger::info;
 use oma_pager::{exit_tui, prepare_create_tui};
 use oma_pm::apt::{OmaApt, OmaAptArgs, Upgrade};
 use render::{Task, Tui as TuiInner};
+#[cfg(feature = "dbus")]
 use zbus::Connection;
 
+#[cfg(feature = "dbus")]
+use crate::RT;
+#[cfg(feature = "dbus")]
+use crate::dbus::dbus_check;
+#[cfg(feature = "dbus")]
+use crate::subcommand::search::AmoProxy;
 use crate::{
-    RT, args::CliExecuter, config::OmaConfig, exit_handle::ExitHandle, pb::ProgressBar,
-    subcommand::search::AmoProxy, tui::render::PackageStatus,
+    args::CliExecuter, config::OmaConfig, exit_handle::ExitHandle, pb::ProgressBar,
+    tui::render::PackageStatus,
 };
 use crate::{
     core::{commit_changes::CommitChanges, refresh::Refresh},
-    dbus::dbus_check,
     error::OutputError,
     fl,
     root::root,
@@ -57,6 +65,7 @@ pub struct Tui {
 
 pub(crate) enum Searcher {
     Local(Box<IndiciumSearch>),
+    #[cfg(feature = "dbus")]
     Amo {
         _connection: Connection,
         proxy: AmoProxy<'static>,
@@ -64,6 +73,7 @@ pub(crate) enum Searcher {
 }
 
 impl Searcher {
+    #[cfg(feature = "dbus")]
     async fn connect_amo() -> anyhow::Result<Searcher> {
         let connection = Connection::system().await?;
 
@@ -89,6 +99,7 @@ impl Searcher {
     pub(crate) fn search(&self, query: &str) -> anyhow::Result<Vec<SearchResult>> {
         match self {
             Searcher::Local(indicium_search) => Ok(indicium_search.search(query)?),
+            #[cfg(feature = "dbus")]
             Searcher::Amo { proxy, .. } => {
                 Ok(serde_json::from_str(&RT.block_on(proxy.search(query))?)?)
             }
@@ -98,8 +109,10 @@ impl Searcher {
     #[allow(dead_code)]
     /// Refresh status metadata from fresh dpkg status data.
     pub(crate) fn refresh(&mut self, apt_db: &oma_apt_pkg::AptDb, dpkg: &oma_apt_pkg::DpkgState) {
-        if let Searcher::Local(indicium_search) = self {
-            indicium_search.refresh_from(apt_db, dpkg);
+        match self {
+            Searcher::Local(indicium_search) => indicium_search.refresh_from(apt_db, dpkg),
+            #[cfg(feature = "dbus")]
+            Searcher::Amo { .. } => {}
         }
     }
 }
@@ -124,6 +137,7 @@ impl CliExecuter for Tui {
 
         root(config.no_check_dbus())?;
         let _lock_fd = lock_oma(&config.sysroot)?;
+        #[cfg(feature = "dbus")]
         let _fds = dbus_check(false, &config)?;
 
         let sysroot = &config.sysroot;
@@ -147,13 +161,20 @@ impl CliExecuter for Tui {
         let autoremove = apt.count_pending_autoremovable_pkgs();
         let installed = apt.count_installed_packages();
 
-        let searcher = if config.amo && !config.no_check_dbus() {
-            match RT.block_on(Searcher::connect_amo()) {
-                Ok(searcher) => searcher,
-                Err(_) => local_searcher(config.apt_config(), &pb)?,
+        let searcher = {
+            #[cfg(feature = "dbus")]
+            if config.amo && !config.no_check_dbus() {
+                match RT.block_on(Searcher::connect_amo()) {
+                    Ok(searcher) => searcher,
+                    Err(_) => local_searcher(config.apt_config(), &pb)?,
+                }
+            } else {
+                local_searcher(config.apt_config(), &pb)?
             }
-        } else {
-            local_searcher(config.apt_config(), &pb)?
+            #[cfg(not(feature = "dbus"))]
+            {
+                local_searcher(config.apt_config(), &pb)?
+            }
         };
 
         pb.finish_and_clear();

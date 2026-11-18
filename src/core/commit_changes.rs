@@ -17,7 +17,7 @@ use oma_pm::{
 use oma_utils::human_bytes::HumanBytes;
 
 use crate::color::Colorize;
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 use crate::utils::get_lists_dir;
 use crate::{
     NOT_ALLOW_CTRLC,
@@ -159,16 +159,18 @@ impl CommitChanges<'_> {
             return Ok(ExitHandle::default().ring(true));
         }
 
+        // Without the dbus feature oma-pm has no status connection to init.
+        #[cfg(feature = "dbus")]
         apt.init_dbus_status()?;
 
         if check_tum {
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             let tum = oma_tum::get_tum(get_lists_dir())?;
 
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             let matches_tum = Some(oma_tum::get_matches_tum(&tum, &op));
 
-            #[cfg(not(feature = "aosc"))]
+            #[cfg(not(feature = "aosc-common"))]
             let matches_tum = None;
 
             match table_for_install_pending(

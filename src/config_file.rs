@@ -140,7 +140,7 @@ impl GeneralConfig {
     }
 
     pub const fn default_search_engine() -> SearchEngine {
-        if cfg!(feature = "aosc") {
+        if cfg!(feature = "aosc-common") {
             SearchEngine::Indicium
         } else {
             SearchEngine::StrSim
@@ -156,7 +156,7 @@ impl GeneralConfig {
     }
 
     pub const fn default_amo() -> bool {
-        cfg!(feature = "aosc")
+        cfg!(feature = "aosc-common")
     }
 }
 

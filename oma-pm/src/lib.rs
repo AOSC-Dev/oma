@@ -35,6 +35,7 @@ pub mod pkginfo;
 pub mod progress;
 
 mod commit;
+#[cfg(feature = "dbus")]
 mod dbus;
 mod download;
 pub mod utils;

@@ -6,12 +6,19 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, exit};
 use std::sync::{LazyLock, OnceLock};
 
+#[cfg(all(feature = "afterglow", feature = "dbus"))]
+compile_error!(
+    "`afterglow` and `dbus` are mutually exclusive; build Afterglow with \
+     `--no-default-features --features afterglow` (do not enable `aosc`)"
+);
+
 mod args;
 mod color;
 mod completions;
 mod config;
 mod config_file;
 mod core;
+#[cfg(feature = "dbus")]
 mod dbus;
 mod error;
 mod exit_handle;

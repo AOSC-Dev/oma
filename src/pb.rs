@@ -170,7 +170,7 @@ impl ProgressBar {
     ///
     /// Only the aosc-gated `oma mirror` command creates an ad-hoc bar, so this
     /// constructor is gated with the same feature.
-    #[cfg(feature = "aosc")]
+    #[cfg(feature = "aosc-common")]
     pub fn new(len: u64, style: ProgressStyle, enabled: bool) -> Self {
         if !enabled {
             return Self::hidden();

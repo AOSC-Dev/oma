@@ -8,15 +8,20 @@ use oma_apt_pkg::search::{
 };
 use oma_apt_pkg::{AptConfig, AptDb, DpkgState};
 use oma_console::terminal::gen_prefix;
+#[cfg(feature = "dbus")]
 use oma_logger::debug;
 use oma_pager::Pager;
 use oma_pm::matches::SearchEngine;
+#[cfg(feature = "dbus")]
 use oma_utils::zbus::proxy;
+#[cfg(feature = "dbus")]
 use zbus::Connection;
 
+#[cfg(feature = "dbus")]
+use crate::RT;
 use crate::color::Colorize;
 use crate::{
-    RT, WRITER, completions::pkgnames_completions, config::OmaConfig,
+    WRITER, completions::pkgnames_completions, config::OmaConfig,
     config_file::SearchEngine as ConfigSearchEngine, exit_handle::ExitHandle, fl,
 };
 use crate::{error::OutputError, table::oma_display_with_normal_output};
@@ -24,6 +29,7 @@ use crate::{error::OutputError, table::oma_display_with_normal_output};
 use crate::args::CliExecuter;
 use crate::pb::ProgressBar;
 
+#[cfg(feature = "dbus")]
 #[proxy(
     interface = "io.aosc.Amo1",
     default_service = "io.aosc.Amo",
@@ -173,12 +179,19 @@ pub fn search(
         SearchEngine::Indicium(f) => {
             let query = keywords.join(" ");
 
-            if config.amo && !config.no_check_dbus() {
-                match RT.block_on(amo_search(&query)) {
-                    Ok(r) => Ok(r),
-                    Err(_) => local_indicium_search(config.apt_config(), f, query),
+            #[cfg(feature = "dbus")]
+            {
+                if config.amo && !config.no_check_dbus() {
+                    match RT.block_on(amo_search(&query)) {
+                        Ok(r) => Ok(r),
+                        Err(_) => local_indicium_search(config.apt_config(), f, query),
+                    }
+                } else {
+                    local_indicium_search(config.apt_config(), f, query)
                 }
-            } else {
+            }
+            #[cfg(not(feature = "dbus"))]
+            {
                 local_indicium_search(config.apt_config(), f, query)
             }
         }
@@ -223,6 +236,7 @@ fn local_indicium_search(
     Ok(searcher.search(&query)?)
 }
 
+#[cfg(feature = "dbus")]
 async fn amo_search(query: &str) -> anyhow::Result<Vec<SearchResult>> {
     let connection = Connection::system().await?;
 

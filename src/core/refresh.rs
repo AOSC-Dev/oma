@@ -39,16 +39,16 @@ impl Refresh<'_> {
             // `Arc::clone` 只是引用计数 +1，不深拷贝配置树。
             .apt_config(config.apt_config_arc().clone());
 
-        #[cfg(feature = "aosc")]
+        #[cfg(feature = "aosc-common")]
         let msg = fl!("do-not-edit-topic-sources-list");
 
-        #[cfg(feature = "aosc")]
+        #[cfg(feature = "aosc-common")]
         let refresh = refresh
             .refresh_topics(!config.no_refresh_topics)
             .topic_msg(msg.into())
             .build();
 
-        #[cfg(not(feature = "aosc"))]
+        #[cfg(not(feature = "aosc-common"))]
         let refresh = refresh.build();
 
         let (tx, rx) = unbounded();
