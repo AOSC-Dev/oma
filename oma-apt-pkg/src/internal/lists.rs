@@ -5,8 +5,8 @@ use deb822_fast::{Deb822, FromDeb822, FromDeb822Paragraph};
 use rayon::prelude::*;
 use serde::Serialize;
 
-use crate::apt_sources::SourceLookup;
 use crate::AptConfig;
+use crate::apt_sources::SourceLookup;
 
 /// Errors that can occur when parsing APT list files.
 #[derive(Debug, thiserror::Error)]

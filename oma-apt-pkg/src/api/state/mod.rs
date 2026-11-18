@@ -64,7 +64,14 @@ impl AptState {
         if let Some(data) = load_state_cache(&cache_path)
             && data.native_arch == native
             && data.architectures == architectures
-            && crate::internal::cache::valid(&cache_path, &lists_dir, &lookup, &archs, &data.files)
+            && crate::internal::cache::valid(
+                &cache_path,
+                &lists_dir,
+                &lookup,
+                cfg,
+                &archs,
+                &data.files,
+            )
         {
             debug!("oma package state cache hit: {cache_path}");
             let mut state = Self {
@@ -81,8 +88,9 @@ impl AptState {
         }
 
         debug!("oma package state cache miss: {cache_path}");
-        let (entries, sources) =
-            crate::internal::lists::parse_apt_lists_dir_with_sources(&lists_dir, &lookup, &archs)?;
+        let (entries, sources) = crate::internal::lists::parse_apt_lists_dir_with_sources(
+            &lists_dir, &lookup, cfg, &archs,
+        )?;
 
         let mut state = Self {
             native,
@@ -91,7 +99,7 @@ impl AptState {
             package_order: HashMap::new(),
             installed: HashMap::new(),
             status_path,
-            files: crate::internal::cache::collect(&lists_dir, &lookup, &archs),
+            files: crate::internal::cache::collect(&lists_dir, &lookup, cfg, &archs),
         };
         state.add_index(entries, sources);
         state.save_cache(&cache_path);
