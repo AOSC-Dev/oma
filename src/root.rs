@@ -1,5 +1,6 @@
 use std::{
     env,
+    path::Path,
     process::{Command, exit},
     sync::atomic::Ordering,
 };
@@ -7,6 +8,7 @@ use std::{
 use anyhow::anyhow;
 use oma_logger::{debug, info};
 use oma_utils::is_termux;
+use rustix::fs::statfs;
 use rustix::process;
 use zbus::{Connection, fdo::DBusProxy, names::BusName};
 
@@ -25,8 +27,15 @@ pub fn root(no_check_dbus: bool) -> Result<()> {
 
     NOT_ALLOW_CTRLC.store(true, Ordering::Relaxed);
 
+    // FUSE 挂载默认不允许 root 进入，提权时不能保留 cwd；
+    // 此时 cwd 会被重新设置为 `/`，相对 deb 路径没有意义，直接拒绝。
+    let keep_cwd = !cwd_is_fuse();
+    if !keep_cwd && has_relative_deb_arg() {
+        return Err(OutputError::msg(fl!("fuse-cwd-relative-deb")));
+    }
+
     match env::var("OMA_PERM_TOOL").as_deref() {
-        Ok("sdr") => systemd_run_oma()?,
+        Ok("sdr") => systemd_run_oma(keep_cwd)?,
         Ok("pkexec") => pkexec_oma()?,
         Ok(x) => other_permission_tools_run_oma(x)?,
         Err(_) => {}
@@ -41,7 +50,7 @@ pub fn root(no_check_dbus: bool) -> Result<()> {
     // require logind before trying it and let the pkexec/sudo/doas branches
     // take over otherwise.
     if which::which("systemd-run").is_ok() && !is_wsl && !no_check_dbus && is_logind_running() {
-        systemd_run_oma()?;
+        systemd_run_oma(keep_cwd)?;
     } else if is_desktop_env() && !is_wsl && which::which("pkexec").is_ok() {
         // 检测是否有 DISPLAY，如果有，则在提权时使用 pkexec
         // 通常情况下 SSH 连接不会有 DISPLAY 环境变量，除非开启 X11 Forwarding
@@ -108,19 +117,27 @@ const OMA_KNOWN_ENVS: &[&str] = &[
     "LANG",
 ];
 
-fn systemd_run_oma() -> Result<()> {
+fn systemd_run_oma(keep_cwd: bool) -> Result<()> {
     let envs_args = std::env::vars()
         .filter(|(k, _)| k.starts_with("OMA_") || OMA_KNOWN_ENVS.contains(&k.as_str()))
         .map(|(k, v)| format!("--setenv={k}={v}"));
 
-    let out = Command::new("systemd-run")
-        .env("SYSTEMD_ADJUST_TERMINAL_TITLE", "0")
-        .arg("--same-dir")
+    let mut cmd = Command::new("systemd-run");
+    cmd.env("SYSTEMD_ADJUST_TERMINAL_TITLE", "0")
         .arg("--pty")
         .arg("--quiet")
         .arg("--unit=oma")
         .args(envs_args)
-        .arg("--collect")
+        .arg("--collect");
+
+    if keep_cwd {
+        cmd.arg("--same-dir");
+    } else {
+        // systemd-run 的 system service 默认在 `/` 下运行，这里显式写出来
+        cmd.arg("--working-directory=/");
+    }
+
+    let out = cmd
         .args(std::env::args())
         .spawn()
         .and_then(|x| x.wait_with_output())
@@ -138,6 +155,36 @@ fn systemd_run_oma() -> Result<()> {
 #[inline]
 pub fn is_root() -> bool {
     process::geteuid().is_root()
+}
+
+/// FUSE_SUPER_MAGIC
+const FUSE_SUPER_MAGIC: u64 = 0x6573_5546;
+
+/// 当前工作目录是否位于 FUSE 挂载上。
+///
+/// FUSE 默认只允许挂载者本人访问，root 也会被拒绝；提权时若保留 cwd，
+/// systemd 会以 root 身份 chdir 进该目录并失败。
+fn cwd_is_fuse() -> bool {
+    matches!(statfs("."), Ok(s) if s.f_type as u64 == FUSE_SUPER_MAGIC)
+}
+
+/// 提权后 cwd 可能被换成 `/`，相对 `.deb` 路径会被重新解析，必须拒绝。
+fn has_relative_deb_arg() -> bool {
+    env::args()
+        .skip(1)
+        .any(|a| a.ends_with(".deb") && Path::new(&a).is_relative())
+}
+
+/// Refuse to run as root on Termux.
+///
+/// `tsu`/`sudo` run oma with euid 0 and rebuild the environment; root-owned
+/// files under `$PREFIX` break subsequent package operations.
+pub fn ensure_not_root_on_termux() -> Result<()> {
+    if is_termux() && is_root() {
+        return Err(OutputError::msg(fl!("termux-root-not-allowed")));
+    }
+
+    Ok(())
 }
 
 // From `is_wsl` crate
