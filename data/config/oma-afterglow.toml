@@ -1,6 +1,3 @@
-# Default configuration for AOSC OS/Afterglow.
-# The Afterglow package installs this file as /etc/oma.toml.
-
 [general]
 # Set to false to allow removal of "Essential" packages.
 protect_essentials = true
