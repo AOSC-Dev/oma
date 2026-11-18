@@ -480,6 +480,7 @@ impl IndiciumSearch {
                 &search_cache_path,
                 &lists_dir,
                 &lookup,
+                apt_cfg,
                 &archs,
                 &searcher.files,
             )
@@ -492,7 +493,7 @@ impl IndiciumSearch {
         debug!("Search cache miss, building index ...");
 
         let mut searcher = Self::new(apt_db, dpkg, search_type, progress);
-        searcher.files = crate::cache::collect(&lists_dir, &lookup, &archs);
+        searcher.files = crate::cache::collect(&lists_dir, &lookup, apt_cfg, &archs);
 
         // Persist search cache for next time
         if let Err(e) = searcher.save_search_cache(&search_cache_path) {

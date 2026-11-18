@@ -896,9 +896,9 @@ fn collect_download_task(
 
     if let Some(list) = mirror_source.mirror_list() {
         let target = MirrorTarget {
-            arch: c.target.arch.as_deref(),
-            component: c.target.component.as_deref(),
-            language: c.target.language.as_deref(),
+            arch: c.target.target_arch(),
+            component: c.target.target_component(),
+            language: c.target.target_language(),
             release: (!mirror_source.is_flat())
                 .then(|| mirror_source.sources.first().unwrap().suite()),
             kind: TargetKind::Index,
@@ -1089,7 +1089,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::IndexTargetMeta;
+    use crate::config::MatchResult;
     use crate::sourceslist::{MirrorSources, OmaSourceEntry};
     use oma_apt_sources_lists::SourceEntry;
 
@@ -1157,10 +1157,10 @@ mod tests {
             optional: false,
             config_key: "Packages".to_string(),
             fallback_of: None,
-            target: IndexTargetMeta {
-                arch: Some("amd64".to_string()),
-                component: Some("main".to_string()),
-                language: None,
+            target: MatchResult {
+                arch: "amd64".to_string(),
+                component: "main".to_string(),
+                language: String::new(),
             },
         };
 

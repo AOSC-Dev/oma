@@ -8,7 +8,7 @@ use rayon::prelude::*;
 use serde::Serialize;
 
 use crate::apt_sources::SourceLookup;
-use crate::{DpkgState, extended_states::AptExtendedStates};
+use crate::{AptConfig, DpkgState, extended_states::AptExtendedStates};
 
 /// Errors that can occur when parsing APT list files.
 #[derive(Debug, thiserror::Error)]
@@ -172,6 +172,7 @@ impl IndexSource {
 pub fn parse_apt_lists_dir_with_sources(
     path: impl AsRef<Path>,
     lookup: &SourceLookup,
+    apt_cfg: &AptConfig,
     archs: &[String],
 ) -> Result<(Vec<PackageEntry>, Vec<IndexSource>), AptListsError> {
     let dir = path.as_ref();
@@ -180,7 +181,7 @@ pub fn parse_apt_lists_dir_with_sources(
     // file that exists, pairing every entry with its source and folding
     // into flat parallel vecs.
     lookup
-        .index_files(archs)
+        .index_files(apt_cfg, archs)
         .par_iter()
         .map(|(filename, source)| {
             let file = dir.join(filename);

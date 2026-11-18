@@ -7,6 +7,7 @@ use std::fs;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
+use crate::AptConfig;
 use crate::apt_sources::SourceLookup;
 
 /// Header shared by the rkyv cache files: 8-byte magic, u32 little-endian
@@ -14,7 +15,8 @@ use crate::apt_sources::SourceLookup;
 /// starts at a 16-byte offset so it is 8-byte aligned (mapping bases and
 /// freshly allocated buffers are page/8-aligned).
 pub(crate) const CACHE_HEADER_LEN: usize = 16;
-pub(crate) const CACHE_VERSION: u32 = 1;
+// Bump when the generated index set or the archived cache layout changes.
+pub(crate) const CACHE_VERSION: u32 = 2;
 
 /// Whether `bytes` begins with a valid header for `magic` (magic + current
 /// version).
@@ -53,10 +55,11 @@ pub(crate) struct CacheFile {
 pub(crate) fn collect(
     lists_dir: impl AsRef<Path>,
     lookup: &SourceLookup,
+    apt_cfg: &AptConfig,
     archs: &[String],
 ) -> Vec<CacheFile> {
     lookup
-        .index_files(archs)
+        .index_files(apt_cfg, archs)
         .into_iter()
         .filter_map(|(filename, _)| {
             let meta = fs::metadata(lists_dir.as_ref().join(&filename)).ok()?;
@@ -87,6 +90,7 @@ pub(crate) fn valid(
     cache_path: impl AsRef<Path>,
     lists_dir: impl AsRef<Path>,
     lookup: &SourceLookup,
+    apt_cfg: &AptConfig,
     archs: &[String],
     files: &[CacheFile],
 ) -> bool {
@@ -101,7 +105,7 @@ pub(crate) fn valid(
     // Snapshot the lists files the current lookup produces and that exist
     // on disk.
     let current: Vec<(String, u64, i64)> = lookup
-        .index_files(archs)
+        .index_files(apt_cfg, archs)
         .into_iter()
         .filter_map(|(filename, _)| {
             let meta = fs::metadata(lists_dir.as_ref().join(&filename)).ok()?;
@@ -167,6 +171,12 @@ mod tests {
         vec!["amd64".to_string()]
     }
 
+    fn apt_cfg() -> AptConfig {
+        let mut cfg = AptConfig::new();
+        cfg.init_defaults().unwrap();
+        cfg
+    }
+
     /// Build a `SourceLookup` from the given deb822 `.sources` texts.
     fn lookup(texts: &[&str]) -> SourceLookup {
         let dir = tempfile::tempdir().unwrap();
@@ -185,7 +195,7 @@ mod tests {
     /// The lists filename a lookup generates for `suite`/`main`/`amd64`.
     fn lists_file(lookup: &SourceLookup, suite: &str) -> String {
         lookup
-            .index_files(&archs())
+            .index_files(&apt_cfg(), &archs())
             .into_iter()
             .find(|(_, src)| src.suite == suite && src.arch.as_deref() == Some("amd64"))
             .unwrap()
@@ -212,7 +222,7 @@ mod tests {
         write_packages(dir.path(), &lookup, "stable", "a");
         // preview never downloaded
 
-        let files = collect(dir.path(), &lookup, &archs());
+        let files = collect(dir.path(), &lookup, &apt_cfg(), &archs());
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].filename, lists_file(&lookup, "stable"));
         assert_eq!(files[0].size, 1);
@@ -227,13 +237,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let lookup = lookup(&[STABLE]);
         write_packages(dir.path(), &lookup, "stable", "a");
-        let files = collect(dir.path(), &lookup, &archs());
+        let files = collect(dir.path(), &lookup, &apt_cfg(), &archs());
 
         // The cache file was never written.
         assert!(!valid(
             dir.path().join("cache"),
             dir.path(),
             &lookup,
+            &apt_cfg(),
             &archs(),
             &files
         ));
@@ -245,12 +256,13 @@ mod tests {
         let lookup = lookup(&[STABLE]);
         write_packages(dir.path(), &lookup, "stable", "a");
         touch_cache(&dir.path().join("cache"));
-        let files = collect(dir.path(), &lookup, &archs());
+        let files = collect(dir.path(), &lookup, &apt_cfg(), &archs());
 
         assert!(valid(
             dir.path().join("cache"),
             dir.path(),
             &lookup,
+            &apt_cfg(),
             &archs(),
             &files
         ));
@@ -262,13 +274,14 @@ mod tests {
         let lookup = lookup(&[STABLE]);
         write_packages(dir.path(), &lookup, "stable", "a");
         touch_cache(&dir.path().join("cache"));
-        let files = collect(dir.path(), &lookup, &archs());
+        let files = collect(dir.path(), &lookup, &apt_cfg(), &archs());
 
         fs::remove_file(dir.path().join(lists_file(&lookup, "stable"))).unwrap();
         assert!(!valid(
             dir.path().join("cache"),
             dir.path(),
             &lookup,
+            &apt_cfg(),
             &archs(),
             &files
         ));
@@ -280,7 +293,7 @@ mod tests {
         let lookup = lookup(&[STABLE]);
         write_packages(dir.path(), &lookup, "stable", "old");
         touch_cache(&dir.path().join("cache"));
-        let files = collect(dir.path(), &lookup, &archs());
+        let files = collect(dir.path(), &lookup, &apt_cfg(), &archs());
 
         // A different size guarantees the IMS check fails even if the
         // rewrite lands in the same second (mtime is second-granular).
@@ -289,6 +302,7 @@ mod tests {
             dir.path().join("cache"),
             dir.path(),
             &lookup,
+            &apt_cfg(),
             &archs(),
             &files
         ));
@@ -301,7 +315,7 @@ mod tests {
         write_packages(dir.path(), &lookup, "stable", "a");
         touch_cache(&dir.path().join("cache"));
         // Cache was built while only `stable` was downloaded.
-        let files = collect(dir.path(), &lookup, &archs());
+        let files = collect(dir.path(), &lookup, &apt_cfg(), &archs());
         assert_eq!(files.len(), 1);
 
         // `preview` downloaded after the cache was built.
@@ -310,6 +324,7 @@ mod tests {
             dir.path().join("cache"),
             dir.path(),
             &lookup,
+            &apt_cfg(),
             &archs(),
             &files
         ));
@@ -321,7 +336,7 @@ mod tests {
         let lookup = lookup(&[STABLE, PREVIEW]);
         write_packages(dir.path(), &lookup, "stable", "a");
         touch_cache(&dir.path().join("cache"));
-        let files = collect(dir.path(), &lookup, &archs());
+        let files = collect(dir.path(), &lookup, &apt_cfg(), &archs());
         assert_eq!(files.len(), 1);
 
         // `preview` is still not downloaded: it contributes to neither side,
@@ -330,6 +345,7 @@ mod tests {
             dir.path().join("cache"),
             dir.path(),
             &lookup,
+            &apt_cfg(),
             &archs(),
             &files
         ));
@@ -342,7 +358,7 @@ mod tests {
         write_packages(dir.path(), &lookup_both, "stable", "a");
         write_packages(dir.path(), &lookup_both, "preview", "b");
         touch_cache(&dir.path().join("cache"));
-        let files = collect(dir.path(), &lookup_both, &archs());
+        let files = collect(dir.path(), &lookup_both, &apt_cfg(), &archs());
         assert_eq!(files.len(), 2);
 
         // sources.list edited to drop `preview`: its recorded file is no
@@ -352,6 +368,7 @@ mod tests {
             dir.path().join("cache"),
             dir.path(),
             &lookup_stable,
+            &apt_cfg(),
             &archs(),
             &files
         ));

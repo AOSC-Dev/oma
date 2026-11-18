@@ -2,6 +2,7 @@ use std::{collections::HashSet, path::Path};
 
 use ahash::AHashMap;
 use oma_apt_pkg::AptConfig;
+pub use oma_apt_pkg::apt_sources::MatchResult;
 use oma_apt_pkg::apt_sources::{
     IndexTargetTemplates, find_matching_combinations, strip_compression_ext, substitute,
 };
@@ -119,13 +120,8 @@ impl<'a> IndexTargetConfig<'a> {
                     .map_err(|e| RefreshError::InvalidUrl(e.to_string()))?;
                 for m in &matches {
                     let template = self.cfg.get(&format!("{}::flatMetaKey", m.config_key), "");
-                    let target = IndexTargetMeta::from_template(
-                        &template,
-                        &m.arch,
-                        "",
-                        "",
-                        self.native_arch,
-                    );
+                    let target =
+                        MatchResult::from_template(&template, &m.arch, "", "", self.native_arch);
                     let entry = res_map.entry(name.to_string()).or_insert_with(|| {
                         to_download_entry(self.cfg, &m.config_key, &m.description, target)
                     });
@@ -158,22 +154,15 @@ impl<'a> IndexTargetConfig<'a> {
                             substitute(
                                 &desc,
                                 release,
-                                m.component,
-                                m.arch,
-                                m.lang,
+                                &m.component,
+                                &m.arch,
+                                &m.language,
                                 self.native_arch,
                             )
                         };
-                        let entry = res_map.entry(name.to_string()).or_insert_with(|| {
-                            let target = IndexTargetMeta::from_template(
-                                &template,
-                                m.arch,
-                                m.component,
-                                m.lang,
-                                self.native_arch,
-                            );
-                            to_download_entry(self.cfg, config_key, &desc, target)
-                        });
+                        let entry = res_map
+                            .entry(name.to_string())
+                            .or_insert_with(|| to_download_entry(self.cfg, config_key, &desc, m));
                         if !entry.items.iter().any(|x| x.name == c.name) {
                             entry.items.push(c.to_owned());
                         }
@@ -239,59 +228,11 @@ fn fallback_of_filter(res: Vec<ChecksumDownloadEntry>) -> Vec<ChecksumDownloadEn
         .collect()
 }
 
-/// Metadata apt attaches to an index request (`Target-*`); used to select
-/// mirrors per file.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
-pub struct IndexTargetMeta {
-    pub arch: Option<String>,
-    pub component: Option<String>,
-    pub language: Option<String>,
-}
-
-impl IndexTargetMeta {
-    /// Derive the metadata from an IndexTarget template and one match. apt
-    /// only sets `Target-Architecture`/`Target-Component`/`Target-Language`
-    /// when the template actually uses the corresponding placeholder.
-    fn from_template(
-        template: &str,
-        arch: &str,
-        component: &str,
-        language: &str,
-        native_arch: &str,
-    ) -> Self {
-        let arch = if template.contains("$(ARCHITECTURE)") {
-            non_empty(arch)
-        } else if template.contains("$(NATIVE_ARCHITECTURE)") {
-            non_empty(native_arch)
-        } else {
-            None
-        };
-
-        Self {
-            arch,
-            component: if template.contains("$(COMPONENT)") {
-                non_empty(component)
-            } else {
-                None
-            },
-            language: if template.contains("$(LANGUAGE)") {
-                non_empty(language)
-            } else {
-                None
-            },
-        }
-    }
-}
-
-fn non_empty(value: &str) -> Option<String> {
-    (!value.is_empty()).then(|| value.to_string())
-}
-
 fn to_download_entry(
     cfg: &AptConfig,
     config_key: &str,
     msg: &str,
-    target: IndexTargetMeta,
+    target: MatchResult,
 ) -> ChecksumDownloadEntry {
     ChecksumDownloadEntry {
         items: vec![],
@@ -332,7 +273,7 @@ pub struct ChecksumDownloadEntry {
     pub config_key: String,
     pub fallback_of: Option<String>,
     /// The apt `Target-*` metadata for this index file.
-    pub target: IndexTargetMeta,
+    pub target: MatchResult,
 }
 
 fn get_matches_language(locales: impl IntoIterator<Item = String>) -> Vec<String> {
@@ -454,7 +395,7 @@ fn test_fallback_of_filter() {
             optional: false,
             config_key: "key1".to_string(),
             fallback_of: None,
-            target: IndexTargetMeta::default(),
+            target: MatchResult::default(),
         },
         ChecksumDownloadEntry {
             items: vec![ChecksumItem {
@@ -467,7 +408,7 @@ fn test_fallback_of_filter() {
             optional: false,
             config_key: "key2".to_string(),
             fallback_of: Some("key1".to_string()),
-            target: IndexTargetMeta::default(),
+            target: MatchResult::default(),
         },
         ChecksumDownloadEntry {
             items: vec![ChecksumItem {
@@ -480,7 +421,7 @@ fn test_fallback_of_filter() {
             optional: false,
             config_key: "key3".to_string(),
             fallback_of: None,
-            target: IndexTargetMeta::default(),
+            target: MatchResult::default(),
         },
     ];
 
@@ -490,44 +431,4 @@ fn test_fallback_of_filter() {
     for i in ["key1", "key3"] {
         assert!(filtered.iter().any(|x| x.config_key == i));
     }
-}
-
-#[test]
-fn index_target_meta_follows_template_placeholders() {
-    let arch = IndexTargetMeta::from_template(
-        "main/binary-$(ARCHITECTURE)/Packages",
-        "amd64",
-        "main",
-        "",
-        "amd64",
-    );
-    assert_eq!(arch.arch.as_deref(), Some("amd64"));
-    assert_eq!(arch.component, None);
-    assert_eq!(arch.language, None);
-
-    let component = IndexTargetMeta::from_template(
-        "$(COMPONENT)/binary-$(ARCHITECTURE)/Packages",
-        "amd64",
-        "main",
-        "",
-        "amd64",
-    );
-    assert_eq!(component.component.as_deref(), Some("main"));
-
-    let language = IndexTargetMeta::from_template(
-        "main/i18n/Translation-$(LANGUAGE)",
-        "amd64",
-        "main",
-        "zh_CN",
-        "amd64",
-    );
-    assert_eq!(language.language.as_deref(), Some("zh_CN"));
-    assert_eq!(language.arch, None);
-
-    let native =
-        IndexTargetMeta::from_template("Packages-$(NATIVE_ARCHITECTURE)", "arm64", "", "", "amd64");
-    assert_eq!(native.arch.as_deref(), Some("amd64"));
-
-    let plain = IndexTargetMeta::from_template("Sources", "amd64", "main", "zh_CN", "amd64");
-    assert_eq!(plain, IndexTargetMeta::default());
 }
