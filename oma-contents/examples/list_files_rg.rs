@@ -1,7 +1,15 @@
 use oma_contents::searcher::{Mode, ripgrep_search};
 
+/// Resolve a host path below the Termux prefix when running there.
+fn prefix_path(path: &str) -> String {
+    std::env::var("PREFIX")
+        .map(|prefix| format!("{prefix}{path}"))
+        .unwrap_or_else(|_| path.to_string())
+}
+
 fn main() {
-    ripgrep_search("/var/lib/apt/lists", Mode::Files, "apt", |(pkg, file)| {
+    let lists = prefix_path("/var/lib/apt/lists");
+    ripgrep_search(lists.as_str(), Mode::Files, "apt", |(pkg, file)| {
         println!("{pkg}: {file}")
     })
     .unwrap();
