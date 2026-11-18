@@ -39,7 +39,7 @@ pub enum VerifyError {
     CertParseFileError(String, anyhow::Error),
     #[error("Cert file is bad: {0}")]
     BadCertFile(String, anyhow::Error),
-    #[error("Does not exist: /etc/apt/trusted.gpg.d")]
+    #[error("The APT trusted key directory does not exist")]
     TrustedDirNotExist,
     #[error("Failed to read decoded InRelease file: {0}")]
     FailedToReadInRelease(std::io::Error),
@@ -142,6 +142,9 @@ pub fn verify_inrelease_by_sysroot(
 ) -> VerifyResult<String> {
     debug!("signed_by: {:?}", signed_by);
 
+    let rootfs = rootfs.as_ref();
+    let _ = policy_cached(rootfs);
+
     let kob = find_certs(rootfs, signed_by)?;
     let res = verify_inrelease_inner(inrelease, trusted, kob)?;
 
@@ -153,7 +156,7 @@ pub fn verify_inrelease_inner(
     trusted: bool,
     kob: KeyBlockOrPaths<'_>,
 ) -> Result<String, VerifyError> {
-    let p = POLICY.get_or_init(policy);
+    let p = POLICY.get_or_init(|| policy(Path::new("/")));
 
     let mut v = VerifierBuilder::from_bytes(inrelease.as_bytes())?.with_policy(
         p,
@@ -171,12 +174,18 @@ pub fn verify_inrelease_inner(
     Ok(res)
 }
 
-fn policy() -> StandardPolicy<'static> {
-    let mut p = ConfiguredStandardPolicy::new();
-    let default_configure_path = Path::new("/usr/share/apt/default-sequoia.config");
-    let custom_configure_path = Path::new("/etc/crypto-policies/back-ends/apt-sequoia.config");
+fn policy_cached(rootfs: &Path) -> &'static StandardPolicy<'static> {
+    POLICY.get_or_init(|| policy(rootfs))
+}
 
-    for path in [custom_configure_path, default_configure_path] {
+fn policy(rootfs: &Path) -> StandardPolicy<'static> {
+    let mut p = ConfiguredStandardPolicy::new();
+    let default_configure_path =
+        oma_utils::termux::host_path(rootfs, "/usr/share/apt/default-sequoia.config");
+    let custom_configure_path =
+        oma_utils::termux::host_path(rootfs, "/etc/crypto-policies/back-ends/apt-sequoia.config");
+
+    for path in [&custom_configure_path, &default_configure_path] {
         match p.parse_config_file(path) {
             Ok(true) => {
                 debug!("config file {} loaded", path.display());
@@ -259,6 +268,9 @@ pub fn verify_release_by_sysroot(
     rootfs: impl AsRef<Path>,
     trusted: bool,
 ) -> VerifyResult<()> {
+    let rootfs = rootfs.as_ref();
+    let _ = policy_cached(rootfs);
+
     let kob = find_certs(rootfs, signed_by)?;
     verify_release_inner(release, detached, trusted, kob)?;
 
@@ -271,7 +283,7 @@ pub fn verify_release_inner(
     trusted: bool,
     bop: KeyBlockOrPaths<'_>,
 ) -> Result<(), VerifyError> {
-    let p = POLICY.get_or_init(policy);
+    let p = POLICY.get_or_init(|| policy(Path::new("/")));
 
     let mut v = DetachedVerifierBuilder::from_bytes(detached)?.with_policy(
         p,
