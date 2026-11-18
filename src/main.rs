@@ -371,7 +371,7 @@ fn display_error(e: OutputError) -> io::Result<()> {
 
 #[inline]
 pub fn get_lock(sysroot: &Path) -> &Path {
-    LOCK.get_or_init(|| sysroot.join("run/lock/oma.lock"))
+    LOCK.get_or_init(|| oma_utils::termux::lock_file(sysroot))
 }
 
 fn sysroot_default_value() -> String {

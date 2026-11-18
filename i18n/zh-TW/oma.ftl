@@ -72,7 +72,7 @@ pick-tips = 請指定要安裝的 { $pkgname } 的版本：
 battery = 您的電腦目前似乎正在使用電池供電。oma 在執行任務時可能消耗大量電量，建議插電以防意外斷電導致資料損壞。
 continue = 您確定要繼續嗎？
 changing-system = oma 正在更改您的系統。
-failed-to-lock-oma = 無法解鎖 oma 行程鎖檔案 (/run/lock/oma.lock)
+failed-to-lock-oma = 無法解鎖 oma 行程鎖檔案 ({ $path })
 # main
 user-aborted-op = 使用者已中止操作。
 # formatter
