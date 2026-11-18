@@ -152,21 +152,21 @@ impl OmaRefresh {
             p.clone()
         } else {
             let list_file = if is_termux() {
-                "/data/data/com.termux/files/usr/etc/apt/sources.list".to_string()
+                oma_utils::termux::apt_sources_list()
             } else {
-                apt_cfg.get_file("Dir::Etc::sourcelist", "etc/apt/sources.list")
+                PathBuf::from(apt_cfg.get_file("Dir::Etc::sourcelist", "etc/apt/sources.list"))
             };
 
             let list_dir = if is_termux() {
-                "/data/data/com.termux/files/usr/etc/apt/sources.list.d".to_string()
+                oma_utils::termux::apt_sources_list_d()
             } else {
-                apt_cfg.get_dir("Dir::Etc::sourceparts", "etc/apt/sources.list.d")
+                PathBuf::from(apt_cfg.get_dir("Dir::Etc::sourceparts", "etc/apt/sources.list.d"))
             };
 
-            debug!("sources.list is: {list_file}");
-            debug!("sources.list.d is: {list_dir}");
+            debug!("sources.list is: {}", list_file.display());
+            debug!("sources.list.d is: {}", list_dir.display());
 
-            scan_sources_list_paths(list_file.as_str(), list_dir.as_str())
+            scan_sources_list_paths(&list_file, &list_dir)
         };
 
         let source_lookup = SourceLookup::from_paths(&paths, |path| {

@@ -833,7 +833,7 @@ impl OmaApt {
     pub fn get_archive_dir(&self) -> &Path {
         self.archive_dir.get_or_init(|| {
             if is_termux() {
-                return PathBuf::from("/data/data/com.termux/cache/apt/archives/");
+                return oma_utils::termux::apt_archive_dir();
             }
 
             PathBuf::from(apt_config::find_dir(
