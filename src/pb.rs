@@ -10,7 +10,10 @@ use std::{
 
 use ahash::{HashMap, RandomState};
 use anyhow::Chain;
-use indicatif::{MultiProgress, ProgressBar as IndicatifProgressBar, ProgressState, ProgressStyle};
+use indicatif::{
+    MultiProgress, ProgressBar as IndicatifProgressBar, ProgressDrawTarget, ProgressState,
+    ProgressStyle,
+};
 use oma_fetch::{Event, SingleDownloadError};
 use reqwest::StatusCode;
 
@@ -40,6 +43,13 @@ const NORMAL_BAR_SMALL_TEMPLATE: &str = " {msg} {percent:>3}";
 const NORMAL_BAR_TEMPLATE: &str =
     " {msg:<59} {total_bytes:<11} [{wide_bar:.white/black}] {percent:>4}";
 const SPINNER_TEMPLATE: &str = " {msg:<59} {spinner}";
+
+/// Indicatif redraws progress bars at 20 Hz by default. Afterglow targets
+/// low-end hardware where every terminal redraw is comparatively expensive,
+/// so cap redraws at 5 Hz and slow the spinner tick to match.
+const AFTERGLOW_PROGRESS_REFRESH_HZ: u8 = 5;
+const SPINNER_TICK: Duration = Duration::from_millis(80);
+const AFTERGLOW_SPINNER_TICK: Duration = Duration::from_millis(200);
 
 /// Progress Bar Style
 /// Returns a 'ProgressStyle' object that defines the style of the progress bar.
@@ -119,19 +129,31 @@ fn oma_global_bar_template(state: &ProgressState, w: &mut dyn fmt::Write) {
 }
 
 pub fn spinner_style() -> (ProgressStyle, Duration) {
-    let (template, inv) = (SPINNER_ANIME, 80);
+    let inv = if cfg!(feature = "afterglow") {
+        AFTERGLOW_SPINNER_TICK
+    } else {
+        SPINNER_TICK
+    };
 
     let style = ProgressStyle::with_template(SPINNER_TEMPLATE)
         .unwrap()
-        .tick_strings(template);
+        .tick_strings(SPINNER_ANIME);
 
-    (style, Duration::from_millis(inv))
+    (style, inv)
 }
 
 /// The global `MultiProgress` every progress bar is attached to. When no bar
 /// is active, [`MultiProgress::println`] falls back to printing the line
 /// directly to the terminal.
-static GLOBAL_MP: LazyLock<MultiProgress> = LazyLock::new(MultiProgress::new);
+static GLOBAL_MP: LazyLock<MultiProgress> = LazyLock::new(|| {
+    if cfg!(feature = "afterglow") {
+        MultiProgress::with_draw_target(ProgressDrawTarget::stderr_with_hz(
+            AFTERGLOW_PROGRESS_REFRESH_HZ,
+        ))
+    } else {
+        MultiProgress::new()
+    }
+});
 
 /// A progress bar that is automatically attached to the global `MultiProgress`
 /// when created, so callers never touch the underlying `MultiProgress`
