@@ -71,17 +71,15 @@ impl<'a> Group<'a> {
         let state = self.state;
         let name = self.name;
         state
-            .packages(name)
-            .keys()
+            .archs_of(name)
             .map(move |arch| Package::new(state, name, arch))
     }
 
     /// The package built for `arch`, if the group has one.
     pub fn package(&self, arch: &Arch) -> Option<Package<'a>> {
         self.state
-            .packages(self.name)
-            .get_key_value(arch.as_str())
-            .map(|(arch, _)| Package::new(self.state, self.name, arch))
+            .arch_of(self.name, arch.as_str())
+            .map(|arch| Package::new(self.state, self.name, arch))
     }
 
     /// The installed package in this group. Search compares this package's
@@ -142,11 +140,7 @@ impl<'a> Package<'a> {
 
     /// Every version of this package, newest first.
     pub fn versions(&self) -> &'a [Version] {
-        self.state
-            .packages(self.name)
-            .get(self.arch.as_str())
-            .map(|versions| versions.as_slice())
-            .unwrap_or(&[])
+        self.state.versions_of(self.name, self.arch)
     }
 
     /// Number of versions.

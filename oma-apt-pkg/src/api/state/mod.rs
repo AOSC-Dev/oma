@@ -14,6 +14,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use glob_match::glob_match;
 use oma_logger::debug;
@@ -28,15 +29,19 @@ use super::{Control, Source};
 use crate::apt_sources::SourceLookup;
 use crate::error::Error;
 use crate::internal::cache::CacheFile;
-use cache::{AptStateData, load_state_cache, save_state_cache};
+use crate::internal::cache::from_archived;
+use cache::{AptStateData, StateCache, save_state_cache};
 
 /// The unified package state: apt lists plus dpkg status.
 #[derive(Debug)]
 pub struct AptState {
     native: Arch,
     architectures: Vec<Arch>,
-    /// name → arch → versions (apt's Group → Package → Version).
-    groups: HashMap<String, HashMap<Arch, Vec<Version>>>,
+    /// name → per-arch versions (apt's Group → Package → Version). Versions
+    /// read from the mapped cache are deserialized on first access. A group
+    /// has a handful of architectures at most, so they live in a list: one
+    /// small allocation per package instead of a hash table.
+    groups: HashMap<String, Vec<(Arch, Versions)>>,
     /// Package insertion order per group, which apt's `:any` follows.
     package_order: HashMap<String, Vec<Arch>>,
     /// name → arch → installed version. Nested so a package view can look
@@ -44,6 +49,73 @@ pub struct AptState {
     installed: HashMap<String, HashMap<Arch, String>>,
     status_path: PathBuf,
     files: Vec<CacheFile>,
+    /// The mapped package cache backing every group still to be
+    /// deserialized.
+    archive: Option<StateCache>,
+}
+
+/// The versions of one package, possibly still only in the mapped cache.
+#[derive(Debug)]
+enum Versions {
+    /// Backed by the cache archive: deserialized on first access, with the
+    /// dpkg status records collected meanwhile merged in.
+    Mapped {
+        cell: OnceLock<Vec<Version>>,
+        pending: Vec<Pending>,
+    },
+    /// Owned: built from the indexes (cache miss), or present only in the
+    /// status file or a local `.deb`.
+    Owned(Vec<Version>),
+}
+
+/// A dpkg status record waiting for its package to be deserialized.
+#[derive(Debug)]
+enum Pending {
+    /// The status file carries a version no index has: keep the record.
+    Version(Box<Version>),
+    /// The version is already in the indexes; only its status source is new.
+    Source { version: String, source: Source },
+}
+
+impl Versions {
+    /// The versions, deserializing a mapped package on first access.
+    fn get(&self, load: impl FnOnce() -> Vec<Version>) -> &[Version] {
+        match self {
+            Self::Owned(versions) => versions,
+            Self::Mapped { cell, pending } => cell.get_or_init(|| {
+                let mut versions = load();
+                for record in pending {
+                    match record {
+                        Pending::Version(version) => {
+                            push_or_merge(&mut versions, (**version).clone())
+                        }
+                        Pending::Source { version, source } => {
+                            if let Some(existing) = versions
+                                .iter_mut()
+                                .find(|existing| existing.version() == Some(version.as_str()))
+                                && !existing.sources.contains(source)
+                            {
+                                existing.sources.push(source.clone());
+                            }
+                        }
+                    }
+                }
+                versions
+            }),
+        }
+    }
+
+    /// Merge one record, keeping a still-unmapped package in `pending` so
+    /// the deserialization sees it.
+    fn push(&mut self, version: Version) {
+        match self {
+            Self::Owned(versions) => push_or_merge(versions, version),
+            Self::Mapped { cell, pending } => match cell.get_mut() {
+                Some(versions) => push_or_merge(versions, version),
+                None => pending.push(Pending::Version(Box::new(version))),
+            },
+        }
+    }
 }
 
 impl AptState {
@@ -61,30 +133,33 @@ impl AptState {
         let lookup = SourceLookup::build(cfg);
         let archs = cfg.architectures();
 
-        if let Some(data) = load_state_cache(&cache_path)
-            && data.native_arch == native
-            && data.architectures == architectures
-            && crate::internal::cache::valid(
-                &cache_path,
-                &lists_dir,
-                &lookup,
-                cfg,
-                &archs,
-                &data.files,
-            )
-        {
-            debug!("oma package state cache hit: {cache_path}");
-            let mut state = Self {
-                native,
-                architectures,
-                groups: data.groups,
-                package_order: data.package_order,
-                installed: HashMap::new(),
-                status_path,
-                files: data.files,
+        if let Some(archive) = StateCache::open(&cache_path) {
+            let files = archive.files();
+            let cache_matches = {
+                let data = archive.archived();
+                from_archived::<Arch>(&data.native_arch) == native
+                    && data
+                        .architectures
+                        .iter()
+                        .map(from_archived::<Arch>)
+                        .eq(architectures.iter().cloned())
+                    && crate::internal::cache::valid(
+                        &cache_path,
+                        &lists_dir,
+                        &lookup,
+                        cfg,
+                        &archs,
+                        &files,
+                    )
             };
-            state.merge_status()?;
-            return Ok(state);
+
+            if cache_matches {
+                debug!("oma package state cache hit: {cache_path}");
+                let mut state =
+                    Self::from_cache(archive, native, architectures, status_path, files);
+                state.merge_status()?;
+                return Ok(state);
+            }
         }
 
         debug!("oma package state cache miss: {cache_path}");
@@ -92,19 +167,112 @@ impl AptState {
             &lists_dir, &lookup, cfg, &archs,
         )?;
 
-        let mut state = Self {
-            native,
-            architectures,
+        let mut data = AptStateData {
             groups: HashMap::new(),
             package_order: HashMap::new(),
-            installed: HashMap::new(),
-            status_path,
+            native_arch: native.clone(),
+            architectures: architectures.clone(),
             files: crate::internal::cache::collect(&lists_dir, &lookup, cfg, &archs),
         };
-        state.add_index(entries, sources);
-        state.save_cache(&cache_path);
+        add_index(&mut data, &native, entries, sources);
+        if let Err(e) = save_state_cache(&cache_path, &data) {
+            debug!("Failed to save oma package state cache: {e}");
+        }
+
+        let mut state = Self::from_data(data, status_path);
         state.merge_status()?;
         Ok(state)
+    }
+
+    /// Index the mapped cache, leaving every package to be deserialized on
+    /// first access.
+    fn from_cache(
+        archive: StateCache,
+        native: Arch,
+        architectures: Vec<Arch>,
+        status_path: PathBuf,
+        files: Vec<CacheFile>,
+    ) -> Self {
+        let (groups, package_order) = {
+            let data = archive.archived();
+
+            let mut groups = HashMap::with_capacity(data.groups.len());
+            for (name, packages) in data.groups.iter() {
+                let arches = packages
+                    .iter()
+                    .map(|(arch, _)| {
+                        (
+                            from_archived::<Arch>(arch),
+                            Versions::Mapped {
+                                cell: OnceLock::new(),
+                                pending: Vec::new(),
+                            },
+                        )
+                    })
+                    .collect();
+                groups.insert(from_archived::<String>(name), arches);
+            }
+
+            let package_order = data
+                .package_order
+                .iter()
+                .map(|(name, order)| {
+                    (
+                        from_archived::<String>(name),
+                        order.iter().map(from_archived::<Arch>).collect(),
+                    )
+                })
+                .collect();
+
+            (groups, package_order)
+        };
+
+        Self {
+            native,
+            architectures,
+            groups,
+            package_order,
+            installed: HashMap::new(),
+            status_path,
+            files,
+            archive: Some(archive),
+        }
+    }
+
+    /// Take a freshly built state directly, without round-tripping it
+    /// through the cache.
+    fn from_data(data: AptStateData, status_path: PathBuf) -> Self {
+        let AptStateData {
+            groups,
+            package_order,
+            native_arch,
+            architectures,
+            files,
+        } = data;
+
+        let groups = groups
+            .into_iter()
+            .map(|(name, packages)| {
+                (
+                    name,
+                    packages
+                        .into_iter()
+                        .map(|(arch, versions)| (arch, Versions::Owned(versions)))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+
+        Self {
+            native: native_arch,
+            architectures,
+            groups,
+            package_order,
+            installed: HashMap::new(),
+            status_path,
+            files,
+            archive: None,
+        }
     }
 
     /// The native architecture (`APT::Architecture`).
@@ -136,7 +304,9 @@ impl AptState {
     /// The package built for `arch`, if any.
     pub fn package<'a>(&'a self, name: &str, arch: &Arch) -> Option<Package<'a>> {
         let (name, packages) = self.groups.get_key_value(name)?;
-        let (arch, _) = packages.get_key_value(arch.as_str())?;
+        let (arch, _) = packages
+            .iter()
+            .find(|(candidate, _)| candidate.as_str() == arch.as_str())?;
         Some(Package::new(self, name, arch))
     }
 
@@ -167,24 +337,6 @@ impl AptState {
         self.installed
             .get(name)
             .is_some_and(|packages| packages.contains_key(arch))
-    }
-
-    /// Move the Packages data into the cache payload and back, instead of
-    /// cloning the whole group map just to serialize it.
-    fn save_cache(&mut self, path: &str) {
-        let data = AptStateData {
-            groups: std::mem::take(&mut self.groups),
-            package_order: std::mem::take(&mut self.package_order),
-            native_arch: self.native.clone(),
-            architectures: self.architectures.clone(),
-            files: std::mem::take(&mut self.files),
-        };
-        if let Err(e) = save_state_cache(path, &data) {
-            debug!("Failed to save oma package state cache: {e}");
-        }
-        self.groups = data.groups;
-        self.package_order = data.package_order;
-        self.files = data.files;
     }
 
     /// Insert one local `.deb` and return its key, so a query can resolve it.
@@ -279,16 +431,14 @@ impl AptState {
         let Some(arch) = self.select_arch(name, parsed.arch) else {
             return false;
         };
-        let Some(versions) = self.packages(name).get(arch) else {
-            return false;
-        };
+        let versions = self.versions_of(name, arch);
         // Locally inserted `.deb` records describe a file, not an apt
         // archive: a normal package query must not see them even when both
         // are present in one invocation.
         let has_local = versions.iter().any(Version::is_local_deb);
         let selected: Cow<'a, [Version]> =
             if !has_local && parsed.version.is_none() && parsed.branch.is_none() {
-                Cow::Borrowed(versions.as_slice())
+                Cow::Borrowed(versions)
             } else {
                 Cow::Owned(
                     versions
@@ -338,13 +488,10 @@ impl AptState {
         };
         let key = PackageKey::new(control.package.clone(), package_arch.clone());
         let source = crate::deb::source_for(path);
-        let Some(versions) = self
-            .groups
-            .get(&control.package)
-            .and_then(|packages| packages.get(&package_arch))
-        else {
+        let versions = self.versions_of(&control.package, &package_arch);
+        if versions.is_empty() {
             return false;
-        };
+        }
         let Some(index) = versions.iter().position(|version| {
             version.version() == control.version.as_deref()
                 && version.arch == version_arch
@@ -372,92 +519,174 @@ impl AptState {
             .unwrap_or(&[])
     }
 
-    pub(crate) fn packages<'a>(&'a self, name: &str) -> &'a HashMap<Arch, Vec<Version>> {
-        static EMPTY: std::sync::OnceLock<HashMap<Arch, Vec<Version>>> = std::sync::OnceLock::new();
+    /// The versions of `name:arch`, deserializing a mapped package on first
+    /// access.
+    pub(crate) fn versions_of<'a>(&'a self, name: &str, arch: &Arch) -> &'a [Version] {
+        let Some(packages) = self.groups.get(name) else {
+            return &[];
+        };
+        let Some((_, versions)) = packages
+            .iter()
+            .find(|(candidate, _)| candidate.as_str() == arch.as_str())
+        else {
+            return &[];
+        };
+        versions.get(|| self.deserialize(name, arch))
+    }
+
+    /// The architectures `name` has, in no particular order.
+    pub(crate) fn archs_of<'a>(&'a self, name: &str) -> impl Iterator<Item = &'a Arch> + 'a {
         self.groups
             .get(name)
-            .unwrap_or_else(|| EMPTY.get_or_init(HashMap::new))
+            .into_iter()
+            .flat_map(|packages| packages.iter().map(|(arch, _)| arch))
+    }
+
+    /// The `name:arch` package architecture, if the group has one.
+    pub(crate) fn arch_of<'a>(&'a self, name: &str, arch: &str) -> Option<&'a Arch> {
+        self.groups
+            .get(name)?
+            .iter()
+            .find(|(candidate, _)| candidate.as_str() == arch)
+            .map(|(arch, _)| arch)
+    }
+
+    /// Deserialize one package from the mapped cache.
+    fn deserialize(&self, name: &str, arch: &Arch) -> Vec<Version> {
+        let Some(archive) = &self.archive else {
+            return Vec::new();
+        };
+        let data = archive.archived();
+        let Some(packages) = data.groups.get(name) else {
+            return Vec::new();
+        };
+        // A group has a handful of architectures at most; the archived key
+        // type is not a `str`, so compare them one by one.
+        let Some(versions) = packages
+            .iter()
+            .find(|(candidate, _)| from_archived::<Arch>(candidate) == *arch)
+            .map(|(_, versions)| versions)
+        else {
+            return Vec::new();
+        };
+
+        versions.iter().map(from_archived::<Version>).collect()
     }
 
     pub(crate) fn preferred_arch<'a>(&'a self, name: &str) -> Option<&'a Arch> {
-        let packages = self.packages(name);
-        if let Some((arch, versions)) = packages.get_key_value(self.native.as_str())
-            && has_indexed_version(versions)
+        if let Some(arch) = self.arch_of(name, self.native.as_str())
+            && has_indexed_version(self.versions_of(name, arch))
         {
             return Some(arch);
         }
-        for arch in &self.architectures {
-            if let Some((found, versions)) = packages.get_key_value(arch.as_str())
-                && has_indexed_version(versions)
+        for configured in &self.architectures {
+            if let Some(arch) = self.arch_of(name, configured.as_str())
+                && has_indexed_version(self.versions_of(name, arch))
             {
-                return Some(found);
+                return Some(arch);
             }
         }
-        packages
+        self.groups
+            .get(name)?
             .iter()
-            .find(|(_, versions)| has_indexed_version(versions))
             .map(|(arch, _)| arch)
+            .find(|arch| has_indexed_version(self.versions_of(name, arch)))
     }
 
     fn select_arch<'a>(&'a self, name: &str, qualifier: Option<&str>) -> Option<&'a Arch> {
         match qualifier {
             Some(Arch::ALL) | Some(Arch::NATIVE) => self
-                .packages(name)
-                .get_key_value(self.native.as_str())
-                .filter(|(_, versions)| has_indexed_version(versions))
-                .map(|(arch, _)| arch),
+                .arch_of(name, self.native.as_str())
+                .filter(|arch| has_indexed_version(self.versions_of(name, arch))),
             Some(Arch::ANY) => self.package_order.get(name).and_then(|order| {
-                order.iter().find(|arch| {
-                    self.packages(name)
-                        .get(arch.as_str())
-                        .is_some_and(|versions| has_indexed_version(versions))
-                })
+                order
+                    .iter()
+                    .find(|arch| has_indexed_version(self.versions_of(name, arch)))
             }),
             None => self.preferred_arch(name),
             Some(arch) => self
-                .packages(name)
-                .get_key_value(arch)
-                .filter(|(_, versions)| has_indexed_version(versions))
-                .map(|(arch, _)| arch),
+                .arch_of(name, arch)
+                .filter(|arch| has_indexed_version(self.versions_of(name, arch))),
         }
     }
 
     fn insert_version(&mut self, name: &str, arch: Arch, version: Version) {
-        let groups = &mut self.groups;
-        let order = &mut self.package_order;
         let key = name.to_string();
-        let packages = groups.entry(key.clone()).or_default();
+        let packages = self.groups.entry(key.clone()).or_default();
 
-        if !packages.contains_key(&arch) {
-            order.entry(key).or_default().push(arch.clone());
+        if let Some((_, versions)) = packages
+            .iter_mut()
+            .find(|(candidate, _)| candidate.as_str() == arch.as_str())
+        {
+            versions.push(version);
+        } else {
+            self.package_order
+                .entry(key)
+                .or_default()
+                .push(arch.clone());
+            packages.push((arch, Versions::Owned(vec![version])));
         }
-        push_or_merge(packages.entry(arch).or_default(), version);
     }
 
-    fn add_index(&mut self, entries: Vec<Control>, sources: Vec<Source>) {
-        for (control, source) in entries.into_iter().zip(sources) {
-            let version_arch = Arch::new(
-                control
-                    .architecture
-                    .clone()
-                    .unwrap_or_else(|| self.native.to_string()),
-            );
-            let package_arch = if version_arch.is_all() {
-                self.native.clone()
-            } else {
-                version_arch.clone()
-            };
-            let name = control.package.clone();
-            self.insert_version(
-                &name,
-                package_arch,
-                Version {
-                    control,
-                    sources: vec![source],
-                    arch: version_arch,
-                },
-            );
+    /// Record that the status file carries `version` for `name:arch`, when
+    /// the mapped index already has it: only the status source is new.
+    /// Returns whether the record could be deferred.
+    fn defer_status_source(
+        &mut self,
+        name: &str,
+        arch: &Arch,
+        version: &str,
+        source: &Source,
+    ) -> bool {
+        if !self.index_has_version(name, arch, version) {
+            return false;
         }
+        let Some(packages) = self.groups.get_mut(name) else {
+            return false;
+        };
+        let Some((_, slot)) = packages
+            .iter_mut()
+            .find(|(candidate, _)| candidate.as_str() == arch.as_str())
+        else {
+            return false;
+        };
+
+        match slot {
+            Versions::Owned(_) => false,
+            Versions::Mapped { cell, pending } => {
+                if cell.get_mut().is_some() {
+                    return false;
+                }
+                pending.push(Pending::Source {
+                    version: version.to_string(),
+                    source: source.clone(),
+                });
+                true
+            }
+        }
+    }
+
+    /// Whether the mapped index carries `version` for `name:arch`.
+    fn index_has_version(&self, name: &str, arch: &Arch, version: &str) -> bool {
+        let Some(archive) = &self.archive else {
+            return false;
+        };
+        let data = archive.archived();
+        let Some(packages) = data.groups.get(name) else {
+            return false;
+        };
+        let Some(versions) = packages
+            .iter()
+            .find(|(candidate, _)| from_archived::<Arch>(candidate) == *arch)
+            .map(|(_, versions)| versions)
+        else {
+            return false;
+        };
+
+        versions.iter().any(|entry| match &entry.control.version {
+            rkyv::option::ArchivedOption::Some(value) => value.as_str() == version,
+            rkyv::option::ArchivedOption::None => false,
+        })
     }
 
     fn merge_status(&mut self) -> Result<(), Error> {
@@ -474,8 +703,6 @@ impl AptState {
             let Some(version) = pkg.version.clone() else {
                 continue;
             };
-            let control = Control::from_paragraph(&paragraph)
-                .map_err(crate::internal::dpkg::DpkgError::Malformed)?;
             let version_arch = Arch::new(
                 pkg.architecture
                     .clone()
@@ -486,35 +713,21 @@ impl AptState {
             } else {
                 version_arch.clone()
             };
-            if !self
-                .groups
-                .get(&pkg.name)
-                .is_some_and(|packages| packages.contains_key(&package_arch))
-            {
-                self.package_order
-                    .entry(pkg.name.clone())
-                    .or_default()
-                    .push(package_arch.clone());
-            }
-            let versions = self
-                .groups
-                .entry(pkg.name.clone())
-                .or_default()
-                .entry(package_arch.clone())
-                .or_default();
-
-            if let Some(existing) = versions.iter_mut().find(|existing| {
-                existing.version() == Some(version.as_str()) && existing.arch == version_arch
-            }) {
-                if !existing.sources.contains(&source) {
-                    existing.sources.push(source.clone());
-                }
-            } else {
-                versions.push(Version {
-                    control,
-                    sources: vec![source.clone()],
-                    arch: version_arch,
-                });
+            // Parsing the whole control paragraph for every installed
+            // package dominates the merge; when the indexes already carry
+            // the version, its status source alone is enough.
+            if !self.defer_status_source(&pkg.name, &package_arch, &version, &source) {
+                let control = Control::from_paragraph(&paragraph)
+                    .map_err(crate::internal::dpkg::DpkgError::Malformed)?;
+                self.insert_version(
+                    &pkg.name,
+                    package_arch.clone(),
+                    Version {
+                        control,
+                        sources: vec![source.clone()],
+                        arch: version_arch,
+                    },
+                );
             }
 
             if pkg.selection_state().is_installed() {
@@ -526,6 +739,48 @@ impl AptState {
         }
 
         Ok(())
+    }
+}
+
+/// Fold the parsed `Packages` records into the cache payload.
+fn add_index(data: &mut AptStateData, native: &Arch, entries: Vec<Control>, sources: Vec<Source>) {
+    for (control, source) in entries.into_iter().zip(sources) {
+        let version_arch = Arch::new(
+            control
+                .architecture
+                .clone()
+                .unwrap_or_else(|| native.to_string()),
+        );
+        let package_arch = if version_arch.is_all() {
+            native.clone()
+        } else {
+            version_arch.clone()
+        };
+        let name = control.package.clone();
+        let version = Version {
+            control,
+            sources: vec![source],
+            arch: version_arch,
+        };
+
+        if !data
+            .groups
+            .get(&name)
+            .is_some_and(|packages| packages.contains_key(&package_arch))
+        {
+            data.package_order
+                .entry(name.clone())
+                .or_default()
+                .push(package_arch.clone());
+        }
+        push_or_merge(
+            data.groups
+                .entry(name)
+                .or_default()
+                .entry(package_arch)
+                .or_default(),
+            version,
+        );
     }
 }
 

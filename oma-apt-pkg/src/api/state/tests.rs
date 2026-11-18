@@ -28,13 +28,38 @@ fn state(native: &str, archs: &[&str]) -> AptState {
         installed: HashMap::new(),
         status_path: PathBuf::new(),
         files: Vec::new(),
+        archive: None,
     }
 }
 
 fn add(state: &mut AptState, name: &str, version: &str, arch: &str) {
-    state.add_index(
-        vec![control(name, version, arch, "test")],
-        vec![source(arch, "stable")],
+    add_pair(
+        state,
+        control(name, version, arch, "test"),
+        source(arch, "stable"),
+    );
+}
+
+fn add_pair(state: &mut AptState, control: Control, source: Source) {
+    let version_arch = Arch::new(
+        control
+            .architecture
+            .clone()
+            .unwrap_or_else(|| state.native.to_string()),
+    );
+    let package_arch = if version_arch.is_all() {
+        state.native.clone()
+    } else {
+        version_arch.clone()
+    };
+    state.insert_version(
+        &control.package.clone(),
+        package_arch,
+        Version {
+            control,
+            sources: vec![source],
+            arch: version_arch,
+        },
     );
 }
 
@@ -123,9 +148,10 @@ fn resolve_uses_apt_architecture_views() {
 fn version_and_branch_queries_filter_one_package() {
     let mut state = state("amd64", &["amd64"]);
     add(&mut state, "foo", "1", "amd64");
-    state.add_index(
-        vec![control("foo", "2", "amd64", "preview")],
-        vec![source("amd64", "preview")],
+    add_pair(
+        &mut state,
+        control("foo", "2", "amd64", "preview"),
+        source("amd64", "preview"),
     );
 
     let exact = state.resolve(vec!["foo=1".into()]);
@@ -227,26 +253,47 @@ fn state_cache_roundtrips() {
     add(&mut state, "foo", "2", "i386");
     add(&mut state, "foo", "3", "all");
 
-    let data = AptStateData {
-        groups: state.groups.clone(),
-        package_order: state.package_order.clone(),
-        native_arch: state.native.clone(),
-        architectures: state.architectures.clone(),
+    let mut data = AptStateData {
+        groups: HashMap::new(),
+        package_order: HashMap::new(),
+        native_arch: Arch::new("amd64"),
+        architectures: vec![Arch::new("amd64"), Arch::new("i386")],
         files: Vec::new(),
     };
+    add_index(
+        &mut data,
+        &Arch::new("amd64"),
+        vec![
+            control("foo", "1", "amd64", "a"),
+            control("foo", "2", "i386", "b"),
+            control("foo", "3", "all", "c"),
+        ],
+        vec![
+            source("amd64", "stable"),
+            source("i386", "stable"),
+            source("amd64", "stable"),
+        ],
+    );
+
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("oma-aptdb.bincode");
     save_state_cache(path.to_str().unwrap(), &data).unwrap();
 
-    let loaded = load_state_cache(path.to_str().unwrap()).unwrap();
+    let archive = StateCache::open(path.to_str().unwrap()).unwrap();
+    let loaded = AptState::from_cache(
+        archive,
+        Arch::new("amd64"),
+        vec![Arch::new("amd64"), Arch::new("i386")],
+        PathBuf::new(),
+        Vec::new(),
+    );
     assert_eq!(loaded.groups.len(), 1);
-    let packages = &loaded.groups["foo"];
-    assert_eq!(packages.len(), 2);
+    assert_eq!(loaded.groups["foo"].len(), 2);
     assert_eq!(
         loaded.package_order["foo"],
         vec![Arch::new("amd64"), Arch::new("i386")]
     );
-    assert_eq!(packages[&Arch::new("amd64")].len(), 2);
+    assert_eq!(loaded.versions_of("foo", &Arch::new("amd64")).len(), 2);
 }
 
 #[test]
@@ -393,9 +440,10 @@ fn local_deb_does_not_shadow_an_indexed_architecture() {
 #[test]
 fn repository_suite_named_local_deb_is_still_a_repository() {
     let mut state = state("amd64", &["amd64"]);
-    state.add_index(
-        vec![control("foo", "1", "amd64", "from a suite named local-deb")],
-        vec![source("amd64", "local-deb")],
+    add_pair(
+        &mut state,
+        control("foo", "1", "amd64", "from a suite named local-deb"),
+        source("amd64", "local-deb"),
     );
 
     let resolution = state.resolve(vec!["foo".into()]);
