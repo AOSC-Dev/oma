@@ -544,7 +544,15 @@ impl OmaRefresh {
 
         let index_target_config = IndexTargetConfig::new_from_apt_config(apt_cfg, &self.arch);
 
-        let archs_from_file = std::fs::read_to_string("/var/lib/dpkg/arch")
+        let dpkg_arch = if is_termux() {
+            oma_utils::termux::prefix().join("var/lib/dpkg/arch")
+        } else {
+            Path::new(&apt_cfg.get_file("Dir::State::status", "var/lib/dpkg/status"))
+                .with_file_name("arch")
+                .to_path_buf()
+        };
+
+        let archs_from_file = std::fs::read_to_string(&dpkg_arch)
             .ok()
             .map(|file| file.lines().map(|x| x.to_string()).collect::<Vec<_>>())
             .filter(|res| !res.is_empty());
