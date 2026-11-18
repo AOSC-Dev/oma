@@ -10,7 +10,6 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 sequoia-openpgp = { workspace = true }
 oma-logger = { workspace = true }
-oma-utils = { workspace = true }
 oma-apt-sources-lists = { workspace = true }
 sequoia-policy-config = { workspace = true }
 jiff = { workspace = true }

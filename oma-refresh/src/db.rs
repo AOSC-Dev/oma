@@ -32,12 +32,13 @@ use oma_topics::TopicManager;
 use oma_fetch::reqwest::StatusCode;
 
 use oma_logger::{debug, warn};
-use oma_utils::{GetLockError, get_file_lock, is_termux};
+use oma_utils::{GetLockError, get_file_lock};
 use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use oma_apt_pkg::apt_sources::{SourceLookup, scan_sources_list_paths};
+use oma_repo_verify::PolicyPaths;
 
 use crate::sourceslist::{MirrorSource, MirrorSources};
 use crate::{
@@ -118,6 +119,12 @@ pub struct OmaRefresh {
     #[cfg(feature = "aosc")]
     topic_msg: Cow<'static, str>,
     sources_lists_paths: Option<Vec<PathBuf>>,
+    /// Path to `sources.list`; defaults to `Dir::Etc::sourcelist`.
+    sources_list: Option<PathBuf>,
+    /// Path to `sources.list.d`; defaults to `Dir::Etc::sourceparts`.
+    sources_list_d: Option<PathBuf>,
+    /// Signature policy files; defaults to the non-Termux layout below `source`.
+    policy_paths: Option<PolicyPaths>,
     /// An externally-supplied APT configuration, shared via [`Arc`]. When
     /// omitted, a fresh one is built from the system defaults inside
     /// [`OmaRefresh`].
@@ -151,17 +158,13 @@ impl OmaRefresh {
         let paths: Vec<PathBuf> = if let Some(ref p) = self.sources_lists_paths {
             p.clone()
         } else {
-            let list_file = if is_termux() {
-                oma_utils::termux::apt_sources_list()
-            } else {
+            let list_file = self.sources_list.clone().unwrap_or_else(|| {
                 PathBuf::from(apt_cfg.get_file("Dir::Etc::sourcelist", "etc/apt/sources.list"))
-            };
+            });
 
-            let list_dir = if is_termux() {
-                oma_utils::termux::apt_sources_list_d()
-            } else {
+            let list_dir = self.sources_list_d.clone().unwrap_or_else(|| {
                 PathBuf::from(apt_cfg.get_dir("Dir::Etc::sourceparts", "etc/apt/sources.list.d"))
-            };
+            });
 
             debug!("sources.list is: {}", list_file.display());
             debug!("sources.list.d is: {}", list_dir.display());
@@ -272,6 +275,12 @@ impl OmaRefresh {
         Ok(res.success)
     }
 
+    fn policy_paths(&self) -> PolicyPaths {
+        self.policy_paths
+            .clone()
+            .unwrap_or_else(|| PolicyPaths::for_rootfs(&self.source))
+    }
+
     fn init_apt_config(&mut self) -> AptConfig {
         // 调用方传入的 Arc 配置在需要写入（Dir、压缩顺序）时按写时复制 clone
         // 一份，调用方本身无需深拷贝；未传入时新建一份并初始化默认值与系统配置。
@@ -286,9 +295,7 @@ impl OmaRefresh {
             }
         };
 
-        if !is_termux() {
-            cfg.set("Dir", &self.source.to_string_lossy());
-        }
+        cfg.set("Dir", &self.source.to_string_lossy());
 
         // AOSC 仓库默认优先 zst；非 aosc 构建沿用系统配置，不强加默认顺序。
         #[cfg(feature = "aosc")]
@@ -544,13 +551,7 @@ impl OmaRefresh {
 
         let index_target_config = IndexTargetConfig::new_from_apt_config(apt_cfg, &self.arch);
 
-        let dpkg_arch = if is_termux() {
-            oma_utils::termux::prefix().join("var/lib/dpkg/arch")
-        } else {
-            Path::new(&apt_cfg.get_file("Dir::State::status", "var/lib/dpkg/status"))
-                .with_file_name("arch")
-                .to_path_buf()
-        };
+        let dpkg_arch = self.source.join("var/lib/dpkg/arch");
 
         let archs_from_file = std::fs::read_to_string(&dpkg_arch)
             .ok()
@@ -580,10 +581,13 @@ impl OmaRefresh {
                 RefreshError::FailedToOperateDirOrFile(inrelease_path.display().to_string(), e)
             })?;
 
+            let policy_paths = self.policy_paths();
+
             let inrelease = verify_inrelease(
                 &inrelease,
                 m.signed_by(),
                 &self.source,
+                &policy_paths,
                 &inrelease_path,
                 m.trusted(),
             )

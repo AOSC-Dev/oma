@@ -3682,7 +3682,6 @@ dependencies = [
  "jiff",
  "oma-apt-sources-lists",
  "oma-logger",
- "oma-utils",
  "sequoia-openpgp",
  "sequoia-policy-config",
  "thiserror 2.0.21",
