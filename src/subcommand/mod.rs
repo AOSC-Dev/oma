@@ -10,7 +10,7 @@ mod history_tui;
 pub mod install;
 pub mod list;
 pub mod mark;
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 pub mod mirror;
 pub mod pick;
 pub mod rdepends;
@@ -19,7 +19,7 @@ pub mod remove;
 pub mod search;
 pub mod show;
 pub mod size_analyzer;
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 pub mod topics;
 pub mod tree;
 pub mod upgrade;

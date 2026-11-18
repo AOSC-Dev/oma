@@ -7,11 +7,12 @@ use oma_pm::{
     pkginfo::OmaPackage,
 };
 
+#[cfg(feature = "dbus")]
+use crate::dbus::dbus_check;
 use crate::{
     completions::pkgnames_completions,
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
-    dbus::dbus_check,
     error::OutputError,
     exit_handle::ExitHandle,
     menu::{dialoguer_result, tui_select_list_size},
@@ -86,6 +87,7 @@ impl CliExecuter for Pick {
             None
         };
 
+        #[cfg(feature = "dbus")]
         let _fds = dbus_check(false, &config)?;
 
         if !no_refresh {

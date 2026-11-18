@@ -17,14 +17,14 @@ use oma_pager::{Pager, PagerExit, PagerUIText};
 use oma_pm::apt::{InstallEntry, InstallOperation, RemoveEntry, RemoveTag};
 use oma_utils::human_bytes::HumanBytes;
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 use oma_tum::TopicUpdateEntryRef;
 use tabled::settings::object::{Columns, Segment};
 use tabled::settings::peaker::PriorityMax;
 use tabled::settings::{Alignment, Format, Modify, Padding, Style, Width};
 use tabled::{Table, Tabled};
 
-#[cfg(not(feature = "aosc"))]
+#[cfg(not(feature = "aosc-common"))]
 #[allow(dead_code)]
 pub struct TopicUpdateEntryRef<'a>(&'a ());
 
@@ -512,7 +512,7 @@ pub fn table_for_history_pending(
     Ok(())
 }
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 #[derive(Debug)]
 struct TumDisplay {
     name: String,
@@ -520,7 +520,7 @@ struct TumDisplay {
     security: bool,
 }
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 impl Display for TumDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.security {
@@ -728,14 +728,14 @@ fn print_pending_inner<W: Write>(
     }
 }
 
-#[cfg(not(feature = "aosc"))]
+#[cfg(not(feature = "aosc-common"))]
 fn print_tum(
     _printer: &mut PagerPrinter<impl Write>,
     _tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,
 ) {
 }
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 fn print_tum(
     printer: &mut PagerPrinter<impl Write>,
     tum: &Option<HashMap<&str, TopicUpdateEntryRef<'_>>>,

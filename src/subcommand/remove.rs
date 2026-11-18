@@ -10,11 +10,13 @@ use oma_pm::matches::{GetArchMethod, PackagesMatcher};
 use crate::completions::pkgnames_remove_completions;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
+#[cfg(feature = "dbus")]
+use crate::dbus::dbus_check;
 use crate::exit_handle::ExitHandle;
 use crate::fl;
 use crate::menu::dialoguer_result;
 use crate::pb::ProgressBar;
-use crate::{dbus::dbus_check, error::OutputError, root::root};
+use crate::{error::OutputError, root::root};
 
 use super::utils::{handle_no_result, lock_oma};
 use crate::args::CliExecuter;
@@ -148,6 +150,7 @@ impl CliExecuter for Remove {
             None
         };
 
+        #[cfg(feature = "dbus")]
         let _fds = dbus_check(yes, &config)?;
 
         if yes {
@@ -186,7 +189,7 @@ impl CliExecuter for Remove {
 
         let pb = ProgressBar::new_spinner(fl!("resolving-dependencies"), !config.no_progress());
 
-        #[cfg(feature = "aosc")]
+        #[cfg(feature = "aosc-common")]
         check_is_current_kernel_deleting(&config, &pkgs, &pb)?;
 
         let context = apt.remove(pkgs, remove_config, no_autoremove)?;
@@ -215,7 +218,7 @@ impl CliExecuter for Remove {
     }
 }
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 fn check_is_current_kernel_deleting(
     config: &OmaConfig,
     pkgs: &[oma_pm::pkginfo::OmaPackageWithoutVersion],
@@ -304,7 +307,7 @@ pub fn ask_user_do_as_i_say(pkg: &str) -> Result<bool, OutputError> {
     Ok(true)
 }
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 fn ask_user_delete_current_kernel(pkg: &str) -> Result<bool, OutputError> {
     let theme = ColorfulTheme::default();
 

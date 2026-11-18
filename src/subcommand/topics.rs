@@ -19,11 +19,12 @@ use once_cell::sync::OnceCell;
 use sysinfo::System;
 use tokio::task::spawn_blocking;
 
+#[cfg(feature = "dbus")]
+use crate::dbus::dbus_check;
 use crate::{
     NOT_ALLOW_CTRLC, RT,
     config::OmaConfig,
     core::{commit_changes::CommitChanges, refresh::Refresh},
-    dbus::dbus_check,
     error::OutputError,
     exit_handle::{ExitHandle, ExitStatus},
     menu::{multiselect, select_tui_display_msg, tui_select_list_size},
@@ -156,6 +157,7 @@ impl CliExecuter for Topics {
             None
         };
 
+        #[cfg(feature = "dbus")]
         let _fds = dbus_check(false, &config)?;
 
         let dpkg_arch = dpkg_arch(&config.sysroot)?;

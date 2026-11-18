@@ -1,23 +1,29 @@
 use std::error::Error;
 use std::io::Write;
 
+#[cfg(feature = "dbus")]
 use anyhow::Context;
 use clap::Args;
 use oma_console::console::Style;
 use oma_console::writer::Writer;
 use oma_contents::OmaContentsError;
 use oma_contents::searcher::{Mode, search};
-use oma_logger::{debug, error};
+#[cfg(feature = "dbus")]
+use oma_logger::debug;
+use oma_logger::error;
 use oma_pm::apt::{OmaApt, OmaAptArgs};
+#[cfg(feature = "dbus")]
 use zbus::{Connection, proxy};
 
+#[cfg(feature = "dbus")]
+use crate::RT;
 use crate::color::{Action, color_style};
 use crate::config::OmaConfig;
 use crate::console::measure_text_width;
 use crate::error::OutputError;
 use crate::exit_handle::{ExitHandle, ExitStatus};
 use crate::utils::get_lists_dir;
-use crate::{RT, WRITER, due_to, fl};
+use crate::{WRITER, due_to, fl};
 
 use crate::args::CliExecuter;
 
@@ -35,6 +41,7 @@ const LABEL_GAP: usize = 2;
 type IndexSet<T> = indexmap::IndexSet<T, ahash::RandomState>;
 type IndexMap<K, V> = indexmap::IndexMap<K, V, ahash::RandomState>;
 
+#[cfg(feature = "dbus")]
 #[proxy(
     interface = "io.aosc.Amo1",
     default_service = "io.aosc.Amo",
@@ -63,6 +70,9 @@ impl CliExecuter for CommandNotFound {
 
 /// 检索命令并提供 command-not-found 提示
 fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), OutputError> {
+    #[cfg(not(feature = "dbus"))]
+    let _ = config;
+
     let mut res = IndexSet::with_hasher(ahash::RandomState::new());
 
     let cb = |line: (String, String)| {
@@ -92,11 +102,14 @@ fn print_command_not_found(keyword: &str, config: &OmaConfig) -> Result<(), Outp
                 .collect::<Vec<_>>();
 
             // 描述来源二选一：amo 可用时不再初始化用不到的 apt
+            #[cfg(feature = "dbus")]
             let amo = if config.amo && !config.no_check_dbus() {
                 RT.handle().block_on(amo_connect()).ok()
             } else {
                 None
             };
+            #[cfg(not(feature = "dbus"))]
+            let amo: Option<()> = None;
 
             let apt = if amo.is_none() {
                 Some(OmaApt::new(vec![], OmaAptArgs::builder().build(), false)?)
@@ -237,6 +250,7 @@ fn group_by_pkg(entries: Vec<(String, String, u8)>) -> IndexMap<String, Vec<(Str
 }
 
 /// 查询软件包描述
+#[cfg(feature = "dbus")]
 fn get_desc(
     pkg: &str,
     amo: Option<&AmoProxy<'static>>,
@@ -262,6 +276,22 @@ fn get_desc(
                     .and_then(|pkg| pkg.candidate())
                     .and_then(|candidate| candidate.summary())
             })
+        })
+        .filter(|desc| !desc.is_empty()))
+}
+
+#[cfg(not(feature = "dbus"))]
+fn get_desc(
+    pkg: &str,
+    _amo: Option<&()>,
+    apt: Option<&OmaApt>,
+) -> Result<Option<String>, OutputError> {
+    Ok(apt
+        .and_then(|apt| {
+            apt.cache
+                .get(pkg)
+                .and_then(|pkg| pkg.candidate())
+                .and_then(|candidate| candidate.summary())
         })
         .filter(|desc| !desc.is_empty()))
 }
@@ -524,6 +554,7 @@ fn max_line_len() -> usize {
     WRITER.get_max_len().into()
 }
 
+#[cfg(feature = "dbus")]
 async fn amo_connect() -> anyhow::Result<AmoProxy<'static>> {
     let conn = Connection::system().await?;
 

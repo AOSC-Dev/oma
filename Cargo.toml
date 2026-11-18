@@ -62,7 +62,7 @@ terminfo = { workspace = true }
 digest-io = { workspace = true }
 reqwest-middleware = { workspace = true }
 tui-input = { workspace = true }
-zbus = { workspace = true }
+zbus = { workspace = true, optional = true }
 termbg = { workspace = true }
 console = { workspace = true }
 indicatif = { workspace = true }
@@ -219,7 +219,7 @@ oma-utils = { version = "0.14.0", path = "./oma-utils", default-features = false
 oma-console = { version = "0.32.0", path = "./oma-console" }
 oma-pager = { version = "0.1.0", path = "./oma-pager" }
 oma-logger = { version = "0.1.0", path = "./oma-logger" }
-oma-pm = { version = "0.65", path = "./oma-pm" }
+oma-pm = { version = "0.65", path = "./oma-pm", default-features = false }
 oma-refresh = { version = "0.57.0", path = "./oma-refresh", default-features = false }
 oma-contents = { version = "0.19.2", path = "./oma-contents" }
 oma-fetch = { version = "0.40.0", path = "./oma-fetch", default-features = false }
@@ -237,7 +237,8 @@ oma-inquire = "0.6"
 tree-sitter-apt-config = { version = "0.1.0", path = "./tree-sitter-apt-config" }
 
 [features]
-aosc = [
+# Shared AOSC OS integration used by both the regular and Afterglow profiles.
+aosc-common = [
     "dep:oma-topics",
     "oma-refresh/aosc",
     "oma-pm/aosc",
@@ -247,6 +248,11 @@ aosc = [
     "dep:oma-tum",
     "decompress-parallel",
 ]
+# Enable D-Bus integration (battery/wake-lock checks, logind, amo status).
+# Afterglow builds disable this to avoid linking zbus.
+dbus = ["dep:zbus", "oma-utils/dbus", "oma-pm/dbus"]
+# Regular AOSC OS profile: shared integration plus D-Bus.
+aosc = ["aosc-common", "dbus"]
 sequoia-openssl-backend = ["oma-refresh/sequoia-openssl-backend"]
 sequoia-nettle-backend = ["oma-refresh/sequoia-nettle-backend"]
 tokio-console = ["dep:console-subscriber"]
@@ -266,6 +272,8 @@ openssl = [
 nice-setup = ["sequoia-nettle-backend", "rustls"]
 openssl-setup = ["sequoia-openssl-backend", "openssl"]
 decompress-parallel = ["oma-fetch/xz-parallel"]
+# Afterglow profile: shared AOSC integration without D-Bus.
+afterglow = ["aosc-common"]
 default = ["aosc", "nice-setup"]
 
 [workspace]

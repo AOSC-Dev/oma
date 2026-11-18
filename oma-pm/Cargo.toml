@@ -16,7 +16,6 @@ oma-utils = { workspace = true, features = [
     "dpkg",
     "url-no-escape",
     "human-bytes",
-    "dbus",
 ] }
 oma-fetch = { workspace = true }
 tokio = { workspace = true, default-features = false, features = [
@@ -26,7 +25,7 @@ tokio = { workspace = true, default-features = false, features = [
 fs4 = { workspace = true }
 oma-logger = { workspace = true }
 oma-pm-operation-type = { workspace = true }
-zbus = { workspace = true, default-features = false, features = ["tokio"] }
+zbus = { workspace = true, optional = true, default-features = false, features = ["tokio", "proxy", "service"] }
 cxx = { workspace = true }
 ahash = { workspace = true }
 bon = { workspace = true }
@@ -42,4 +41,8 @@ anyhow = { workspace = true }
 flume = { workspace = true }
 
 [features]
+default = ["dbus"]
+# Enables D-Bus status reporting to amo. Disable it for builds that must not
+# link zbus (for example, Afterglow).
+dbus = ["dep:zbus", "oma-utils/dbus"]
 aosc = ["dep:sysinfo"]

@@ -35,7 +35,7 @@ pub struct OmaConfig {
     pub apt_options: Vec<String>,
     pub no_bell: bool,
     pub download_threads: usize,
-    #[cfg(feature = "aosc")]
+    #[cfg(feature = "aosc-common")]
     pub no_refresh_topics: bool,
     pub protect_essentials: bool,
     pub search_contents_println: bool,
@@ -46,7 +46,7 @@ pub struct OmaConfig {
     pub yn_mode: bool,
     subcmd: Option<SubCmd>,
     http_client: OnceCell<ClientWithMiddleware>,
-    #[cfg(feature = "aosc")]
+    #[cfg(feature = "aosc-common")]
     http_client_blocking: OnceCell<reqwest::blocking::Client>,
     rustls_crypto_provider: OnceCell<()>,
     pub amo: bool,
@@ -68,7 +68,7 @@ impl Default for OmaConfig {
             apt_options: Vec::new(),
             no_bell: !GeneralConfig::default_bell(),
             download_threads: NetworkConfig::default_network_thread(),
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             no_refresh_topics: GeneralConfig::default_no_refresh_topics(),
             protect_essentials: GeneralConfig::default_protect_essentials(),
             search_contents_println: GeneralConfig::default_search_contents_println(),
@@ -80,7 +80,7 @@ impl Default for OmaConfig {
             subcmd: None,
             http_client: OnceCell::new(),
             rustls_crypto_provider: OnceCell::new(),
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             http_client_blocking: OnceCell::new(),
             amo: GeneralConfig::default_amo(),
             apt_config: OnceLock::new(),
@@ -97,7 +97,7 @@ impl OmaConfig {
         if let Some(general) = general {
             let GeneralConfig {
                 no_check_dbus,
-                #[cfg(feature = "aosc")]
+                #[cfg(feature = "aosc-common")]
                 no_refresh_topics,
                 follow_terminal_color,
                 protect_essentials,
@@ -110,7 +110,7 @@ impl OmaConfig {
 
             oma_config.cli_no_check_dbus = no_check_dbus;
 
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             {
                 oma_config.no_refresh_topics = no_refresh_topics;
             }
@@ -198,10 +198,11 @@ impl OmaConfig {
     }
 
     /// Whether to skip the DBus check. It is always skipped in CI
-    /// environments, where a session/system bus is usually unavailable.
+    /// environments, where a session/system bus is usually unavailable, and
+    /// in builds without the `dbus` feature.
     #[inline]
     pub fn no_check_dbus(&self) -> bool {
-        self.cli_no_check_dbus || is_ci()
+        self.cli_no_check_dbus || is_ci() || !cfg!(feature = "dbus")
     }
 
     #[inline]
@@ -306,7 +307,7 @@ impl OmaConfig {
         })
     }
 
-    #[cfg(feature = "aosc")]
+    #[cfg(feature = "aosc-common")]
     pub fn http_client_blocking(&self) -> Result<&reqwest::blocking::Client, reqwest::Error> {
         self.http_client_blocking.get_or_try_init(|| {
             self.init_tls_config();
@@ -316,7 +317,7 @@ impl OmaConfig {
         })
     }
 
-    #[cfg(feature = "aosc")]
+    #[cfg(feature = "aosc-common")]
     pub fn update_from_cli_no_refresh_topics(&mut self, cli_no_refresh_topics: bool) {
         self.no_refresh_topics |= cli_no_refresh_topics;
     }

@@ -6,6 +6,7 @@ use std::os::fd::OwnedFd;
 use std::path::Path;
 
 use crate::color::Colorize;
+#[cfg(feature = "dbus")]
 use crate::dbus::find_another_oma;
 use crate::error::OutputError;
 use crate::fl;
@@ -77,10 +78,13 @@ pub(crate) fn lock_oma(sysroot: impl AsRef<Path>) -> Result<OwnedFd, OutputError
     let lock = get_file_lock(lock).map_err(|e| match e {
         GetLockError::SetLock(errno) => OutputError::with_source(fl!("failed-to-lock-oma"), errno),
         GetLockError::SetLockWithProcess(_, pid) => {
+            #[cfg(feature = "dbus")]
             let error_str = match find_another_oma() {
                 Ok(status) => fl!("another-oma-is-running", s = status, pid = pid),
                 Err(_) => fl!("another-oma-is-running-without-status", pid = pid),
             };
+            #[cfg(not(feature = "dbus"))]
+            let error_str = fl!("another-oma-is-running-without-status", pid = pid);
 
             OutputError::msg(error_str)
         }
