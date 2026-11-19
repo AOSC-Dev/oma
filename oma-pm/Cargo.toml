@@ -25,7 +25,7 @@ tokio = { workspace = true, default-features = false, features = [
 fs4 = { workspace = true }
 oma-logger = { workspace = true }
 oma-pm-operation-type = { workspace = true }
-zbus = { workspace = true, optional = true, default-features = false, features = ["tokio", "proxy", "service"] }
+zbus = { workspace = true, optional = true, default-features = false, features = ["tokio"] }
 cxx = { workspace = true }
 ahash = { workspace = true }
 bon = { workspace = true }
