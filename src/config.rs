@@ -11,13 +11,12 @@ use once_cell::sync::OnceCell;
 use reqwest::Client;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 
+#[cfg(feature = "dbus")]
+use crate::config_file::{BatteryTristate, TakeWakeLockTristate};
 use crate::{
     GlobalOptions,
     args::{OhManagerAilurus, SubCmd},
-    config_file::{
-        BatteryTristate, ConfigFile, GeneralConfig, NetworkConfig, SearchEngine,
-        TakeWakeLockTristate,
-    },
+    config_file::{ConfigFile, GeneralConfig, NetworkConfig, SearchEngine},
     subcommand::utils::is_terminal,
 };
 
@@ -29,7 +28,9 @@ pub struct OmaConfig {
     pub follow_terminal_color: bool,
     cli_no_progress: bool,
     cli_no_check_dbus: bool,
+    #[cfg(feature = "dbus")]
     pub check_battery: BatteryTristate,
+    #[cfg(feature = "dbus")]
     pub take_wake_lock: TakeWakeLockTristate,
     pub sysroot: PathBuf,
     pub apt_options: Vec<String>,
@@ -62,7 +63,9 @@ impl Default for OmaConfig {
             follow_terminal_color: GeneralConfig::default_follow_terminal_color(),
             cli_no_progress: false,
             cli_no_check_dbus: GeneralConfig::default_no_check_dbus(),
+            #[cfg(feature = "dbus")]
             check_battery: GeneralConfig::default_check_battery(),
+            #[cfg(feature = "dbus")]
             take_wake_lock: GeneralConfig::default_take_wake_lock(),
             sysroot: PathBuf::from("/"),
             apt_options: Vec::new(),
@@ -140,14 +143,18 @@ impl OmaConfig {
             color,
             follow_terminal_color,
             no_progress,
+            #[cfg(feature = "dbus")]
             no_check_dbus,
+            #[cfg(feature = "dbus")]
             no_check_battery,
+            #[cfg(feature = "dbus")]
             no_take_wake_lock,
             sysroot,
             apt_options,
             no_bell,
             download_threads,
             user_agent,
+            #[cfg(feature = "dbus")]
             no_amo,
             ..
         } = global;
@@ -160,8 +167,11 @@ impl OmaConfig {
 
         self.no_bell |= no_bell;
         self.follow_terminal_color |= follow_terminal_color;
-        self.cli_no_check_dbus |= no_check_dbus;
-        self.amo &= !no_amo;
+        #[cfg(feature = "dbus")]
+        {
+            self.cli_no_check_dbus |= no_check_dbus;
+            self.amo &= !no_amo;
+        }
 
         if let Some(download_threads) = download_threads {
             self.download_threads = download_threads;
@@ -169,10 +179,12 @@ impl OmaConfig {
 
         self.cli_no_progress = no_progress;
 
+        #[cfg(feature = "dbus")]
         if no_check_battery {
             self.check_battery = BatteryTristate::Ignore
         }
 
+        #[cfg(feature = "dbus")]
         if no_take_wake_lock {
             self.take_wake_lock = TakeWakeLockTristate::Warn
         }
