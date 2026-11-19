@@ -10,6 +10,16 @@ use crate::{color::Colorize, fl};
 pub mod commit_changes;
 pub mod refresh;
 
+/// Warn below this much free space. Afterglow systems often have storage
+/// devices with less than 5GiB of space to begin with, so lower the
+/// threshold for Afterglow.
+#[cfg(feature = "afterglow")]
+/// 256MiB (in bytes).
+const SPACE_WARN_THRESHOLD: u64 = 256 * 1024 * 1024;
+#[cfg(not(feature = "afterglow"))]
+/// 5GiB (in bytes).
+const SPACE_WARN_THRESHOLD: u64 = 5 * 1024 * 1024 * 1024;
+
 pub fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {
     let space = match fs4::available_space(&sysroot) {
         Ok(space) => space,
@@ -19,7 +29,7 @@ pub fn space_tips(apt: &OmaApt, sysroot: impl AsRef<Path>) {
         }
     };
 
-    if space >= 5 * 1024 * 1024 * 1024 {
+    if space >= SPACE_WARN_THRESHOLD {
         return;
     }
 

@@ -22,6 +22,7 @@ use tabled::settings::{Alignment, Settings};
 
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
+#[cfg(feature = "dbus")]
 use crate::dbus::dbus_check;
 use crate::exit_handle::ExitHandle;
 use crate::root::is_root;
@@ -134,6 +135,7 @@ impl CliExecuter for SizeAnalyzer {
             writeln!(stdout()).ok();
             info!("{}", fl!("psa-without-root-tips"));
         } else {
+            #[cfg(feature = "dbus")]
             let _fds = dbus_check(false, &config)?;
 
             let tui = PkgSizeAnalyzer::new(&apt);

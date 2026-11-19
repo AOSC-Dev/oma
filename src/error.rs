@@ -12,7 +12,7 @@ use oma_fetch::checksum::ChecksumError;
 use oma_fetch::download::BuilderError;
 use oma_history::HistoryError;
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 use oma_mirror::MirrorError;
 
 use oma_apt_pkg::search::OmaSearchError;
@@ -23,15 +23,16 @@ use oma_refresh::db::RefreshError;
 use oma_refresh::inrelease::InReleaseError;
 use oma_repo_verify::VerifyError;
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 use oma_tum::TumError;
 
 use oma_utils::GetLockError;
+#[cfg(feature = "dbus")]
 use oma_utils::dbus::OmaDbusError;
 use oma_utils::dpkg::DpkgError;
 
 use oma_logger::{debug, error, info};
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 use oma_topics::OmaTopicsError;
 
 use crate::{due_to, fl, msg};
@@ -155,7 +156,7 @@ impl From<oma_apt_pkg::Error> for OutputError {
     }
 }
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 impl From<MirrorError> for OutputError {
     fn from(value: MirrorError) -> Self {
         match value {
@@ -185,6 +186,7 @@ impl From<MirrorError> for OutputError {
     }
 }
 
+#[cfg(feature = "dbus")]
 impl From<OmaDbusError> for OutputError {
     fn from(value: OmaDbusError) -> Self {
         debug!("{:?}", value);
@@ -206,7 +208,7 @@ impl From<OmaDbusError> for OutputError {
     }
 }
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 impl From<TumError> for OutputError {
     fn from(value: TumError) -> Self {
         use crate::utils::get_lists_dir;
@@ -266,7 +268,7 @@ impl From<RefreshError> for OutputError {
             RefreshError::InvalidUrl(url) => fl!("invalid-url", url = url).into(),
             RefreshError::ScanSourceError(e) => e.to_string().into(),
             RefreshError::UnsupportedProtocol(s) => fl!("unsupported-protocol", url = s).into(),
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             RefreshError::TopicsError(e) => oma_topics_error(e),
             RefreshError::NoInReleaseFile(s) => fl!("not-found", url = s).into(),
             RefreshError::InReleaseParseError(path, e) => match e {
@@ -387,14 +389,14 @@ impl From<AuthConfigError> for OutputError {
     }
 }
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 impl From<OmaTopicsError> for OutputError {
     fn from(value: OmaTopicsError) -> Self {
         oma_topics_error(value)
     }
 }
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 fn oma_topics_error(e: OmaTopicsError) -> OutputError {
     debug!("{:?}", e);
     match e {
@@ -502,7 +504,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                     }
                 }
 
-                #[cfg(feature = "aosc")]
+                #[cfg(feature = "aosc-common")]
                 if !solver_3_errs.is_empty() {
                     info!("{}", fl!("dep-issue-2"));
                 }
@@ -522,7 +524,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
                     .max();
 
                 if let Some(name_len_max) = name_len_max {
-                    #[cfg(feature = "aosc")]
+                    #[cfg(feature = "aosc-common")]
                     info!("{}", fl!("dep-issue-2"));
 
                     println!();
@@ -625,7 +627,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
 
             due_to!("{}", fl!("failed-create-cache-tips"));
 
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
             OutputError::already_reported()
@@ -637,7 +639,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
 
             due_to!("{}", fl!("failed-set-upgrade-mode-tips"));
 
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
             OutputError::already_reported()
@@ -649,7 +651,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
 
             due_to!("{}", fl!("failed-set-upgrade-mode-tips"));
 
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
             OutputError::already_reported()
@@ -661,7 +663,7 @@ pub fn oma_apt_error_to_output(err: OmaAptError) -> OutputError {
 
             due_to!("{}", fl!("failed-install-pkgs-dueto"));
 
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             info!("{}", fl!("aosc-upload-issue-tips"));
 
             OutputError::already_reported()

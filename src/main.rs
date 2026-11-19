@@ -6,12 +6,19 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, exit};
 use std::sync::{LazyLock, OnceLock};
 
+#[cfg(all(feature = "afterglow", feature = "dbus"))]
+compile_error!(
+    "`afterglow` and `dbus` are mutually exclusive; build Afterglow with \
+     `--no-default-features --features afterglow` (do not enable `aosc`)"
+);
+
 mod args;
 mod color;
 mod completions;
 mod config;
 mod config_file;
 mod core;
+#[cfg(feature = "dbus")]
 mod dbus;
 mod error;
 mod exit_handle;
@@ -111,6 +118,7 @@ pub struct GlobalOptions {
         help = fl!("clap-no-progress-help")
     )]
     no_progress: bool,
+    #[cfg(feature = "dbus")]
     /// Run oma do not check dbus
     #[arg(
         long,
@@ -120,10 +128,12 @@ pub struct GlobalOptions {
         value_parser = FalseyValueParser::new()
     )]
     no_check_dbus: bool,
+    #[cfg(feature = "dbus")]
     /// Run oma do not check battery status
     #[arg(long, global = true, env = "OMA_NO_CHECK_BATTERY", help = fl!("clap-no-check-battery-help"), value_parser = FalseyValueParser::new()
 )]
     no_check_battery: bool,
+    #[cfg(feature = "dbus")]
     /// Run oma do not take wake lock
     #[arg(long, global = true, env = "OMA_NO_TAKE_WAKE_LOCK", help = fl!("clap-no-take-wake-lock-help"), value_parser = FalseyValueParser::new()
 )]
@@ -153,6 +163,7 @@ pub struct GlobalOptions {
     /// User agent string to use for HTTP requests.
     #[arg(long, global = true, env = "OMA_USER_AGENT", help = fl!("clap-user-agent-help"))]
     user_agent: Option<String>,
+    #[cfg(feature = "dbus")]
     /// Use amo to speed up oma
     #[arg(long, global = true, env = "OMA_USE_AMO")]
     no_amo: bool,

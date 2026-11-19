@@ -1,8 +1,10 @@
 use clap::Args;
 use oma_pm::apt::{OmaApt, OmaAptArgs};
 
+#[cfg(feature = "dbus")]
+use crate::dbus::dbus_check;
 use crate::{
-    config::OmaConfig, core::commit_changes::CommitChanges, dbus::dbus_check, error::OutputError,
+    config::OmaConfig, core::commit_changes::CommitChanges, error::OutputError,
     exit_handle::ExitHandle, fl, root::root,
 };
 
@@ -53,6 +55,7 @@ impl CliExecuter for FixBroken {
 
         let _lock_fd = lock_oma(&config.sysroot)?;
 
+        #[cfg(feature = "dbus")]
         let mut _fds = dbus_check(false, &config)?;
 
         let oma_apt_args = OmaAptArgs::builder()

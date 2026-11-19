@@ -12,7 +12,13 @@ use rustix::stdio::stdout;
 use termbg::Theme;
 
 use crate::NO_COLOR;
+#[cfg(feature = "dbus")]
 use crate::dbus::is_ssh_from_loginctl;
+
+#[cfg(not(feature = "dbus"))]
+fn is_ssh_from_loginctl() -> bool {
+    false
+}
 
 /// Time budget for probing the terminal theme (see `should_follow_terminal`).
 const TERMBG_TIMEOUT: Duration = Duration::from_millis(100);

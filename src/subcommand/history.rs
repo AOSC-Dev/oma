@@ -15,10 +15,12 @@ use crate::WRITER;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
+#[cfg(feature = "dbus")]
+use crate::dbus::dbus_check;
 use crate::exit_handle::ExitHandle;
 use crate::exit_handle::ExitStatus;
 use crate::subcommand::history_tui::HistorySelectTui;
-use crate::{dbus::dbus_check, error::OutputError, fl, root::root};
+use crate::{error::OutputError, fl, root::root};
 
 use super::utils::{handle_no_result, lock_oma};
 use crate::args::CliExecuter;
@@ -122,6 +124,7 @@ impl CliExecuter for Undo {
 
         let _lock_fd = lock_oma(&config.sysroot)?;
 
+        #[cfg(feature = "dbus")]
         let _fds = dbus_check(false, &config)?;
 
         let history =
@@ -133,7 +136,7 @@ impl CliExecuter for Undo {
 
         let op = history.find_history_by_id(id)?;
 
-        #[cfg(feature = "aosc")]
+        #[cfg(feature = "aosc-common")]
         let (opt_in, opt_out) = history.find_history_topics_status_by_id(id)?;
 
         if !no_refresh {
@@ -235,7 +238,7 @@ impl CliExecuter for Undo {
             .build()
             .run()?;
 
-        #[cfg(feature = "aosc")]
+        #[cfg(feature = "aosc-common")]
         if exit.get_status() == ExitStatus::Success && (!opt_in.is_empty() || !opt_out.is_empty()) {
             use crate::fl;
             use oma_logger::warn;

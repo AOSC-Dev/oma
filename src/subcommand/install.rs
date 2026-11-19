@@ -11,6 +11,7 @@ use crate::completions::pkgnames_and_path_completions;
 use crate::config::OmaConfig;
 use crate::core::commit_changes::CommitChanges;
 use crate::core::refresh::Refresh;
+#[cfg(feature = "dbus")]
 use crate::dbus::dbus_check;
 use crate::error::OutputError;
 use crate::exit_handle::ExitHandle;
@@ -73,7 +74,7 @@ pub struct Install {
     /// Replace configuration file(s) in the system those shipped in the package(s) to be installed (invokes `dpkg --force-confnew`)
     #[arg(long, help = fl!("clap-force-confnew-help"))]
     force_confnew: bool,
-    #[cfg(feature = "aosc")]
+    #[cfg(feature = "aosc-common")]
     /// Do not refresh topics manifest.json file
     #[arg(long, help = fl!("clap-no-refresh-topics-help"))]
     no_refresh_topics: bool,
@@ -107,7 +108,7 @@ impl CliExecuter for Install {
             no_refresh,
             force_yes,
             force_confnew,
-            #[cfg(feature = "aosc")]
+            #[cfg(feature = "aosc-common")]
             no_refresh_topics,
             autoremove,
             remove_config,
@@ -116,10 +117,10 @@ impl CliExecuter for Install {
             no_clean,
         } = self;
 
-        #[cfg(feature = "aosc")]
+        #[cfg(feature = "aosc-common")]
         let mut config = config;
 
-        #[cfg(feature = "aosc")]
+        #[cfg(feature = "aosc-common")]
         config.update_from_cli_no_refresh_topics(no_refresh_topics);
 
         let _lock_fd = if !config.dry_run {
@@ -129,6 +130,7 @@ impl CliExecuter for Install {
             None
         };
 
+        #[cfg(feature = "dbus")]
         let _fds = dbus_check(yes, &config)?;
 
         let no_progress = config.no_progress();

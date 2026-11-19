@@ -41,7 +41,7 @@ use crate::{
     upgrade::Upgrade,
 };
 
-#[cfg(feature = "aosc")]
+#[cfg(feature = "aosc-common")]
 use crate::topics::Topics;
 
 #[enum_dispatch]
@@ -218,12 +218,12 @@ pub enum SubCmd {
     #[command(about = fl!("clap-version-help"), help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Version(Version),
-    #[cfg(feature = "aosc")]
+    #[cfg(feature = "aosc-common")]
     /// Manage testing topics enrollment
     #[command(visible_alias = "topic", visible_alias = "atm", about = fl!("clap-topics-help"), help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]
     Topics(Topics),
-    #[cfg(feature = "aosc")]
+    #[cfg(feature = "aosc-common")]
     /// Manage Mirrors enrollment
     #[command(visible_alias = "mirrors", about = fl!("clap-mirror-help"), help_template = &*HELP_TEMPLATE)]
     #[command(next_help_heading = &**crate::args::ARG_HELP_HEADING)]

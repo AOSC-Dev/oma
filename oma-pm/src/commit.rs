@@ -21,11 +21,13 @@ use std::io::Write;
 
 use crate::{
     apt::{DownloadConfig, InstallProgressOpt, OmaApt, OmaAptError, OmaAptResult},
-    dbus::change_status,
     download::download_pkgs,
     progress::{InstallProgressArgs, OmaAptInstallProgress},
     utils::run_task_with_pump,
 };
+
+#[cfg(feature = "dbus")]
+use crate::dbus::change_status;
 
 const TIME_FORMAT: &str = "%H:%M:%S on %Y-%m-%d";
 
@@ -108,6 +110,7 @@ impl<'a> DoInstall<'a> {
         let (tx, rx) = flume::unbounded();
         let handle = self.apt.get_or_init_async_runtime()?;
         let download_pkg_list = Arc::from(download_pkg_list);
+        #[cfg(feature = "dbus")]
         let conn = self.apt.conn.get().map(|c| c.to_owned());
         let config = DownloadConfig {
             network_thread: self.config.network_thread,
@@ -116,6 +119,7 @@ impl<'a> DoInstall<'a> {
         let client_ptr = self.client.clone();
 
         run_task_with_pump(handle, Some(&mut callback), Some(rx), async move {
+            #[cfg(feature = "dbus")]
             if let Some(conn) = conn {
                 change_status(&conn, "Downloading").await.ok();
             }
@@ -150,8 +154,11 @@ impl<'a> DoInstall<'a> {
             .map_err(OmaAptError::InstallPackages)?;
 
         let args = InstallProgressArgs {
+            #[cfg(feature = "dbus")]
             async_runtime: self.apt.async_runtime,
+            #[cfg(feature = "dbus")]
             async_handler: self.apt.async_handler,
+            #[cfg(feature = "dbus")]
             connection: self.apt.conn,
         };
 
