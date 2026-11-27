@@ -254,7 +254,9 @@ status-package = Processing package { $pkg }
 update-available = System Update(s) Available
 update-available-2 = oma has found the following updates are available for your system:
 tum-1 = oma has found { $updates } updates available for your system:
-tum-1-with-security = oma has found { $updates } updates available for your system (including { $security } { $security_str }):
+tum-1-with-security = 
+    oma has found { $updates } updates available for your system (including
+    { $security } { $security_str }):
 tum-2 =
     In order to fulfill the operations you specified, oma will need to perform the
     following changes to your system components. Details of the component changes
