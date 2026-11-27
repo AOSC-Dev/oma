@@ -52,7 +52,9 @@ jobs:
       - name: Build
         run: cargo build
       - name: Build without aosc feature
-        run: cargo build --no-default-features --features nice-setup
+        # This binary also generates the manpages below; keep `dbus` enabled
+        # so the documented options match the shipped generic build.
+        run: cargo build --no-default-features --features nice-setup,dbus
       - name: Check with termux feature
         run: cargo check -p oma --no-default-features --features nice-setup,termux
       - name: Test
