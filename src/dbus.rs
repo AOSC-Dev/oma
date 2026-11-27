@@ -103,7 +103,7 @@ fn connect_dbus_impl() -> Option<Connection> {
             "{}",
             fl!(
                 "failed-check-dbus-tips-3",
-                path = oma_utils::termux::oma_config_file().display()
+                path = oma_utils::prefix::oma_config_file().display()
             )
         );
 

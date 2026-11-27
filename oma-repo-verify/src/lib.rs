@@ -39,8 +39,8 @@ pub enum VerifyError {
     CertParseFileError(String, anyhow::Error),
     #[error("Cert file is bad: {0}")]
     BadCertFile(String, anyhow::Error),
-    #[error("The APT trusted key directory does not exist")]
-    TrustedDirNotExist,
+    #[error("The APT trusted key directory does not exist: {0}")]
+    TrustedDirNotExist(String),
     #[error("Failed to read decoded InRelease file: {0}")]
     FailedToReadInRelease(std::io::Error),
     #[error(transparent)]
@@ -351,8 +351,9 @@ fn find_certs(
 
 fn find_default_dir_certs(rootfs: &Path) -> Result<Vec<PathBuf>, VerifyError> {
     let mut certs = vec![];
-    let mut dir = std::fs::read_dir(rootfs.join("etc/apt/trusted.gpg.d"))
-        .map_err(|_| VerifyError::TrustedDirNotExist)?
+    let trusted_dir = rootfs.join("etc/apt/trusted.gpg.d");
+    let mut dir = std::fs::read_dir(&trusted_dir)
+        .map_err(|_| VerifyError::TrustedDirNotExist(trusted_dir.display().to_string()))?
         .collect::<Vec<_>>();
     let etc_keyring = std::fs::read_dir(rootfs.join("etc/apt/keyrings"));
 

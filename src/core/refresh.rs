@@ -38,8 +38,8 @@ impl Refresh<'_> {
             // 二进制缓存路径等），OmaRefresh 不再自己从系统默认值新建一份。
             // `Arc::clone` 只是引用计数 +1，不深拷贝配置树。
             .apt_config(config.apt_config_arc().clone())
-            .maybe_sources_list(is_termux().then(oma_utils::termux::apt_sources_list))
-            .maybe_sources_list_d(is_termux().then(oma_utils::termux::apt_sources_list_d))
+            .maybe_sources_list(is_termux().then(oma_utils::prefix::apt_sources_list))
+            .maybe_sources_list_d(is_termux().then(oma_utils::prefix::apt_sources_list_d))
             .policy_paths(crate::utils::policy_paths(sysroot));
 
         #[cfg(feature = "aosc")]

@@ -305,9 +305,9 @@ fn custom_subcmds() -> Vec<Command> {
 
 fn list_helpers() -> Result<Vec<String>, anyhow::Error> {
     let mut plugins_dir: Box<dyn Iterator<Item = _>> =
-        Box::new(oma_utils::termux::libexec_dir().read_dir()?);
+        Box::new(oma_utils::prefix::libexec_dir().read_dir()?);
 
-    let plugins_local_dir = oma_utils::termux::local_libexec_dir().read_dir();
+    let plugins_local_dir = oma_utils::prefix::local_libexec_dir().read_dir();
 
     if let Ok(plugins_local_dir) = plugins_local_dir {
         plugins_dir = Box::new(plugins_dir.chain(plugins_local_dir));

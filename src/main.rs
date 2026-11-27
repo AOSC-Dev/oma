@@ -290,9 +290,9 @@ fn try_main(mut config: OmaConfig, matches: ArgMatches) -> Result<ExitHandle, Ou
         None => {
             if let Some((subcommand, args)) = matches.subcommand() {
                 let mut plugin =
-                    oma_utils::termux::local_libexec_dir().join(format!("oma-{subcommand}"));
+                    oma_utils::prefix::local_libexec_dir().join(format!("oma-{subcommand}"));
                 let plugin_fallback =
-                    oma_utils::termux::libexec_dir().join(format!("oma-{subcommand}"));
+                    oma_utils::prefix::libexec_dir().join(format!("oma-{subcommand}"));
 
                 if !plugin.is_file() {
                     plugin = plugin_fallback;
@@ -374,12 +374,12 @@ fn display_error(e: OutputError) -> io::Result<()> {
 
 #[inline]
 pub fn get_lock(sysroot: &Path) -> &Path {
-    LOCK.get_or_init(|| oma_utils::termux::lock_file(sysroot))
+    LOCK.get_or_init(|| oma_utils::prefix::lock_file(sysroot))
 }
 
 static SYSROOT_DEFAULT: LazyLock<Cow<'static, str>> = LazyLock::new(|| {
     if is_termux() {
-        Cow::Owned(format!("{}/", oma_utils::termux::prefix().display()))
+        Cow::Owned(format!("{}/", oma_utils::prefix::prefix().display()))
     } else {
         Cow::Borrowed("/")
     }

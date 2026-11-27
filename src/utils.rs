@@ -7,11 +7,11 @@ use std::path::{Path, PathBuf};
 pub fn policy_paths(sysroot: &Path) -> PolicyPaths {
     if oma_utils::is_termux() {
         PolicyPaths {
-            custom: oma_utils::termux::host_path(
+            custom: oma_utils::prefix::host_path(
                 Path::new("/"),
                 "/etc/crypto-policies/back-ends/apt-sequoia.config",
             ),
-            default: oma_utils::termux::host_path(
+            default: oma_utils::prefix::host_path(
                 Path::new("/"),
                 "/usr/share/apt/default-sequoia.config",
             ),

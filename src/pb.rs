@@ -636,7 +636,7 @@ fn handle_download_error(file_name: String, is_refresh: bool, error: SingleDownl
                 "{}",
                 fl!(
                     "lack-auth-config-2",
-                    path = oma_utils::termux::apt_auth_conf_d().display()
+                    path = oma_utils::prefix::apt_auth_conf_d().display()
                 )
             );
         }

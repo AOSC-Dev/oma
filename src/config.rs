@@ -211,7 +211,7 @@ impl OmaConfig {
     /// the prefix.
     #[inline]
     pub fn apt_archive_dir(&self) -> Option<PathBuf> {
-        is_termux().then(|| oma_utils::termux::apt_archive_dir())
+        is_termux().then(|| oma_utils::prefix::apt_archive_dir())
     }
 
     pub fn init_apt_config(&self) {

@@ -24,7 +24,7 @@ pub use zbus;
 pub mod dpkg;
 #[cfg(feature = "human-bytes")]
 pub mod human_bytes;
-pub mod termux;
+pub mod prefix;
 #[cfg(feature = "url-no-escape")]
 pub mod url_no_escape;
 

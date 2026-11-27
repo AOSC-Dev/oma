@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use oma_logger::{debug, info, warn};
 use oma_pm_operation_type::{InstallOperation, RemoveTag};
 use rusqlite::Connection;
@@ -9,7 +11,10 @@ use crate::{
     INSERT_REMOVE_DETAIL_TABLE, INSERT_REMOVE_TABLE, InstallHistoryEntry, RemoveHistoryEntry,
 };
 
-pub fn create_and_maybe_migration_from_oma_db_v2(conn: &mut Connection) -> HistoryResult<()> {
+pub fn create_and_maybe_migration_from_oma_db_v2(
+    conn: &mut Connection,
+    db_path: &Path,
+) -> HistoryResult<()> {
     create_history_table(conn)?;
 
     let old_db_count: i32 = conn
@@ -28,7 +33,7 @@ pub fn create_and_maybe_migration_from_oma_db_v2(conn: &mut Connection) -> Histo
 
     if old_db_count != 0 && new_db_count == 0 {
         info!("Migrating oma history database, this may take a few minutes ...");
-        migration_from_oma_db_v2(conn)?;
+        migration_from_oma_db_v2(conn, db_path)?;
     }
 
     Ok(())
@@ -54,8 +59,8 @@ fn handle_packages_items(items: &[String]) -> String {
         .join(" ")
 }
 
-fn migration_from_oma_db_v2(conn: &mut Connection) -> HistoryResult<()> {
-    let table = get_old_table(conn)?;
+fn migration_from_oma_db_v2(conn: &mut Connection, db_path: &Path) -> HistoryResult<()> {
+    let table = get_old_table(conn, db_path)?;
 
     let transaction = conn
         .transaction()
@@ -204,7 +209,7 @@ pub enum OldSummaryType {
     Undo,
 }
 
-fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> {
+fn get_old_table(conn: &Connection, db_path: &Path) -> Result<Vec<OldTableEntry>, HistoryError> {
     let mut stmt = conn
         .prepare("SELECT id, time, install_packages, remove_packages, disk_size, total_download_size, is_success, typ FROM \"history_oma_1.2\" ORDER BY id ASC")
         .map_err(HistoryError::ExecuteError)?;
@@ -332,7 +337,12 @@ fn get_old_table(conn: &Connection) -> Result<Vec<OldTableEntry>, HistoryError> 
 
     if has_fail {
         println!(
-            r#"oma ran into unexpected issues whilst migrating the history database, some entries were not migrated. Please consider sharing your oma history database file with us to help with debugging."#
+            r#"oma ran into unexpected issues whilst migrating the history database, some entries were not migrated. Please consider sharing your oma history database file at:
+
+  `{}`
+
+with us to help with debugging."#,
+            db_path.display()
         );
     }
 

@@ -278,7 +278,7 @@ impl From<RefreshError> for OutputError {
                     VerifyError::BadCertFile(p, e) => {
                         Self::with_source(fl!("cert-file-is-bad", path = p), io::Error::other(e))
                     }
-                    VerifyError::TrustedDirNotExist => e.to_string().into(),
+                    VerifyError::TrustedDirNotExist(_) => e.to_string().into(),
                     VerifyError::Anyhow(e) => Self::with_source(
                         fl!("verify-error", p = file_name(&path)),
                         io::Error::other(e),

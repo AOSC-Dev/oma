@@ -1,4 +1,4 @@
-//! Runtime locations for Termux.
+//! Runtime locations and prefix-aware host path mapping.
 //!
 //! Not every Termux installation lives at the default
 //! `/data/data/com.termux/files/usr` prefix (forks and custom app data
@@ -95,6 +95,20 @@ pub fn lock_file(rootfs: &Path) -> PathBuf {
     }
 }
 
+fn host_path_with(rootfs: &Path, host: &str, prefix: &Path, termux: bool) -> PathBuf {
+    let host = Path::new(host);
+
+    if termux {
+        let rest = host
+            .strip_prefix("/usr")
+            .or_else(|_| host.strip_prefix("/"))
+            .unwrap_or(host);
+        prefix.join(rest)
+    } else {
+        rootfs.join(host.strip_prefix("/").unwrap_or(host))
+    }
+}
+
 /// Resolve an absolute path from the host layout for `rootfs`.
 ///
 /// On Termux the whole system lives under `$PREFIX`: `/usr/share/...` maps to
@@ -102,17 +116,7 @@ pub fn lock_file(rootfs: &Path) -> PathBuf {
 /// `$PREFIX/etc/...` and `$PREFIX/var/...`. On other systems the host path is
 /// resolved below `rootfs`.
 pub fn host_path(rootfs: &Path, host: &str) -> PathBuf {
-    let host = Path::new(host);
-
-    if is_termux() {
-        let rest = host
-            .strip_prefix("/usr")
-            .or_else(|_| host.strip_prefix("/"))
-            .unwrap_or(host);
-        prefix().join(rest)
-    } else {
-        rootfs.join(host.strip_prefix("/").unwrap_or(host))
-    }
+    host_path_with(rootfs, host, &prefix(), is_termux())
 }
 
 #[cfg(test)]
@@ -131,12 +135,31 @@ mod tests {
     #[test]
     fn host_paths_are_resolved_below_the_root() {
         assert_eq!(
-            host_path(Path::new("/mnt"), "/usr/share/apt"),
+            host_path_with(
+                Path::new("/mnt"),
+                "/usr/share/apt",
+                Path::new("/prefix"),
+                false
+            ),
             PathBuf::from("/mnt/usr/share/apt")
         );
         assert_eq!(
-            host_path(Path::new("/"), "/etc/apt"),
+            host_path_with(Path::new("/"), "/etc/apt", Path::new("/prefix"), false),
             PathBuf::from("/etc/apt")
+        );
+    }
+
+    #[test]
+    fn host_paths_are_resolved_below_the_prefix() {
+        let prefix = Path::new("/data/data/com.termux/files/usr");
+
+        assert_eq!(
+            host_path_with(Path::new("/mnt"), "/usr/share/apt", prefix, true),
+            prefix.join("share/apt")
+        );
+        assert_eq!(
+            host_path_with(Path::new("/"), "/etc/apt", prefix, true),
+            prefix.join("etc/apt")
         );
     }
 }

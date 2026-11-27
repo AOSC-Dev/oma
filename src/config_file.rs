@@ -162,7 +162,7 @@ impl GeneralConfig {
 
 impl ConfigFile {
     pub fn read() -> Self {
-        let path = oma_utils::termux::oma_config_file();
+        let path = oma_utils::prefix::oma_config_file();
 
         let Ok(s) = std::fs::read_to_string(&path) else {
             warn!("{}", fl!("config-invalid", path = path.display()));

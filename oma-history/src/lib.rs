@@ -120,14 +120,16 @@ impl History {
         create_history_database_if_not_exists: bool,
         dry_run: bool,
     ) -> HistoryResult<Self> {
+        let db_path = db_path.as_ref();
+
         if create_history_database_if_not_exists {
-            if let Some(parent) = db_path.as_ref().parent() {
+            if let Some(parent) = db_path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| {
                     HistoryError::FailedOperateDirOrFile(parent.to_string_lossy().to_string(), e)
                 })?;
             } else {
                 return Err(HistoryError::FailedParentPath(
-                    db_path.as_ref().to_string_lossy().to_string(),
+                    db_path.to_string_lossy().to_string(),
                 ));
             }
         }
@@ -152,7 +154,7 @@ impl History {
         };
 
         if create_history_database_if_not_exists {
-            create_and_maybe_migration_from_oma_db_v2(&mut conn)?;
+            create_and_maybe_migration_from_oma_db_v2(&mut conn, db_path)?;
         }
 
         Ok(Self {
