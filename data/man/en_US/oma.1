@@ -36,6 +36,15 @@ Make color output follow the terminal color scheme
 \fB\-\-no\-progress\fR
 Do not display progress bar
 .TP
+\fB\-\-no\-check\-dbus\fR
+Do not check for D\-Bus availability
+.TP
+\fB\-\-no\-check\-battery\fR
+Do not check for power supply status (whether the system is running on battery)
+.TP
+\fB\-\-no\-take\-wake\-lock\fR
+Do not take session wake lock (no power management inhibitions)
+.TP
 \fB\-v\fR, \fB\-\-version\fR
 Print version
 .TP
@@ -59,6 +68,9 @@ Do not load configuration file, use default settings
 .TP
 \fB\-\-user\-agent\fR \fI<USER_AGENT>\fR
 Specify User\-Agent string to use for HTTP requests
+.TP
+\fB\-\-no\-amo\fR
+Use amo to speed up oma
 .SH Command
 .TP
 oma\-install(1)
