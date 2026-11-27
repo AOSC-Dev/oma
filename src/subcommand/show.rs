@@ -517,12 +517,14 @@ mod tests {
     fn indexed_and_local_queries_keep_the_highest_version() {
         for source in [
             IndexSource {
+                kind: oma_apt_pkg::SourceKind::Repository,
                 base_url: "file:/repo".into(),
                 suite: "stable".into(),
                 component: Some("main".into()),
                 arch: Some("amd64".into()),
             },
             IndexSource {
+                kind: oma_apt_pkg::SourceKind::LocalDeb,
                 base_url: "file:/vendor-tool.deb".into(),
                 suite: "local-deb".into(),
                 component: Some("local-deb".into()),

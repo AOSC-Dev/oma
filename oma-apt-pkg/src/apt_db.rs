@@ -254,6 +254,7 @@ fn file_uri(path: impl AsRef<Path>) -> String {
 /// consumers can format it the same way.
 fn local_deb_source(path: impl AsRef<Path>) -> IndexSource {
     IndexSource {
+        kind: crate::apt_lists::SourceKind::LocalDeb,
         base_url: file_uri(path),
         suite: "local-deb".to_string(),
         component: Some("local-deb".to_string()),
@@ -914,6 +915,7 @@ mod tests {
             "amd64",
             vec![entry("indexed", "1")],
             vec![IndexSource {
+                kind: crate::apt_lists::SourceKind::Repository,
                 base_url: "file:/repo".to_string(),
                 suite: "stable".to_string(),
                 component: Some("main".to_string()),
@@ -1088,6 +1090,7 @@ Status: install ok installed
             "",
             vec![entry("hello", "2.10-2")],
             vec![IndexSource {
+                kind: crate::apt_lists::SourceKind::Repository,
                 base_url: "https://example.com/debs".to_string(),
                 suite: "stable".to_string(),
                 component: Some("main".to_string()),
@@ -1112,6 +1115,7 @@ Status: install ok installed
 
     fn stable_source() -> IndexSource {
         IndexSource {
+            kind: crate::apt_lists::SourceKind::Repository,
             base_url: "https://example.com/debs".to_string(),
             suite: "stable".to_string(),
             component: Some("main".to_string()),
@@ -1201,6 +1205,7 @@ Status: install ok installed
         db.insert_with_source(
             entry("hello", "2.10-2"),
             IndexSource {
+                kind: crate::apt_lists::SourceKind::LocalDeb,
                 base_url: "file:/tmp/hello_2.10-2_amd64.deb".to_string(),
                 suite: "local-deb".to_string(),
                 component: Some("local-deb".to_string()),

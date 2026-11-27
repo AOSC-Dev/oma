@@ -112,12 +112,28 @@ pub struct PackagesFile {
 /// Consumers — download URLs, the `APT-Sources` display, branch matching —
 /// read these fields directly; no `sources.list` re-resolution is needed
 /// after the database is built.
+/// What kind of source an [`IndexSource`] describes.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
+)]
+pub enum SourceKind {
+    /// A configured repository index (`Packages`).
+    Repository,
+    /// A local `.deb` inserted with `oma show ./foo.deb`.
+    LocalDeb,
+    /// The live dpkg status file.
+    DpkgStatus,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(
     feature = "apt-lists",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
 pub struct IndexSource {
+    /// What produced this entry. Never infer this from `suite`: a repository
+    /// may legitimately use `local-deb` as its suite name.
+    pub kind: SourceKind,
     /// Canonical base URL from `sources.list` (e.g.
     /// `https://mirrors.example.com/debian`). For a local `.deb` this is
     /// its `file:` URI.
@@ -141,6 +157,7 @@ impl IndexSource {
     /// architecture recorded in the source.
     pub fn dpkg_status(path: impl Into<String>) -> Self {
         Self {
+            kind: SourceKind::DpkgStatus,
             base_url: path.into(),
             suite: String::new(),
             component: None,
@@ -152,6 +169,11 @@ impl IndexSource {
     /// [`Self::dpkg_status`]).
     pub fn is_dpkg_status(&self) -> bool {
         self.suite.is_empty()
+    }
+
+    /// Whether this source is a local `.deb` rather than an index.
+    pub fn is_local_deb(&self) -> bool {
+        matches!(self.kind, SourceKind::LocalDeb)
     }
 }
 
