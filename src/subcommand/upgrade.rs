@@ -15,6 +15,7 @@ use oma_pm::apt::Upgrade as AptUpgrade;
 use oma_pm::matches::GetArchMethod;
 use oma_pm::matches::PackagesMatcher;
 
+#[cfg(feature = "dbus")]
 use crate::dbus::dbus_check;
 use crate::error::OutputError;
 use crate::fl;
@@ -60,7 +61,7 @@ pub(crate) struct Upgrade {
     /// Bypass confirmation prompts
     #[arg(short, long, help = fl!("clap-yes-help"))]
     yes: bool,
-    #[cfg(not(feature = "aosc"))]
+    #[cfg(not(feature = "aosc-common"))]
     /// Do not allow removal of packages during upgrade (like `apt upgrade')
     #[arg(long, help = fl!("clap-no-remove-help"))]
     no_remove: bool,
@@ -84,7 +85,7 @@ impl CliExecuter for Upgrade {
             remove_config,
             yes,
             packages,
-            #[cfg(not(feature = "aosc"))]
+            #[cfg(not(feature = "aosc-common"))]
             no_remove,
             no_fix_dpkg_status,
             download_only,
@@ -98,6 +99,7 @@ impl CliExecuter for Upgrade {
             None
         };
 
+        #[cfg(feature = "dbus")]
         let _fds = dbus_check(false, &config)?;
 
         if !no_refresh {
@@ -150,10 +152,10 @@ impl CliExecuter for Upgrade {
             }
         }
 
-        #[cfg(feature = "aosc")]
+        #[cfg(feature = "aosc-common")]
         let mode = AptUpgrade::FullUpgrade;
 
-        #[cfg(not(feature = "aosc"))]
+        #[cfg(not(feature = "aosc-common"))]
         let mode = if no_remove {
             AptUpgrade::Upgrade
         } else {

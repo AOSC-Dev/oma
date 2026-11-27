@@ -1,0 +1,38 @@
+[general]
+# Set to false to allow removal of "Essential" packages.
+protect_essentials = true
+# Set to true to skip refreshing topic manifest.
+no_refresh_topics = false
+# Follow system terminal color scheme for oma output.
+follow_terminal_color = false
+# Print search contents results directly without sorting and paging
+# recommended for devices with small RAM capacities.
+search_contents_println = true
+# Default search engine for `oma search':
+#
+# - indicium: A complete search engine, but with higher performance
+#             requirements (default).
+# - strsim:   Simple string-based relevance search on package names and
+#             descriptions, with relatively low performance requirements but
+#             not as effective as indicium.
+# - text:     Simple character-based search with support for globs and no
+#             relevance sorting, most rudimentary but the fastest.
+search_engine = "strsim"
+# Ring the terminal bell when oma completes a transaction.
+bell = true
+# Number of log entries to save.
+save_log_count = 10
+# Whether oma should allow [y]/[n] for confirmation prompts (instead of
+# [q]/[Ctrl-c]) during install/remove and upgrade/downgrade operations.
+#
+# [q] will be used as equivalent to [n]/[Ctrl-c] if set to true.
+yn_mode = false
+
+[network]
+# Number of network threads to use when downloading metadata and packages.
+#
+# Note: It is not advised to set this value to more than 4 to avoid flooding
+# remote servers.
+network_threads = 4
+# User-Agent string to use for HTTP requests.
+# user_agent = "MY_USER_AGENT"

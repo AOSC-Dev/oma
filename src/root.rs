@@ -6,13 +6,18 @@ use std::{
 };
 
 use anyhow::anyhow;
-use oma_logger::{debug, info};
+#[cfg(feature = "dbus")]
+use oma_logger::debug;
+use oma_logger::info;
 use oma_utils::is_termux;
 use rustix::fs::statfs;
 use rustix::process;
+#[cfg(feature = "dbus")]
 use zbus::{Connection, fdo::DBusProxy, names::BusName};
 
-use crate::{NOT_ALLOW_CTRLC, RT, error::OutputError, fl};
+#[cfg(feature = "dbus")]
+use crate::RT;
+use crate::{NOT_ALLOW_CTRLC, error::OutputError, fl};
 
 type Result<T> = std::result::Result<T, OutputError>;
 
@@ -199,6 +204,7 @@ fn is_wsl() -> bool {
     kernel_info.contains("microsoft") || kernel_info.contains("wsl")
 }
 
+#[cfg(feature = "dbus")]
 fn is_logind_running() -> bool {
     let running = RT.block_on(async {
         let Ok(conn) = Connection::system().await else {
@@ -221,4 +227,9 @@ fn is_logind_running() -> bool {
     }
 
     running
+}
+
+#[cfg(not(feature = "dbus"))]
+fn is_logind_running() -> bool {
+    false
 }
