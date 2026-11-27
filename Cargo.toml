@@ -360,7 +360,7 @@ assets = [
     ],
 ]
 
-features = ["nice-setup"]
+features = ["nice-setup", "dbus"]
 default-features = false
 
 [profile.release]

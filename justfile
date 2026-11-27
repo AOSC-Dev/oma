@@ -1,8 +1,9 @@
 has_modern_lzma := `pkg-config --atleast-version=5.4 liblzma && echo "true" || echo "false"`
+# `dbus` is opt-in for generic builds so lean targets (e.g. Termux) can omit it.
 features := if has_modern_lzma == "true" {
-    "nice-setup decompress-parallel"
+    "nice-setup dbus decompress-parallel"
 } else {
-    "nice-setup"
+    "nice-setup dbus"
 }
 
 deb:
